@@ -29,10 +29,40 @@ function resolveAppVersion(app) {
   }
   return _cachedAppVersion;
 }
-const ELECTRON_UPDATER_FEEDS = Object.freeze({
-  stable: "https://github.com/different-ai/openwork/releases/latest/download",
-  alpha: "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest",
-});
+function isLoopbackUpdaterHost(hostname) {
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1" || normalized === "[::1]";
+}
+
+function safeUpdaterUrl(raw) {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) return "";
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackUpdaterHost(url.hostname))) {
+      return "";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+export function resolveUpdaterConfiguration(environment = process.env) {
+  const versionTemplate = typeof environment.OPENWORK_UPDATER_VERSION_URL_TEMPLATE === "string"
+    ? environment.OPENWORK_UPDATER_VERSION_URL_TEMPLATE.trim()
+    : "";
+  return {
+    stable: safeUpdaterUrl(environment.OPENWORK_UPDATER_STABLE_URL),
+    alpha: safeUpdaterUrl(environment.OPENWORK_UPDATER_ALPHA_URL),
+    releasePage: safeUpdaterUrl(environment.OPENWORK_UPDATER_RELEASE_PAGE_URL),
+    versionTemplate: versionTemplate.includes("{version}")
+      && safeUpdaterUrl(versionTemplate.replace("{version}", "0.0.0"))
+      ? versionTemplate
+      : "",
+  };
+}
 
 function normalizeElectronUpdaterChannel(value) {
   if (value === "alpha" && process.platform === "darwin") return "alpha";
@@ -65,8 +95,8 @@ async function writeElectronUpdaterChannel(app, channel) {
   return normalized;
 }
 
-function electronUpdaterFeedUrl(channel) {
-  return ELECTRON_UPDATER_FEEDS[normalizeElectronUpdaterChannel(channel)];
+function electronUpdaterFeedUrl(channel, configuration) {
+  return configuration[normalizeElectronUpdaterChannel(channel)];
 }
 
 function normalizeStableTargetVersion(value) {
@@ -147,7 +177,7 @@ function isVersionNewer(candidate, current) {
   return comparison === null ? candidate !== current : comparison > 0;
 }
 
-export function targetedStableUpdaterFeed(currentVersion, targetVersion) {
+export function targetedStableUpdaterFeed(currentVersion, targetVersion, versionTemplate) {
   const normalizedTarget = normalizeStableTargetVersion(targetVersion);
   if (!normalizedTarget) {
     throw new Error("Target update version must use the stable x.y.z format.");
@@ -159,27 +189,35 @@ export function targetedStableUpdaterFeed(currentVersion, targetVersion) {
   if (comparison <= 0) {
     throw new Error("Target update version must be newer than the installed version.");
   }
-  return `https://github.com/different-ai/openwork/releases/download/v${normalizedTarget}`;
+  if (typeof versionTemplate !== "string" || !versionTemplate.includes("{version}")) {
+    throw new Error("Targeted update source is not configured.");
+  }
+  return versionTemplate.replace("{version}", normalizedTarget);
 }
 
-function updaterChannelState(app, channel, targetVersion = null) {
+function updaterChannelState(app, channel, configuration, targetVersion = null) {
   const normalized = normalizeElectronUpdaterChannel(channel);
   const currentVersion = resolveAppVersion(app);
+  const feedUrl = targetVersion
+    ? targetedStableUpdaterFeed(currentVersion, targetVersion, configuration.versionTemplate)
+    : electronUpdaterFeedUrl(normalized, configuration);
   return {
     channel: normalized,
-    feedUrl: targetVersion
-      ? targetedStableUpdaterFeed(currentVersion, targetVersion)
-      : electronUpdaterFeedUrl(normalized),
+    feedUrl,
+    enabled: Boolean(feedUrl),
     currentVersion,
   };
 }
 
-async function applyElectronUpdaterFeed(app, updater, targetVersion = null) {
+async function applyElectronUpdaterFeed(app, updater, configuration, targetVersion = null) {
   const channel = await readElectronUpdaterChannel(app);
   if (targetVersion && channel !== "stable") {
     throw new Error("Version-specific update feeds are supported only on the stable channel.");
   }
-  const state = updaterChannelState(app, channel, targetVersion);
+  const state = updaterChannelState(app, channel, configuration, targetVersion);
+  if (!state.feedUrl) {
+    throw new Error("Update source is not configured.");
+  }
   updater.allowPrerelease = state.channel === "alpha";
   // Moving from alpha back to stable can be a semver downgrade; still show
   // the latest stable so users can return to the stable channel deliberately.
@@ -246,7 +284,8 @@ export function preventPendingUpdaterInstall(updater) {
   if (updater) updater.autoInstallOnAppQuit = false;
 }
 
-export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
+export function registerUpdaterIpc({ app, ipcMain, getMainWindow, environment = process.env }) {
+  const updaterConfiguration = resolveUpdaterConfiguration(environment);
   let autoUpdaterInstance = null;
   let autoUpdaterLoaded = false;
   let checkedUpdateVersion = null;
@@ -266,6 +305,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
 
   async function ensureAutoUpdater() {
     if (!app.isPackaged) return null;
+    if (!updaterConfiguration.stable && !updaterConfiguration.alpha) return null;
     if (autoUpdaterLoaded) return autoUpdaterInstance;
     autoUpdaterLoaded = true;
     try {
@@ -301,7 +341,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
             delta: info.delta ?? 0,
           });
         });
-        await applyElectronUpdaterFeed(app, autoUpdaterInstance);
+        await applyElectronUpdaterFeed(app, autoUpdaterInstance, updaterConfiguration);
       }
     } catch (error) {
       console.warn("[updater] electron-updater not available", error);
@@ -312,7 +352,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
 
   ipcMain.handle("openwork:updater:getChannel", async () => {
     const channel = await readElectronUpdaterChannel(app);
-    return updaterChannelState(app, channel);
+    return updaterChannelState(app, channel, updaterConfiguration);
   });
 
   ipcMain.handle("openwork:updater:setChannel", async (_event, rawChannel) => {
@@ -326,9 +366,9 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
       // also prevents an Alpha build from installing automatically on quit
       // after an organization policy moves the desktop back to Stable.
       preventPendingUpdaterInstall(updater);
-      return applyElectronUpdaterFeed(app, updater);
+      return applyElectronUpdaterFeed(app, updater, updaterConfiguration);
     }
-    return updaterChannelState(app, channel);
+    return updaterChannelState(app, channel, updaterConfiguration);
   });
 
   ipcMain.handle("openwork:updater:check", async (_event, rawChannel, rawTargetVersion) => {
@@ -344,9 +384,15 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
         throw new Error("Target update version must use the stable x.y.z format.");
       }
       const channelState = updater
-        ? await applyElectronUpdaterFeed(app, updater, targetVersion)
-        : updaterChannelState(app, await readElectronUpdaterChannel(app), targetVersion);
-      if (!updater) return { available: false, reason: "unavailable", ...channelState };
+        ? await applyElectronUpdaterFeed(app, updater, updaterConfiguration, targetVersion)
+        : updaterChannelState(app, await readElectronUpdaterChannel(app), updaterConfiguration, targetVersion);
+      if (!updater) {
+        return {
+          available: false,
+          reason: channelState.enabled ? "unavailable" : "Update source is not configured.",
+          ...channelState,
+        };
+      }
 
       const result = await updater.checkForUpdates();
       const info = result?.updateInfo ?? null;
@@ -373,7 +419,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
       return {
         available: false,
         reason: String(error?.message ?? error),
-        ...updaterChannelState(app, await readElectronUpdaterChannel(app)),
+        ...updaterChannelState(app, await readElectronUpdaterChannel(app), updaterConfiguration),
       };
     }
   });
@@ -382,7 +428,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
     const updater = await ensureAutoUpdater();
     if (!updater) return { ok: false, reason: "unavailable" };
     try {
-      await applyElectronUpdaterFeed(app, updater, checkedUpdateTargetVersion);
+      await applyElectronUpdaterFeed(app, updater, updaterConfiguration, checkedUpdateTargetVersion);
       const currentVersion = resolveAppVersion(app);
       if (!checkedUpdateVersion || !isVersionNewer(checkedUpdateVersion, currentVersion)) {
         const result = await updater.checkForUpdates();

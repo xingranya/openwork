@@ -419,7 +419,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [themeMode, setThemeModeState] = useState<ThemeMode>(getInitialThemeMode);
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
   const [updateAutoCheck, setUpdateAutoCheck] = useState(() =>
-    readStoredBoolean(SETTINGS_UPDATE_AUTO_CHECK_KEY, true),
+    readStoredBoolean(SETTINGS_UPDATE_AUTO_CHECK_KEY, false),
   );
   const [updateAutoDownload, setUpdateAutoDownload] = useState(() =>
     readStoredBoolean(SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY, false),

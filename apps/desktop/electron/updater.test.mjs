@@ -4,11 +4,36 @@ import assert from "node:assert/strict";
 import {
   preventPendingUpdaterInstall,
   registerUpdaterIpc,
+  resolveUpdaterConfiguration,
   staleUpdaterStatePaths,
   targetedStableUpdaterFeed,
 } from "./updater.mjs";
 
 const fakeApp = { getPath: (key) => (key === "home" ? "/Users/test" : `/Users/test/${key}`) };
+
+describe("updater configuration", () => {
+  it("has no implicit release source", () => {
+    assert.deepEqual(resolveUpdaterConfiguration({}), {
+      stable: "",
+      alpha: "",
+      releasePage: "",
+      versionTemplate: "",
+    });
+  });
+
+  it("accepts explicit safe release sources", () => {
+    assert.deepEqual(resolveUpdaterConfiguration({
+      OPENWORK_UPDATER_STABLE_URL: "https://updates.example.com/stable/",
+      OPENWORK_UPDATER_RELEASE_PAGE_URL: "https://updates.example.com/releases",
+      OPENWORK_UPDATER_VERSION_URL_TEMPLATE: "https://updates.example.com/releases/v{version}",
+    }), {
+      stable: "https://updates.example.com/stable",
+      alpha: "",
+      releasePage: "https://updates.example.com/releases",
+      versionTemplate: "https://updates.example.com/releases/v{version}",
+    });
+  });
+});
 
 describe("staleUpdaterStatePaths", () => {
   it("targets the ShipIt cache on macOS", { skip: process.platform !== "darwin" }, () => {
@@ -23,10 +48,21 @@ describe("staleUpdaterStatePaths", () => {
 });
 
 describe("targetedStableUpdaterFeed", () => {
-  it("builds a fixed GitHub release feed from a strict stable version", () => {
+  it("builds a fixed release feed from a strict stable version", () => {
     assert.equal(
-      targetedStableUpdaterFeed("0.17.22", "0.17.23"),
-      "https://github.com/different-ai/openwork/releases/download/v0.17.23",
+      targetedStableUpdaterFeed(
+        "0.17.22",
+        "0.17.23",
+        "https://updates.example.com/releases/v{version}",
+      ),
+      "https://updates.example.com/releases/v0.17.23",
+    );
+  });
+
+  it("requires an explicit targeted release template", () => {
+    assert.throws(
+      () => targetedStableUpdaterFeed("0.17.22", "0.17.23"),
+      /not configured/,
     );
   });
 
@@ -74,6 +110,33 @@ describe("installAndRestart", () => {
     assert.deepEqual(await install(), {
       ok: false,
       reason: "update-not-downloaded",
+    });
+  });
+});
+
+describe("disabled updater", () => {
+  it("does not check a release source when none is configured", async () => {
+    const handlers = new Map();
+    registerUpdaterIpc({
+      app: {
+        isPackaged: true,
+        getPath: (key) => `/Users/test/${key}`,
+        getVersion: () => "0.17.36",
+      },
+      ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
+      getMainWindow: () => null,
+      environment: {},
+    });
+
+    const check = handlers.get("openwork:updater:check");
+    assert.equal(typeof check, "function");
+    assert.deepEqual(await check(), {
+      available: false,
+      reason: "Update source is not configured.",
+      channel: "stable",
+      feedUrl: "",
+      enabled: false,
+      currentVersion: "0.17.36",
     });
   });
 });

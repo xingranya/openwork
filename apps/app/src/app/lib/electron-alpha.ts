@@ -11,12 +11,14 @@ export type ElectronAlphaArtifact = {
 };
 
 const ELECTRON_ALPHA_RELEASE_BASE_URL =
-  "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest";
+  String(import.meta.env.VITE_OPENWORK_ELECTRON_ALPHA_RELEASE_BASE_URL ?? "").trim();
 
 export const ELECTRON_ALPHA_RELEASE_PAGE_URL =
-  "https://github.com/different-ai/openwork/releases/tag/alpha-macos-latest";
+  String(import.meta.env.VITE_OPENWORK_ELECTRON_ALPHA_RELEASE_PAGE_URL ?? "").trim();
 
-export const ELECTRON_ALPHA_LATEST_MAC_YML_URL = `${ELECTRON_ALPHA_RELEASE_BASE_URL}/latest-mac.yml`;
+export const ELECTRON_ALPHA_LATEST_MAC_YML_URL = ELECTRON_ALPHA_RELEASE_BASE_URL
+  ? `${ELECTRON_ALPHA_RELEASE_BASE_URL.replace(/\/+$/, "")}/latest-mac.yml`
+  : "";
 
 function parseYamlScalar(raw: string, key: string): string | null {
   const pattern = new RegExp(`^\\s*${key}:\\s*(.+?)\\s*$`, "m");
@@ -33,6 +35,9 @@ function parseFirstFileUrl(raw: string): string | null {
 
 function resolveArtifactUrl(pathOrUrl: string): string {
   if (/^https:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  if (!ELECTRON_ALPHA_RELEASE_BASE_URL) {
+    throw new Error("Electron alpha update source is not configured.");
+  }
   return new URL(pathOrUrl, `${ELECTRON_ALPHA_RELEASE_BASE_URL}/`).toString();
 }
 
@@ -68,6 +73,9 @@ export function parseElectronLatestMacYml(
 export async function resolveElectronAlphaArtifact(
   arch: "arm64" | "x64" = "arm64",
 ): Promise<ElectronAlphaArtifact> {
+  if (!ELECTRON_ALPHA_LATEST_MAC_YML_URL || !ELECTRON_ALPHA_RELEASE_PAGE_URL) {
+    throw new Error("Electron alpha update source is not configured.");
+  }
   const response = await desktopFetch(ELECTRON_ALPHA_LATEST_MAC_YML_URL, {
     headers: { Accept: "text/yaml, text/plain, */*" },
   });

@@ -3,14 +3,11 @@
  *
  * There are two channels users can opt into:
  *
- * - "stable": the default. The desktop app auto-updates from the rolling
- *   "latest" GitHub release attached to whichever semver tag most recently
- *   finished the Release App workflow. macOS, Linux, Windows.
+ * - "stable": the default channel name. It remains offline until an
+ *   administrator configures a stable updater endpoint.
  *
- * - "alpha": a macOS-only rolling channel that auto-updates on every merge
- *   to `dev`. Alpha builds are published to a fixed GitHub release tag
- *   (`alpha-macos-latest`) so the updater endpoint stays stable while the
- *   underlying artifact is replaced on every dev push.
+ * - "alpha": a macOS-only channel that also requires an administrator-
+ *   configured endpoint.
  *
  * Only the macOS (arm64) build is published to the alpha channel today.
  * Linux and Windows always resolve to the stable channel.
@@ -18,13 +15,13 @@
 
 import type { ReleaseChannel } from "../types";
 
-/** Stable channel's Tauri updater manifest URL. */
+/** Explicitly configured stable updater manifest URL. */
 export const STABLE_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/latest/download/latest.json";
+  String(import.meta.env.VITE_OPENWORK_UPDATER_STABLE_ENDPOINT ?? "").trim();
 
-/** Alpha channel's Tauri updater manifest URL (macOS-only, rolling). */
+/** Explicitly configured alpha updater manifest URL (macOS-only). */
 export const ALPHA_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest/latest.json";
+  String(import.meta.env.VITE_OPENWORK_UPDATER_ALPHA_ENDPOINT ?? "").trim();
 
 /** Rolling GitHub release tag that alpha macOS artifacts are published to. */
 export const ALPHA_MACOS_RELEASE_TAG = "alpha-macos-latest";

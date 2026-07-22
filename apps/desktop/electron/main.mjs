@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { configureFakeMediaForTests, installMediaPermissionHandlers } from "./media-permissions.mjs";
 import { registerMigrationIpc } from "./migration.mjs";
 import { createRuntimeManager } from "./runtime.mjs";
-import { registerUpdaterIpc } from "./updater.mjs";
+import { registerUpdaterIpc, resolveUpdaterConfiguration } from "./updater.mjs";
 import {
   checkComputerUsePermissions,
   getComputerUseMcpCommand,
@@ -94,8 +94,9 @@ if (process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN === "1") {
   // system keychain normally.
   app.commandLine.appendSwitch("use-mock-keychain");
 }
-const RELEASE_DOWNLOAD_BASE_URL = "https://github.com/different-ai/openwork/releases/latest/download";
-const RELEASE_PAGE_URL = "https://github.com/different-ai/openwork/releases/latest";
+const UPDATER_CONFIGURATION = resolveUpdaterConfiguration();
+const RELEASE_DOWNLOAD_BASE_URL = UPDATER_CONFIGURATION.stable;
+const RELEASE_PAGE_URL = UPDATER_CONFIGURATION.releasePage;
 const DOCS_PAGE_URL = "https://openworklabs.com/docs";
 const applicationMenu = createApplicationMenu({
   appName: APP_NAME,
@@ -281,6 +282,7 @@ function selectDownloadFile(files, arch) {
 }
 
 async function resolveCorrectArchitectureDownloadUrl(arch) {
+  if (!RELEASE_DOWNLOAD_BASE_URL) return null;
   const manifestUrl = `${RELEASE_DOWNLOAD_BASE_URL}/${updaterManifestName(arch)}`;
   try {
     const response = await fetch(manifestUrl, {
@@ -314,7 +316,7 @@ async function resolveArchitectureInfo() {
     mismatch: appArch !== systemArch && hasCorrectArchitectureDownload,
     platform: process.platform === "win32" ? "windows" : process.platform,
     version,
-    downloadUrl: latestDownloadUrl || `${RELEASE_DOWNLOAD_BASE_URL}/${assetName}`,
+    downloadUrl: latestDownloadUrl || (RELEASE_DOWNLOAD_BASE_URL ? `${RELEASE_DOWNLOAD_BASE_URL}/${assetName}` : ""),
     releaseUrl: RELEASE_PAGE_URL,
   };
 }
@@ -2354,7 +2356,7 @@ ipcMain.handle("openwork:terminal:kill", (event, terminalId) => {
 browserPanel.registerIpc(ipcMain);
 
 registerMigrationIpc({ app, ipcMain });
-const { ensureAutoUpdater } = registerUpdaterIpc({ app, ipcMain, getMainWindow: () => mainWindow });
+registerUpdaterIpc({ app, ipcMain, getMainWindow: () => mainWindow });
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -2420,10 +2422,6 @@ if (!app.requestSingleInstanceLock()) {
       flushPendingDeepLinks();
     });
 
-    // Initialize the packaged updater after the window is up so the user sees
-    // a working app first. Renderer-owned checks pass the selected release
-    // channel explicitly, avoiding stale stable-feed results for alpha users.
-    void ensureAutoUpdater();
   });
 
   app.on("activate", async () => {
