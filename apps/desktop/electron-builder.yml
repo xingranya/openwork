@@ -43,6 +43,9 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: Brand Project OS 仅在你主动开启语音模式时使用麦克风。
+    NSAppTransportSecurity:
+      NSAllowsArbitraryLoads: false
+      NSAllowsLocalNetworking: true
   extraResources:
     - from: resources/sidecars
       to: sidecars

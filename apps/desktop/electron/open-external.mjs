@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createNavigationPolicy } from "./navigation-security.mjs";
 
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -17,6 +18,10 @@ async function defaultOpenExternal(url) {
 
 export async function openExternalUrl(url, deps = {}) {
   const env = deps.env ?? process.env;
+  const policy = deps.policy ?? createNavigationPolicy(env);
+  if (!policy.allowsExternalUrl(url)) {
+    return { ok: false, error: "url is not in the external allowlist" };
+  }
   if (env.OPENWORK_SIMULATE_OPEN_EXTERNAL_FAILURE === "1") {
     const message = "simulated failure";
     // why: enables evals to prove the failure UX without breaking a real machine.

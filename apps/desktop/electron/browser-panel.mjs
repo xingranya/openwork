@@ -4,11 +4,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { app, WebContentsView, clipboard, session, shell } from "electron";
+import { app, WebContentsView, clipboard, session } from "electron";
 import { isAcceptedDesktopDeepLink } from "./brand.mjs";
+import { registerTrustedIpcHandler } from "./ipc-security.mjs";
+import { openExternalUrl } from "./open-external.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BROWSER_SESSION_PARTITION = "persist:openwork-browser";
+const BROWSER_SESSION_PARTITION = "persist:brand-project-os-browser";
 const BROWSER_DEFAULT_URL = "about:blank";
 // URL a user-initiated new tab (the "+" button / opening the browser panel)
 // lands on. The agent's programmatic path keeps BROWSER_DEFAULT_URL.
@@ -20,7 +22,7 @@ const MENU_OVERLAY_WIDTH = 196;
 const MENU_OVERLAY_HEIGHT = 176;
 const MENU_OVERLAY_READY_TIMEOUT_MS = 2000;
 
-export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
+export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, navigationPolicy }) {
   const browserTabs = new Map();
   let browserTabOrder = [];
   let activeBrowserTabId = null;
@@ -87,21 +89,6 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
     const target = typeof url === "string" && url.trim() ? url.trim() : fallback;
     if (!target || target === "about:blank") return "about:blank";
     return /^https?:\/\//i.test(target) ? target : `https://${target}`;
-  }
-
-  function isMainWindowAllowedNavigation(url) {
-    if (!url) return true;
-    if (url.startsWith("file://") || url.startsWith("data:")) return true;
-    try {
-      const target = new URL(url);
-      if (target.hostname === "127.0.0.1" || target.hostname === "localhost") return true;
-      const currentUrl = window()?.webContents.getURL();
-      if (!currentUrl || currentUrl === "about:blank") return true;
-      const current = new URL(currentUrl);
-      return target.origin === current.origin;
-    } catch {
-      return true;
-    }
   }
 
   function routeBlockedMainWindowNavigation(url) {
@@ -238,6 +225,15 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
     }
   }
 
+  function canOpenExternally(url) {
+    return isHttpUrl(url) && navigationPolicy?.allowsExternalUrl(url) === true;
+  }
+
+  function openAllowedExternalUrl(url) {
+    if (!canOpenExternally(url)) return Promise.resolve({ ok: false, error: "url is not in the external allowlist" });
+    return openExternalUrl(url, { policy: navigationPolicy });
+  }
+
   function normalizeMenuOverlayPoint(point) {
     if (!point || typeof point !== "object") {
       return { x: 0, y: 0 };
@@ -287,13 +283,11 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
 
     const view = new WebContentsView({
       webPreferences: {
-        // Electron only runs ESM preload scripts reliably with sandbox disabled.
-        // Keep the bridge isolated and node-free for the React overlay document.
         backgroundThrottling: false,
-        sandbox: false,
+        sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
-        preload: path.join(__dirname, "menu-overlay-preload.mjs"),
+        preload: path.join(__dirname, "menu-overlay-preload.cjs"),
       },
     });
     view.setBackgroundColor?.("#00000000");
@@ -355,7 +349,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
       bounds: menuOverlayBounds(normalizeMenuOverlayPoint(point)),
       items: [
         { id: "copy-url", label: "Copy URL", iconName: "copy", disabled: !url },
-        { id: "open-external", label: "Open in Browser", iconName: "external", disabled: !(url && isHttpUrl(url)) },
+        { id: "open-external", label: "Open in Browser", iconName: "external", disabled: !(url && canOpenExternally(url)) },
         { id: "close-tab", label: "Close Tab", iconName: "close", separatorBefore: true },
         { id: "close-all-tabs", label: "Close All Tabs", iconName: "close" },
       ],
@@ -399,7 +393,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
         if (request.url) clipboard.writeText(request.url);
         break;
       case "open-external":
-        if (request.url && isHttpUrl(request.url)) void shell.openExternal(request.url);
+        if (request.url) void openAllowedExternalUrl(request.url);
         break;
       case "close-tab":
         if (tab) closeBrowserTab(tab.tabId);
@@ -488,7 +482,11 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
     // Cookies live on the session object, not the document — they survive this.
     view.webContents.loadURL("about:blank");
     view.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-      void shell.openExternal(targetUrl);
+      if (isAcceptedDesktopDeepLink(targetUrl)) {
+        onDeepLink?.([targetUrl]);
+      } else if (isHttpUrl(targetUrl)) {
+        createBrowserTab(targetUrl, { select: true });
+      }
       return { action: "deny" };
     });
     view.webContents.on("did-start-navigation", (_event, targetUrl, isInPlace, isMainFrame) => {
@@ -743,44 +741,45 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
   }
 
   function registerIpc(ipcMain) {
-    ipcMain.handle("openwork:browser:show", (_event, bounds) => attachBrowserView(bounds));
-    ipcMain.handle("openwork:browser:hide", () => hideBrowserView());
-    ipcMain.handle("openwork:browser:openUrl", (_event, url, provider) => openBrowserUrlForAutomation(url, provider));
-    ipcMain.handle("openwork:browser:navigate", (_event, url) => {
+    const handle = (channel, handler) => registerTrustedIpcHandler(ipcMain, channel, getWindow, handler);
+    handle("openwork:browser:show", (_event, bounds) => attachBrowserView(bounds));
+    handle("openwork:browser:hide", () => hideBrowserView());
+    handle("openwork:browser:openUrl", (_event, url, provider) => openBrowserUrlForAutomation(url, provider));
+    handle("openwork:browser:navigate", (_event, url) => {
       const view = getActiveBrowserView() ?? createBrowserTab("about:blank", { select: true }).view;
       view.webContents.loadURL(normalizeBrowserUrl(url));
     });
-    ipcMain.handle("openwork:browser:back", () => {
+    handle("openwork:browser:back", () => {
       const webContents = getActiveWebContents();
       if (webContents?.canGoBack()) webContents.goBack();
     });
-    ipcMain.handle("openwork:browser:forward", () => {
+    handle("openwork:browser:forward", () => {
       const webContents = getActiveWebContents();
       if (webContents?.canGoForward()) webContents.goForward();
     });
-    ipcMain.handle("openwork:browser:reload", () => getActiveWebContents()?.reload());
-    ipcMain.handle("openwork:browser:bounds", (_event, bounds) => {
+    handle("openwork:browser:reload", () => getActiveWebContents()?.reload());
+    handle("openwork:browser:bounds", (_event, bounds) => {
       lastBrowserBounds = bounds;
       const view = getActiveBrowserView();
       if (view && browserViewVisible && bounds.width > 0 && bounds.height > 0) {
         view.setBounds(scaleRendererBounds(bounds));
       }
     });
-    ipcMain.handle("openwork:browser:state", () => browserStatePayload());
-    ipcMain.handle("openwork:browser:createTab", (_event, url) => {
+    handle("openwork:browser:state", () => browserStatePayload());
+    handle("openwork:browser:createTab", (_event, url) => {
       const target = typeof url === "string" && url.trim() ? url : BROWSER_NEW_TAB_URL;
       const tab = createBrowserTab(target, { select: true });
       return { tabId: tab.tabId };
     });
-    ipcMain.handle("openwork:browser:closeTab", (_event, tabId) => closeBrowserTab(tabId == null ? undefined : String(tabId)));
-    ipcMain.handle("openwork:browser:closeAllTabs", () => closeAllBrowserTabs());
-    ipcMain.handle("openwork:browser:selectTab", (_event, tabId) => selectBrowserTab(String(tabId ?? "")).tabId);
-    ipcMain.handle("openwork:browser:reorderTabs", (_event, tabIds) => reorderBrowserTabs(tabIds));
-    ipcMain.handle("openwork:browser:listTabs", () => listBrowserTabs());
-    ipcMain.handle("openwork:browser:setProxy", (_event, proxy) => setBrowserProxy(proxy));
-    ipcMain.handle("openwork:browser:getProxy", () => browserProxyState());
-    ipcMain.handle("openwork:browser:tabContextMenu", (_event, tabId, point) => showBrowserTabContextMenu(tabId, point));
-    ipcMain.handle("openwork:browser:destroy", () => destroyBrowserView());
+    handle("openwork:browser:closeTab", (_event, tabId) => closeBrowserTab(tabId == null ? undefined : String(tabId)));
+    handle("openwork:browser:closeAllTabs", () => closeAllBrowserTabs());
+    handle("openwork:browser:selectTab", (_event, tabId) => selectBrowserTab(String(tabId ?? "")).tabId);
+    handle("openwork:browser:reorderTabs", (_event, tabIds) => reorderBrowserTabs(tabIds));
+    handle("openwork:browser:listTabs", () => listBrowserTabs());
+    handle("openwork:browser:setProxy", (_event, proxy) => setBrowserProxy(proxy));
+    handle("openwork:browser:getProxy", () => browserProxyState());
+    handle("openwork:browser:tabContextMenu", (_event, tabId, point) => showBrowserTabContextMenu(tabId, point));
+    handle("openwork:browser:destroy", () => destroyBrowserView());
     ipcMain.on("openwork:menu-overlay:ready", (event) => {
       if (event.sender !== menuOverlayView?.webContents) return;
       markMenuOverlayReady(menuOverlayView);
@@ -802,7 +801,6 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
 
   return {
     destroy: destroyBrowserView,
-    isMainWindowAllowedNavigation,
     registerIpc,
     routeBlockedMainWindowNavigation,
   };

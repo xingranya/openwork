@@ -14,11 +14,11 @@ function isLocalRendererOrigin(origin) {
   }
 }
 
-function shouldAllowMainWindowPermission(input) {
+export function shouldAllowMainWindowPermission(input) {
   const { webContents, permission, origin, details, mainWindow } = input;
   if (!mainWindow || !webContents || webContents.id !== mainWindow.webContents.id) return false;
   if (!isLocalRendererOrigin(origin)) return false;
-  if (permission !== "media" && permission !== "audioCapture") return true;
+  if (permission !== "media" && permission !== "audioCapture") return false;
   const mediaType = typeof details.mediaType === "string" ? details.mediaType : "";
   if (mediaType && mediaType !== "audio") return false;
   const mediaTypes = Array.isArray(details.mediaTypes) ? details.mediaTypes : [];

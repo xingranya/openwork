@@ -10,6 +10,10 @@ import {
 } from "./updater.mjs";
 
 const fakeApp = { getPath: (key) => (key === "home" ? "/Users/test" : `/Users/test/${key}`) };
+const mainFrame = {};
+const mainWebContents = { id: 7, mainFrame };
+const mainWindow = { webContents: mainWebContents, isDestroyed: () => false };
+const mainWindowEvent = { sender: mainWebContents, senderFrame: mainFrame };
 
 describe("updater configuration", () => {
   it("has no implicit release source", () => {
@@ -102,12 +106,12 @@ describe("installAndRestart", () => {
     registerUpdaterIpc({
       app: { isPackaged: false },
       ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
-      getMainWindow: () => null,
+      getMainWindow: () => mainWindow,
     });
 
     const install = handlers.get("openwork:updater:installAndRestart");
     assert.equal(typeof install, "function");
-    assert.deepEqual(await install(), {
+    assert.deepEqual(await install(mainWindowEvent), {
       ok: false,
       reason: "update-not-downloaded",
     });
@@ -124,13 +128,13 @@ describe("disabled updater", () => {
         getVersion: () => "0.17.36",
       },
       ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
-      getMainWindow: () => null,
+      getMainWindow: () => mainWindow,
       environment: {},
     });
 
     const check = handlers.get("openwork:updater:check");
     assert.equal(typeof check, "function");
-    assert.deepEqual(await check(), {
+    assert.deepEqual(await check(mainWindowEvent), {
       available: false,
       reason: "Update source is not configured.",
       channel: "stable",

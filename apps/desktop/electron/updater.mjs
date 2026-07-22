@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerTrustedIpcHandler } from "./ipc-security.mjs";
 
 const ELECTRON_UPDATER_CHANNEL_FILENAME = "electron-updater-channel.v1.json";
 
@@ -350,12 +351,14 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, environment = 
     return autoUpdaterInstance;
   }
 
-  ipcMain.handle("openwork:updater:getChannel", async () => {
+  const handle = (channel, handler) => registerTrustedIpcHandler(ipcMain, channel, getMainWindow, handler);
+
+  handle("openwork:updater:getChannel", async () => {
     const channel = await readElectronUpdaterChannel(app);
     return updaterChannelState(app, channel, updaterConfiguration);
   });
 
-  ipcMain.handle("openwork:updater:setChannel", async (_event, rawChannel) => {
+  handle("openwork:updater:setChannel", async (_event, rawChannel) => {
     const channel = await writeElectronUpdaterChannel(app, rawChannel);
     checkedUpdateVersion = null;
     checkedUpdateTargetVersion = null;
@@ -371,7 +374,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, environment = 
     return updaterChannelState(app, channel, updaterConfiguration);
   });
 
-  ipcMain.handle("openwork:updater:check", async (_event, rawChannel, rawTargetVersion) => {
+  handle("openwork:updater:check", async (_event, rawChannel, rawTargetVersion) => {
     if (rawChannel !== undefined) {
       await writeElectronUpdaterChannel(app, rawChannel);
     }
@@ -424,7 +427,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, environment = 
     }
   });
 
-  ipcMain.handle("openwork:updater:download", async () => {
+  handle("openwork:updater:download", async () => {
     const updater = await ensureAutoUpdater();
     if (!updater) return { ok: false, reason: "unavailable" };
     try {
@@ -459,7 +462,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow, environment = 
     }
   });
 
-  ipcMain.handle("openwork:updater:installAndRestart", async () => {
+  handle("openwork:updater:installAndRestart", async () => {
     if (!updateDownloaded) return { ok: false, reason: "update-not-downloaded" };
     const updater = await ensureAutoUpdater();
     if (!updater) return { ok: false, reason: "unavailable" };

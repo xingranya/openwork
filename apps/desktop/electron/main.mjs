@@ -15,7 +15,7 @@ import {
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { configureFakeMediaForTests, installMediaPermissionHandlers } from "./media-permissions.mjs";
 import { registerMigrationIpc } from "./migration.mjs";
@@ -43,6 +43,8 @@ import {
 } from "./connect-link-branding.mjs";
 import { resolveConnectLinkPublicKeys } from "./connect-link-keys.mjs";
 import { openExternalUrl } from "./open-external.mjs";
+import { registerTrustedIpcHandler, resolveOwnHandler } from "./ipc-security.mjs";
+import { createNavigationPolicy, installMainWindowNetworkAllowlist } from "./navigation-security.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
 import {
   applyWindowsTaskbarIcon,
@@ -105,11 +107,13 @@ const UPDATER_CONFIGURATION = resolveUpdaterConfiguration();
 const RELEASE_DOWNLOAD_BASE_URL = UPDATER_CONFIGURATION.stable;
 const RELEASE_PAGE_URL = UPDATER_CONFIGURATION.releasePage;
 const DOCS_PAGE_URL = "";
+const navigationPolicy = createNavigationPolicy();
 const applicationMenu = createApplicationMenu({
   appName: APP_NAME,
   docsUrl: DOCS_PAGE_URL,
   updatesEnabled: Boolean(RELEASE_DOWNLOAD_BASE_URL),
   getWindow: () => createMainWindow(),
+  openExternal: (url) => openExternalUrl(url, { policy: navigationPolicy }),
 });
 
 const uiControlServer = createUiControlServer({
@@ -931,6 +935,7 @@ const browserPanel = createBrowserPanel({
   remoteDebugPort,
   getWindow: () => mainWindow,
   onDeepLink: (urls) => queueDeepLinks(urls),
+  navigationPolicy,
 });
 
 const workspaceStore = createWorkspaceStore({
@@ -943,6 +948,17 @@ const workspaceStore = createWorkspaceStore({
 const connectLinkReplayGuard = createConnectLinkReplayGuard({
   filePath: path.join(app.getPath("userData"), "connect-link-seen.json"),
 });
+
+function allowBootstrapRendererOrigins(config) {
+  navigationPolicy.replaceRuntimeNetworkUrls([
+    config?.baseUrl,
+    config?.apiBaseUrl,
+    config?.handoff?.denBaseUrl,
+    config?.brandLogoUrl,
+    config?.brandIconUrl,
+    ...(Array.isArray(config?.claimLinks) ? config.claimLinks.map((link) => link?.url) : []),
+  ]);
+}
 
 /**
  * @param {string} rawUrl
@@ -980,7 +996,11 @@ async function acceptConnectLink(rawUrl) {
 
 async function persistConnectLinkClaims(claims) {
   return persistConnectLinkBranding(claims, {
-    persistBootstrap: (config) => workspaceStore.setDesktopBootstrapConfig(config),
+    persistBootstrap: async (config) => {
+      const saved = await workspaceStore.setDesktopBootstrapConfig(config);
+      allowBootstrapRendererOrigins(saved);
+      return saved;
+    },
     applyBrandIconUrl: (iconUrl) => applyBrandIconUrl(iconUrl).catch((error) =>
       brandIconFailure("connect-apply-failed", error)),
   });
@@ -1675,16 +1695,22 @@ const desktopCommandHandlers = {
       };
   },
   "getDesktopBootstrapConfig": async (event, ...args) => {
-      return workspaceStore.getDesktopBootstrapConfig();
+      const config = await workspaceStore.getDesktopBootstrapConfig();
+      allowBootstrapRendererOrigins(config);
+      return config;
   },
   "debugDesktopBootstrapConfig": async (event, ...args) => {
       return workspaceStore.debugDesktopBootstrapConfig();
   },
   "clearDesktopBootstrapConfig": async (event, ...args) => {
-      return workspaceStore.clearDesktopBootstrapConfig();
+      const result = await workspaceStore.clearDesktopBootstrapConfig();
+      allowBootstrapRendererOrigins({ baseUrl: DEFAULT_DEN_BASE_URL });
+      return result;
   },
   "setDesktopBootstrapConfig": async (event, ...args) => {
-      return workspaceStore.setDesktopBootstrapConfig(args[0] ?? {});
+      const config = await workspaceStore.setDesktopBootstrapConfig(args[0] ?? {});
+      allowBootstrapRendererOrigins(config);
+      return config;
   },
   "connectLinkVerify": async (event, ...args) => {
       // Read-only check — parses + verifies the deep link, writes nothing.
@@ -2142,7 +2168,7 @@ function desktopErrorMessageWithCauses(error) {
 }
 
 async function handleDesktopInvoke(event, command, ...args) {
-  const handler = desktopCommandHandlers[command];
+  const handler = resolveOwnHandler(desktopCommandHandlers, command);
   if (!handler) {
     throw new Error(`Electron desktop bridge method is not implemented yet: ${command}`);
   }
@@ -2157,7 +2183,7 @@ async function handleDesktopInvoke(event, command, ...args) {
 async function createMainWindow() {
   if (mainWindow) return mainWindow;
 
-  const preloadPath = path.join(__dirname, "preload.mjs");
+  const preloadPath = path.join(__dirname, "preload.cjs");
   const windowAppearanceOptions = {};
   if (process.platform === "darwin") {
     Object.assign(windowAppearanceOptions, {
@@ -2201,7 +2227,7 @@ async function createMainWindow() {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       // Enable Chromium's built-in PDF viewer so PDFs render inside the
       // artifact panel (<embed> pointed at a blob URL).
       plugins: true,
@@ -2231,28 +2257,22 @@ async function createMainWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("file://")) {
-      try {
-        void shell.openPath(fileURLToPath(url));
-      } catch {
-        void openExternalUrl(url);
+    if (isAcceptedDesktopDeepLink(url)) {
+      queueDeepLinks([url]);
+      return { action: "deny" };
+    }
+    if (/^https?:\/\//i.test(url)) {
+      if (navigationPolicy.allowsExternalUrl(url)) {
+        void openExternalUrl(url, { policy: navigationPolicy });
+      } else {
+        browserPanel.routeBlockedMainWindowNavigation(url);
       }
-
-      return { action: "deny" };
     }
-
-    const local =
-      url.startsWith("http://127.0.0.1") ||
-      url.startsWith("http://localhost");
-    if (!local) {
-      void openExternalUrl(url);
-      return { action: "deny" };
-    }
-    return { action: "allow" };
+    return { action: "deny" };
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (browserPanel.isMainWindowAllowedNavigation(url)) return;
+    if (navigationPolicy.allowsMainWindowNavigation(url)) return;
     event.preventDefault();
     browserPanel.routeBlockedMainWindowNavigation(url);
   });
@@ -2265,7 +2285,7 @@ async function createMainWindow() {
   // reroute the URL into a built-in browser tab instead.
   mainWindow.webContents.on("did-start-navigation", (_event, url, isInPlace, isMainFrame) => {
     if (!isMainFrame || isInPlace) return;
-    if (browserPanel.isMainWindowAllowedNavigation(url)) return;
+    if (navigationPolicy.allowsMainWindowNavigation(url)) return;
     try {
       mainWindow?.webContents.stop();
     } catch {
@@ -2276,33 +2296,40 @@ async function createMainWindow() {
 
   const startUrl = process.env.OPENWORK_ELECTRON_START_URL?.trim() || process.env.ELECTRON_START_URL?.trim();
   if (startUrl) {
+    navigationPolicy.allowMainDocument(startUrl);
     await mainWindow.loadURL(startUrl);
   } else {
     const packagedIndexPath = path.join(process.resourcesPath, "app-dist", "index.html");
     const devIndexPath = path.resolve(__dirname, "../../app/dist/index.html");
-    await mainWindow.loadFile(app.isPackaged ? packagedIndexPath : devIndexPath);
+    const indexPath = app.isPackaged ? packagedIndexPath : devIndexPath;
+    navigationPolicy.allowMainDocument(pathToFileURL(indexPath).href);
+    await mainWindow.loadFile(indexPath);
   }
 
   return mainWindow;
 }
 
-ipcMain.handle("openwork:desktop", handleDesktopInvoke);
-ipcMain.handle("openwork:shell:openExternal", async (_event, url) => {
+const registerMainWindowIpc = (channel, handler) => (
+  registerTrustedIpcHandler(ipcMain, channel, () => mainWindow, handler)
+);
+
+registerMainWindowIpc("openwork:desktop", handleDesktopInvoke);
+registerMainWindowIpc("openwork:shell:openExternal", async (_event, url) => {
   if (typeof url !== "string" || url.trim().length === 0) {
     return { ok: false, error: "empty url" };
   }
-  return openExternalUrl(url.trim());
+  return openExternalUrl(url.trim(), { policy: navigationPolicy });
 });
-ipcMain.handle("openwork:shell:relaunch", async () => {
+registerMainWindowIpc("openwork:shell:relaunch", async () => {
   app.relaunch();
   app.quit();
 });
-ipcMain.handle("openwork:system:architecture", async () => resolveArchitectureInfo());
-ipcMain.handle("openwork:system:microphoneStatus", async () => {
+registerMainWindowIpc("openwork:system:architecture", async () => resolveArchitectureInfo());
+registerMainWindowIpc("openwork:system:microphoneStatus", async () => {
   if (process.platform !== "darwin") return { platform: process.platform, status: "not-mac" };
   return { platform: process.platform, status: systemPreferences.getMediaAccessStatus("microphone") };
 });
-ipcMain.handle("openwork:system:askMicrophoneAccess", async () => {
+registerMainWindowIpc("openwork:system:askMicrophoneAccess", async () => {
   if (process.platform !== "darwin") return { platform: process.platform, granted: true, status: "not-mac" };
   const before = systemPreferences.getMediaAccessStatus("microphone");
   const granted = await systemPreferences.askForMediaAccess("microphone");
@@ -2311,7 +2338,7 @@ ipcMain.handle("openwork:system:askMicrophoneAccess", async () => {
 });
 
 // ── Terminal IPC ────────────────────────────────────────────────────────
-ipcMain.handle("openwork:terminal:create", async (event, options = {}) => {
+registerMainWindowIpc("openwork:terminal:create", async (event, options = {}) => {
   const cwd = await resolveTerminalCwd(options?.cwd);
   const cols = Number.isFinite(options?.cols) ? Math.max(20, Math.floor(options.cols)) : 80;
   const rows = Number.isFinite(options?.rows) ? Math.max(5, Math.floor(options.rows)) : 24;
@@ -2344,17 +2371,17 @@ ipcMain.handle("openwork:terminal:create", async (event, options = {}) => {
 
   return { terminalId };
 });
-ipcMain.handle("openwork:terminal:write", (event, terminalId, data) => {
+registerMainWindowIpc("openwork:terminal:write", (event, terminalId, data) => {
   const terminal = terminalForSender(event, terminalId);
   if (!terminal || typeof data !== "string") return;
   terminal.process.write(data);
 });
-ipcMain.handle("openwork:terminal:resize", (event, terminalId, cols, rows) => {
+registerMainWindowIpc("openwork:terminal:resize", (event, terminalId, cols, rows) => {
   const terminal = terminalForSender(event, terminalId);
   if (!terminal || !Number.isFinite(cols) || !Number.isFinite(rows)) return;
   terminal.process.resize(Math.max(20, Math.floor(cols)), Math.max(5, Math.floor(rows)));
 });
-ipcMain.handle("openwork:terminal:kill", (event, terminalId) => {
+registerMainWindowIpc("openwork:terminal:kill", (event, terminalId) => {
   const terminal = terminalForSender(event, terminalId);
   if (!terminal) return;
   killTerminal(String(terminalId));
@@ -2362,7 +2389,7 @@ ipcMain.handle("openwork:terminal:kill", (event, terminalId) => {
 
 browserPanel.registerIpc(ipcMain);
 
-registerMigrationIpc({ app, ipcMain });
+registerMigrationIpc({ app, ipcMain, getMainWindow: () => mainWindow });
 registerUpdaterIpc({ app, ipcMain, getMainWindow: () => mainWindow });
 
 if (!app.requestSingleInstanceLock()) {
@@ -2406,8 +2433,10 @@ if (!app.requestSingleInstanceLock()) {
       }
     }
     installMediaPermissionHandlers(session, () => mainWindow);
+    installMainWindowNetworkAllowlist(session.defaultSession, navigationPolicy);
     await workspaceStore.importBundledDesktopBootstrapConfigIfPreferred();
     const bootstrapConfig = await workspaceStore.getDesktopBootstrapConfig();
+    allowBootstrapRendererOrigins(bootstrapConfig);
     currentDisplayAppName = bootstrapConfig.brandAppName?.slice(0, 64) || APP_NAME;
     app.setName(currentDisplayAppName);
     applicationMenu.setAppName(currentDisplayAppName);

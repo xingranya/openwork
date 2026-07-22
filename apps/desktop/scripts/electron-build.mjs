@@ -57,7 +57,7 @@ if (patched !== serverJsSrc) {
 rmSync(packagedServerRoot, { recursive: true, force: true });
 cpSync(serverDistDir, resolve(packagedServerRoot, "dist"), { recursive: true });
 copyFileSync(resolve(repoRoot, "apps", "server", "package.json"), resolve(packagedServerRoot, "package.json"));
-for (const fileName of readdirSync(electronRoot).filter((name) => name.endsWith(".mjs")).sort()) {
+for (const fileName of readdirSync(electronRoot).filter((name) => /\.(?:c|m)js$/.test(name)).sort()) {
   run(nodeCmd, ["--check", resolve(electronRoot, fileName)], repoRoot);
 }
 run(nodeCmd, [resolve(__dirname, "check-electron-bridge.mjs")], repoRoot);
@@ -68,7 +68,7 @@ process.stdout.write(
       ok: true,
       renderer: "apps/app/dist",
       electronMain: "apps/desktop/electron/main.mjs",
-      electronPreload: "apps/desktop/electron/preload.mjs",
+      electronPreload: "apps/desktop/electron/preload.cjs",
     },
     null,
     2,

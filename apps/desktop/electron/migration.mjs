@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import path from "node:path";
+import { registerTrustedIpcHandler } from "./ipc-security.mjs";
 
 const MIGRATION_SNAPSHOT_FILENAME = "migration-snapshot.v1.json";
 const MIGRATION_SNAPSHOT_DONE_FILENAME = "migration-snapshot.v1.done.json";
@@ -17,8 +18,8 @@ function migrationSnapshotPath(app, done = false) {
 // into app_data_dir before it kicks off the Electron installer. Electron
 // renders the workspace list / session-by-workspace preferences from it on
 // first boot and then marks it .done so subsequent boots don't re-import.
-export function registerMigrationIpc({ app, ipcMain }) {
-  ipcMain.handle("openwork:migration:read", async () => {
+export function registerMigrationIpc({ app, ipcMain, getMainWindow }) {
+  registerTrustedIpcHandler(ipcMain, "openwork:migration:read", getMainWindow, async () => {
     const snapshotPath = migrationSnapshotPath(app);
     if (!existsSync(snapshotPath)) return null;
     try {
@@ -34,7 +35,7 @@ export function registerMigrationIpc({ app, ipcMain }) {
     }
   });
 
-  ipcMain.handle("openwork:migration:ack", async () => {
+  registerTrustedIpcHandler(ipcMain, "openwork:migration:ack", getMainWindow, async () => {
     const snapshotPath = migrationSnapshotPath(app);
     const donePath = migrationSnapshotPath(app, true);
     if (!existsSync(snapshotPath)) return { ok: true, moved: false };

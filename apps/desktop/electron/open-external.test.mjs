@@ -7,7 +7,7 @@ describe("openExternalUrl", () => {
   it("reports success when shell.openExternal resolves", async () => {
     let openedUrl = "";
     const result = await openExternalUrl("https://example.com", {
-      env: {},
+      env: { OPENWORK_EXTERNAL_URL_ALLOWLIST: "https://example.com" },
       openExternal: async (url) => {
         openedUrl = url;
       },
@@ -24,7 +24,7 @@ describe("openExternalUrl", () => {
     let unrefCalled = false;
 
     const result = await openExternalUrl("https://example.com", {
-      env: {},
+      env: { OPENWORK_EXTERNAL_URL_ALLOWLIST: "https://example.com" },
       openExternal: async () => {
         throw new Error("association broken");
       },
@@ -54,7 +54,7 @@ describe("openExternalUrl", () => {
     let spawnCalled = false;
 
     const result = await openExternalUrl("https://example.com", {
-      env: {},
+      env: { OPENWORK_EXTERNAL_URL_ALLOWLIST: "https://example.com" },
       openExternal: async () => {
         throw new Error("blocked");
       },
@@ -73,7 +73,7 @@ describe("openExternalUrl", () => {
 
   it("times out if shell.openExternal never settles", async () => {
     const result = await openExternalUrl("https://example.com", {
-      env: {},
+      env: { OPENWORK_EXTERNAL_URL_ALLOWLIST: "https://example.com" },
       openExternal: () => new Promise(() => {}),
       platform: "linux",
       timeoutMs: 1,
@@ -88,7 +88,10 @@ describe("openExternalUrl", () => {
     let spawnCalled = false;
 
     const result = await openExternalUrl("https://example.com", {
-      env: { OPENWORK_SIMULATE_OPEN_EXTERNAL_FAILURE: "1" },
+      env: {
+        OPENWORK_EXTERNAL_URL_ALLOWLIST: "https://example.com",
+        OPENWORK_SIMULATE_OPEN_EXTERNAL_FAILURE: "1",
+      },
       openExternal: async () => {
         opened = true;
       },
@@ -103,5 +106,18 @@ describe("openExternalUrl", () => {
     assert.deepEqual(result, { ok: false, error: "simulated failure" });
     assert.equal(opened, false);
     assert.equal(spawnCalled, false);
+  });
+
+  it("refuses unconfigured external URLs without invoking the system browser", async () => {
+    let opened = false;
+    const result = await openExternalUrl("https://example.com", {
+      env: {},
+      openExternal: async () => {
+        opened = true;
+      },
+    });
+
+    assert.deepEqual(result, { ok: false, error: "url is not in the external allowlist" });
+    assert.equal(opened, false);
   });
 });
