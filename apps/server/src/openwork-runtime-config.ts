@@ -17,7 +17,6 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   openworkExtensionsPreviewPluginPath,
-  openworkCapabilitiesKnowledgePluginPath,
   openworkAnthropicAdaptiveThinkingPluginPath,
   openworkAnthropicToolSchemaPluginPath,
   openworkOfficeAttachmentsPluginPath,
@@ -111,7 +110,6 @@ export function buildOpenworkRuntimeConfigObjectFromSnapshot(
     plugin: [
       "opencode-chrome-devtools",
       openworkExtensionsPreviewPluginPath(),
-      openworkCapabilitiesKnowledgePluginPath(),
       openworkOfficeAttachmentsPluginPath(),
       openworkAnthropicAdaptiveThinkingPluginPath(),
       openworkAnthropicToolSchemaPluginPath(),

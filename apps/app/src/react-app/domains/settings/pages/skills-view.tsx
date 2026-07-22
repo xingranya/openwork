@@ -436,11 +436,6 @@ export function SkillsView(props: SkillsViewProps) {
     [hubRepo],
   );
 
-  const hasDefaultHubRepo = useMemo(
-    () => hubRepos.some((repo) => `${repo.owner}/${repo.repo}@${repo.ref}` === "different-ai/openwork-hub@main"),
-    [hubRepos],
-  );
-
   const showInstalledSection = activeFilter === "all" || activeFilter === "installed";
   const showCloudSection = activeFilter === "all" || activeFilter === "cloud";
   const showHubSection = activeFilter === "all" || activeFilter === "hub";
@@ -995,19 +990,6 @@ export function SkillsView(props: SkillsViewProps) {
               <p className="mt-1 text-[13px] text-dls-secondary">{t("skills.hub_desc")}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  void Promise.resolve(extensions.addHubRepo({ owner: "different-ai", repo: "openwork-hub", ref: "main" })).then(() => {
-                    void extensions.refreshHubSkills({ force: true });
-                  });
-                }}
-                className={pillGhostClass}
-                disabled={props.busy || hasDefaultHubRepo}
-              >
-                <Plus size={14} />
-                {t("skills.add_openwork_hub")}
-              </button>
               <button type="button" onClick={openCustomRepoModal} disabled={props.busy} className={pillSecondaryClass}>
                 <Plus size={14} />
                 {t("skills.add_git_repo")}

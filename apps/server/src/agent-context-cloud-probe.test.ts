@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   probeOpenworkCloudCatalog,
@@ -111,6 +111,10 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 
 afterEach(() => {
   delete process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS;
+});
+
+beforeEach(() => {
+  process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS = "https://app.openworklabs.com,https://api.openworklabs.com";
 });
 
 describe("OpenWork Cloud catalog probe", () => {

@@ -1771,10 +1771,9 @@ function resolveSandboxSidecarTarget(
 
 function resolveSidecarConfigForTarget(
   flags: Map<string, string | boolean>,
-  cliVersion: string,
   targetOverride: SidecarTarget | null,
 ): SidecarConfig {
-  const baseUrl = resolveSidecarBaseUrl(flags, cliVersion);
+  const baseUrl = resolveSidecarBaseUrl(flags);
   return {
     dir: resolveSidecarDir(flags),
     baseUrl,
@@ -1881,13 +1880,12 @@ function resolveSidecarDir(flags: Map<string, string | boolean>): string {
 
 function resolveSidecarBaseUrl(
   flags: Map<string, string | boolean>,
-  cliVersion: string,
 ): string {
   const override =
     readFlag(flags, "sidecar-base-url") ??
     process.env.OPENWORK_SIDECAR_BASE_URL;
   if (override && override.trim()) return override.trim();
-  return `https://github.com/different-ai/openwork/releases/download/openwork-orchestrator-v${cliVersion}`;
+  return "";
 }
 
 function resolveSidecarManifestUrl(
@@ -1898,14 +1896,14 @@ function resolveSidecarManifestUrl(
     readFlag(flags, "sidecar-manifest") ??
     process.env.OPENWORK_SIDECAR_MANIFEST_URL;
   if (override && override.trim()) return override.trim();
+  if (!baseUrl) return "";
   return `${baseUrl.replace(/\/$/, "")}/openwork-orchestrator-sidecars.json`;
 }
 
 function resolveSidecarConfig(
   flags: Map<string, string | boolean>,
-  cliVersion: string,
 ): SidecarConfig {
-  const baseUrl = resolveSidecarBaseUrl(flags, cliVersion);
+  const baseUrl = resolveSidecarBaseUrl(flags);
   return {
     dir: resolveSidecarDir(flags),
     baseUrl,
@@ -1917,6 +1915,7 @@ function resolveSidecarConfig(
 async function fetchRemoteManifest(
   url: string,
 ): Promise<RemoteSidecarManifest | null> {
+  if (!url) return null;
   const cached = remoteManifestCache.get(url);
   if (cached) return cached;
   const task = (async () => {
@@ -1938,7 +1937,7 @@ function resolveAssetUrl(
   url?: string,
 ): string | null {
   if (url && url.trim()) return url.trim();
-  if (asset && asset.trim())
+  if (baseUrl && asset && asset.trim())
     return `${baseUrl.replace(/\/$/, "")}/${asset.trim()}`;
   return null;
 }
@@ -5003,7 +5002,7 @@ async function runRouterDaemon(args: ParsedArgs) {
     "openwork-orchestrator",
   );
 
-  const sidecar = resolveSidecarConfig(args.flags, cliVersion);
+  const sidecar = resolveSidecarConfig(args.flags);
   const allowExternal = readBool(
     args.flags,
     "allow-external",
@@ -6086,7 +6085,6 @@ async function runStart(args: ParsedArgs) {
   const sidecarTarget = resolveSandboxSidecarTarget(sandboxMode);
   const sidecar = resolveSidecarConfigForTarget(
     args.flags,
-    cliVersion,
     sidecarTarget,
   );
 

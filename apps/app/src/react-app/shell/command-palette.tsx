@@ -243,28 +243,6 @@ export function CommandPalette(props: CommandPaletteProps) {
         props.onOpenSettings();
       },
     },
-    // Top-bar shortcuts — these used to be selectable via Cmd+K and were
-    // missing after the React port. Each one mirrors one of the icons at
-    // the bottom-right of the session surface (documentation / feedback)
-    // plus every settings tab the user is likely to reach for.
-    {
-      id: "open-docs",
-      title: t("session.support_docs"),
-      meta: t("session.cmd_settings_meta"),
-      action: () => {
-        props.onClose();
-        openUrl("https://openwork.dev/docs");
-      },
-    },
-    {
-      id: "open-feedback",
-      title: t("session.support_feedback"),
-      meta: t("session.cmd_settings_meta"),
-      action: () => {
-        props.onClose();
-        openUrl("https://openwork.dev/feedback");
-      },
-    },
     {
       id: "settings-skills",
       title: t("settings.tab_skills"),

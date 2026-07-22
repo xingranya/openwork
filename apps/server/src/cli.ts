@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 
 import { parseCliArgs, printHelp, resolveServerConfig } from "./config.js";
 import { createManagedOpencodeServer, type ManagedOpencodeServer } from "./managed-opencode.js";
+import { resolveManagedModelsEnvironment } from "./managed-models.js";
 import {
   clearTrustedOpencodeProcess,
   createServerLogger,
@@ -17,6 +18,7 @@ import { keepOpenworkRuntimeConfigFileFresh, writeOpenworkRuntimeConfigFile } fr
 import pkg from "../package.json" with { type: "json" };
 
 const args = parseCliArgs(process.argv.slice(2));
+const managedModelsEnvironment = resolveManagedModelsEnvironment(process.env.OPENWORK_OPENCODE_MODELS_URL);
 
 if (args.help) {
   printHelp();
@@ -58,6 +60,7 @@ if (!config.opencodeBaseUrl && process.env.OPENWORK_MANAGE_OPENCODE === "1") {
         OPENWORK_SERVER_URL: serverUrl,
         OPENWORK_SERVER_TOKEN: config.token,
         OPENCODE_CONFIG: runtimeConfigPath,
+        ...managedModelsEnvironment,
       },
     });
     config.opencodeBaseUrl = managedOpencode.url;

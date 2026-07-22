@@ -30,6 +30,17 @@ function run(command, args, cwd, env) {
   }
 }
 
+function removeCompiledTests(root) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const target = resolve(root, entry.name);
+    if (entry.isDirectory()) {
+      removeCompiledTests(target);
+    } else if (/\.(?:e2e\.)?test\.js$/.test(entry.name)) {
+      rmSync(target, { force: true });
+    }
+  }
+}
+
 run(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", electronSidecarDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], desktopRoot);
 // Build the server TS → JS so Electron can import it in-process
@@ -56,7 +67,18 @@ if (patched !== serverJsSrc) {
 }
 rmSync(packagedServerRoot, { recursive: true, force: true });
 cpSync(serverDistDir, resolve(packagedServerRoot, "dist"), { recursive: true });
-copyFileSync(resolve(repoRoot, "apps", "server", "package.json"), resolve(packagedServerRoot, "package.json"));
+removeCompiledTests(resolve(packagedServerRoot, "dist"));
+const serverPackage = JSON.parse(readFileSync(resolve(repoRoot, "apps", "server", "package.json"), "utf8"));
+writeFileSync(
+  resolve(packagedServerRoot, "package.json"),
+  `${JSON.stringify({
+    name: serverPackage.name,
+    version: serverPackage.version,
+    private: true,
+    type: "module",
+  }, null, 2)}\n`,
+  "utf8",
+);
 for (const fileName of readdirSync(electronRoot).filter((name) => /\.(?:c|m)js$/.test(name)).sort()) {
   run(nodeCmd, ["--check", resolve(electronRoot, fileName)], repoRoot);
 }

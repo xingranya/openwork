@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, BookOpen, MessageCircleMore, Settings, Sparkles, X } from "lucide-react";
+import { ArrowRight, Settings, Sparkles, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ import {
   shouldShowOpenWorkModelsPromo,
 } from "../../cloud/openwork-models-promo";
 
-const DOCS_URL = "https://openworklabs.com/docs";
 const STATUS_BAR_BOOT_STARTED_AT = Date.now();
 const STATUS_BAR_INITIALIZING_MS = 15_000;
 
@@ -229,7 +228,6 @@ export type StatusBarProps = {
   developerMode: boolean;
   showConnectionStatus?: boolean;
   settingsOpen: boolean;
-  onSendFeedback: () => void;
   onOpenSettings: () => void;
   providerConnectedIds: string[];
   mcpConnectedCount: number;
@@ -246,8 +244,6 @@ export function StatusBar(props: StatusBarProps) {
   const denAuth = useDenAuth();
   const navigate = useNavigate();
   const { config: shellConfig } = useShellConfig();
-  const docsButtonRef = useRef<HTMLButtonElement>(null);
-  const feedbackButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const [openWorkModelsHintVisible, setOpenWorkModelsHintVisible] = useState(false);
   const openWorkModelsPromoEligible = useOpenWorkModelsPromoEligibility();
@@ -334,26 +330,6 @@ export function StatusBar(props: StatusBarProps) {
     hideOpenWorkModelsPromo();
   }, []);
 
-  const docsControlAction = useMemo<OpenworkControlAction>(() => ({
-    id: "status.docs.open",
-    label: "Open OpenWork docs",
-    description: "Open the documentation from the status bar.",
-    sideEffect: "external",
-    targetRef: docsButtonRef,
-    execute: () => platform.openLink(DOCS_URL),
-  }), [platform]);
-  useControlAction(docsControlAction);
-
-  const feedbackControlAction = useMemo<OpenworkControlAction>(() => ({
-    id: "status.feedback.open",
-    label: "Send feedback",
-    description: "Open the OpenWork feedback surface from the status bar.",
-    sideEffect: "external",
-    targetRef: feedbackButtonRef,
-    execute: props.onSendFeedback,
-  }), [props.onSendFeedback]);
-  useControlAction(feedbackControlAction);
-
   const settingsControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.settings.open",
     label: props.settingsOpen ? "Go back from settings" : "Open settings from the status bar",
@@ -415,36 +391,6 @@ export function StatusBar(props: StatusBarProps) {
                 <X className="size-3" />
               </button>
             </div>
-          ) : null}
-          {shellConfig.docsButton ? (
-            <Button
-              ref={docsButtonRef}
-              className="text-muted-foreground gap-2"
-              variant="ghost"
-              size="xs"
-              onClick={() => platform.openLink(DOCS_URL)}
-              title={t("status.open_docs")}
-              aria-label={t("status.open_docs")}
-            >
-              <BookOpen className="size-3.5" />
-              <span>{t("status.docs")}</span>
-            </Button>
-          ) : null}
-          {shellConfig.feedbackButton ? (
-            <Button
-              ref={feedbackButtonRef}
-              className="text-muted-foreground gap-2"
-              variant="ghost"
-              size="xs"
-              onClick={props.onSendFeedback}
-              title={t("status.send_feedback")}
-              aria-label={t("status.send_feedback")}
-            >
-              <MessageCircleMore className="size-3.5" />
-              <span>
-                {t("status.feedback")}
-              </span>
-            </Button>
           ) : null}
           {props.showSettingsButton !== false ? (
             <Tooltip>

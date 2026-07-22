@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const computerUseHelperAppName = "OpenWork Computer Use.app";
+const computerUseHelperAppName = "Brand Project OS Computer Use.app";
 
 const sidecarBases = [
   "opencode",
@@ -47,6 +47,42 @@ function resolveMacAppPath(context) {
   return fallback ? path.join(context.appOutDir, fallback) : null;
 }
 
+function runPlutil(args, optional = false) {
+  const result = spawnSync("/usr/bin/plutil", args, { encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (!optional && result.status !== 0) {
+    throw new Error(`plutil ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
+  }
+  return result;
+}
+
+function hardenMacInfoPlist(context) {
+  const appPath = resolveMacAppPath(context);
+  if (!appPath) return;
+  const plistPath = path.join(appPath, "Contents", "Info.plist");
+  const ats = JSON.stringify({
+    NSAllowsArbitraryLoads: false,
+    NSAllowsLocalNetworking: true,
+  });
+  const replaced = runPlutil(["-replace", "NSAppTransportSecurity", "-json", ats, plistPath], true);
+  if (replaced.status !== 0) {
+    runPlutil(["-insert", "NSAppTransportSecurity", "-json", ats, plistPath]);
+  }
+  for (const key of [
+    "NSBluetoothAlwaysUsageDescription",
+    "NSBluetoothPeripheralUsageDescription",
+    "NSCameraUsageDescription",
+  ]) {
+    runPlutil(["-remove", key, plistPath], true);
+  }
+
+  const verified = runPlutil(["-extract", "NSAppTransportSecurity", "json", "-o", "-", plistPath]);
+  const parsed = JSON.parse(verified.stdout);
+  if (parsed.NSAllowsArbitraryLoads !== false || parsed.NSAllowsLocalNetworking !== true) {
+    throw new Error("macOS ATS 配置未按离线壳要求写入");
+  }
+}
+
 function signComputerUseHelper(context) {
   const appPath = resolveMacAppPath(context);
   if (!appPath) return;
@@ -87,6 +123,7 @@ function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
 }
 
 async function afterPack(context) {
+  hardenMacInfoPlist(context);
   const triple = targetTriple(context.electronPlatformName, context.arch);
   if (!triple) return;
 

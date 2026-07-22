@@ -10,6 +10,8 @@ toolsets:
   appimage: "1.0.3"
 files:
   - electron/**/*
+  - "!electron/**/*.test.mjs"
+  - "!electron/**/*.test.cjs"
   - server/**/*
   - "!server/dist/opencode-plugins/**"
   - package.json
@@ -20,12 +22,8 @@ extraResources:
     to: opencode-plugins
     filter:
       - "*.js"
-  - from: ../../packages/docs
-    to: openwork-docs
-    filter:
-      - "**/*.md"
-      - "**/*.mdx"
-      - "docs.json"
+      - "!*.test.js"
+      - "!openwork-capabilities-knowledge.js"
 asar: true
 asarUnpack:
   - node_modules/.pnpm/@lydell+node-pty*/**

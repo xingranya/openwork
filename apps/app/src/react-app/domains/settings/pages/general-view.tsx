@@ -1,13 +1,10 @@
 /** @jsxImportSource react */
 import {
   ArrowRight,
-  ArrowUpRight,
   Cable,
   Cloud,
   Cog,
   FolderLock,
-  LifeBuoy,
-  MessageCircle,
   Paintbrush,
   Puzzle,
   RefreshCcw,
@@ -19,14 +16,10 @@ import {
 
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
-import { Button } from "@/components/ui/button";
 
 export type GeneralSettingsViewProps = {
   onNavigateTab: (tab: SettingsTab) => void;
   developerMode: boolean;
-  onSendFeedback: () => void;
-  onJoinDiscord: () => void;
-  onReportIssue: () => void;
 };
 
 type SettingsCardDefinition = { tab: SettingsTab; icon: typeof Sparkles } & (
@@ -119,51 +112,6 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
               onClick={() => props.onNavigateTab(card.tab)}
             />
           ))}
-        </div>
-      </div>
-
-      {/* Feedback */}
-      <div className="space-y-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-dls-secondary">
-          Help
-        </div>
-        <div className="rounded-2xl border border-dls-border bg-dls-surface p-4">
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <LifeBuoy size={14} className="text-dls-secondary" />
-                <div className="text-[13px] font-medium text-dls-text">{t("settings.feedback_title")}</div>
-              </div>
-              <div className="mt-1 max-w-[58ch] text-[11px] text-dls-secondary">{t("settings.feedback_desc")}</div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={props.onSendFeedback}
-              >
-                <MessageCircle size={12} />
-                {t("settings.send_feedback")}
-                <ArrowUpRight size={11} />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={props.onJoinDiscord}
-              >
-                {t("settings.join_discord")}
-                <ArrowUpRight size={11} />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={props.onReportIssue}
-              >
-                {t("settings.report_issue")}
-                <ArrowUpRight size={11} />
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

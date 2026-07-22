@@ -133,16 +133,6 @@ function ShellWireframe({ config }: { config: ShellConfig }) {
             </g>
           ) : null}
 
-          {/* Docs */}
-          {config.docsButton ? (
-            <text x="326" y="244" fontSize="5" fill="var(--dls-text-secondary)" opacity="0.35">Docs</text>
-          ) : null}
-
-          {/* Feedback */}
-          {config.feedbackButton ? (
-            <text x="350" y="244" fontSize="5" fill="var(--dls-text-secondary)" opacity="0.35">Feedback</text>
-          ) : null}
-
           {/* Settings gear */}
           <text x="388" y="245" textAnchor="middle" fontSize="7" fill="var(--dls-text-secondary)" opacity="0.3">{"\u2699"}</text>
         </g>
@@ -324,18 +314,6 @@ export function ShellCustomizationView() {
 
         {config.statusBar ? (
           <div className="ml-6 flex flex-col gap-3 border border-dls-border px-4 py-4 rounded-2xl -mr-4">
-            <ToggleRow
-              label="Display documentation link"
-              description="Show a link to your documentation."
-              checked={config.docsButton}
-              onChange={(value) => update({ docsButton: value })}
-            />
-            <ToggleRow
-              label="Display feedback button"
-              description="Show a button for submitting feedback."
-              checked={config.feedbackButton}
-              onChange={(value) => update({ feedbackButton: value })}
-            />
             <ToggleRow
               label="Display cloud sign-in"
               description="Show a sign-in prompt for users who aren't logged in."

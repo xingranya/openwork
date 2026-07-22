@@ -81,6 +81,7 @@ const shortBuildSha = buildSha ? buildSha.slice(0, 7) : "";
 // prompt dormant. Pre-parsed here so Vite's define/import.meta.env picks
 // up the keys without a custom plugin.
 function loadMigrationReleaseEnv(): Record<string, string> {
+  if (process.env.OPENWORK_INCLUDE_MIGRATION_RELEASE !== "1") return {};
   const fragmentPath = resolve(appRoot, ".env.migration-release");
   if (!existsSync(fragmentPath)) return {};
   const out: Record<string, string> = {};
