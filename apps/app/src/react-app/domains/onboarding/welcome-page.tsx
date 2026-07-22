@@ -1,6 +1,15 @@
 /** @jsxImportSource react */
 import { type ReactNode } from "react";
-import { ShareIcon, UserGroupIcon } from "@heroicons/react/24/solid";
+import {
+  FileSpreadsheet,
+  FileText,
+  FolderOpen,
+  Globe2,
+  Plug,
+  Share2,
+  Users,
+  Workflow,
+} from "lucide-react";
 import { PaperGrainGradient } from "@openwork/ui/react";
 
 import { t } from "../../../i18n";
@@ -14,53 +23,36 @@ import {
 } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollAreaViewport } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 import { OrganizationServerAffordance } from "../settings/cloud/organization-server-affordance";
-
-interface BrandIconProps {
-  slug: string;
-  className?: string;
-}
-
-function BrandIcon({ slug, className }: BrandIconProps) {
-  return (
-    <img
-      className={cn("block size-4", className)}
-      src={`https://cdn.simpleicons.org/${slug}/_/777b84`}
-      alt=""
-      loading="lazy"
-    />
-  );
-}
 
 const capabilities = [
   {
-    slug: "googlesheets",
+    icon: FileSpreadsheet,
     title: "Edit spreadsheets",
     desc: "Create, clean, and transform CSV and Excel files.",
   },
   {
-    slug: "semanticweb",
+    icon: Globe2,
     title: "Control your browser",
     desc: "Automate the built-in browser for repetitive web tasks.",
   },
   {
-    slug: "apple",
+    icon: FolderOpen,
     title: "Organize files",
     desc: "Read, write, and manage files and folders.",
   },
   {
-    slug: "zapier",
+    icon: Workflow,
     title: "Automate tasks",
     desc: "Build reusable workflows with skills and commands.",
   },
   {
-    slug: "medium",
+    icon: FileText,
     title: "Generate content",
     desc: "Draft documents, emails, and reports.",
   },
   {
-    slug: "stripe",
+    icon: Plug,
     title: "Connect to APIs",
     desc: "Plug into external services and tools via MCP.",
   },
@@ -78,22 +70,25 @@ function ShowcasePanel() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {capabilities.map((cap) => (
-          <div
-            key={cap.title}
-            className="flex flex-col gap-2.5 rounded-xl border border-border p-3"
-          >
-            <BrandIcon className="size-4" slug={cap.slug} />
-            <div className="text-sm font-medium leading-tight text-foreground">
-              {cap.title}
+        {capabilities.map((cap) => {
+          const Icon = cap.icon;
+          return (
+            <div
+              key={cap.title}
+              className="flex flex-col gap-2.5 rounded-xl border border-border p-3"
+            >
+              <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+              <div className="text-sm font-medium leading-tight text-foreground">
+                {cap.title}
+              </div>
+              <div className="text-xs leading-snug text-muted-foreground">
+                {cap.desc}
+              </div>
             </div>
-            <div className="text-xs leading-snug text-muted-foreground">
-              {cap.desc}
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <div className="flex flex-col items-start gap-2.5 rounded-xl border border-border p-3">
-            <ShareIcon className="size-4 shrink-0 text-muted-foreground" />
+            <Share2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="flex flex-col gap-1.5">
               <div className="text-sm font-medium text-foreground">
               Shared extensions
@@ -102,9 +97,9 @@ function ShowcasePanel() {
               Share approved skills, MCPs, and plugins with your organization.
               </div>
             </div>
-          </div>
+        </div>
         <div className="flex flex-col items-start gap-2.5 rounded-xl border border-border p-3">
-          <UserGroupIcon className="size-4 shrink-0 text-muted-foreground" />
+          <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div className="flex flex-col gap-1.5">
             <div className="text-sm font-medium text-foreground">
               Provision your team

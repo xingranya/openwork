@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
-import { ArrowLeft, ArrowRight, Cloud, Columns2, FileText, Globe, Mic2, Settings2, TextSearch, X, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Cloud, Columns2, FileSpreadsheet, FileText, Globe, Mic2, Plug, Settings2, TextSearch, X, Zap } from "lucide-react";
 
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { t } from "../../../../i18n";
@@ -1350,7 +1350,7 @@ export function SessionPage(props: SessionPageProps) {
                               );
                             }}
                           >
-                            <img src="https://cdn.simpleicons.org/googlesheets" alt="" width={20} height={20} className="mt-0.5 shrink-0" />
+                            <FileSpreadsheet className="mt-0.5 size-5 shrink-0 text-dls-secondary" aria-hidden="true" />
                             <div>
                               <div className="text-[13px] font-medium text-dls-text">Edit a CSV</div>
                               <div className="mt-0.5 text-[11px] text-dls-secondary">Create a sample spreadsheet with customer data</div>
@@ -1379,7 +1379,7 @@ export function SessionPage(props: SessionPageProps) {
                               props.onOpenSettings?.();
                             }}
                           >
-                            <img src="https://cdn.simpleicons.org/hackthebox" alt="" width={20} height={20} className="mt-0.5 shrink-0" />
+                            <Plug className="mt-0.5 size-5 shrink-0 text-dls-secondary" aria-hidden="true" />
                             <div>
                               <div className="text-[13px] font-medium text-dls-text">Connect an extension</div>
                               <div className="mt-0.5 text-[11px] text-dls-secondary">Add MCP servers, plugins, and integrations</div>

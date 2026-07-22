@@ -4,8 +4,14 @@ import {
   Cloud,
   ChevronDown,
   ChevronUp,
+  FileSpreadsheet,
+  FileText,
+  FolderOpen,
+  Globe2,
+  Plug,
   Users,
   Share2,
+  Workflow,
 } from "lucide-react";
 import { PaperGrainGradient } from "@openwork/ui/react";
 
@@ -59,33 +65,16 @@ const errorBannerClass =
   "rounded-xl border border-red-7/30 bg-red-1/40 px-3 py-2 text-xs text-red-11";
 
 /* ------------------------------------------------------------------ */
-/*  Brand icon via Simple Icons CDN                                    */
-/* ------------------------------------------------------------------ */
-
-function BrandIcon({ slug, size = 18 }: { slug: string; size?: number }) {
-  return (
-    <img
-      src={`https://cdn.simpleicons.org/${slug}`}
-      alt=""
-      width={size}
-      height={size}
-      loading="lazy"
-      style={{ display: "block" }}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Right-side showcase: capabilities + team features                  */
 /* ------------------------------------------------------------------ */
 
 const capabilities = [
-  { slug: "googlesheets", title: "Edit spreadsheets", desc: "Create, clean, and transform CSV and Excel files." },
-  { slug: "semanticweb", title: "Control your browser", desc: "Automate the built-in browser for repetitive web tasks." },
-  { slug: "apple", title: "Organize files", desc: "Read, write, and manage files and folders." },
-  { slug: "zapier", title: "Automate tasks", desc: "Build reusable workflows with skills and commands." },
-  { slug: "medium", title: "Generate content", desc: "Draft documents, emails, and reports." },
-  { slug: "stripe", title: "Connect to APIs", desc: "Plug into external services and tools via MCP." },
+  { icon: FileSpreadsheet, title: "Edit spreadsheets", desc: "Create, clean, and transform CSV and Excel files." },
+  { icon: Globe2, title: "Control your browser", desc: "Automate the built-in browser for repetitive web tasks." },
+  { icon: FolderOpen, title: "Organize files", desc: "Read, write, and manage files and folders." },
+  { icon: Workflow, title: "Automate tasks", desc: "Build reusable workflows with skills and commands." },
+  { icon: FileText, title: "Generate content", desc: "Draft documents, emails, and reports." },
+  { icon: Plug, title: "Connect to APIs", desc: "Plug into external services and tools via MCP." },
 ];
 
 function ShowcasePanel() {
@@ -102,20 +91,23 @@ function ShowcasePanel() {
 
       {/* Capabilities */}
       <div className="grid grid-cols-3 gap-2">
-        {capabilities.map((cap) => (
-          <div
-            key={cap.title}
-            className="flex flex-col gap-1.5 rounded-xl border border-dls-border bg-dls-surface p-3"
-          >
-            <BrandIcon slug={cap.slug} size={18} />
-            <div className="text-[12px] font-medium leading-tight text-dls-text">
-              {cap.title}
+        {capabilities.map((cap) => {
+          const Icon = cap.icon;
+          return (
+            <div
+              key={cap.title}
+              className="flex flex-col gap-1.5 rounded-xl border border-dls-border bg-dls-surface p-3"
+            >
+              <Icon className="size-[18px] text-dls-secondary" aria-hidden="true" />
+              <div className="text-[12px] font-medium leading-tight text-dls-text">
+                {cap.title}
+              </div>
+              <div className="text-[11px] leading-snug text-dls-secondary">
+                {cap.desc}
+              </div>
             </div>
-            <div className="text-[11px] leading-snug text-dls-secondary">
-              {cap.desc}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Team features */}
