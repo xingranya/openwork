@@ -38,6 +38,7 @@ import type {
   WorkspaceList,
 } from "./desktop-types";
 import type { BrowserPanelTab } from "./desktop-types";
+import type { BrandProjectElectronBridge } from "./brand-project";
 
 export type BrowserStatePayload = {
   activeTabId?: string | null;
@@ -91,6 +92,7 @@ declare global {
         readSnapshot?: () => Promise<unknown>;
         ackSnapshot?: () => Promise<{ ok: boolean; moved: boolean }>;
       };
+      brandProject?: BrandProjectElectronBridge;
       brandIcon?: {
         apply?: (url: string | null) => Promise<BrandIconApplyResult>;
         getState?: () => Promise<BrandIconState>;

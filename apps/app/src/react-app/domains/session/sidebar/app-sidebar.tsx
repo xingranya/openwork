@@ -6,6 +6,7 @@ import {
   ArchiveRestore,
   ChevronRight,
   FolderPlus,
+  FolderKanban,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -602,6 +603,8 @@ export type AppSidebarProps = {
   onEditWorkspaceConnection: (workspaceId: string) => void;
   onForgetWorkspace: (workspaceId: string) => void;
   onOpenCreateWorkspace: () => void;
+  brandProjectActive?: boolean;
+  onOpenBrandProject?: () => void;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   onReorderWorkspaces?: (workspaceIds: string[]) => void;
@@ -781,22 +784,36 @@ export function AppSidebar(props: AppSidebarProps) {
             />
           </div>
         ) : null}
-        {props.onOpenSessionSearch ? (
+        {props.onOpenBrandProject || props.onOpenSessionSearch ? (
           <SidebarHeader className="pb-2">
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={props.onOpenSessionSearch}
-                  aria-keyshortcuts={isMacPlatform() ? "Meta+Shift+F" : "Control+Shift+F"}
-                  className="text-sidebar-foreground/70"
-                >
-                  <Search className="size-4" />
-                  <span className="flex-1 truncate">{t("workspace_list.search_sessions")}</span>
-                  <kbd className="ml-auto font-sans text-[11px] tracking-wide text-sidebar-foreground/50">
-                    {isMacPlatform() ? "⌘⇧F" : "Ctrl+Shift+F"}
-                  </kbd>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {props.onOpenBrandProject ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={props.onOpenBrandProject}
+                    isActive={props.brandProjectActive}
+                    data-testid="brand-project-sidebar-entry"
+                  >
+                    <FolderKanban className="size-4" />
+                    <span className="flex-1 truncate">{t("brand_project.sidebar")}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+              {props.onOpenSessionSearch ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={props.onOpenSessionSearch}
+                    aria-keyshortcuts={isMacPlatform() ? "Meta+Shift+F" : "Control+Shift+F"}
+                    className="text-sidebar-foreground/70"
+                  >
+                    <Search className="size-4" />
+                    <span className="flex-1 truncate">{t("workspace_list.search_sessions")}</span>
+                    <kbd className="ml-auto font-sans text-[11px] tracking-wide text-sidebar-foreground/50">
+                      {isMacPlatform() ? "⌘⇧F" : "Ctrl+Shift+F"}
+                    </kbd>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
             </SidebarMenu>
           </SidebarHeader>
         ) : null}

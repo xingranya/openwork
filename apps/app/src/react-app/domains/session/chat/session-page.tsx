@@ -70,6 +70,7 @@ import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { getExtensionId, isOpenWorkExtensionEnabled, OPENWORK_EXTENSION_STATE_CHANGED } from "../../settings/extension-state";
 import { cn } from "@/lib/utils";
+import { BrandProjectWorkspace } from "../../project/brand-project-workspace";
 import {
   canNavigateSelectedConversationHistory,
   createConversationTabHistory,
@@ -185,6 +186,11 @@ export type SessionPageProps = {
   providers?: ProviderListItem[];
   mcpConnectedCount: number;
   onOpenSettings: () => void;
+  brandProject?: {
+    active: boolean;
+    onOpen: () => void;
+    onClose: () => void;
+  };
   sidebar: SessionPageSidebarProps;
   surface?: SessionPageSurfaceProps | null;
   history?: SessionPageHistoryControls | null;
@@ -759,15 +765,17 @@ export function SessionPage(props: SessionPageProps) {
     t("session.workspace_fallback");
   const providerCount = props.hasUsableModel ? 1 : props.providerConnectedIds.length;
   const messageCountVisible = props.selectedSessionId ? 1 : 0;
+  const brandProjectActive = props.brandProject?.active === true;
   const showWorkspaceSetupEmptyState = props.workspaces.length === 0 && !props.selectedSessionId;
   const showStartupSkeleton =
+    !brandProjectActive &&
     !props.selectedSessionId &&
     !props.clientConnected &&
     props.startupPhase !== "sessionIndexReady" &&
     props.startupPhase !== "firstSessionReady" &&
     props.startupPhase !== "ready";
   const showSessionLoadingState =
-    Boolean(props.selectedSessionId) && props.sessionLoadingById(props.selectedSessionId) && !showWorkspaceSetupEmptyState;
+    !brandProjectActive && Boolean(props.selectedSessionId) && props.sessionLoadingById(props.selectedSessionId) && !showWorkspaceSetupEmptyState;
   const sidebarInitialLoading = useMemo(() => getSidebarInitialLoading(props.sidebar), [props.sidebar]);
   // Derive the main-pane error from the same data the sidebar uses so the two
   // panes can never disagree. We check (in priority order):
@@ -810,7 +818,7 @@ export function SessionPage(props: SessionPageProps) {
       props.surface,
   );
   const canRenderSplitSurface = Boolean(canRenderReactSurface && splitSessionId && splitSessionId !== props.selectedSessionId);
-  const findButtonSessionId = props.selectedSessionId;
+  const findButtonSessionId = brandProjectActive ? null : props.selectedSessionId;
   const canGoBackInConversationHistory = !pendingConversationHistoryNavigation && canNavigateSelectedConversationHistory(
     conversationHistory,
     props.selectedWorkspaceId,
@@ -830,8 +838,9 @@ export function SessionPage(props: SessionPageProps) {
       if (next.some((tab) => tab.sessionId === sessionId)) return next;
       return [...next, { workspaceId, sessionId }];
     });
+    props.brandProject?.onClose();
     props.sidebar.onOpenSession(workspaceId, sessionId);
-  }, [props.sidebar]);
+  }, [props.brandProject, props.sidebar]);
 
   const closeSessionTab = useCallback((sessionId: string) => {
     const nextTab = sessionTabs.find((tab) => tab.sessionId !== sessionId && tab.workspaceId === props.selectedWorkspaceId);
@@ -966,6 +975,8 @@ export function SessionPage(props: SessionPageProps) {
           onEditWorkspaceConnection={props.sidebar.onEditWorkspaceConnection}
           onForgetWorkspace={props.sidebar.onForgetWorkspace}
           onOpenCreateWorkspace={props.sidebar.onOpenCreateWorkspace}
+          brandProjectActive={brandProjectActive}
+          onOpenBrandProject={props.brandProject?.onOpen}
           onOpenSessionSearch={props.sidebar.onOpenSessionSearch}
           onReorderWorkspaces={props.sidebar.onReorderWorkspaces}
           onStartResize={startLeftSidebarResize}
@@ -983,7 +994,9 @@ export function SessionPage(props: SessionPageProps) {
             <div className="flex min-w-0 items-center gap-3">
               {shellConfig.sidebar ? <SidebarTrigger className="mac:hidden" /> : null}
               <h1 className="truncate text-[15px] font-semibold text-dls-text">
-                {showWorkspaceSetupEmptyState
+                {brandProjectActive
+                  ? t("brand_project.sidebar")
+                  : showWorkspaceSetupEmptyState
                   ? t("session.create_or_connect_workspace")
                   : selectedSessionTitle || t("session.default_title")}
               </h1>
@@ -1056,7 +1069,16 @@ export function SessionPage(props: SessionPageProps) {
           <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1 overflow-hidden">
             <ResizablePanel minSize="180px" className="min-h-0">
             <div className="relative h-full min-w-0 overflow-hidden bg-dls-surface mac:bg-dls-surface/85 mac:backdrop-blur-2xl mac:backdrop-saturate-150">
-              {showStartupSkeleton ? (
+              {brandProjectActive ? (
+                <BrandProjectWorkspace
+                  onStartAiTask={props.sidebar.onCreateTaskWithPrompt && props.selectedWorkspaceId ? (prompt) => {
+                    props.brandProject?.onClose();
+                    props.sidebar.onCreateTaskWithPrompt?.(props.selectedWorkspaceId, prompt);
+                  } : undefined}
+                />
+              ) : null}
+
+              {!brandProjectActive && showStartupSkeleton ? (
                 <div className="px-6 py-14" role="status" aria-live="polite">
                   <div className="mx-auto max-w-2xl space-y-6">
                     <div className="space-y-2">
@@ -1084,7 +1106,7 @@ export function SessionPage(props: SessionPageProps) {
                 </div>
               ) : null}
 
-              {showDelayedSessionLoadingState ? (
+              {!brandProjectActive && showDelayedSessionLoadingState ? (
                 <div className="px-6 py-16">
                   <div
                     className="mx-auto flex max-w-[320px] flex-col items-center gap-3 text-center"
@@ -1099,7 +1121,7 @@ export function SessionPage(props: SessionPageProps) {
                 </div>
               ) : null}
 
-              {!showDelayedSessionLoadingState && canRenderReactSurface ? (
+              {!brandProjectActive && !showDelayedSessionLoadingState && canRenderReactSurface ? (
                 <div className="flex h-full min-h-0 flex-col">
                   {sessionTabs.length > 0 ? (
                     <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-2 mac:backdrop-blur-xl">
@@ -1240,7 +1262,7 @@ export function SessionPage(props: SessionPageProps) {
                 </div>
               ) : null}
 
-              {!showDelayedSessionLoadingState && !canRenderReactSurface && !showStartupSkeleton ? (
+              {!brandProjectActive && !showDelayedSessionLoadingState && !canRenderReactSurface && !showStartupSkeleton ? (
                 <div className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}>
                   {props.notFoundMessage ? (
                     <div className="px-6 py-16 text-center">

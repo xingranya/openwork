@@ -330,6 +330,7 @@ export function SessionRoute() {
   const restrictionNotice = useRestrictionNotice();
   const [openworkServerHostInfoState, setOpenworkServerHostInfoState] = useState<OpenworkServerInfo | null>(null);
   const [openworkServerSettingsVersion, setOpenworkServerSettingsVersion] = useState(0);
+  const [brandProjectActive, setBrandProjectActive] = useState(false);
   const [developerMode, setDeveloperMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("openwork.developerMode") === "1";
@@ -1905,6 +1906,11 @@ export function SessionRoute() {
       providers={providers}
       mcpConnectedCount={mcpConnectedCount}
       onOpenSettings={() => handleOpenSettings("/settings/general")}
+      brandProject={{
+        active: brandProjectActive,
+        onOpen: () => setBrandProjectActive(true),
+        onClose: () => setBrandProjectActive(false),
+      }}
       onOpenProviderAuth={() => sessionProviderAuthStore.openProviderAuthModal({ returnFocusTarget: "composer" })}
       providerAuthModal={sessionProviderAuthSnapshot.providerAuthModalOpen ? {
         open: true,

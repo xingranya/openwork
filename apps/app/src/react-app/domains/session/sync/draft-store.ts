@@ -82,6 +82,21 @@ export const getSessionDraft = (
   return loadDraftCache().get(key) ?? null;
 };
 
+/**
+ * 取出新会话的初始草稿，并从持久化暂存区移除。
+ *
+ * 创建会话和 React 会话页之间存在异步切换；一次性消费可以避免
+ * 草稿在新会话加载后重复注入，也避免旧草稿覆盖员工刚输入的内容。
+ */
+export const takeSessionDraft = (
+  workspaceId: string,
+  sessionId: string | null | undefined,
+) => {
+  const snapshot = getSessionDraft(workspaceId, sessionId);
+  if (snapshot) clearSessionDraft(workspaceId, sessionId);
+  return snapshot;
+};
+
 export const saveSessionDraft = (
   workspaceId: string,
   sessionId: string | null | undefined,

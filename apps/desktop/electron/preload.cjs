@@ -79,6 +79,26 @@ contextBridge.exposeInMainWorld("__OPENWORK_ELECTRON__", {
       return ipcRenderer.invoke("openwork:migration:ack");
     },
   },
+  brandProject: {
+    getStatus() {
+      return ipcRenderer.invoke("openwork:brand-project:status");
+    },
+    getProjectView() {
+      return ipcRenderer.invoke("openwork:brand-project:read", "project_view", {});
+    },
+    getEvidence(evidenceRef) {
+      return ipcRenderer.invoke("openwork:brand-project:read", "evidence_get", { evidence_ref: evidenceRef });
+    },
+    getTaskPacket(packetId) {
+      return ipcRenderer.invoke("openwork:brand-project:read", "task_packet_get", { packet_id: packetId });
+    },
+    getProposal(proposalId) {
+      return ipcRenderer.invoke("openwork:brand-project:read", "proposal_get", { proposal_id: proposalId });
+    },
+    reviewProposal(input) {
+      return ipcRenderer.invoke("openwork:brand-project:review", input);
+    },
+  },
   brandIcon: {
     apply(url) {
       return ipcRenderer.invoke("openwork:desktop", "__applyBrandIcon", url ?? null);

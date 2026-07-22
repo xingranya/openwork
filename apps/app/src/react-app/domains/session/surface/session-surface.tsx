@@ -69,6 +69,7 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "@/react-app/domains/session/sync/session-sync";
+import { takeSessionDraft } from "@/react-app/domains/session/sync/draft-store";
 import { resolveForkBoundaryId } from "@/react-app/domains/session/sync/transcript-reconcile";
 import {
   getComposerAttachments,
@@ -551,6 +552,13 @@ export function SessionSurface(props: SessionSurfaceProps) {
     initializedAutoOpenSessionRef.current = null;
     setVerifiedOpenTargets([]);
   }, [props.sessionId]);
+
+  useEffect(() => {
+    const initialDraft = takeSessionDraft(props.workspaceId, props.sessionId);
+    if (!initialDraft?.text.trim()) return;
+    const currentDraft = getComposerDraft(useComposerStateStore.getState(), props.sessionId);
+    if (!currentDraft.trim()) setComposerDraft(props.sessionId, initialDraft.text);
+  }, [props.sessionId, props.workspaceId, setComposerDraft]);
 
   // Publish a composer inspector slice so external drivers can read draft
   // state, attachments, mentions, and sending status from the running app.

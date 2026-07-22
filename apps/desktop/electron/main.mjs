@@ -47,6 +47,11 @@ import { registerTrustedIpcHandler, resolveOwnHandler } from "./ipc-security.mjs
 import { createNavigationPolicy, installMainWindowNetworkAllowlist } from "./navigation-security.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
 import {
+  createBrandProjectBridge,
+  proposalReviewConfirmationCopy,
+  validateProposalReview,
+} from "./brand-project-bridge.mjs";
+import {
   applyWindowsTaskbarIcon,
   windowsBrandAppUserModelId,
   windowsBrandShortcutDetails,
@@ -121,6 +126,7 @@ const uiControlServer = createUiControlServer({
   appIdentifier: APP_IDENTIFIER,
   getWindow: () => createMainWindow(),
 });
+const brandProjectBridge = createBrandProjectBridge();
 
 const terminalProcesses = new Map();
 let nextTerminalId = 1;
@@ -2314,6 +2320,31 @@ const registerMainWindowIpc = (channel, handler) => (
 );
 
 registerMainWindowIpc("openwork:desktop", handleDesktopInvoke);
+registerMainWindowIpc("openwork:brand-project:status", async () => brandProjectBridge.status());
+registerMainWindowIpc("openwork:brand-project:read", async (_event, operation, payload) => (
+  brandProjectBridge.read(String(operation ?? ""), payload ?? {})
+));
+registerMainWindowIpc("openwork:brand-project:review", async (_event, input) => {
+  const review = validateProposalReview(input);
+  const copy = proposalReviewConfirmationCopy(review);
+  const confirmation = await dialog.showMessageBox(mainWindow, {
+    type: review.action === "reject" ? "warning" : "question",
+    title: copy.title,
+    message: copy.title,
+    detail: copy.detail,
+    buttons: ["取消", copy.button],
+    cancelId: 0,
+    defaultId: 0,
+    noLink: true,
+  });
+  if (confirmation.response !== 1) {
+    return {
+      schema_version: "desktop-proposal-review-cancelled.v1",
+      cancelled: true,
+    };
+  }
+  return brandProjectBridge.review(review);
+});
 registerMainWindowIpc("openwork:shell:openExternal", async (_event, url) => {
   if (typeof url !== "string" || url.trim().length === 0) {
     return { ok: false, error: "empty url" };
