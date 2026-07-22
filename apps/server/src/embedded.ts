@@ -43,12 +43,31 @@ export type EmbeddedServerHandle = {
   stop: () => Promise<void>;
 };
 
+function isLoopbackModelCatalogHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1" || normalized === "[::1]";
+}
+
+export function resolveManagedModelsUrl(raw: string | undefined): string | undefined {
+  const value = raw?.trim() ?? "";
+  if (!value) return undefined;
+
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) return undefined;
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackModelCatalogHost(url.hostname))) {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function startEmbeddedServer(options: EmbeddedServerOptions): Promise<EmbeddedServerHandle> {
   const config = await resolveServerConfig(options);
   const serverUrl = `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${config.port}`;
-  const opencodeModelsUrl = process.env.OPENWORK_DEV_MODE === "1"
-    ? "http://localhost:8791/models"
-    : "https://models.openworklabs.com/";
+  const opencodeModelsUrl = resolveManagedModelsUrl(process.env.OPENWORK_OPENCODE_MODELS_URL);
 
   // Spawn managed OpenCode if requested and no explicit base URL was provided.
   let managedOpencode: ManagedOpencodeServer | null = null;
