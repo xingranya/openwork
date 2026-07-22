@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { THINKING_PREF_KEY } from "../../app/constants";
+import { DEFAULT_ANALYTICS_ENABLED } from "../../app/lib/analytics-key";
 import { coerceReleaseChannel } from "../../app/lib/release-channels";
 import type { ModelRef, ReleaseChannel, SettingsTab, View } from "../../app/types";
 import {
@@ -91,7 +92,7 @@ const INITIAL_PREFS: LocalPreferences = {
   releaseChannel: "stable",
   featureFlags: { microsandboxCreateSandbox: true, memory: false },
   hasCompletedOnboarding: false,
-  analyticsEnabled: true,
+  analyticsEnabled: DEFAULT_ANALYTICS_ENABLED,
   desktopNotifications: DEFAULT_DESKTOP_NOTIFICATION_PREFERENCE,
 };
 

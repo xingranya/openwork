@@ -1,11 +1,22 @@
-export const DEFAULT_POSTHOG_KEY = "phc_4YnPTlDVYPjgwKvLuNxhbHjV5kadgvd7XLzVHWnCXAI";
+export const DEFAULT_ANALYTICS_ENABLED = false;
 
 /**
- * Resolve the PostHog project key. `raw` is VITE_OPENWORK_POSTHOG_KEY.
- * Unset uses the default key in prod builds and stays silent in dev builds.
- * Explicit strings are used after trim; an empty string disables analytics in any build.
+ * Resolve explicitly configured PostHog settings. Missing or blank values
+ * keep analytics offline in every build.
  */
-export function resolvePosthogKey(raw: unknown, isDev: boolean): string {
-  if (typeof raw === "string") return raw.trim(); // explicit value wins; "" disables
-  return isDev ? "" : DEFAULT_POSTHOG_KEY;
+export function resolvePosthogSetting(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+export function resolveAnalyticsPreference(raw: string | null): boolean {
+  if (!raw) return DEFAULT_ANALYTICS_ENABLED;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !("analyticsEnabled" in parsed)) {
+      return DEFAULT_ANALYTICS_ENABLED;
+    }
+    return parsed.analyticsEnabled === true;
+  } catch {
+    return DEFAULT_ANALYTICS_ENABLED;
+  }
 }

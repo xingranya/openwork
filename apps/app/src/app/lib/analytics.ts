@@ -16,18 +16,15 @@
  */
 import { denSessionUpdatedEvent, type DenSessionUpdatedDetail } from "./den-session-events";
 import { recordInspectorEvent } from "./app-inspector";
-import { resolvePosthogKey } from "./analytics-key";
+import { resolveAnalyticsPreference, resolvePosthogSetting } from "./analytics-key";
 
 const ENV_POSTHOG_HOST = String(import.meta.env.VITE_OPENWORK_POSTHOG_HOST ?? "").trim();
 const ENV_APP_VERSION = String(import.meta.env.VITE_OPENWORK_APP_VERSION ?? "").trim();
 
-const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
-
-// Packaged releases use the default publishable key; dev builds stay silent
-// unless VITE_OPENWORK_POSTHOG_KEY is set. Set it to "" to disable analytics
-// in any build. The inspector mirror still records events locally either way.
-const POSTHOG_KEY = resolvePosthogKey(import.meta.env.VITE_OPENWORK_POSTHOG_KEY, import.meta.env.DEV);
-const POSTHOG_HOST = (ENV_POSTHOG_HOST || DEFAULT_POSTHOG_HOST).replace(/\/+$/, "");
+// Network analytics require an explicit key, host, and user opt-in. The
+// inspector mirror still records events locally when analytics are offline.
+const POSTHOG_KEY = resolvePosthogSetting(import.meta.env.VITE_OPENWORK_POSTHOG_KEY);
+const POSTHOG_HOST = resolvePosthogSetting(ENV_POSTHOG_HOST).replace(/\/+$/, "");
 
 const PREFS_STORAGE_KEY = "openwork.preferences";
 const DISTINCT_ID_STORAGE_KEY = "openwork.analytics.distinctId";
@@ -49,15 +46,9 @@ let initialized = false;
 export function isAnalyticsEnabled(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return true;
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && "analyticsEnabled" in parsed) {
-      return (parsed as { analyticsEnabled?: unknown }).analyticsEnabled !== false;
-    }
-    return true;
+    return resolveAnalyticsPreference(window.localStorage.getItem(PREFS_STORAGE_KEY));
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -92,7 +83,7 @@ export function captureAnalyticsEvent(event: string, properties: AnalyticsProper
     // Inspector unavailable (non-browser context).
   }
 
-  if (!POSTHOG_KEY || !isAnalyticsEnabled()) return;
+  if (!POSTHOG_KEY || !POSTHOG_HOST || !isAnalyticsEnabled()) return;
 
   queue.push({
     event,
@@ -109,7 +100,7 @@ export function captureAnalyticsEvent(event: string, properties: AnalyticsProper
  * retention survive sign-in. Sends only the user id — no email or name.
  */
 function identify(denUserId: string) {
-  if (!POSTHOG_KEY || !isAnalyticsEnabled()) return;
+  if (!POSTHOG_KEY || !POSTHOG_HOST || !isAnalyticsEnabled()) return;
   queue.push({
     event: "$identify",
     properties: {
@@ -122,7 +113,7 @@ function identify(denUserId: string) {
 }
 
 export async function flushAnalytics(): Promise<void> {
-  if (queue.length === 0 || !POSTHOG_KEY) return;
+  if (queue.length === 0 || !POSTHOG_KEY || !POSTHOG_HOST) return;
   const batch = queue.splice(0, MAX_BATCH);
   const distinctId = getAnalyticsDistinctId();
 
