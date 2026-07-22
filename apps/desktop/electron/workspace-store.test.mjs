@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import { createWorkspaceStore } from "./workspace-store.mjs";
+import { createWorkspaceStore, resolveDefaultDenBaseUrl } from "./workspace-store.mjs";
 
 function restoreEnv(name, value) {
   if (value === undefined) delete process.env[name];
@@ -57,6 +57,14 @@ async function withIsolatedBootstrapStore(callback) {
     restoreEnv("OPENWORK_DEV_MODE", previousDevMode);
   }
 }
+
+test("Den control plane has no implicit desktop default", () => {
+  assert.equal(resolveDefaultDenBaseUrl({}), "");
+  assert.equal(
+    resolveDefaultDenBaseUrl({ OPENWORK_DEN_BASE_URL: "  https://cloud.example.com/  " }),
+    "https://cloud.example.com/",
+  );
+});
 
 test("recovers missing desktop workspace state from token store paths", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "openwork-workspace-store-"));

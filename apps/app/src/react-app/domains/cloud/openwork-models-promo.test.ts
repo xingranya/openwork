@@ -5,7 +5,7 @@ declare const expect: (value: unknown) => {
   toBe: (expected: unknown) => void;
 };
 
-import { DEFAULT_DEN_BASE_URL, HOSTED_DEFAULT_DEN_BASE_URL, setDenBootstrapConfig } from "../../../app/lib/den";
+import { DEFAULT_DEN_BASE_URL, setDenBootstrapConfig } from "../../../app/lib/den";
 import {
   isOpenWorkModelsPromoEligible,
   isOpenWorkModelsPromoEligibleForDenBaseUrl,
@@ -18,8 +18,8 @@ afterEach(async () => {
 });
 
 describe("OpenWork Models promo eligibility", () => {
-  test("allows promotions on the default Den URL after normalization", () => {
-    expect(isOpenWorkModelsPromoEligibleForDenBaseUrl(`${HOSTED_DEFAULT_DEN_BASE_URL}/api/den/`)).toBe(true);
+  test("suppresses promotions when no default Den URL is configured", () => {
+    expect(isOpenWorkModelsPromoEligibleForDenBaseUrl(DEFAULT_DEN_BASE_URL)).toBe(false);
   });
 
   test("suppresses promotions for custom configured Den URLs", async () => {

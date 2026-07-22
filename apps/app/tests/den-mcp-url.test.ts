@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  DEFAULT_DEN_BASE_URL,
   getDenMcpUrl,
   isLegacyWebAppMcpUrl,
   resolveCloudMcpResourceUrl,
   resolveDenBaseUrls,
+  setDenBootstrapConfig,
 } from "../src/app/lib/den";
 
 describe("resolveDenBaseUrls", () => {
@@ -39,10 +41,16 @@ describe("resolveDenBaseUrls", () => {
 });
 
 describe("getDenMcpUrl", () => {
-  test("never targets the bare web-app origin", () => {
+  test("has no MCP endpoint before Cloud is configured", () => {
+    expect(getDenMcpUrl()).toBe("");
+  });
+
+  test("derives MCP from an explicitly configured control plane", async () => {
+    await setDenBootstrapConfig({ baseUrl: "https://cloud.example.com", requireSignin: false });
     const url = getDenMcpUrl();
     expect(isLegacyWebAppMcpUrl(url)).toBe(false);
-    expect(url.endsWith("/mcp")).toBe(true);
+    expect(url).toBe("https://cloud.example.com/api/den/mcp");
+    await setDenBootstrapConfig({ baseUrl: DEFAULT_DEN_BASE_URL, requireSignin: false });
   });
 });
 

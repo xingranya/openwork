@@ -2,9 +2,9 @@ import { INFERENCE_MODEL_ALIASES } from "@openwork/types/den/inference";
 
 import {
   buildDenAuthUrl,
+  DEFAULT_DEN_BASE_URL,
   getDenInferenceUrl,
   isSelfHostedControlPlane,
-  HOSTED_DEFAULT_DEN_BASE_URL,
   readDenBootstrapConfig,
   readDenSettings,
 } from "../../../app/lib/den";
@@ -32,7 +32,9 @@ export function areOpenWorkModelsPromosDisabled() {
 }
 
 export function isOpenWorkModelsPromoEligibleForDenBaseUrl(baseUrl: string) {
-  return !areOpenWorkModelsPromosDisabled() && isDefaultControlPlaneUrl(baseUrl, HOSTED_DEFAULT_DEN_BASE_URL);
+  return Boolean(DEFAULT_DEN_BASE_URL)
+    && !areOpenWorkModelsPromosDisabled()
+    && isDefaultControlPlaneUrl(baseUrl, DEFAULT_DEN_BASE_URL);
 }
 
 export function isOpenWorkModelsPromoEligible() {

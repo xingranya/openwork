@@ -125,6 +125,12 @@ const STANDARD_DESKTOP_INSTALLER_PATTERN = /^openwork-(?:mac-(?:arm64|x64)-.+\.d
 const HOSTED_DESKTOP_WEB_URL = "https://app.openworklabs.com";
 const HOSTED_DESKTOP_API_URL = "https://api.openworklabs.com";
 
+export function resolveDefaultDenBaseUrl(environment = process.env) {
+  return typeof environment.OPENWORK_DEN_BASE_URL === "string"
+    ? environment.OPENWORK_DEN_BASE_URL.trim()
+    : "";
+}
+
 function bootstrapUrlOrigin(value) {
   if (typeof value !== "string" || !value.trim()) return "";
   try {

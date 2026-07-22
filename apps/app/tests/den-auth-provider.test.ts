@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { DenApiError } from "../src/app/lib/den";
+import { DenApiError, isDenCloudConfigured } from "../src/app/lib/den";
 import {
   DEN_AUTH_SIGNAL_RETRY_COOLDOWN_MS,
   hasRetainedDenSession,
@@ -24,6 +24,15 @@ describe("resolveDenAuthFailureStatus", () => {
     );
     expect(resolveDenAuthFailureStatus(new Error("Request timed out."))).toBe("unavailable");
     expect(resolveDenAuthFailureStatus(new TypeError("Failed to fetch"))).toBe("unavailable");
+  });
+});
+
+describe("Den Cloud configuration", () => {
+  test("requires an explicit valid control-plane URL", () => {
+    expect(isDenCloudConfigured(null)).toBe(false);
+    expect(isDenCloudConfigured("")).toBe(false);
+    expect(isDenCloudConfigured("not-a-url")).toBe(false);
+    expect(isDenCloudConfigured("https://cloud.example.com")).toBe(true);
   });
 });
 

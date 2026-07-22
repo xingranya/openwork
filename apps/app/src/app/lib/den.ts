@@ -49,13 +49,12 @@ export const DEFAULT_DEN_AUTH_NAME = "OpenWork User";
 const BUILD_DEN_BASE_URL =
   (typeof import.meta !== "undefined" && typeof import.meta.env?.VITE_DEN_BASE_URL === "string"
     ? import.meta.env.VITE_DEN_BASE_URL
-    : "").trim() || "https://app.openworklabs.com";
+    : "").trim();
 const BUILD_DEN_REQUIRE_SIGNIN =
   (typeof import.meta !== "undefined" && typeof import.meta.env?.VITE_DEN_REQUIRE_SIGNIN === "string"
     ? /^(1|true|yes|on)$/i.test(import.meta.env.VITE_DEN_REQUIRE_SIGNIN.trim())
     : false);
 
-export const HOSTED_DEFAULT_DEN_BASE_URL = "https://app.openworklabs.com";
 export const DEFAULT_DEN_BASE_URL = BUILD_DEN_BASE_URL;
 export const DEN_INFERENCE_PATH = "/dashboard/inference";
 
@@ -481,16 +480,17 @@ export function denOriginComparisonKey(input: string | null | undefined): string
 }
 
 /**
- * True when the effective Den control plane is not the hosted OpenWork Cloud
- * (app.openworklabs.com). Self-hosted deployments point the app at their own
- * control plane via VITE_DEN_BASE_URL or the desktop bootstrap config, so
- * hosted-only surfaces (e.g. OpenWork Models upsells) should stay hidden.
+ * True when the effective Den control plane differs from the explicitly
+ * configured build default. A build without a default is local-only, so
+ * hosted-only surfaces stay hidden.
  */
 export function isSelfHostedControlPlane(): boolean {
-  return (
-    denOriginComparisonKey(readDenSettings().baseUrl) !==
-    denOriginComparisonKey(HOSTED_DEFAULT_DEN_BASE_URL)
-  );
+  const defaultOrigin = denOriginComparisonKey(DEFAULT_DEN_BASE_URL);
+  return defaultOrigin === null || denOriginComparisonKey(readDenSettings().baseUrl) !== defaultOrigin;
+}
+
+export function isDenCloudConfigured(baseUrl: string | null | undefined): boolean {
+  return normalizeDenBaseUrl(baseUrl) !== null;
 }
 
 export function getDenInferenceUrl(baseUrl?: string | null): string {
@@ -555,6 +555,7 @@ export function resolveDenBaseUrls(input: { baseUrl?: string | null; apiBaseUrl?
 /** The MCP endpoint served through the Den web proxy from the single base URL. */
 export function getDenMcpUrl(): string {
   const { apiBaseUrl } = resolveDenBaseUrls(readDenBootstrapConfig());
+  if (!apiBaseUrl) return "";
   return `${apiBaseUrl.replace(/\/+$/, "")}/mcp`;
 }
 
@@ -680,7 +681,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
   // silently reverted custom/self-hosted control planes to the production
   // URL until a manual reload.
   desktopBootstrapConfig = resolveDenBootstrapConfig({
-    baseUrl: HOSTED_DEFAULT_DEN_BASE_URL,
+    baseUrl: BUILD_DEN_BASE_URL,
     requireSignin: BUILD_DEN_REQUIRE_SIGNIN,
   });
 

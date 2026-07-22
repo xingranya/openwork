@@ -30,7 +30,7 @@ import {
 import { createUiControlServer } from "./ui-control-server.mjs";
 import { createApplicationMenu } from "./app-menu.mjs";
 import { createBrowserPanel } from "./browser-panel.mjs";
-import { createWorkspaceStore } from "./workspace-store.mjs";
+import { createWorkspaceStore, resolveDefaultDenBaseUrl } from "./workspace-store.mjs";
 import {
   createConnectLinkReplayGuard,
   extractConnectExchange,
@@ -858,7 +858,7 @@ if (extraLaunchArgs) {
   }
 }
 configureFakeMediaForTests(app, envFlagEnabled("OPENWORK_ELECTRON_FAKE_MEDIA"));
-const DEFAULT_DEN_BASE_URL = "https://app.openworklabs.com";
+const DEFAULT_DEN_BASE_URL = resolveDefaultDenBaseUrl();
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("OPENWORK_FORCE_SIGNIN");
 const DEFAULT_DESKTOP_REQUIRE_SIGNIN = FORCE_DESKTOP_REQUIRE_SIGNIN;

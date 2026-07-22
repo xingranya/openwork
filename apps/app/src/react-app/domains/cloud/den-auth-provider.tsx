@@ -14,6 +14,7 @@ import {
   clearDenSession,
   createDenClient,
   ensureDenActiveOrganization,
+  isDenCloudConfigured,
   isDenSessionRevokedError,
   readDenBootstrapConfig,
   readDenSettings,
@@ -104,7 +105,7 @@ export function DenAuthProvider({ children }: DenAuthProviderProps) {
     const settings = readDenSettings();
     const token = settings.authToken?.trim() ?? "";
 
-    if (!token) {
+    if (!isDenCloudConfigured(settings.baseUrl) || !token) {
       setUser(null);
       setError(null);
       lastSignalRetryAtRef.current = null;

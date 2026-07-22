@@ -161,9 +161,10 @@ export const MCP_QUICK_CONNECT: McpDirectoryInfo[] = [
       // never at the web app's root (see
       // packages/docs/cloud/run-in-the-cloud/cloud-mcp.mdx).
       try {
-        return `${getDenMcpUrl()}/agent`;
+        const mcpUrl = getDenMcpUrl();
+        return mcpUrl ? `${mcpUrl}/agent` : "";
       } catch {
-        return "https://app.openworklabs.com/api/den/mcp/agent";
+        return "";
       }
     },
     type: "remote",
