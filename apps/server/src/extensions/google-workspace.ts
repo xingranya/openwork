@@ -2,11 +2,11 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { createServer, type Server } from "node:http";
 import { chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { homedir } from "node:os";
 
 import { ApiError } from "../errors.js";
 import { externalFetch } from "../server-fetch.js";
 import type { ServerConfig } from "../types.js";
+import { resolveBrandConfigDirectory } from "../brand-paths.js";
 
 export const GOOGLE_WORKSPACE_EXTENSION_ID = "google-workspace";
 
@@ -299,7 +299,7 @@ function readStringField(value: unknown, key: string): string {
 }
 
 function configDir(config: ServerConfig): string {
-  return dirname(config.configPath?.trim() || resolve(homedir(), ".config", "openwork", "server.json"));
+  return dirname(config.configPath?.trim() || resolve(resolveBrandConfigDirectory(), "server.json"));
 }
 
 function googleWorkspaceCredentials() {

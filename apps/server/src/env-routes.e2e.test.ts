@@ -57,7 +57,7 @@ beforeEach(() => {
   const dir = mkdtempSync(join(tmpdir(), "openwork-env-routes-"));
   dirs.push(dir);
   // Redirect the shared env.json path into a throwaway dir so the test never
-  // touches the developer's real ~/.config/openwork/env.json.
+  // touches the developer's real ~/.config/brand-project-os/env.json.
   process.env.OPENWORK_ENV_STORE = join(dir, "env.json");
   process.env.OPENWORK_TOKEN_STORE = join(dir, "tokens.json");
 });

@@ -16,15 +16,15 @@ describe("desktopBootstrapPath", () => {
   })
 
   test("prefers XDG_CONFIG_HOME on every platform", () => {
-    expect(desktopBootstrapPath({ XDG_CONFIG_HOME: "/xdg" }, "linux")).toBe(path.join("/xdg", "openwork", "desktop-bootstrap.json"))
-    expect(desktopBootstrapPath({ XDG_CONFIG_HOME: "/xdg" }, "win32")).toBe(path.join("/xdg", "openwork", "desktop-bootstrap.json"))
+    expect(desktopBootstrapPath({ XDG_CONFIG_HOME: "/xdg" }, "linux")).toBe(path.join("/xdg", "brand-project-os", "desktop-bootstrap.json"))
+    expect(desktopBootstrapPath({ XDG_CONFIG_HOME: "/xdg" }, "win32")).toBe(path.join("/xdg", "brand-project-os", "desktop-bootstrap.json"))
   })
 
   test("uses LOCALAPPDATA on Windows and ~/.config elsewhere", () => {
     expect(desktopBootstrapPath({ LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" }, "win32")).toBe(
-      path.join("C:\\Users\\u\\AppData\\Local", "openwork", "desktop-bootstrap.json"),
+      path.join("C:\\Users\\u\\AppData\\Local", "brand-project-os", "desktop-bootstrap.json"),
     )
-    expect(desktopBootstrapPath({}, "darwin")).toBe(path.join(os.homedir(), ".config", "openwork", "desktop-bootstrap.json"))
+    expect(desktopBootstrapPath({}, "darwin")).toBe(path.join(os.homedir(), ".config", "brand-project-os", "desktop-bootstrap.json"))
   })
 
   test("resolves the legacy bootstrap path under ~/.config on every platform", () => {

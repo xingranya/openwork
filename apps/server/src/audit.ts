@@ -3,6 +3,7 @@ import { appendFile, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import type { AuditEntry } from "./types.js";
 import { ensureDir, exists } from "./utils.js";
+import { resolveBrandDataDirectory } from "./brand-paths.js";
 
 function expandHome(value: string): string {
   if (value.startsWith("~/")) {
@@ -14,7 +15,7 @@ function expandHome(value: string): string {
 function resolveOpenworkDataDir(): string {
   const override = process.env.OPENWORK_DATA_DIR?.trim();
   if (override) return expandHome(override);
-  return join(homedir(), ".openwork", "openwork-server");
+  return join(resolveBrandDataDirectory(), "openwork-server");
 }
 
 export function auditLogPath(workspaceId: string): string {

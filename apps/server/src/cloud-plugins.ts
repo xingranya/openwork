@@ -1,5 +1,4 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
@@ -8,6 +7,7 @@ import { ApiError } from "./errors.js";
 import { parseFrontmatter, buildFrontmatter } from "./frontmatter.js";
 import { addMcp, removeMcp } from "./mcp.js";
 import { ensureDir } from "./utils.js";
+import { resolveBrandConfigDirectory } from "./brand-paths.js";
 
 const OPENCODE_SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const OPENCODE_MCP_NAME_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]*$/;
@@ -490,7 +490,7 @@ function runtimeDbPath(config: ServerConfig): string {
   const override = process.env.OPENWORK_RUNTIME_DB?.trim();
   if (override) return resolve(override);
   const configPath = config.configPath?.trim();
-  const configDir = configPath ? dirname(configPath) : resolve(homedir(), ".config", "openwork");
+  const configDir = configPath ? dirname(configPath) : resolveBrandConfigDirectory();
   return resolve(configDir, "runtime.sqlite");
 }
 

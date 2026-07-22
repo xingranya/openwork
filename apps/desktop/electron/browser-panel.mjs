@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { app, WebContentsView, clipboard, session, shell } from "electron";
+import { isAcceptedDesktopDeepLink } from "./brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_SESSION_PARTITION = "persist:openwork-browser";
@@ -496,9 +497,8 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
       // data: loads are internal plumbing (CDP target-marker pages), not
       // user-visible navigations — don't surface the panel for them.
       if (target === "about:blank" || target.startsWith("data:")) return;
-      // Intercept openwork:// deep links (e.g. den-auth handoff grants) so
-      // in-app browser auth works without the system protocol handler.
-      if (target.startsWith("openwork://") || target.startsWith("openwork-dev://")) {
+      // 在应用内接住当前协议和旧版迁移协议，不交给系统协议处理器。
+      if (isAcceptedDesktopDeepLink(target)) {
         if (typeof onDeepLink === "function") {
           onDeepLink([target]);
         }

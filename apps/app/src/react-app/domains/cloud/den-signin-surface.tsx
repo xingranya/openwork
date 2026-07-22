@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { TextInput } from "../../design-system/text-input";
 import { OrganizationServerAffordance } from "../settings/cloud/organization-server-affordance";
 import { SignInFallbackNotice } from "./signin-fallback-notice";
+import { PRODUCT_NAME } from "@/app/product-brand";
 
 export type DenSignInSurfaceVariant = "panel" | "fullscreen";
 
@@ -161,7 +162,7 @@ function ShowcasePanel() {
  */
 export function DenSignInSurface(props: DenSignInSurfaceProps) {
   const variant: DenSignInSurfaceVariant = props.variant ?? "panel";
-  const appName = props.appName?.trim() || "OpenWork";
+  const appName = props.appName?.trim() || PRODUCT_NAME;
 
   /* -- Panel content (reused by both variants) -- */
   const panelContent = (

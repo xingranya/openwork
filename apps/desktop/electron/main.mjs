@@ -54,6 +54,16 @@ import {
   writeWindowsBrandShortcut,
   windowsIconFromNativeImage,
 } from "./brand-icon-windows.mjs";
+import {
+  BRAND_APP_IDENTIFIER,
+  BRAND_APP_NAME,
+  BRAND_DEV_APP_IDENTIFIER,
+  BRAND_DEV_APP_NAME,
+  BRAND_PROTOCOL_SCHEME,
+  isAcceptedDesktopDeepLink,
+  migrateLegacyUserDataDirectory,
+  resolveLegacyUserDataPath,
+} from "./brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -75,17 +85,14 @@ const {
 } = require("electron");
 const pty = require(["node", "pty"].join("-"));
 const NATIVE_DEEP_LINK_EVENT = "openwork:deep-link-native";
-const TAURI_APP_IDENTIFIER = "com.differentai.openwork";
-const DEV_APP_IDENTIFIER = "com.differentai.openwork.dev";
-const DESKTOP_PROTOCOL_SCHEME = "openwork";
 const isDevMode = process.env.OPENWORK_DEV_MODE === "1";
 const APP_NAME =
   process.env.OPENWORK_ELECTRON_APP_NAME?.trim() ||
-  (isDevMode ? "OpenWork - Dev" : "OpenWork");
+  (isDevMode ? BRAND_DEV_APP_NAME : BRAND_APP_NAME);
 let currentDisplayAppName = APP_NAME;
 const APP_IDENTIFIER =
   process.env.OPENWORK_ELECTRON_APP_IDENTIFIER?.trim() ||
-  (isDevMode ? DEV_APP_IDENTIFIER : TAURI_APP_IDENTIFIER);
+  (isDevMode ? BRAND_DEV_APP_IDENTIFIER : BRAND_APP_IDENTIFIER);
 if (process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN === "1") {
   // Fresh, isolated development profiles otherwise trigger macOS's native
   // "Login" keychain prompt as soon as Chromium persists an authenticated
@@ -97,10 +104,11 @@ if (process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN === "1") {
 const UPDATER_CONFIGURATION = resolveUpdaterConfiguration();
 const RELEASE_DOWNLOAD_BASE_URL = UPDATER_CONFIGURATION.stable;
 const RELEASE_PAGE_URL = UPDATER_CONFIGURATION.releasePage;
-const DOCS_PAGE_URL = "https://openworklabs.com/docs";
+const DOCS_PAGE_URL = "";
 const applicationMenu = createApplicationMenu({
   appName: APP_NAME,
   docsUrl: DOCS_PAGE_URL,
+  updatesEnabled: Boolean(RELEASE_DOWNLOAD_BASE_URL),
   getWindow: () => createMainWindow(),
 });
 
@@ -154,7 +162,7 @@ function killTerminalsForWebContents(webContentsId) {
 app.setName(APP_NAME);
 app.setAppUserModelId(APP_IDENTIFIER);
 if (app.isPackaged && process.env.OPENWORK_ELECTRON_DISABLE_PROTOCOL_REGISTRATION !== "1") {
-  app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL_SCHEME);
+  app.setAsDefaultProtocolClient(BRAND_PROTOCOL_SCHEME);
 }
 const userDataOverride = process.env.OPENWORK_ELECTRON_USERDATA?.trim();
 if (userDataOverride) {
@@ -990,8 +998,7 @@ function forwardedDeepLinks(argv) {
     .map((entry) => entry.trim())
     .filter(
       (entry) =>
-        entry.startsWith("openwork://") ||
-        entry.startsWith("openwork-dev://") ||
+        isAcceptedDesktopDeepLink(entry) ||
         entry.startsWith("https://") ||
         entry.startsWith("http://"),
     );
@@ -2386,6 +2393,18 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    if (!userDataOverride) {
+      const migration = await migrateLegacyUserDataDirectory({
+        sourcePath: resolveLegacyUserDataPath(app, isDevMode),
+        destinationPath: app.getPath("userData"),
+      }).catch((error) => {
+        console.warn("[migration] 旧 OpenWork 用户数据迁移失败", error);
+        return { migrated: false, copiedEntries: 0 };
+      });
+      if (migration.migrated) {
+        console.info(`[migration] 已复制 ${migration.copiedEntries} 个旧 OpenWork 数据项`);
+      }
+    }
     installMediaPermissionHandlers(session, () => mainWindow);
     await workspaceStore.importBundledDesktopBootstrapConfigIfPreferred();
     const bootstrapConfig = await workspaceStore.getDesktopBootstrapConfig();

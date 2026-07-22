@@ -4,6 +4,7 @@ import { desktopPolicyKeys, type BrandAccentColor } from "@openwork/types/den/de
 
 import { useNotificationStore } from "../../kernel/notification-store";
 import { useOrgRestrictions } from "./desktop-config-provider";
+import { PRODUCT_NAME } from "@/app/product-brand";
 
 // ---------------------------------------------------------------------------
 // Radix accent-color mapping
@@ -86,7 +87,7 @@ export function useBrandLogoUrl(): string | undefined {
 
 /** Organization-managed display name. It does not change the signed app identity. */
 export function useBrandAppName(): string {
-  return useOrgRestrictions().brandAppName ?? "OpenWork";
+  return useOrgRestrictions().brandAppName ?? PRODUCT_NAME;
 }
 
 const POLICY_NOTIFICATION_DEDUPE = "desktop-policy-active";

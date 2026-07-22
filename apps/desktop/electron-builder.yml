@@ -1,12 +1,9 @@
-# IMPORTANT: appId intentionally matches the Tauri shell so both builds share
-# the same macOS bundle identifier, keychain entries, Launchpad slot, and TCC
-# permissions. In-place migration from Tauri to Electron depends on this.
-appId: com.differentai.openwork
-productName: OpenWork
+appId: com.foxwork.brandprojectos
+productName: Brand Project OS
 protocols:
-  - name: OpenWork
+  - name: Brand Project OS
     schemes:
-      - openwork
+      - brandprojectos
 directories:
   output: dist-electron
 toolsets:
@@ -36,14 +33,6 @@ asarUnpack:
 npmRebuild: false
 afterPack: scripts/electron-after-pack.cjs
 afterSign: scripts/electron-after-sign.cjs
-# electron-updater feed. Matches the existing release workflow's GitHub target
-# so both Tauri (latest.json) and Electron (latest*.yml) can live on the same
-# release assets during the migration window.
-publish:
-  - provider: github
-    owner: different-ai
-    repo: openwork
-    releaseType: release
 mac:
   icon: resources/icons/icon.icns
   category: public.app-category.developer-tools
@@ -53,7 +42,7 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    NSMicrophoneUsageDescription: OpenWork uses the microphone when you start Voice Mode so you can speak commands to your agent.
+    NSMicrophoneUsageDescription: Brand Project OS 仅在你主动开启语音模式时使用麦克风。
   extraResources:
     - from: resources/sidecars
       to: sidecars
@@ -70,13 +59,13 @@ mac:
     - from: resources/helpers
       to: helpers
       filter:
-        - "OpenWork Computer Use.app/**"
+        - "Brand Project OS Computer Use.app/**"
   target:
     - dmg
     - zip
 linux:
   icon: resources/icons/icon.png
-  executableName: openwork
+  executableName: brand-project-os
   extraResources:
     - from: resources/sidecars
       to: sidecars
@@ -112,4 +101,4 @@ win:
     - nsis
 nsis:
   include: build/installer.nsh
-artifactName: openwork-${os}-${arch}-${version}.${ext}
+artifactName: brand-project-os-${os}-${arch}-${version}.${ext}

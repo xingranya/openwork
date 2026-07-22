@@ -9,6 +9,7 @@ import { Buffer } from "node:buffer";
 import { createPublicKey, verify } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isAcceptedDesktopDeepLink } from "./brand.mjs";
 
 const CONNECT_LINK_ALGORITHM = "EdDSA";
 const CONNECT_LINK_AUDIENCE = "openwork-desktop-connect";
@@ -144,9 +145,7 @@ function normalizeClaims(payload) {
 }
 
 /**
- * Extracts the signed token from a connect deep link. Accepts the openwork
- * and openwork-dev schemes and both authority forms (openwork://connect and
- * openwork:///connect).
+ * 从当前桌面协议或旧版迁移协议中提取签名令牌。
  *
  * @param {string} rawUrl
  * @returns {string | null}
@@ -159,7 +158,7 @@ export function extractConnectLinkToken(rawUrl) {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "openwork:" && parsed.protocol !== "openwork-dev:") return null;
+  if (!isAcceptedDesktopDeepLink(parsed.href)) return null;
   const route = (parsed.hostname || parsed.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
   if (route !== CONNECT_LINK_ROUTE) return null;
   if (parsed.searchParams.has("code") || parsed.searchParams.has("apiBaseUrl")) return null;
@@ -179,7 +178,7 @@ export function extractConnectExchange(rawUrl) {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "openwork:" && parsed.protocol !== "openwork-dev:") return null;
+  if (!isAcceptedDesktopDeepLink(parsed.href)) return null;
   const route = (parsed.hostname || parsed.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
   if (route !== CONNECT_LINK_ROUTE || parsed.searchParams.has("token")) return null;
   const code = parsed.searchParams.get("code")?.trim() ?? "";

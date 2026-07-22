@@ -44,7 +44,7 @@ async function withIsolatedBootstrapStore(callback) {
     return await callback({
       store,
       createStore,
-      canonicalPath: path.join(xdg, "openwork", "desktop-bootstrap.json"),
+      canonicalPath: path.join(xdg, "brand-project-os", "desktop-bootstrap.json"),
       legacyPath: path.join(home, ".config", "openwork", "desktop-bootstrap.json"),
       root,
       userDataPath: path.join(root, "userData"),
@@ -205,7 +205,7 @@ test("does not create a default workspace when desktop state is absent", async (
 
     const state = await store.readWorkspaceState();
     assert.equal(state.workspaces.length, 0);
-    await assert.rejects(readFile(path.join(userData, "openwork-dev-data", "home", "OpenWork", ".opencode", "openwork.json"), "utf8"));
+    await assert.rejects(readFile(path.join(userData, "brand-project-os-dev-data", "home", "Brand Project OS", ".opencode", "openwork.json"), "utf8"));
   } finally {
     restoreEnv("OPENWORK_DEV_MODE", previousDevMode);
     restoreEnv("OPENWORK_SERVER_CONFIG", previousServerConfig);
@@ -603,7 +603,7 @@ test("replaces an installed hosted default with a custom organization Windows bu
   });
 });
 
-test("clearDesktopBootstrapConfig removes bootstrap files without deleting workspace state", async () => {
+test("clearDesktopBootstrapConfig keeps legacy files read-only without restoring them", async () => {
   await withIsolatedBootstrapStore(async ({ store, canonicalPath, legacyPath, userDataPath }) => {
     const workspaceStatePath = path.join(userDataPath, "openwork-workspaces.json");
     await writeBootstrapConfig(canonicalPath, {
@@ -622,7 +622,7 @@ test("clearDesktopBootstrapConfig removes bootstrap files without deleting works
     await store.clearDesktopBootstrapConfig();
 
     await assert.rejects(readFile(canonicalPath, "utf8"));
-    await assert.rejects(readFile(legacyPath, "utf8"));
+    assert.equal(JSON.parse(await readFile(legacyPath, "utf8")).baseUrl, "https://legacy.example.com");
     const workspaceState = JSON.parse(await readFile(workspaceStatePath, "utf8"));
     assert.equal(workspaceState.selectedId, "ws_keep");
 

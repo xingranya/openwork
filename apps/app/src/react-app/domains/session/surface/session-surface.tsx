@@ -13,6 +13,7 @@ import { t } from "@/i18n";
 import { readWorkspaceCloudImports, type CloudImportedPlugin } from "@/app/cloud/import-state";
 import { createDenClient, readDenSettings } from "@/app/lib/den";
 import { denSettingsChangedEvent } from "@/app/lib/den-session-events";
+import { PRODUCT_NAME } from "@/app/product-brand";
 import type {
   OpenworkServerClient,
   OpenworkSessionSnapshot,
@@ -105,7 +106,7 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
-const DEFAULT_COMPOSER_CONTROL_TEXT = "Help me outline the next OpenWork task.";
+const DEFAULT_COMPOSER_CONTROL_TEXT = "Help me outline the next Brand Project OS task.";
 const SESSION_SURFACE_SELECTOR = "[data-session-surface-id]";
 
 type SessionError = {
@@ -172,7 +173,7 @@ export type SessionSurfaceProps = {
 };
 
 function messageToReadableText(message: UIMessage) {
-  const header = message.role === "user" ? "You" : message.role === "assistant" ? "OpenWork" : message.role;
+  const header = message.role === "user" ? "You" : message.role === "assistant" ? PRODUCT_NAME : message.role;
   const body = message.parts
     .flatMap((part) => {
       if (part.type === "text") return [part.text];
@@ -1352,7 +1353,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const organizationId = settings.activeOrgId?.trim() ?? "";
     if (!token || !organizationId) {
       props.onOpenConnect();
-      throw new Error("Sign in to OpenWork Cloud, then try reconnecting again.");
+      throw new Error("请先登录已配置的云服务，再重新连接。");
     }
 
     const scope: ChatMcpReconnectScope = {

@@ -8,6 +8,11 @@ import path from "node:path";
 import tls from "node:tls";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
+import {
+  BRAND_CONFIG_DIRECTORY,
+  LEGACY_CONFIG_DIRECTORY,
+  migrateLegacyUserDataDirectory,
+} from "./brand.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,11 +59,11 @@ export function resolveOpenworkServerConfigPath(env = process.env) {
   if (process.platform === "win32") {
     const appData = String(env.APPDATA ?? "").trim();
     const root = appData || path.join(os.homedir(), "AppData", "Roaming");
-    return path.join(root, "openwork", "server.json");
+    return path.join(root, BRAND_CONFIG_DIRECTORY, "server.json");
   }
   const xdgConfigHome = String(env.XDG_CONFIG_HOME ?? "").trim();
   const root = xdgConfigHome || path.join(os.homedir(), ".config");
-  return path.join(root, "openwork", "server.json");
+  return path.join(root, BRAND_CONFIG_DIRECTORY, "server.json");
 }
 
 export function seedWorkspacePathsForEmbeddedServer(workspacePaths, serverConfigExists) {
@@ -457,18 +462,24 @@ async function fetchJson(url, options = {}, timeoutMs = 3000) {
   }
 }
 
-// Resolves ~/.config/openwork/env.json (or %APPDATA%\openwork\env.json on
-// Windows) — must agree byte-for-byte with apps/server/src/env-file.ts and
-// apps/orchestrator/src/cli.ts. Honor OPENWORK_ENV_STORE override.
 function resolveUserEnvFilePath() {
   const override = String(process.env.OPENWORK_ENV_STORE ?? "").trim();
   if (override) return path.resolve(override);
   if (process.platform === "win32") {
     const appData = String(process.env.APPDATA ?? "").trim();
     const root = appData || path.join(os.homedir(), "AppData", "Roaming");
-    return path.join(root, "openwork", "env.json");
+    return path.join(root, BRAND_CONFIG_DIRECTORY, "env.json");
   }
-  return path.join(os.homedir(), ".config", "openwork", "env.json");
+  return path.join(os.homedir(), ".config", BRAND_CONFIG_DIRECTORY, "env.json");
+}
+
+function resolveLegacyUserEnvFilePath() {
+  if (process.platform === "win32") {
+    const appData = String(process.env.APPDATA ?? "").trim();
+    const root = appData || path.join(os.homedir(), "AppData", "Roaming");
+    return path.join(root, LEGACY_CONFIG_DIRECTORY, "env.json");
+  }
+  return path.join(os.homedir(), ".config", LEGACY_CONFIG_DIRECTORY, "env.json");
 }
 
 const USER_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -478,7 +489,11 @@ const USER_ENV_RESERVED_PREFIXES = ["OPENWORK_", "OPENCODE_"];
 // are stripped so a tampered file can never shadow OPENWORK_* / OPENCODE_*.
 function loadUserEnvFile() {
   try {
-    const raw = readFileSync(resolveUserEnvFilePath(), "utf8");
+    const currentPath = resolveUserEnvFilePath();
+    const raw = readFileSync(
+      existsSync(currentPath) ? currentPath : resolveLegacyUserEnvFilePath(),
+      "utf8",
+    );
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.variables)) return {};
     const out = {};
@@ -610,6 +625,10 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   function orchestratorDataDir() {
     const envDir = process.env.OPENWORK_DATA_DIR?.trim();
     if (envDir) return envDir;
+    return path.join(app.getPath("home"), ".brand-project-os", "openwork-orchestrator");
+  }
+
+  function legacyOrchestratorDataDir() {
     return path.join(app.getPath("home"), ".openwork", "openwork-orchestrator");
   }
 
@@ -749,7 +768,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   }
 
   async function ensureDevModePaths() {
-    const root = path.join(userDataDir, "openwork-dev-data");
+    const root = path.join(userDataDir, "brand-project-os-dev-data");
     const paths = {
       homeDir: path.join(root, "home"),
       xdgConfigHome: path.join(root, "xdg", "config"),
@@ -1435,6 +1454,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
   async function prepareFreshRuntime() {
     lifecycleState = "cleaning";
+    if (!process.env.OPENWORK_DATA_DIR?.trim()) {
+      await migrateLegacyUserDataDirectory({
+        sourcePath: legacyOrchestratorDataDir(),
+        destinationPath: orchestratorDataDir(),
+      });
+    }
     await stopAllRuntimeChildren();
     await cleanupPackagedSidecars();
     lifecycleState = "idle";

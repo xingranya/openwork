@@ -1,8 +1,12 @@
-import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { ApprovalMode, ApprovalConfig, ServerConfig, WorkspaceConfig, LogFormat } from "./types.js";
 import { buildWorkspaceInfos } from "./workspaces.js";
 import { parseList, readJsonFile, shortId } from "./utils.js";
+import {
+  migrateLegacyDirectory,
+  resolveBrandConfigDirectory,
+  resolveLegacyConfigDirectory,
+} from "./brand-paths.js";
 
 export interface CliArgs {
   configPath?: string;
@@ -208,7 +212,11 @@ async function loadFileConfig(configPath: string): Promise<FileConfig> {
 
 export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
   const envConfigPath = process.env.OPENWORK_SERVER_CONFIG;
-  const configPath = cli.configPath ?? envConfigPath ?? resolve(homedir(), ".config", "openwork", "server.json");
+  const usesDefaultConfigPath = !cli.configPath && !envConfigPath;
+  const configPath = cli.configPath ?? envConfigPath ?? join(resolveBrandConfigDirectory(), "server.json");
+  if (usesDefaultConfigPath) {
+    await migrateLegacyDirectory(resolveLegacyConfigDirectory(), resolveBrandConfigDirectory());
+  }
   const fileConfig = await loadFileConfig(configPath);
   const configDir = dirname(configPath);
 

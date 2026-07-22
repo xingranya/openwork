@@ -32,5 +32,6 @@ export const OPENWORK_BUILD_IDENTIFIER = resolveOpenWorkBuildIdentifier({
 });
 
 export const OPENWORK_BUILD_IDENTIFIER_LABEL = OPENWORK_BUILD_IDENTIFIER
-  ? `OpenWork ${OPENWORK_BUILD_IDENTIFIER}`
+  ? `${PRODUCT_NAME} ${OPENWORK_BUILD_IDENTIFIER}`
   : null;
+import { PRODUCT_NAME } from "../product-brand";

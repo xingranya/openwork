@@ -23,6 +23,7 @@ import { useDenAuth } from "./den-auth-provider";
 import { useDesktopConfig } from "./desktop-config-provider";
 import { applyBrandAppName } from "../../../app/lib/desktop";
 import { DenSignInSurface } from "./den-signin-surface";
+import { PRODUCT_NAME } from "@/app/product-brand";
 import { tryOpenBrowserAuthUrl } from "./open-browser-auth";
 import { saveControlPlaneUrl } from "../settings/cloud/control-plane-url";
 
@@ -32,7 +33,7 @@ export type ForcedSigninPageProps = {
 
 /**
  * Parse a pasted manual-auth input. Accepts either a raw handoff grant
- * string (>= 12 chars) or an `openwork://den-auth?grant=…` deep link.
+ * string (>= 12 chars) or a `brandprojectos://den-auth?grant=...` deep link.
  * Matches the Solid ForcedSigninPage exactly so flows stay fungible.
  */
 function parseManualAuthInput(value: string) {
@@ -82,7 +83,7 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
 
   const initial = readDenSettings();
   const bootstrap = readDenBootstrapConfig();
-  const appName = bootstrap.brandAppName?.trim() || "OpenWork";
+  const appName = bootstrap.brandAppName?.trim() || PRODUCT_NAME;
   const initialBaseUrl = initial.baseUrl || DEFAULT_DEN_BASE_URL;
 
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);

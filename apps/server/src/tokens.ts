@@ -1,9 +1,9 @@
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 
 import type { ServerConfig, TokenScope } from "./types.js";
 import { ensureDir, exists, hashToken, shortId } from "./utils.js";
+import { resolveBrandConfigDirectory } from "./brand-paths.js";
 
 export type TokenRecord = {
   id: string;
@@ -29,7 +29,7 @@ function resolveTokenStorePath(config: ServerConfig): string {
   if (override) return resolve(override);
 
   const configPath = config.configPath?.trim();
-  const configDir = configPath ? dirname(configPath) : join(homedir(), ".config", "openwork");
+  const configDir = configPath ? dirname(configPath) : resolveBrandConfigDirectory();
   return join(configDir, "tokens.json");
 }
 

@@ -19,7 +19,7 @@ import {
   writeFile,
   realpath,
 } from "node:fs/promises";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { createServer as createHttpServer } from "node:http";
 import { homedir, hostname, networkInterfaces, platform, tmpdir } from "node:os";
@@ -596,7 +596,7 @@ let cachedSandboxAllowlistError: string | null = null;
 function resolveSandboxAllowlistPath(): string {
   const override = process.env.OPENWORK_SANDBOX_MOUNT_ALLOWLIST?.trim();
   if (override) return resolve(override);
-  return join(homedir(), ".config", "openwork", "sandbox-mount-allowlist.json");
+  return join(homedir(), ".config", "brand-project-os", "sandbox-mount-allowlist.json");
 }
 
 function expandTildePath(input: string): string {
@@ -1670,12 +1670,18 @@ function resolveExtraPathEntries(): string[] {
   return entries;
 }
 
-// Resolves ~/.config/openwork/env.json (or %APPDATA%\openwork\env.json on
-// Windows) — must agree byte-for-byte with apps/server/src/env-file.ts and
-// apps/desktop/electron/runtime.mjs. Honor OPENWORK_ENV_STORE override.
 function resolveUserEnvFilePath(): string {
   const override = (process.env.OPENWORK_ENV_STORE ?? "").trim();
   if (override) return resolve(override);
+  if (platform() === "win32") {
+    const appData = (process.env.APPDATA ?? "").trim();
+    const root = appData || join(homedir(), "AppData", "Roaming");
+    return join(root, "brand-project-os", "env.json");
+  }
+  return join(homedir(), ".config", "brand-project-os", "env.json");
+}
+
+function resolveLegacyUserEnvFilePath(): string {
   if (platform() === "win32") {
     const appData = (process.env.APPDATA ?? "").trim();
     const root = appData || join(homedir(), "AppData", "Roaming");
@@ -1690,7 +1696,8 @@ const USER_ENV_RESERVED_PREFIXES = ["OPENWORK_", "OPENCODE_"] as const;
 // Reads on every spawn so UI edits are picked up on the next child start.
 function loadUserEnvFile(): Record<string, string> {
   try {
-    const raw = readFileSync(resolveUserEnvFilePath(), "utf8");
+    const currentPath = resolveUserEnvFilePath();
+    const raw = readFileSync(existsSync(currentPath) ? currentPath : resolveLegacyUserEnvFilePath(), "utf8");
     const parsed = JSON.parse(raw) as { variables?: unknown };
     if (!Array.isArray(parsed.variables)) return {};
     const out: Record<string, string> = {};
@@ -2650,7 +2657,7 @@ function resolveRouterDataDir(flags: Map<string, string | boolean>): string {
   if (override && override.trim()) {
     return resolve(override.trim());
   }
-  return join(homedir(), ".openwork", "openwork-orchestrator");
+  return join(homedir(), ".brand-project-os", "openwork-orchestrator");
 }
 
 function resolveInternalDevMode(flags: Map<string, string | boolean>): boolean {

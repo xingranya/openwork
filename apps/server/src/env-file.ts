@@ -1,8 +1,13 @@
-import { homedir, platform } from "node:os";
+import { platform } from "node:os";
 import { chmod, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { ensureDir, exists } from "./utils.js";
+import {
+  migrateLegacyDirectory,
+  resolveBrandConfigDirectory,
+  resolveLegacyConfigDirectory,
+} from "./brand-paths.js";
 
 // User-level environment variables, persisted so the desktop shell can inject
 // them into every spawned child (OpenCode and OpenWork server).
@@ -56,13 +61,7 @@ function isInternalEnvKey(key: string): boolean {
 export function resolveDefaultEnvStorePath(): string {
   const override = (process.env.OPENWORK_ENV_STORE ?? "").trim();
   if (override) return resolve(override);
-
-  if (platform() === "win32") {
-    const appData = (process.env.APPDATA ?? "").trim();
-    const root = appData || join(homedir(), "AppData", "Roaming");
-    return join(root, "openwork", "env.json");
-  }
-  return join(homedir(), ".config", "openwork", "env.json");
+  return join(resolveBrandConfigDirectory(), "env.json");
 }
 
 function parseRecord(raw: unknown): EnvRecord | null {
@@ -165,6 +164,7 @@ export type EnvEntry = { key: string; value: string };
 
 export class EnvService {
   private readonly path: string;
+  private readonly migrateLegacy: boolean;
   private loaded = false;
   private loadPromise: Promise<void> | null = null;
   private mutationQueue: Promise<void> = Promise.resolve();
@@ -172,12 +172,16 @@ export class EnvService {
 
   constructor(options?: { path?: string }) {
     this.path = options?.path ? resolve(options.path) : resolveDefaultEnvStorePath();
+    this.migrateLegacy = !options?.path && !(process.env.OPENWORK_ENV_STORE ?? "").trim();
   }
 
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
     if (!this.loadPromise) {
-      this.loadPromise = readStore(this.path)
+      this.loadPromise = (this.migrateLegacy
+        ? migrateLegacyDirectory(resolveLegacyConfigDirectory(), resolveBrandConfigDirectory())
+        : Promise.resolve(0))
+        .then(() => readStore(this.path))
         .then((store) => {
           this.variables = store.variables;
           this.loaded = true;
@@ -240,6 +244,9 @@ export class EnvService {
   // byte-for-byte in sync on path resolution and reserved-keys policy.
   static async readForInjection(overridePath?: string): Promise<Record<string, string>> {
     const path = overridePath?.trim() ? resolve(overridePath.trim()) : resolveDefaultEnvStorePath();
+    if (!overridePath?.trim() && !(process.env.OPENWORK_ENV_STORE ?? "").trim()) {
+      await migrateLegacyDirectory(resolveLegacyConfigDirectory(), resolveBrandConfigDirectory());
+    }
     const store = await readStore(path, { tolerateInvalid: true });
     const out: Record<string, string> = {};
     for (const entry of store.variables) {

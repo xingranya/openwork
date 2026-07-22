@@ -1,10 +1,10 @@
-import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { ServerConfig } from "./types.js";
 import { ensureDir } from "./utils.js";
+import { resolveBrandConfigDirectory } from "./brand-paths.js";
 
 export type RuntimeOpencodeConfig = {
   default_agent?: string;
@@ -65,7 +65,7 @@ export function runtimeDbPath(config: ServerConfig): string {
   const override = process.env.OPENWORK_RUNTIME_DB?.trim();
   if (override) return resolve(override);
   const configPath = config.configPath?.trim();
-  const configDir = configPath ? dirname(configPath) : join(homedir(), ".config", "openwork");
+  const configDir = configPath ? dirname(configPath) : resolveBrandConfigDirectory();
   return join(configDir, "runtime.sqlite");
 }
 

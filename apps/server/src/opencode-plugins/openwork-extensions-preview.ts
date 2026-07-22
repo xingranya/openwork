@@ -240,6 +240,8 @@ function uiControlToolsEnabled(): boolean {
 function uiControlDiscoveryPaths(): string[] {
   return [
     process.env.OPENWORK_UI_CONTROL_DISCOVERY?.trim(),
+    join(userAppDataDir(), "com.foxwork.brandprojectos", "openwork-ui-control.json"),
+    join(userAppDataDir(), "com.foxwork.brandprojectos.dev", "openwork-ui-control.json"),
     join(userAppDataDir(), "com.differentai.openwork", "openwork-ui-control.json"),
     join(userAppDataDir(), "com.differentai.openwork.dev", "openwork-ui-control.json"),
   ].filter((p): p is string => Boolean(p));

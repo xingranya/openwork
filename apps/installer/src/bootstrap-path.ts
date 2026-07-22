@@ -18,7 +18,7 @@ export function desktopBootstrapPath(
     env.XDG_CONFIG_HOME?.trim() ||
     (platform === "win32" ? env.LOCALAPPDATA?.trim() : "") ||
     path.join(os.homedir(), platform === "win32" ? path.join("AppData", "Local") : ".config")
-  return path.join(configHome, "openwork", "desktop-bootstrap.json")
+  return path.join(configHome, "brand-project-os", "desktop-bootstrap.json")
 }
 
 export function legacyDesktopBootstrapPath(

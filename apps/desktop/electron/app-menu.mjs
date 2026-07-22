@@ -10,7 +10,7 @@ const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "openwork:native-menu:toggle-sidebar";
 const NATIVE_MENU_CHECK_UPDATES_EVENT = "openwork:native-menu:check-updates";
 const NATIVE_MENU_ZOOM_EVENT = "openwork:native-menu:zoom";
 
-export function createApplicationMenu({ appName, docsUrl, getWindow }) {
+export function createApplicationMenu({ appName, docsUrl, updatesEnabled = false, getWindow }) {
   let applicationMenuVisible = process.platform === "darwin";
   let currentAppName = appName;
 
@@ -53,13 +53,14 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
               label: currentAppName,
               submenu: [
                 { role: "about" },
-                {
-                  label: "Check for Updates...",
-                  click: () => {
-                    void checkForUpdatesFromNativeMenu();
-                  },
-                },
-                { type: "separator" },
+                ...(updatesEnabled
+                  ? [{
+                      label: "Check for Updates...",
+                      click: () => {
+                        void checkForUpdatesFromNativeMenu();
+                      },
+                    }, { type: "separator" }]
+                  : []),
                 {
                   label: "Settings...",
                   accelerator: "Command+,",
@@ -82,7 +83,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
       {
         label: "File",
         submenu: [
-          ...(isMac
+          ...(isMac || !updatesEnabled
             ? []
             : [
                 {
@@ -205,12 +206,14 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
                 },
                 { type: "separator" },
               ]),
-          {
-            label: "Docs",
-            click: async () => {
-              await shell.openExternal(docsUrl);
-            },
-          },
+          ...(docsUrl
+            ? [{
+                label: "Docs",
+                click: async () => {
+                  await shell.openExternal(docsUrl);
+                },
+              }]
+            : []),
         ],
       },
     ]);

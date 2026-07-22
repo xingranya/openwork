@@ -5,16 +5,17 @@ const TOKEN = "eyJhbGciOiJFZERTQSJ9.eyJmYWtlIjoxfQ.c2ln";
 
 describe("parseConnectDeepLink", () => {
   test("parses production and dev desktop connect links", () => {
-    const rawUrl = `openwork://connect?token=${TOKEN}`;
+    const rawUrl = `brandprojectos://connect?token=${TOKEN}`;
     expect(parseConnectDeepLink(rawUrl)).toEqual({ rawUrl, key: `signed:${TOKEN}` });
-    expect(parseConnectDeepLink(`openwork-dev://connect?token=${TOKEN}`)?.key).toBe(`signed:${TOKEN}`);
+    expect(parseConnectDeepLink(`brandprojectos-dev://connect?token=${TOKEN}`)?.key).toBe(`signed:${TOKEN}`);
+    expect(parseConnectDeepLink(`openwork://connect?token=${TOKEN}`)?.key).toBe(`signed:${TOKEN}`);
     expect(parseConnectDeepLink(`openwork:///connect?token=${TOKEN}`)?.key).toBe(`signed:${TOKEN}`);
   });
 
   test("parses keyless exchange links without accepting ambiguous transports", () => {
     const code = "abcdefghijklmnopqrstuvwxyz123456";
     const apiBaseUrl = "https://den.example.com/api/den";
-    const rawUrl = `openwork://connect?code=${code}&apiBaseUrl=${encodeURIComponent(apiBaseUrl)}`;
+    const rawUrl = `brandprojectos://connect?code=${code}&apiBaseUrl=${encodeURIComponent(apiBaseUrl)}`;
     expect(parseConnectDeepLink(rawUrl)).toEqual({
       rawUrl,
       key: `exchange:${apiBaseUrl}:${code}`,

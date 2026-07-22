@@ -38,7 +38,7 @@ describe("updater configuration", () => {
 describe("staleUpdaterStatePaths", () => {
   it("targets the ShipIt cache on macOS", { skip: process.platform !== "darwin" }, () => {
     assert.deepEqual(staleUpdaterStatePaths(fakeApp), [
-      "/Users/test/Library/Caches/com.differentai.openwork.ShipIt",
+      "/Users/test/Library/Caches/com.foxwork.brandprojectos.ShipIt",
     ]);
   });
 

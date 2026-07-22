@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { createContext, useCallback, use, useMemo, useState, type ReactNode } from "react";
+import { PRODUCT_NAME } from "@/app/product-brand";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -37,12 +38,12 @@ export type ShellConfig = {
 /* ------------------------------------------------------------------ */
 
 export const DEFAULT_SHELL_CONFIG: ShellConfig = {
-  appName: "OpenWork",
+  appName: PRODUCT_NAME,
   statusBar: true,
   sidebar: true,
-  docsButton: true,
-  feedbackButton: true,
-  cloudSignin: true,
+  docsButton: false,
+  feedbackButton: false,
+  cloudSignin: false,
   welcomePage: true,
   starterCards: true,
   modelPicker: true,

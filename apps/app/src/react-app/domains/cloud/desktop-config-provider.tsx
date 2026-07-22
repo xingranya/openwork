@@ -32,6 +32,7 @@ import {
 } from "../../../app/lib/den-session-events";
 import { resolveOpenworkConnection } from "../../shell/openwork-connection";
 import { useDenAuth } from "./den-auth-provider";
+import { PRODUCT_NAME } from "@/app/product-brand";
 
 export type DesktopConfigStore = {
   config: DenDesktopConfig;
@@ -193,7 +194,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
     const brandAppNameAction = actions.find((action) => action.item === "brandAppName");
     if (brandAppNameAction) {
       const appName = typeof brandAppNameAction.nextValue === "string" ? brandAppNameAction.nextValue : null;
-      document.title = appName ?? "OpenWork";
+      document.title = appName ?? PRODUCT_NAME;
       void applyBrandAppName(appName).catch(() => null);
     }
 
