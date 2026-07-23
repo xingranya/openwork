@@ -10,31 +10,42 @@ import {
   BRAND_PROTOCOL_SCHEME,
   isAcceptedDesktopDeepLink,
   migrateLegacyUserDataDirectory,
+  resolveLegacyUserDataPaths,
 } from "./brand.mjs";
 
-test("uses the Brand Project OS desktop identity", () => {
-  assert.equal(BRAND_APP_NAME, "Brand Project OS");
-  assert.equal(BRAND_APP_IDENTIFIER, "com.foxwork.brandprojectos");
-  assert.equal(BRAND_PROTOCOL_SCHEME, "brandprojectos");
+test("uses the FoxWork desktop identity", () => {
+  assert.equal(BRAND_APP_NAME, "FoxWork");
+  assert.equal(BRAND_APP_IDENTIFIER, "com.foxwork.desktop");
+  assert.equal(BRAND_PROTOCOL_SCHEME, "foxwork");
 });
 
-test("packages only the Brand Project OS identity without an upstream publisher", async () => {
+test("packages only the FoxWork identity without an upstream publisher", async () => {
   const builderConfig = await readFile(new URL("../electron-builder.yml", import.meta.url), "utf8");
-  assert.match(builderConfig, /^appId: com\.foxwork\.brandprojectos$/m);
-  assert.match(builderConfig, /^productName: Brand Project OS$/m);
-  assert.match(builderConfig, /^\s+- brandprojectos$/m);
-  assert.match(builderConfig, /^artifactName: brand-project-os-/m);
+  assert.match(builderConfig, /^appId: com\.foxwork\.desktop$/m);
+  assert.match(builderConfig, /^productName: FoxWork$/m);
+  assert.match(builderConfig, /^\s+- foxwork$/m);
+  assert.match(builderConfig, /^artifactName: foxwork-/m);
   assert.doesNotMatch(builderConfig, /^publish:/m);
   assert.doesNotMatch(builderConfig, /different-ai\/openwork/);
 });
 
 test("accepts the current deep link and legacy migration links", () => {
+  assert.equal(isAcceptedDesktopDeepLink("foxwork://connect?token=test"), true);
+  assert.equal(isAcceptedDesktopDeepLink("foxwork-dev://connect?token=test"), true);
   assert.equal(isAcceptedDesktopDeepLink("brandprojectos://connect?token=test"), true);
   assert.equal(isAcceptedDesktopDeepLink("brandprojectos-dev://connect?token=test"), true);
   assert.equal(isAcceptedDesktopDeepLink("openwork://connect?token=test"), true);
   assert.equal(isAcceptedDesktopDeepLink("openwork-dev://connect?token=test"), true);
   assert.equal(isAcceptedDesktopDeepLink("https://example.com/connect"), false);
   assert.equal(isAcceptedDesktopDeepLink("not-a-url"), false);
+});
+
+test("finds both previous FoxWork and upstream user data", () => {
+  const app = { getPath: (name) => name === "appData" ? "/Users/test/Library/Application Support" : "" };
+  assert.deepEqual(resolveLegacyUserDataPaths(app, false), [
+    "/Users/test/Library/Application Support/com.foxwork.brandprojectos",
+    "/Users/test/Library/Application Support/com.differentai.openwork",
+  ]);
 });
 
 test("copies only missing legacy data and leaves the source untouched", async () => {

@@ -33,7 +33,7 @@ export type ForcedSigninPageProps = {
 
 /**
  * Parse a pasted manual-auth input. Accepts either a raw handoff grant
- * string (>= 12 chars) or a `brandprojectos://den-auth?grant=...` deep link.
+ * string (>= 12 chars) or a `foxwork://den-auth?grant=...` deep link.
  * Matches the Solid ForcedSigninPage exactly so flows stay fungible.
  */
 function parseManualAuthInput(value: string) {

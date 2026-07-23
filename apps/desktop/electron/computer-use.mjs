@@ -11,7 +11,7 @@ import { app, shell } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const COMPUTER_USE_HELPER_APP_NAME = "Brand Project OS Computer Use.app";
+const COMPUTER_USE_HELPER_APP_NAME = "FoxWork 电脑控制.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
 
 function computerUseHelperExecutablePath() {
@@ -41,7 +41,7 @@ function getComputerUseMcpCommand() {
   if (helperExecutable) return [helperExecutable, "mcp"];
 
   if (app.isPackaged) {
-    throw new Error("当前 Brand Project OS 安装包缺少电脑操作辅助程序。");
+    throw new Error("当前 FoxWork 安装包缺少电脑操作辅助程序。");
   }
 
   if (process.env.OPENWORK_DEV_MODE === "1") {

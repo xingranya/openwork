@@ -9,7 +9,7 @@ import path from "node:path";
 
 import { openworkWorkspaceDisplayName, selectOpenworkWorkspaceForConnection } from "./remote-workspace.mjs";
 import { exportWorkspaceConfig, importWorkspaceConfig } from "./workspace-archive.mjs";
-import { BRAND_CONFIG_DIRECTORY, LEGACY_CONFIG_DIRECTORY } from "./brand.mjs";
+import { BRAND_CONFIG_DIRECTORY, LEGACY_CONFIG_DIRECTORIES } from "./brand.mjs";
 
 const EMPTY_WORKSPACE_LIST = Object.freeze({
   selectedId: "",
@@ -120,20 +120,13 @@ const DEFAULT_DESKTOP_BOOTSTRAP_PATH = path.join(
 // Older builds resolved the default as ~/.config on every OS, ignoring
 // LOCALAPPDATA and XDG_CONFIG_HOME. Keep reading that file when the canonical one
 // is missing so existing installs keep their deployment config.
-const LEGACY_CANONICAL_DESKTOP_BOOTSTRAP_PATH = path.join(
-  DEFAULT_DESKTOP_CONFIG_HOME,
-  LEGACY_CONFIG_DIRECTORY,
-  "desktop-bootstrap.json",
-);
-const LEGACY_FALLBACK_DESKTOP_BOOTSTRAP_PATH = path.join(
-  os.homedir(),
-  ".config",
-  LEGACY_CONFIG_DIRECTORY,
-  "desktop-bootstrap.json",
-);
+const LEGACY_DESKTOP_BOOTSTRAP_PATHS = LEGACY_CONFIG_DIRECTORIES.flatMap((directory) => [
+  path.join(DEFAULT_DESKTOP_CONFIG_HOME, directory, "desktop-bootstrap.json"),
+  path.join(os.homedir(), ".config", directory, "desktop-bootstrap.json"),
+]);
 const DESKTOP_BOOTSTRAP_FILENAME = "desktop-bootstrap.json";
 const LEGACY_BOOTSTRAP_MIGRATION_MARKER_FILENAME = ".legacy-bootstrap-migration-disabled";
-const STANDARD_DESKTOP_INSTALLER_PATTERN = /^(?:brand-project-os|openwork)-(?:mac-(?:arm64|x64)-.+\.dmg|win-x64-.+\.exe)$/i;
+const STANDARD_DESKTOP_INSTALLER_PATTERN = /^(?:foxwork|brand-project-os|openwork)-(?:mac-(?:arm64|x64)-.+\.dmg|win-x64-.+\.exe)$/i;
 const HOSTED_DESKTOP_WEB_URL = "https://app.openworklabs.com";
 const HOSTED_DESKTOP_API_URL = "https://api.openworklabs.com";
 
@@ -169,7 +162,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     if (process.env.OPENWORK_DEV_MODE === "1") {
       return path.join(
         app.getPath("userData"),
-        "brand-project-os-dev-data",
+        "foxwork-dev-data",
         "home",
         ".config",
         BRAND_CONFIG_DIRECTORY,
@@ -183,10 +176,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     const primary = desktopBootstrapPath();
     if (primary !== DEFAULT_DESKTOP_BOOTSTRAP_PATH) return [];
     if (existsSync(legacyBootstrapMigrationMarkerPath())) return [];
-    return Array.from(new Set([
-      LEGACY_CANONICAL_DESKTOP_BOOTSTRAP_PATH,
-      LEGACY_FALLBACK_DESKTOP_BOOTSTRAP_PATH,
-    ])).filter((candidate) => candidate !== primary);
+    return Array.from(new Set(LEGACY_DESKTOP_BOOTSTRAP_PATHS))
+      .filter((candidate) => candidate !== primary);
   }
 
   function legacyBootstrapMigrationMarkerPath() {

@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const computerUseHelperAppName = "Brand Project OS Computer Use.app";
+const computerUseHelperAppName = "FoxWork 电脑控制.app";
 
 const sidecarBases = [
   "opencode",

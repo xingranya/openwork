@@ -10,7 +10,7 @@ const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
 const defaultDevDataDir = resolve(
   process.env.HOME ?? process.env.USERPROFILE ?? repoRoot,
-  ".brand-project-os",
+  ".foxwork",
   "openwork-orchestrator-dev",
 );
 

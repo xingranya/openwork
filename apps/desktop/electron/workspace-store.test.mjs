@@ -44,7 +44,7 @@ async function withIsolatedBootstrapStore(callback) {
     return await callback({
       store,
       createStore,
-      canonicalPath: path.join(xdg, "brand-project-os", "desktop-bootstrap.json"),
+      canonicalPath: path.join(xdg, "foxwork", "desktop-bootstrap.json"),
       legacyPath: path.join(home, ".config", "openwork", "desktop-bootstrap.json"),
       root,
       userDataPath: path.join(root, "userData"),
@@ -205,7 +205,7 @@ test("does not create a default workspace when desktop state is absent", async (
 
     const state = await store.readWorkspaceState();
     assert.equal(state.workspaces.length, 0);
-    await assert.rejects(readFile(path.join(userData, "brand-project-os-dev-data", "home", "Brand Project OS", ".opencode", "openwork.json"), "utf8"));
+    await assert.rejects(readFile(path.join(userData, "foxwork-dev-data", "home", "FoxWork", ".opencode", "openwork.json"), "utf8"));
   } finally {
     restoreEnv("OPENWORK_DEV_MODE", previousDevMode);
     restoreEnv("OPENWORK_SERVER_CONFIG", previousServerConfig);

@@ -10,8 +10,8 @@ const packagePath = resolve(repoRoot, "packages", "handsfree", "native", "HandsF
 const iconPath = resolve(desktopRoot, "resources", "icons", "icon.icns");
 const productName = "HandsFreeComputerUse";
 const helperExecutableName = "ComputerUse";
-const helperAppName = "Brand Project OS Computer Use.app";
-const bundleIdentifier = "com.foxwork.brandprojectos.computer-use";
+const helperAppName = "FoxWork 电脑控制.app";
+const bundleIdentifier = "com.foxwork.desktop.computer-use";
 
 const readArg = (name) => {
   const raw = process.argv.slice(2);
@@ -87,9 +87,9 @@ function infoPlist() {
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key>
-  <string>en</string>
+  <string>zh_CN</string>
   <key>CFBundleDisplayName</key>
-  <string>Brand Project OS Computer Use</string>
+  <string>FoxWork 电脑控制</string>
   <key>CFBundleExecutable</key>
   <string>${helperExecutableName}</string>
   <key>CFBundleIdentifier</key>
@@ -99,7 +99,7 @@ function infoPlist() {
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>Brand Project OS Computer Use</string>
+  <string>FoxWork 电脑控制</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

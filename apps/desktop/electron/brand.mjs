@@ -1,18 +1,30 @@
 import { cp, mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
-export const BRAND_APP_NAME = "Brand Project OS";
-export const BRAND_DEV_APP_NAME = "Brand Project OS - Dev";
-export const BRAND_APP_IDENTIFIER = "com.foxwork.brandprojectos";
-export const BRAND_DEV_APP_IDENTIFIER = "com.foxwork.brandprojectos.dev";
-export const BRAND_PROTOCOL_SCHEME = "brandprojectos";
-export const BRAND_DEV_PROTOCOL_SCHEME = "brandprojectos-dev";
-export const BRAND_CONFIG_DIRECTORY = "brand-project-os";
+export const BRAND_APP_NAME = "FoxWork";
+export const BRAND_DEV_APP_NAME = "FoxWork 开发版";
+export const BRAND_APP_IDENTIFIER = "com.foxwork.desktop";
+export const BRAND_DEV_APP_IDENTIFIER = "com.foxwork.desktop.dev";
+export const BRAND_PROTOCOL_SCHEME = "foxwork";
+export const BRAND_DEV_PROTOCOL_SCHEME = "foxwork-dev";
+export const BRAND_CONFIG_DIRECTORY = "foxwork";
 
-export const LEGACY_APP_IDENTIFIER = "com.differentai.openwork";
-export const LEGACY_DEV_APP_IDENTIFIER = "com.differentai.openwork.dev";
-export const LEGACY_PROTOCOL_SCHEMES = Object.freeze(["openwork", "openwork-dev"]);
-export const LEGACY_CONFIG_DIRECTORY = "openwork";
+export const LEGACY_APP_IDENTIFIERS = Object.freeze([
+  "com.foxwork.brandprojectos",
+  "com.differentai.openwork",
+]);
+export const LEGACY_DEV_APP_IDENTIFIERS = Object.freeze([
+  "com.foxwork.brandprojectos.dev",
+  "com.differentai.openwork.dev",
+]);
+export const LEGACY_PROTOCOL_SCHEMES = Object.freeze([
+  "brandprojectos",
+  "brandprojectos-dev",
+  "openwork",
+  "openwork-dev",
+]);
+export const LEGACY_CONFIG_DIRECTORIES = Object.freeze(["brand-project-os", "openwork"]);
+export const LEGACY_CONFIG_DIRECTORY = LEGACY_CONFIG_DIRECTORIES[0];
 
 const ACCEPTED_PROTOCOL_SCHEMES = new Set([
   BRAND_PROTOCOL_SCHEME,
@@ -30,9 +42,9 @@ export function isAcceptedDesktopDeepLink(rawUrl) {
   }
 }
 
-export function resolveLegacyUserDataPath(app, isDevMode) {
-  const legacyIdentifier = isDevMode ? LEGACY_DEV_APP_IDENTIFIER : LEGACY_APP_IDENTIFIER;
-  return path.join(app.getPath("appData"), legacyIdentifier);
+export function resolveLegacyUserDataPaths(app, isDevMode) {
+  const legacyIdentifiers = isDevMode ? LEGACY_DEV_APP_IDENTIFIERS : LEGACY_APP_IDENTIFIERS;
+  return legacyIdentifiers.map((identifier) => path.join(app.getPath("appData"), identifier));
 }
 
 async function pathType(targetPath) {

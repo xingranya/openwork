@@ -139,7 +139,7 @@ describe("resolveOpenworkServerConfigPath", () => {
     if (process.platform === "win32") return;
     assert.equal(
       resolveOpenworkServerConfigPath({ XDG_CONFIG_HOME: "/tmp/xdg" }),
-      "/tmp/xdg/brand-project-os/server.json",
+      "/tmp/xdg/foxwork/server.json",
     );
   });
 });

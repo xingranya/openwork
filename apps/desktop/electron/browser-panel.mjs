@@ -10,7 +10,7 @@ import { registerTrustedIpcHandler } from "./ipc-security.mjs";
 import { openExternalUrl } from "./open-external.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BROWSER_SESSION_PARTITION = "persist:brand-project-os-browser";
+const BROWSER_SESSION_PARTITION = "persist:foxwork-browser";
 const BROWSER_DEFAULT_URL = "about:blank";
 // URL a user-initiated new tab (the "+" button / opening the browser panel)
 // lands on. The agent's programmatic path keeps BROWSER_DEFAULT_URL.

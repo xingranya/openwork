@@ -3,7 +3,7 @@ const { existsSync, mkdtempSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 
-const computerUseHelperAppName = "Brand Project OS Computer Use.app";
+const computerUseHelperAppName = "FoxWork 电脑控制.app";
 
 function run(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });

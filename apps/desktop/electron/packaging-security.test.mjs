@@ -13,8 +13,8 @@ describe("offline desktop packaging", () => {
     assert.match(afterPack, /NSAllowsArbitraryLoads:\s*false/);
     assert.match(afterPack, /NSAllowsLocalNetworking:\s*true/);
     assert.match(afterPack, /NSCameraUsageDescription/);
-    assert.match(afterPack, /Brand Project OS Computer Use\.app/);
-    assert.match(afterSign, /Brand Project OS Computer Use\.app/);
+    assert.match(afterPack, /FoxWork 电脑控制\.app/);
+    assert.match(afterSign, /FoxWork 电脑控制\.app/);
     assert.doesNotMatch(`${afterPack}\n${afterSign}`, /OpenWork Computer Use\.app/);
   });
 

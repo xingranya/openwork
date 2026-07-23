@@ -69,7 +69,7 @@ import {
   BRAND_PROTOCOL_SCHEME,
   isAcceptedDesktopDeepLink,
   migrateLegacyUserDataDirectory,
-  resolveLegacyUserDataPath,
+  resolveLegacyUserDataPaths,
 } from "./brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -2452,15 +2452,19 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     if (!userDataOverride) {
-      const migration = await migrateLegacyUserDataDirectory({
-        sourcePath: resolveLegacyUserDataPath(app, isDevMode),
-        destinationPath: app.getPath("userData"),
-      }).catch((error) => {
-        console.warn("[migration] 旧 OpenWork 用户数据迁移失败", error);
-        return { migrated: false, copiedEntries: 0 };
-      });
-      if (migration.migrated) {
-        console.info(`[migration] 已复制 ${migration.copiedEntries} 个旧 OpenWork 数据项`);
+      let copiedEntries = 0;
+      for (const sourcePath of resolveLegacyUserDataPaths(app, isDevMode)) {
+        const migration = await migrateLegacyUserDataDirectory({
+          sourcePath,
+          destinationPath: app.getPath("userData"),
+        }).catch((error) => {
+          console.warn("[migration] 旧客户端数据迁移失败", error);
+          return { migrated: false, copiedEntries: 0 };
+        });
+        copiedEntries += migration.copiedEntries;
+      }
+      if (copiedEntries > 0) {
+        console.info(`[migration] 已复制 ${copiedEntries} 个旧客户端数据项`);
       }
     }
     installMediaPermissionHandlers(session, () => mainWindow);

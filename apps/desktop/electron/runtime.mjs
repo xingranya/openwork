@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import {
   BRAND_CONFIG_DIRECTORY,
-  LEGACY_CONFIG_DIRECTORY,
+  LEGACY_CONFIG_DIRECTORIES,
   migrateLegacyUserDataDirectory,
 } from "./brand.mjs";
 
@@ -473,13 +473,15 @@ function resolveUserEnvFilePath() {
   return path.join(os.homedir(), ".config", BRAND_CONFIG_DIRECTORY, "env.json");
 }
 
-function resolveLegacyUserEnvFilePath() {
+function resolveLegacyUserEnvFilePaths() {
   if (process.platform === "win32") {
     const appData = String(process.env.APPDATA ?? "").trim();
     const root = appData || path.join(os.homedir(), "AppData", "Roaming");
-    return path.join(root, LEGACY_CONFIG_DIRECTORY, "env.json");
+    return LEGACY_CONFIG_DIRECTORIES.map((directory) => path.join(root, directory, "env.json"));
   }
-  return path.join(os.homedir(), ".config", LEGACY_CONFIG_DIRECTORY, "env.json");
+  return LEGACY_CONFIG_DIRECTORIES.map((directory) => (
+    path.join(os.homedir(), ".config", directory, "env.json")
+  ));
 }
 
 const USER_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -490,10 +492,11 @@ const USER_ENV_RESERVED_PREFIXES = ["OPENWORK_", "OPENCODE_"];
 function loadUserEnvFile() {
   try {
     const currentPath = resolveUserEnvFilePath();
-    const raw = readFileSync(
-      existsSync(currentPath) ? currentPath : resolveLegacyUserEnvFilePath(),
-      "utf8",
-    );
+    const selectedPath = existsSync(currentPath)
+      ? currentPath
+      : resolveLegacyUserEnvFilePaths().find((candidate) => existsSync(candidate));
+    if (!selectedPath) return {};
+    const raw = readFileSync(selectedPath, "utf8");
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.variables)) return {};
     const out = {};
@@ -625,7 +628,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   function orchestratorDataDir() {
     const envDir = process.env.OPENWORK_DATA_DIR?.trim();
     if (envDir) return envDir;
-    return path.join(app.getPath("home"), ".brand-project-os", "openwork-orchestrator");
+    return path.join(app.getPath("home"), ".foxwork", "openwork-orchestrator");
   }
 
   function legacyOrchestratorDataDir() {
@@ -768,7 +771,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   }
 
   async function ensureDevModePaths() {
-    const root = path.join(userDataDir, "brand-project-os-dev-data");
+    const root = path.join(userDataDir, "foxwork-dev-data");
     const paths = {
       homeDir: path.join(root, "home"),
       xdgConfigHome: path.join(root, "xdg", "config"),

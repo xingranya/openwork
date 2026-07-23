@@ -132,7 +132,7 @@ function configHomeDir() {
 }
 
 function defaultDesktopBootstrapPath() {
-  return process.env.OPENWORK_DESKTOP_BOOTSTRAP_PATH || join(configHomeDir(), "brand-project-os", "desktop-bootstrap.json")
+  return process.env.OPENWORK_DESKTOP_BOOTSTRAP_PATH || join(configHomeDir(), "foxwork", "desktop-bootstrap.json")
 }
 
 function defaultSkillsDir() {
@@ -140,7 +140,7 @@ function defaultSkillsDir() {
 }
 
 function defaultDeviceKeyPath() {
-  return process.env.OPENWORK_DEVICE_KEY_PATH || join(configHomeDir(), "brand-project-os", "bootstrap-device-key.json")
+  return process.env.OPENWORK_DEVICE_KEY_PATH || join(configHomeDir(), "foxwork", "bootstrap-device-key.json")
 }
 
 // The desktop app's `desktop-bootstrap.json` `baseUrl` field is the WEB origin
