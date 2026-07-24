@@ -12,7 +12,6 @@ import {
   Split,
   Undo2,
 } from "lucide-react"
-import { PaperGrainGradient } from "@openwork/ui/react"
 import {
   DynamicToolUIPart,
   isFileUIPart,
@@ -39,6 +38,7 @@ import { WebsearchTool } from "@/components/tools/websearch"
 import { useMessageList, useSessionErrorMessage } from "@/components/chat/message-list-provider"
 import { ArtifactList } from "@/components/chat/artifact"
 import { TaskSuggestions } from "@/components/chat/task-suggestions"
+import { AssistantThinkingOrb } from "@/components/chat/assistant-thinking-orb"
 import {
   DescriptiveButtonContent,
   DescriptiveButtonDescription,
@@ -597,18 +597,7 @@ const LoadingMessage = React.memo(({ label }: { label?: string }) => (
   <Message className="mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-2 md:px-10">
     <div className="group flex w-full flex-col gap-0">
       <div className="flex items-center gap-1.5 px-1 py-1 text-sm text-muted-foreground">
-        <div style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden" }}>
-          <PaperGrainGradient
-            speed={12}
-            softness={0.1}
-            intensity={1}
-            noise={0.05}
-            shape="sphere"
-            colors={["#818cf8", "#fb7185", "#fbbf24", "#34d399"]}
-            colorBack="#ffffff00"
-            style={{ backgroundColor: "#818cf8", width: "100%", height: "100%", borderRadius: "50%" }}
-          />
-        </div>
+        <AssistantThinkingOrb />
         <span>{label ?? "Thinking…"}</span>
       </div>
     </div>
