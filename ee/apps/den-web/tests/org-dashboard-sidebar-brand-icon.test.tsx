@@ -29,13 +29,13 @@ describe("Den dashboard sidebar brand icon", () => {
     expect(markup).not.toContain("<svg");
   });
 
-  test("renders the canonical managed square icon without first rendering the OpenWork mark", () => {
+  test("renders the canonical managed square icon without first rendering the FoxWork mark", () => {
     const markup = renderToStaticMarkup(
       <SidebarBrandMark metadata={managedIconMetadata} organizationName="Acme" />,
     );
 
     expect(markup).toContain(`src="${managedIconUrl}"`);
-    expect(markup).toContain('alt="Acme icon"');
+    expect(markup).toContain('alt="Acme工作区图标"');
     expect(markup).toContain('data-sidebar-brand-icon="loading"');
     expect(markup).toContain("object-contain");
     expect(markup).toContain("opacity-0");
@@ -43,13 +43,13 @@ describe("Den dashboard sidebar brand icon", () => {
     expect(markup).not.toContain("<svg");
   });
 
-  test("uses the OpenWork mark when no managed square icon exists", () => {
+  test("uses the FoxWork mark when no managed square icon exists", () => {
     const markup = renderToStaticMarkup(
       <SidebarBrandMark metadata={null} organizationName="Acme" />,
     );
 
     expect(markup).toContain("<svg");
-    expect(markup).toContain('aria-label="OpenWork"');
+    expect(markup).toContain('aria-label="FoxWork"');
     expect(markup).toContain('data-sidebar-brand-icon="fallback"');
     expect(markup).not.toContain("<img");
   });

@@ -30,12 +30,12 @@ export function OrgMemberIdentity({
           </p>
           {isAdmin ? (
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${inverted ? "bg-white/15 text-white/80" : "bg-indigo-50 text-indigo-600"}`}>
-              Admin
+              管理员
             </span>
           ) : null}
           {isInvited ? (
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${inverted ? "bg-white/15 text-white/80" : "bg-amber-50 text-amber-700"}`}>
-              Invited
+              已邀请
             </span>
           ) : null}
         </div>

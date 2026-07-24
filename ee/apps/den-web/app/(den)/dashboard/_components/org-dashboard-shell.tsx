@@ -52,7 +52,7 @@ import { buildDenFeedbackUrl } from "../../_lib/feedback";
 import { OrgSelectionScreen } from "./org-selection-screen";
 import { UserProfileDialog } from "./user-profile-dialog";
 
-const OPENWORK_DOCS_URL = "/docs";
+const FOXWORK_DOCS_URL = "/docs";
 
 type DashboardNavChild = {
   href: string;
@@ -66,9 +66,7 @@ type DashboardNavItem = {
   icon: LucideIcon;
   badge?: string;
   /**
-   * Grouped entries (Extensions, Models, Settings) keep the sidebar at seven
-   * top-level rows: the group links to its first child and its children
-   * render indented while the current page is inside the group.
+   * 扩展、模型和设置使用分组导航。进入组内页面时，侧栏展开对应子项。
    */
   children?: DashboardNavChild[];
 };
@@ -93,7 +91,7 @@ function OpenWorkMark({ className = "h-9 w-auto" }: { className?: string }) {
       viewBox="0 0 834 649"
       fill="none"
       className={className}
-      aria-label="OpenWork"
+      aria-label="FoxWork"
     >
       <path
         fill="#011627"
@@ -137,7 +135,7 @@ export function SidebarBrandMark({
     return (
       <div
         className="h-10 w-10 rounded-xl"
-        aria-label="Loading organization icon"
+        aria-label="正在加载工作区图标"
         data-sidebar-brand-icon="loading"
       />
     );
@@ -159,7 +157,7 @@ export function SidebarBrandMark({
     >
       <img
         src={iconUrl}
-        alt={`${organizationName} icon`}
+        alt={`${organizationName}工作区图标`}
         className={`h-full w-full object-contain transition-opacity ${loadedUrl === iconUrl ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setLoadedUrl(iconUrl)}
         onError={() => setFailedUrl(iconUrl)}
@@ -219,70 +217,70 @@ export function WorkspaceFavicon({
 
 function getDashboardPageTitle(pathname: string, orgSlug: string | null) {
   if (!orgSlug) {
-    return "Home";
+    return "首页";
   }
 
   const dashboardRoot = getOrgDashboardRoute(orgSlug);
 
   if (pathname === dashboardRoot) {
-    return "Home";
+    return "首页";
   }
   if (pathname.startsWith(getAnalyticsRoute(orgSlug))) {
-    return "Analytics";
+    return "使用统计";
   }
   if (pathname.startsWith(getMembersRoute(orgSlug))) {
-    return "Members";
+    return "成员";
   }
   if (pathname.startsWith(getApiKeysRoute(orgSlug))) {
-    return "API Keys";
+    return "API 密钥";
   }
   if (pathname.startsWith(getScimRoute(orgSlug))) {
-    return "SCIM";
+    return "用户同步（SCIM）";
   }
   if (pathname.startsWith(getSsoRoute(orgSlug))) {
-    return "SSO";
+    return "单点登录（SSO）";
   }
   if (pathname.startsWith(getBackgroundAgentsRoute(orgSlug))) {
-    return "Background Tasks";
+    return "后台任务";
   }
   if (pathname.startsWith(getCustomLlmProvidersRoute(orgSlug))) {
-    return "LLM Providers";
+    return "模型服务商";
   }
   if (pathname.startsWith(getDesktopPoliciesRoute(orgSlug))) {
-    return "Desktop Policies";
+    return "桌面策略";
   }
   if (pathname.startsWith(getDiagnosticsRoute(orgSlug))) {
-    return "Diagnostics";
+    return "连接诊断";
   }
   if (pathname.startsWith(getInferenceRoute(orgSlug))) {
-    return "OpenWork Models";
+    return "平台模型";
   }
   if (pathname.startsWith(getPluginsRoute(orgSlug))) {
-    return "Plugins";
+    return "插件";
   }
   if (pathname.startsWith(getMarketplacesRoute(orgSlug))) {
-    return "Marketplace";
+    return "应用市场";
   }
   if (pathname.startsWith(getIntegrationsRoute(orgSlug))) {
-    return "Sources";
+    return "数据源";
   }
   if (pathname.startsWith(getMcpConnectionsRoute(orgSlug))) {
-    return "Connectors";
+    return "MCP 连接";
   }
   if (pathname.startsWith(getYourConnectionsRoute(orgSlug))) {
-    return "Your Connections";
+    return "我的连接";
   }
   if (pathname.startsWith(getBillingRoute(orgSlug))) {
-    return "Stripe";
+    return "Stripe 账单";
   }
   if (pathname.startsWith(getBrandAppearanceRoute(orgSlug))) {
-    return "Brand appearance";
+    return "品牌外观";
   }
   if (pathname.startsWith(getOrgSettingsRoute(orgSlug))) {
-    return "Org Settings";
+    return "组织设置";
   }
 
-  return "Home";
+  return "首页";
 }
 
 export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
@@ -343,40 +341,34 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
   });
   const mcpConnectionsEnabled = orgContext?.capabilities.mcpConnections === true;
 
-  // Top-level rows: Dashboard, optional Your Connections, Extensions, Models,
-  // Members, Analytics, Settings. Everything tool-shaped groups under
-  // Extensions starts with the Marketplace, followed by its source and
-  // management surfaces; model config groups under
-  // Models; set-once governance groups under Settings.
+  // 顶层导航保持精简。扩展、模型和设置类页面分别收进对应分组。
   const extensionsGroup: DashboardNavItem | null = access.isAdmin && activeOrg
     ? {
         href: getMarketplacesRoute(activeOrg.slug),
-        label: "Extensions",
+        label: "扩展",
         icon: Puzzle,
         children: [
-          { href: getMarketplacesRoute(activeOrg.slug), label: "Marketplace" },
-          { href: getIntegrationsRoute(activeOrg.slug), label: "Sources" },
-          { href: getPluginsRoute(activeOrg.slug), label: "Plugins" },
-          { href: getMcpConnectionsRoute(activeOrg.slug), label: "Connectors", badge: "Beta" },
+          { href: getMarketplacesRoute(activeOrg.slug), label: "应用市场" },
+          { href: getIntegrationsRoute(activeOrg.slug), label: "数据源" },
+          { href: getPluginsRoute(activeOrg.slug), label: "插件" },
+          { href: getMcpConnectionsRoute(activeOrg.slug), label: "MCP 连接", badge: "测试版" },
         ],
       }
     : null;
-  // OpenWork Models are a hosted OpenWork Cloud offering; self-hosted
-  // (single-org) deployments only manage their own LLM providers. Default
-  // hidden until the runtime config confirms a hosted (multi-org) deployment.
+  // 平台托管模型只在多组织部署中显示；单组织部署仅管理自己的模型服务商。
   const showOpenWorkModels = runtimeConfigLoaded && runtimeConfig.orgMode === "multi_org";
   const modelsGroup: DashboardNavItem | null = access.isAdmin && activeOrg
     ? {
         href: showOpenWorkModels
           ? getInferenceRoute(activeOrg.slug)
           : getCustomLlmProvidersRoute(activeOrg.slug),
-        label: "Models",
+        label: "模型",
         icon: Sparkles,
         children: [
           ...(showOpenWorkModels
-            ? [{ href: getInferenceRoute(activeOrg.slug), label: "OpenWork Models" }]
+            ? [{ href: getInferenceRoute(activeOrg.slug), label: "平台模型" }]
             : []),
-          { href: getCustomLlmProvidersRoute(activeOrg.slug), label: "LLM Providers" },
+          { href: getCustomLlmProvidersRoute(activeOrg.slug), label: "模型服务商" },
         ],
       }
     : null;
@@ -384,22 +376,22 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
     ? [
         ...(access.isAdmin
           ? [
-              { href: getOrgSettingsRoute(activeOrg.slug), label: "General" },
-              { href: getDiagnosticsRoute(activeOrg.slug), label: "Diagnostics" },
-              { href: getBrandAppearanceRoute(activeOrg.slug), label: "Brand appearance" },
-              { href: getDesktopPoliciesRoute(activeOrg.slug), label: "Desktop Policies" },
-              { href: getBillingRoute(activeOrg.slug), label: "Stripe" },
+              { href: getOrgSettingsRoute(activeOrg.slug), label: "常规" },
+              { href: getDiagnosticsRoute(activeOrg.slug), label: "连接诊断" },
+              { href: getBrandAppearanceRoute(activeOrg.slug), label: "品牌外观" },
+              { href: getDesktopPoliciesRoute(activeOrg.slug), label: "桌面策略" },
+              { href: getBillingRoute(activeOrg.slug), label: "Stripe 账单" },
             ]
           : []),
-        ...(access.canManageApiKeys ? [{ href: getApiKeysRoute(activeOrg.slug), label: "API Keys" }] : []),
-        ...(access.canManageSso ? [{ href: getSsoRoute(activeOrg.slug), label: "SSO" }] : []),
-        ...(access.canManageScim ? [{ href: getScimRoute(activeOrg.slug), label: "SCIM" }] : []),
+        ...(access.canManageApiKeys ? [{ href: getApiKeysRoute(activeOrg.slug), label: "API 密钥" }] : []),
+        ...(access.canManageSso ? [{ href: getSsoRoute(activeOrg.slug), label: "单点登录（SSO）" }] : []),
+        ...(access.canManageScim ? [{ href: getScimRoute(activeOrg.slug), label: "用户同步（SCIM）" }] : []),
       ]
     : [];
   const settingsGroup: DashboardNavItem | null = settingsChildren.length > 0
     ? {
         href: settingsChildren[0].href,
-        label: "Settings",
+        label: "设置",
         icon: SlidersHorizontal,
         children: settingsChildren,
       }
@@ -408,25 +400,24 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
   const navItems: DashboardNavItem[] = [
     {
       href: activeOrg ? getOrgDashboardRoute(activeOrg.slug) : "#",
-      label: "Dashboard",
+      label: "首页",
       icon: Home,
     },
     ...(mcpConnectionsEnabled
       ? [{
-          // Member-visible (not admin-gated): where each person connects their
-          // own account for per-member connections shared with them.
+          // 普通成员也能在这里管理分配给自己的个人连接。
           href: activeOrg ? getYourConnectionsRoute(activeOrg.slug) : "#",
-          label: "Your Connections",
+          label: "我的连接",
           icon: Plug,
-          badge: "Beta",
+          badge: "测试版",
         }]
       : []),
     ...(extensionsGroup ? [extensionsGroup] : []),
     ...(modelsGroup ? [modelsGroup] : []),
     ...(access.isAdmin && activeOrg
       ? [
-          { href: getMembersRoute(activeOrg.slug), label: "Members", icon: Users },
-          { href: getAnalyticsRoute(activeOrg.slug), label: "Analytics", icon: BarChart3 },
+          { href: getMembersRoute(activeOrg.slug), label: "成员", icon: Users },
+          { href: getAnalyticsRoute(activeOrg.slug), label: "使用统计", icon: BarChart3 },
         ]
       : []),
     ...(settingsGroup ? [settingsGroup] : []),
@@ -441,7 +432,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
             {activeOrg?.name ?? runtimeConfig.singleOrgName}
           </p>
           <p className="truncate text-[12px] text-gray-500">
-            {activeOrg ? formatRoleLabel(activeOrg.role) : "Preparing workspace"}
+            {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备工作区"}
           </p>
         </div>
       </div>
@@ -449,7 +440,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         type="button"
         onClick={() => void signOut()}
         className="shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900"
-        aria-label="Sign out"
+        aria-label="退出登录"
       >
         <LogOut className="h-4 w-4" />
       </button>
@@ -462,13 +453,13 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         onClick={() => setSwitcherOpen((current) => !current)}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <OrgMark name={activeOrg?.name ?? "OpenWork"} />
+          <OrgMark name={activeOrg?.name ?? "FoxWork"} />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-medium text-gray-900">
-              {activeOrg?.name ?? "Loading..."}
+              {activeOrg?.name ?? "正在加载..."}
             </p>
             <p className="truncate text-[12px] text-gray-500">
-              {activeOrg ? formatRoleLabel(activeOrg.role) : "Preparing workspace"}
+              {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备工作区"}
             </p>
           </div>
         </div>
@@ -484,7 +475,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-[calc(100%+0.5rem)] left-0 w-[240px] z-30 grid gap-1 rounded-2xl border border-gray-200 bg-white py-2 shadow-[0_12px_24px_-12px_rgba(0,0,0,0.15)]">
           <div className="px-3 py-1.5">
             <p className="truncate text-[13px] font-medium text-gray-900">
-              {user?.email ?? "OpenWork user"}
+              {user?.email ?? "FoxWork 用户"}
             </p>
           </div>
           
@@ -492,7 +483,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
 
           <div className="px-3 pb-1 pt-1">
             <p className="text-[11px] font-medium text-gray-500">
-              Switch workspace
+              切换工作区
             </p>
           </div>
 
@@ -502,7 +493,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
                 type="search"
                 value={switcherQuery}
                 onChange={(event) => setSwitcherQuery(event.target.value)}
-                placeholder="Search workspaces"
+                placeholder="搜索工作区"
                 className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-900 outline-none transition focus:border-gray-400"
               />
             </div>
@@ -527,7 +518,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
                   <div className="min-w-0">
                     <span className="block truncate text-[13px] font-medium tracking-[-0.1px]">{org.name}</span>
                     <span className="block truncate text-[12px] text-gray-500">
-                      {org.role === "owner" ? "Creator plan" : "Free plan"} • {org.memberCount} {org.memberCount === 1 ? "member" : "members"}
+                      {org.role === "owner" ? "创建者版" : "免费版"} · {org.memberCount} 名成员
                     </span>
                   </div>
                 </div>
@@ -541,7 +532,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {switcherFilteredCount === 0 && switcherQuery ? (
-            <p className="px-3 py-1 text-[12px] text-gray-500">No organizations match your search.</p>
+            <p className="px-3 py-1 text-[12px] text-gray-500">没有找到匹配的工作区。</p>
           ) : null}
 
           {switcherHasMore ? (
@@ -551,7 +542,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
                 onClick={showMoreOrgDirectory}
                 className="flex w-full items-center justify-center rounded-lg px-2 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
               >
-                Show more ({switcherHiddenCount})
+                展开更多（{switcherHiddenCount}）
               </button>
             </div>
           ) : null}
@@ -562,7 +553,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
               onClick={() => setSwitcherOpen(false)}
             >
-              <span className="text-gray-400 text-[16px] leading-none">+</span> Create or join workspace
+              <span className="text-gray-400 text-[16px] leading-none">+</span> 创建或加入工作区
             </Link>
           </div>
 
@@ -575,7 +566,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
             >
               <LogOut className="h-4 w-4 text-gray-400" />
-              Sign out
+              退出登录
             </button>
           </div>
         </div>
@@ -595,7 +586,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
             type="button"
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 md:hidden"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Close menu"
+            aria-label="关闭菜单"
           >
             <X className="h-5 w-5" />
           </button>
@@ -604,7 +595,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
 
       <nav className="flex-1 px-3 py-5">
         <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-          Navigation
+          功能导航
         </p>
         <div className="space-y-1">
           {navItems.map((item) => {
@@ -682,7 +673,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         {orgSwitcher}
 
         {orgBusy ? (
-          <p className="mt-3 px-2 text-[11px] text-gray-400">Refreshing workspace…</p>
+          <p className="mt-3 px-2 text-[11px] text-gray-400">正在刷新工作区...</p>
         ) : null}
         {orgError ? (
           <p className="mt-3 px-2 text-[11px] font-medium text-rose-600">{orgError}</p>
@@ -694,12 +685,12 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-[#fafafa] md:h-screen md:flex-row">
       <WorkspaceFavicon metadata={orgContext?.organization.metadata} />
-      {/* Desktop sidebar — always visible at md+ */}
+      {/* 桌面端侧栏在中等及以上尺寸始终显示。 */}
       <aside className="hidden shrink-0 border-r border-gray-100 bg-white md:flex md:min-h-screen md:w-[260px] md:flex-col">
         {sidebarContent}
       </aside>
 
-      {/* Mobile sidebar — off-canvas drawer */}
+      {/* 移动端侧栏使用抽屉显示。 */}
       {sidebarOpen ? (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} aria-hidden />
@@ -716,7 +707,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               type="button"
               className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 md:hidden"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
+              aria-label="打开菜单"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -733,16 +724,16 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
             >
               <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Feedback</span>
+              <span className="hidden sm:inline">问题反馈</span>
             </a>
             <a
-              href={OPENWORK_DOCS_URL}
+              href={FOXWORK_DOCS_URL}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
             >
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Docs</span>
+              <span className="hidden sm:inline">使用文档</span>
             </a>
           </div>
         </header>
@@ -754,7 +745,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         <UserProfileDialog
           key={user.id}
           user={user}
-          descriptor="Change how your name appears in the organization"
+          descriptor="修改你在公司工作区中显示的姓名"
           onCancel={() => setProfilePromptDismissed(true)}
           onSave={async (input) => {
             await updateUserProfile(input);

@@ -12,8 +12,8 @@ describe("Den settings destinations", () => {
     const routes = read("../app/(den)/_lib/den-org.ts");
 
     expect(routes).toContain('return `${getOrgDashboardRoute(orgSlug)}/brand-appearance`');
-    expect(shell).toContain('label: "Brand appearance"');
-    expect(shell).toContain('label: "Stripe"');
+    expect(shell).toContain('label: "品牌外观"');
+    expect(shell).toContain('label: "Stripe 账单"');
   });
 
   test("renders one truthful Stripe refresh surface with explicit loading and error states", () => {

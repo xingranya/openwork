@@ -21,7 +21,7 @@ function getProfileNameParts(name: string | null) {
 
 export function UserProfileDialog({
   user,
-  title = "User Profile",
+  title = "个人资料",
   descriptor,
   onCancel,
   onSave,
@@ -49,7 +49,7 @@ export function UserProfileDialog({
     try {
       await onSave({ firstName, lastName });
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not update your profile.");
+      setError(saveError instanceof Error ? saveError.message : "无法更新个人资料。");
     } finally {
       setBusy(false);
     }
@@ -65,7 +65,7 @@ export function UserProfileDialog({
         aria-describedby={descriptor ? "user-profile-description" : undefined}
       >
         <div className="mb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">OpenWork</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">FoxWork</p>
           <h2 id="user-profile-title" className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-gray-950">
             {title}
           </h2>
@@ -79,7 +79,7 @@ export function UserProfileDialog({
         <form onSubmit={handleSubmit} className="grid gap-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2">
-              <span className="text-sm font-medium text-gray-700">First name</span>
+              <span className="text-sm font-medium text-gray-700">名</span>
               <input
                 type="text"
                 value={firstName}
@@ -91,7 +91,7 @@ export function UserProfileDialog({
             </label>
 
             <label className="grid gap-2">
-              <span className="text-sm font-medium text-gray-700">Last name</span>
+              <span className="text-sm font-medium text-gray-700">姓</span>
               <input
                 type="text"
                 value={lastName}
@@ -110,14 +110,14 @@ export function UserProfileDialog({
               onClick={onCancel}
               className="rounded-2xl border border-gray-200 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              Cancel
+              取消
             </button>
             <button
               type="submit"
               disabled={!canSave}
               className="rounded-2xl bg-gray-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? "Saving..." : "Save"}
+              {busy ? "正在保存..." : "保存"}
             </button>
           </div>
         </form>

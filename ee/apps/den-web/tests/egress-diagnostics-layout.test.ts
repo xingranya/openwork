@@ -27,7 +27,7 @@ describe("Den egress diagnostic settings flow", () => {
 
     expect(settings).not.toContain("EgressDiagnosticsCard");
     expect(diagnostics).toContain("<EgressDiagnosticsCard canRun />");
-    expect(shell).toContain('{ href: getDiagnosticsRoute(activeOrg.slug), label: "Diagnostics" }');
+    expect(shell).toContain('{ href: getDiagnosticsRoute(activeOrg.slug), label: "连接诊断" }');
     expect(card).toContain("Run egress diagnostic");
     expect(card).toContain("Open support trace");
     expect(card).toContain("Suggested owner:");

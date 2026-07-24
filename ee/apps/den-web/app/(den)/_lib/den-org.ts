@@ -407,12 +407,19 @@ export function shouldOfferOrgSelection(orgs: readonly DenOrgSummary[]): boolean
   return orgs.length > 1;
 }
 
+const ORGANIZATION_ROLE_LABELS: Record<string, string> = {
+  owner: "所有者",
+  admin: "管理员",
+  member: "成员",
+  "security-admin": "安全管理员",
+  "billing-admin": "账单管理员",
+};
+
 export function formatRoleLabel(role: string): string {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
+  const labels = splitRoleString(role).map(
+    (roleName) => ORGANIZATION_ROLE_LABELS[roleName] ?? "自定义角色",
+  );
+  return [...new Set(labels)].join("、") || "成员";
 }
 
 export function getOrgDashboardRoute(_orgSlug?: string | null): string {

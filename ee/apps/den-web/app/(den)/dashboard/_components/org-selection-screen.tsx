@@ -94,9 +94,9 @@ export function OrgSelectionScreen({
       >
         <div className="den-frame w-full p-6 md:p-8">
           <div className="mb-6 text-center">
-            <h1 className="den-title-lg">Choose an organization</h1>
+            <h1 className="den-title-lg">选择公司工作区</h1>
             <p className="mt-2 text-[13px] text-[var(--dls-text-secondary)]">
-              You belong to {orgs.length} organizations. Select one to continue.
+              你已加入 {orgs.length} 个工作区。请选择一个继续。
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export function OrgSelectionScreen({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search organizations"
+              placeholder="搜索工作区"
               className="den-input mb-3 px-3 py-2.5 text-[13px]"
             />
           ) : null}
@@ -131,8 +131,7 @@ export function OrgSelectionScreen({
                       {org.name}
                     </span>
                     <span className="block truncate text-[12px] text-gray-500">
-                      {formatRoleLabel(org.role)} • {org.memberCount}{" "}
-                      {org.memberCount === 1 ? "member" : "members"}
+                      {formatRoleLabel(org.role)} · {org.memberCount} 名成员
                     </span>
                   </span>
                 </span>
@@ -146,21 +145,21 @@ export function OrgSelectionScreen({
 
           {filteredCount === 0 && query ? (
             <p className="mt-3 px-1 text-[13px] text-[var(--dls-text-secondary)]">
-              No organizations match your search.
+              没有找到匹配的工作区。
             </p>
           ) : null}
 
           {hasMore ? (
             <div className="mt-3 flex items-center justify-between gap-3 px-1">
               <p className="text-[12px] text-[var(--dls-text-secondary)]">
-                Showing {visible.length} of {filteredCount} organizations
+                当前显示 {visible.length} 个，共 {filteredCount} 个
               </p>
               <button
                 type="button"
                 onClick={showMore}
                 className="shrink-0 rounded-full border border-[var(--dls-border)] bg-white px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-colors hover:bg-slate-50"
               >
-                Show more
+                展开更多
               </button>
             </div>
           ) : null}
@@ -179,14 +178,14 @@ export function OrgSelectionScreen({
               href="/organization"
               className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--dls-text-secondary)] transition-colors hover:text-[var(--dls-text-primary)] focus:outline-none focus:ring-4 focus:ring-slate-950/5"
             >
-              <Plus className="h-4 w-4" /> Create or join
+              <Plus className="h-4 w-4" /> 创建或加入工作区
             </Link>
             <button
               type="button"
               onClick={onSignOut}
               className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--dls-text-secondary)] transition-colors hover:text-[var(--dls-text-primary)] focus:outline-none focus:ring-4 focus:ring-slate-950/5"
             >
-              <LogOut className="h-4 w-4" /> Sign out
+              <LogOut className="h-4 w-4" /> 退出登录
             </button>
           </div>
         </div>
