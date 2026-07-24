@@ -89,19 +89,19 @@ export type ExtensionDetailModalProps = {
 };
 
 const kindLabel: Record<ExtensionKind, string> = {
-  mcp: "MCP Server",
-  plugin: "Plugin",
-  skill: "Skill",
-  "ui-control": "UI Control",
-  extension: "OpenWork Extension",
+  mcp: "MCP 服务",
+  plugin: "插件",
+  skill: "Skill（技能）",
+  "ui-control": "界面控制",
+  extension: "FoxWork 扩展",
 };
 
 const kindDesc: Record<ExtensionKind, string> = {
-  mcp: "Connects as a Model Context Protocol server, giving your agent access to external tools and data.",
-  plugin: "Extends OpenWork with additional capabilities managed by your organization.",
-  skill: "A reusable workflow that your agent can execute on demand.",
-  "ui-control": "Lets another MCP client inspect and drive this OpenWork desktop UI through a local stdio wrapper.",
-  extension: "An OpenWork extension that adds tools, providers, or integrations to your workspace.",
+  mcp: "通过模型上下文协议连接外部工具和数据。",
+  plugin: "为 FoxWork 增加由公司统一管理的能力。",
+  skill: "可由助手按需执行的可复用工作方法。",
+  "ui-control": "允许其他 MCP 客户端通过本机标准输入输出桥接查看和操作 FoxWork 界面。",
+  extension: "为工作区增加工具、模型服务或其他集成。",
 };
 
 const uiControlClientConfig = `{
@@ -205,8 +205,8 @@ export function ExtensionDetailModal({
   contentPreview,
   onReveal,
   onConnect,
-  connectLabel = "Connect",
-  connectingLabel = "Connecting...",
+  connectLabel = "连接",
+  connectingLabel = "正在连接...",
   onUninstall,
   uninstallLabel,
   onHide,
@@ -266,12 +266,12 @@ export function ExtensionDetailModal({
                 <span>{kindLabel[kind]}</span>
                 {preview ? (
                   <span className="rounded-md bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">
-                    Preview
+                    预览版
                   </span>
                 ) : null}
                 {beta ? (
                   <span className="rounded-md bg-amber-3 px-1.5 py-0.5 text-[10px] font-medium text-amber-11">
-                    Alpha
+                    内测版
                   </span>
                 ) : null}
               </DialogDescription>
@@ -291,7 +291,7 @@ export function ExtensionDetailModal({
             {setupInstructions ? (
               <Card variant="outline" size="sm">
                 <CardHeader>
-                  <CardTitle>Setup</CardTitle>
+                  <CardTitle>配置说明</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm leading-relaxed text-muted-foreground">
@@ -304,13 +304,13 @@ export function ExtensionDetailModal({
             {resourceLabels.length > 0 || contributionLabels.length > 0 ? (
               <Card variant="outline" size="sm">
                 <CardHeader>
-                  <CardTitle>Extension manifest</CardTitle>
+                  <CardTitle>扩展清单</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
                     {resourceLabels.length > 0 ? (
                       <div>
-                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Resources</div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">资源</div>
                         <div className="flex flex-wrap gap-1.5">
                           {resourceLabels.map((label) => (
                             <span key={label} className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">{label}</span>
@@ -320,7 +320,7 @@ export function ExtensionDetailModal({
                     ) : null}
                     {contributionLabels.length > 0 ? (
                       <div>
-                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Contributions</div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">提供的能力</div>
                         <div className="flex flex-wrap gap-1.5">
                           {contributionLabels.map((label) => (
                             <span key={label} className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">{label}</span>
@@ -336,18 +336,18 @@ export function ExtensionDetailModal({
             {/* Details */}
             <Card variant="outline" size="sm">
               <CardHeader>
-                <CardTitle>Details</CardTitle>
+                <CardTitle>详细信息</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Type</span>
+                    <span className="text-muted-foreground">类型</span>
                     <span className="font-medium text-card-foreground">{kindLabel[kind]}</span>
                   </div>
 
                   {url ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Endpoint</span>
+                      <span className="text-muted-foreground">服务地址</span>
                       <span className="flex items-center gap-1.5 truncate font-mono text-xs text-card-foreground">
                         {url.replace(/^https?:\/\//, "").slice(0, 40)}
                         <ExternalLink size={10} className="shrink-0 text-muted-foreground" />
@@ -357,20 +357,20 @@ export function ExtensionDetailModal({
 
                   {kind === "ui-control" ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Launch</span>
+                      <span className="text-muted-foreground">启动命令</span>
                       <span className="max-w-[300px] truncate font-mono text-xs text-card-foreground">{(launchCommand ?? fallbackUiControlCommand).join(" ")}</span>
                     </div>
                   ) : null}
 
                   {path && onReveal ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Location</span>
+                      <span className="text-muted-foreground">位置</span>
                       <Button
                         variant="link"
                         size="xs"
                         onClick={onReveal}
                       >
-                        Reveal in Finder
+                        在访达中显示
                         <ExternalLink data-icon="inline-end" />
                       </Button>
                     </div>
@@ -378,44 +378,44 @@ export function ExtensionDetailModal({
 
                   {oauth ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Authentication</span>
-                      <span className="font-medium text-card-foreground">OAuth required</span>
+                      <span className="text-muted-foreground">身份验证</span>
+                      <span className="font-medium text-card-foreground">需要 OAuth</span>
                     </div>
                   ) : null}
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Status</span>
+                    <span className="text-muted-foreground">状态</span>
                     <span className={cn("font-medium", connected ? "text-green-11" : "text-muted-foreground")}>
                       {connected
-                        ? connectedLabel ?? (kind === "skill" || kind === "plugin" ? "Installed" : "Connected")
+                        ? connectedLabel ?? (kind === "skill" || kind === "plugin" ? "已安装" : "已连接")
                         : connecting
                           ? connectingLabel
-                          : disconnectedLabel ?? (kind === "skill" || kind === "plugin" ? "Not installed" : "Not connected")}
+                          : disconnectedLabel ?? (kind === "skill" || kind === "plugin" ? "未安装" : "未连接")}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Visibility</span>
-                    <span className="font-medium text-card-foreground">{hidden ? "Hidden" : "Shown"}</span>
+                    <span className="text-muted-foreground">显示状态</span>
+                    <span className="font-medium text-card-foreground">{hidden ? "已隐藏" : "已显示"}</span>
                   </div>
 
                   {preview ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Release stage</span>
-                      <span className="font-medium text-blue-11">Preview</span>
+                      <span className="text-muted-foreground">发布阶段</span>
+                      <span className="font-medium text-blue-11">预览版</span>
                     </div>
                   ) : null}
 
                   {beta ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Release stage</span>
-                      <span className="font-medium text-amber-11">Alpha</span>
+                      <span className="text-muted-foreground">发布阶段</span>
+                      <span className="font-medium text-amber-11">内测版</span>
                     </div>
                   ) : null}
 
                   {disabledReason ? (
                     <div className="flex items-center justify-between gap-4 text-sm">
-                      <span className="text-muted-foreground">Availability</span>
+                      <span className="text-muted-foreground">可用状态</span>
                       <span className="text-right font-medium text-amber-11">{disabledReason}</span>
                     </div>
                   ) : null}
@@ -429,7 +429,7 @@ export function ExtensionDetailModal({
             {kind === "skill" && trigger ? (
               <Card variant="outline" size="sm">
                 <CardHeader>
-                  <CardTitle>Trigger</CardTitle>
+                  <CardTitle>触发方式</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm leading-relaxed text-card-foreground">
@@ -449,7 +449,7 @@ export function ExtensionDetailModal({
               return (
                 <div className="flex flex-col gap-2">
                   <div className="text-sm font-medium text-card-foreground">
-                    Skill content
+                    Skill 内容
                   </div>
                   <div className="max-h-[300px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-card-foreground">
                     <MarkdownBlock text={body} />
@@ -462,7 +462,7 @@ export function ExtensionDetailModal({
             {showEnablementCard && ((kind !== "skill" && kind !== "ui-control") || (!trigger && !contentPreview && kind !== "ui-control")) ? (
               <Card variant="outline" size="sm">
                 <CardHeader>
-                  <CardTitle>What this enables</CardTitle>
+                  <CardTitle>提供的能力</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm leading-relaxed text-muted-foreground">
@@ -488,7 +488,7 @@ export function ExtensionDetailModal({
                   onClose();
                 }}
               >
-                Show
+                显示
               </Button>
             ) : !hidden && onHide ? (
               <Button
@@ -499,13 +499,13 @@ export function ExtensionDetailModal({
                   onClose();
                 }}
               >
-                Hide
+                隐藏
               </Button>
             ) : null}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <DialogClose render={<Button variant="outline" />}>
-              Close
+              关闭
             </DialogClose>
             {connected && onUninstall ? (
               <Button
@@ -516,7 +516,7 @@ export function ExtensionDetailModal({
                   onClose();
                 }}
               >
-                {uninstallLabel ?? (kind === "skill" ? "Uninstall" : "Disconnect")}
+                {uninstallLabel ?? (kind === "skill" ? "卸载" : "断开连接")}
               </Button>
             ) : null}
             {!connected && onConnect ? (
@@ -555,13 +555,13 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
     <div className="space-y-4">
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>How to connect another client</CardTitle>
+          <CardTitle>连接其他客户端</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-            <div>OpenWork desktop starts a private localhost bridge automatically.</div>
-            <div>Your MCP client starts <span className="font-mono text-card-foreground">openwork-ui-mcp</span> over stdio; the wrapper discovers the bridge and proxies UI tools to it.</div>
-            <div>Do not point clients at the random localhost bridge URL directly.</div>
+            <div>FoxWork 桌面端会自动启动仅限本机访问的桥接服务。</div>
+            <div>MCP 客户端通过标准输入输出启动 <span className="font-mono text-card-foreground">openwork-ui-mcp</span>，由该程序自动发现桥接服务并转发界面工具。</div>
+            <div>不要让客户端直接连接随机生成的本机桥接地址。</div>
           </div>
         </CardContent>
       </Card>
@@ -590,7 +590,7 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
 
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>Discovery</CardTitle>
+          <CardTitle>自动发现</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative overflow-hidden rounded-xl bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-xl)-1px)] before:border before:border-border">
@@ -598,23 +598,23 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
               <TableBody>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 w-40 py-2 text-xs font-medium">
-                    Production discovery file
+                    正式版发现文件
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
-                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.differentai.openwork/openwork-ui-control.json</span>
+                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.foxwork.desktop/openwork-ui-control.json</span>
                   </TableCell>
                 </TableRow>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                    Dev discovery file
+                    开发版发现文件
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
-                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.differentai.openwork.dev/openwork-ui-control.json</span>
+                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.foxwork.desktop.dev/openwork-ui-control.json</span>
                   </TableCell>
                 </TableRow>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                    Override
+                    自定义路径
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
                     <span className="font-mono text-xs break-all">OPENWORK_UI_CONTROL_DISCOVERY=/path/to/openwork-ui-control.json</span>
@@ -623,7 +623,7 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
                 {props.environment?.OPENWORK_UI_CONTROL_DISCOVERY ? (
                   <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                     <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                      Current override
+                      当前自定义路径
                     </TableCell>
                     <TableCell className="py-2 whitespace-normal">
                       <span className="font-mono text-xs break-all">{props.environment.OPENWORK_UI_CONTROL_DISCOVERY}</span>

@@ -76,7 +76,7 @@ function CredentialField({
           type="button"
           onClick={() => onCopy(id, value)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 shadow-sm transition-colors hover:border-gray-300 hover:text-gray-700"
-          aria-label={`Copy ${label}`}
+          aria-label={`复制${label}`}
         >
           {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
         </button>
@@ -123,9 +123,9 @@ function SandboxCard({
   }
 
   const credentialFields = [
-    connectionUrl ? { id: "url", label: "Connection URL", value: connectionUrl } : null,
-    ownerToken ? { id: "owner", label: "Owner token", value: ownerToken } : null,
-    clientToken ? { id: "client", label: "Client token", value: clientToken } : null,
+    connectionUrl ? { id: "url", label: "连接地址", value: connectionUrl } : null,
+    ownerToken ? { id: "owner", label: "所有者令牌", value: ownerToken } : null,
+    clientToken ? { id: "client", label: "客户端令牌", value: clientToken } : null,
   ].filter((field): field is { id: string; label: string; value: string } => Boolean(field));
 
   return (
@@ -146,7 +146,7 @@ function SandboxCard({
               </span>
             </h3>
             <p className="text-[12px] text-gray-400">
-              Source: {sandbox.provider ? `${sandbox.provider} sandbox` : "cloud sandbox"}
+              来源：{sandbox.provider ? `${sandbox.provider} 运行环境` : "云端运行环境"}
             </p>
           </div>
         </div>
@@ -166,7 +166,7 @@ function SandboxCard({
                 : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
             } disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            {expanded ? "Hide details" : "Connect"}
+            {expanded ? "收起详情" : "连接"}
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           <button
@@ -174,7 +174,7 @@ function SandboxCard({
             onClick={onRename}
             disabled={renameBusy}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label={`Rename ${sandbox.workerName}`}
+            aria-label={`重命名${sandbox.workerName}`}
           >
             <MoreHorizontal size={16} />
           </button>
@@ -194,7 +194,7 @@ function SandboxCard({
               disabled={!openDesktopUrl}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 py-2.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Monitor size={15} /> Open in desktop
+              <Monitor size={15} /> 在 FoxWork 中打开
             </button>
 
             {openWebUrl ? (
@@ -204,7 +204,7 @@ function SandboxCard({
                 rel="noreferrer"
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-2.5 text-[13px] font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
               >
-                <ExternalLink size={15} /> Open in web
+                <ExternalLink size={15} /> 在网页中打开
               </a>
             ) : (
               <button
@@ -212,7 +212,7 @@ function SandboxCard({
                 disabled
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-2.5 text-[13px] font-medium text-gray-700 shadow-sm opacity-60"
               >
-                <ExternalLink size={15} /> Open in web
+                <ExternalLink size={15} /> 在网页中打开
               </button>
             )}
           </div>
@@ -226,7 +226,7 @@ function SandboxCard({
               >
                 <span className="flex items-center gap-2">
                   <KeyRound size={14} className="text-gray-400" />
-                  Connection credentials
+                  连接凭据
                 </span>
                 {showTokens ? (
                   <ChevronUp size={14} className="text-gray-400" />
@@ -239,7 +239,7 @@ function SandboxCard({
                 <div className="mt-2 space-y-4 rounded-xl border border-gray-100 bg-gray-50/50 p-5">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-[1px] text-gray-500">
-                      Access Tokens
+                      访问令牌
                     </span>
                     <button
                       type="button"
@@ -248,7 +248,7 @@ function SandboxCard({
                       className="flex items-center gap-1.5 text-[12px] font-medium text-gray-500 transition-colors hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RefreshCw size={13} className={connectBusy ? "animate-spin" : ""} />
-                      {connectBusy ? "Refreshing..." : "Refresh tokens"}
+                      {connectBusy ? "正在刷新…" : "刷新令牌"}
                     </button>
                   </div>
 
@@ -266,8 +266,8 @@ function SandboxCard({
                   ) : (
                     <p className="text-[12px] text-gray-500">
                       {connectBusy
-                        ? "Loading connection credentials..."
-                        : "Connection credentials will appear here once the workspace is ready."}
+                        ? "正在加载连接凭据…"
+                        : "远程工作区就绪后，连接凭据会显示在这里。"}
                     </p>
                   )}
                 </div>
@@ -275,7 +275,7 @@ function SandboxCard({
             </div>
           ) : (
             <p className="mt-4 text-[12px] text-gray-500">
-              Connection details will appear once this workspace is ready.
+              远程工作区就绪后，连接信息会显示在这里。
             </p>
           )}
         </div>
@@ -319,13 +319,13 @@ export function BackgroundAgentsScreen() {
 
       if (!response.ok) {
         throw new Error(
-          getErrorMessage(payload, `Failed to load connection details (${response.status}).`),
+          getErrorMessage(payload, `连接信息加载失败（${response.status}）。`),
         );
       }
 
       const tokens = getWorkerTokens(payload);
       if (!tokens) {
-        throw new Error("Connection details were missing from the worker response.");
+        throw new Error("远程 Worker 返回中缺少连接信息，请稍后重试。");
       }
 
       const nextDetails: ConnectionDetails = {
@@ -354,7 +354,9 @@ export function BackgroundAgentsScreen() {
       }));
     } catch (error) {
       setConnectError(
-        error instanceof Error ? error.message : "Failed to load connection details.",
+        error instanceof Error
+          ? getErrorMessage(error.message, "连接信息加载失败，请重试。")
+          : "连接信息加载失败，请重试。",
       );
     } finally {
       setConnectBusyWorkerId(null);
@@ -381,18 +383,18 @@ export function BackgroundAgentsScreen() {
   return (
     <DashboardPageTemplate
       icon={Bot}
-      badgeLabel="Alpha"
-      title="Background Tasks"
-      description="Run selected workflows in the background without asking each teammate to run them locally. Coming soon."
+      badgeLabel="内测"
+      title="远程工作区"
+      description="查看公司远程 Worker 的运行状态，并连接到已授权的远程工作区。"
       colors={["#E9FFE0", "#3E9A1D", "#B3F750", "#51F0A3"]}
     >
       <div className="mb-10 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-6 text-amber-800">
-        New cloud workspaces are no longer available from this page. Existing workspaces remain available below.
+        请在 FoxWork 的工作区菜单中创建新的远程工作区。本页供管理员查看运行状态和连接信息。
       </div>
 
       {workersError ? (
         <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-          {workersError}
+          {getErrorMessage(workersError, "远程工作区加载失败，请重试。")}
         </div>
       ) : null}
       {connectError ? (
@@ -404,7 +406,7 @@ export function BackgroundAgentsScreen() {
       <div>
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 className="text-[15px] font-medium tracking-[-0.2px] text-gray-900">
-            Current workspaces
+            当前远程工作区
           </h2>
           <div className="w-full max-w-[240px]">
             <DenInput
@@ -412,7 +414,7 @@ export function BackgroundAgentsScreen() {
               icon={Search}
               value={workerQuery}
               onChange={(event) => setWorkerQuery(event.target.value)}
-              placeholder="Search workspaces..."
+              placeholder="搜索远程工作区"
             />
           </div>
         </div>
@@ -420,13 +422,13 @@ export function BackgroundAgentsScreen() {
         <div className="space-y-3">
           {!workersLoadedOnce ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-5 text-[13px] text-gray-500">
-              Loading workspaces...
+              正在加载远程工作区…
             </div>
           ) : filteredWorkers.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-5 text-[13px] text-gray-500">
               {workerQuery.trim()
-                ? "No workspaces match that search yet."
-                : "No workspaces launched yet."}
+                ? "没有符合条件的远程工作区。"
+                : "还没有远程工作区。"}
             </div>
           ) : (
             filteredWorkers.map((sandbox) => (
@@ -440,7 +442,7 @@ export function BackgroundAgentsScreen() {
                 onToggle={() => void toggleSandbox(sandbox)}
                 onRefresh={() => void loadConnectionDetails(sandbox.workerId, sandbox.workerName)}
                 onRename={() => {
-                  const nextName = window.prompt("Rename workspace", sandbox.workerName)?.trim();
+                  const nextName = window.prompt("重命名远程工作区", sandbox.workerName)?.trim();
                   if (!nextName || nextName === sandbox.workerName) {
                     return;
                   }
@@ -453,7 +455,7 @@ export function BackgroundAgentsScreen() {
       </div>
 
       {workersLoadedOnce && workersBusy ? (
-        <p className="mt-4 text-[12px] text-gray-400">Refreshing workspaces…</p>
+        <p className="mt-4 text-[12px] text-gray-400">正在刷新远程工作区…</p>
       ) : null}
     </DashboardPageTemplate>
   );

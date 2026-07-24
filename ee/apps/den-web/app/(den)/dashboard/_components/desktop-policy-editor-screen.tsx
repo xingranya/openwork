@@ -37,7 +37,7 @@ type PolicyDraft = {
 };
 
 const EMPTY_DRAFT: PolicyDraft = {
-  policyName: "New desktop policy",
+  policyName: "新桌面策略",
   policy: { ...desktopPolicyDefaults },
   priority: 0,
   onboardingPromptsEnabled: false,
@@ -47,7 +47,7 @@ const EMPTY_DRAFT: PolicyDraft = {
   teamIds: [],
 };
 
-const ONBOARDING_PROMPT_LABELS = ["First prompt", "Second prompt", "Optional third prompt"];
+const ONBOARDING_PROMPT_LABELS = ["第一条建议", "第二条建议", "第三条建议（选填）"];
 const ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH = 120;
 const MAX_POLICY_PRIORITY = 1_000_000;
 const PRIORITY_HELP_ID = "desktop-policy-priority-help";
@@ -123,18 +123,18 @@ function getOnboardingPromptDescriptions(draft: PolicyDraft, promptCount: number
 function getPriorityError(draft: PolicyDraft, isDefault: boolean) {
   if (isDefault) return null;
   if (!Number.isInteger(draft.priority) || draft.priority < 0 || draft.priority > MAX_POLICY_PRIORITY) {
-    return `Priority must be a whole number from 0 to ${MAX_POLICY_PRIORITY}.`;
+    return `优先级必须是 0 到 ${MAX_POLICY_PRIORITY} 之间的整数。`;
   }
   return null;
 }
 
 function getPromptError(draft: PolicyDraft, index: number) {
   if (!draft.onboardingPromptsEnabled) return null;
-  const label = ONBOARDING_PROMPT_LABELS[index] ?? "Prompt";
+  const label = ONBOARDING_PROMPT_LABELS[index] ?? "建议内容";
   const prompt = draft.onboardingPromptTexts[index] ?? "";
   const trimmed = prompt.trim();
-  if (index < 2 && trimmed.length === 0) return `${label} is required.`;
-  if (trimmed.length > 500) return `${label} must be 500 characters or less.`;
+  if (index < 2 && trimmed.length === 0) return `${label}不能为空。`;
+  if (trimmed.length > 500) return `${label}不能超过 500 个字符。`;
   return null;
 }
 
@@ -143,7 +143,7 @@ function getPromptDescriptionError(draft: PolicyDraft, index: number) {
   const description = draft.onboardingPromptDescriptions[index] ?? "";
   const trimmed = description.trim();
   if (trimmed.length > ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH) {
-    return `Description must be ${ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH} characters or less.`;
+    return `说明不能超过 ${ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH} 个字符。`;
   }
   return null;
 }
@@ -166,8 +166,8 @@ function getPromptDescriptionErrorId(index: number) {
 
 function getDisabledPromptCopy(isDefault: boolean) {
   return isDefault
-    ? "When organization prompts are off, OpenWork defaults are used."
-    : "When organization prompts are off, members inherit prompts from another matching policy or the default policy; if none apply, OpenWork defaults are used.";
+    ? "关闭公司任务建议后，FoxWork 会显示内置建议。"
+    : "关闭公司任务建议后，员工会继承其他匹配策略或默认策略；没有匹配项时显示 FoxWork 内置建议。";
 }
 
 function policyDocumentFromDraft(draft: PolicyDraft): DesktopPolicyDocumentWrite {
@@ -228,7 +228,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
   const handleSave = async () => {
     const policyName = draft.policyName.trim();
     if (!policyName) {
-      setPageError("Policy name is required.");
+      setPageError("请填写策略名称。");
       return;
     }
     const nextPriorityError = getPriorityError(draft, isDefault);
@@ -257,8 +257,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
           teamIds: isDefault ? [] : draft.teamIds,
         };
         if (isEditing && desktopPolicyId) {
-          // Preserve the current enabled state when saving form edits; the
-          // dedicated Enable/Disable button is the only way to flip it.
+          // 保存表单时保留当前启用状态，仅允许通过专用按钮切换状态。
           payload.isEnabled = policy?.isEnabled ?? true;
           await updateDesktopPolicy(desktopPolicyId, payload);
         } else {
@@ -269,7 +268,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
         router.push(listRoute);
       });
     } catch (saveError) {
-      setPageError(saveError instanceof Error ? saveError.message : "Failed to save desktop policy.");
+      setPageError(saveError instanceof Error ? saveError.message : "保存桌面策略失败。");
     } finally {
       setSaving(false);
     }
@@ -293,7 +292,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
         await reloadPolicies();
       });
     } catch (toggleError) {
-      setPageError(toggleError instanceof Error ? toggleError.message : "Failed to update desktop policy.");
+      setPageError(toggleError instanceof Error ? toggleError.message : "更新桌面策略失败。");
     } finally {
       setTogglingEnabled(false);
     }
@@ -302,8 +301,8 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
   return (
     <DashboardPageTemplate
       icon={Laptop}
-      title={isEditing ? "Edit desktop policy" : "New desktop policy"}
-      description="Default policy values apply org-wide. Other policies can grant access to specific users or teams."
+      title={isEditing ? "编辑桌面策略" : "新建桌面策略"}
+      description="默认策略对全公司生效，其他策略可以单独分配给成员或团队。"
       colors={["#F8FAFC", "#0F172A", "#38BDF8", "#A78BFA"]}
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -312,11 +311,11 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
           className="inline-flex items-center gap-2 text-[13px] font-medium text-gray-500 hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to desktop policies
+          返回桌面策略
         </Link>
       </div>
 
-      {orgContext && !orgContext.entitlements.desktopPolicies ? <EnterprisePlanNotice feature="Desktop policy management" /> : null}
+      {orgContext && !orgContext.entitlements.desktopPolicies ? <EnterprisePlanNotice feature="桌面策略管理" /> : null}
       {pageError ? (
         <div role="alert" className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">{pageError}</div>
       ) : null}
@@ -325,32 +324,32 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
       ) : null}
 
       {initialLoad ? (
-        <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">Loading desktop policy...</div>
+        <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">正在加载桌面策略...</div>
       ) : notFound ? (
         <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-[15px] text-gray-500">
-          Desktop policy not found.
+          没有找到这个桌面策略。
         </div>
       ) : !canManage ? (
         <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-[15px] text-gray-500">
-          Only workspace owners and admins can manage desktop policies.
+          只有公司所有者和管理员可以管理桌面策略。
         </div>
       ) : (
         <section className="grid gap-5 rounded-[28px] border border-gray-200 bg-white p-6">
           <div className="flex flex-wrap items-end gap-3">
             <label className="grid flex-1 min-w-[240px] gap-2">
-              <span className="text-[13px] font-medium text-gray-700">Policy name</span>
+              <span className="text-[13px] font-medium text-gray-700">策略名称</span>
               <DenInput
                 value={draft.policyName}
                 onChange={(event) => setDraft({ ...draft, policyName: event.target.value })}
                 disabled={saving || togglingEnabled || isDefault}
               />
               {isDefault ? (
-                <span className="text-[12px] text-gray-500">The default desktop policy name cannot be changed.</span>
+                <span className="text-[12px] text-gray-500">默认桌面策略的名称不能修改。</span>
               ) : null}
             </label>
             {!isDefault ? (
               <label className="grid w-full gap-2 sm:w-40">
-                <span className="text-[13px] font-medium text-gray-700">Priority</span>
+                <span className="text-[13px] font-medium text-gray-700">优先级</span>
                 <DenInput
                   type="number"
                   min={0}
@@ -368,7 +367,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                   }}
                   disabled={saving || togglingEnabled}
                 />
-                <span id={PRIORITY_HELP_ID} className="text-[12px] text-gray-500">Higher wins when multiple targeted policies match.</span>
+                <span id={PRIORITY_HELP_ID} className="text-[12px] text-gray-500">同一成员匹配多条策略时，优先级更高的策略生效。</span>
                 {priorityError ? (
                   <span id={PRIORITY_ERROR_ID} className="text-[12px] text-red-600">{priorityError}</span>
                 ) : null}
@@ -382,7 +381,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                 loading={togglingEnabled}
                 disabled={saving}
               >
-                {policy.isEnabled ? "Disable" : "Enable"}
+                {policy.isEnabled ? "停用" : "启用"}
               </DenButton>
             ) : null}
           </div>
@@ -423,9 +422,9 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                 disabled={saving || togglingEnabled}
               />
               <span>
-                <span className="block text-[14px] font-medium text-gray-950">Organization prompt suggestions</span>
+                <span className="block text-[14px] font-medium text-gray-950">公司任务建议</span>
                 <span className="mt-1 block text-[13px] leading-6 text-gray-500">
-                  Replace the desktop app's default task suggestions with prompts provided by your organization.
+                  用公司提供的任务建议替换 FoxWork 内置建议。
                 </span>
               </span>
             </label>
@@ -443,7 +442,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                     <div key={label} className="grid gap-3 rounded-[18px] border border-gray-200 bg-white px-4 py-3">
                       <p className="text-[13px] font-medium text-gray-700">{label}</p>
                       <label className="grid gap-2">
-                        <span className="text-[12px] font-medium text-gray-600">Description</span>
+                        <span className="text-[12px] font-medium text-gray-600">卡片标题</span>
                         <DenInput
                           maxLength={ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH}
                           value={draft.onboardingPromptDescriptions[index] ?? ""}
@@ -454,17 +453,17 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                             onboardingPromptDescriptions: updateOnboardingPromptDescription(draft.onboardingPromptDescriptions, index, event.target.value),
                           })}
                           disabled={saving || togglingEnabled}
-                          placeholder="Card title shown in the desktop app"
+                          placeholder="填写 FoxWork 中显示的卡片标题"
                         />
                         <span id={promptDescriptionHelpId} className="text-[12px] text-gray-500">
-                          {(draft.onboardingPromptDescriptions[index] ?? "").trim().length}/{ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH} characters
+                          {(draft.onboardingPromptDescriptions[index] ?? "").trim().length}/{ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH} 个字符
                         </span>
                         {promptDescriptionError ? (
                           <span id={promptDescriptionErrorId} className="text-[12px] text-red-600">{promptDescriptionError}</span>
                         ) : null}
                       </label>
                       <label className="grid gap-2">
-                        <span className="text-[12px] font-medium text-gray-600">Prompt</span>
+                        <span className="text-[12px] font-medium text-gray-600">任务内容</span>
                         <DenTextarea
                           rows={2}
                           maxLength={500}
@@ -476,10 +475,10 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                             onboardingPromptTexts: updateOnboardingPromptText(draft.onboardingPromptTexts, index, event.target.value),
                           })}
                           disabled={saving || togglingEnabled}
-                          placeholder={index === 2 ? "Optional" : "Enter a suggested prompt"}
+                          placeholder={index === 2 ? "选填" : "填写建议的任务内容"}
                         />
                         <span id={promptHelpId} className="text-[12px] text-gray-500">
-                          {(draft.onboardingPromptTexts[index] ?? "").trim().length}/500 characters
+                          {(draft.onboardingPromptTexts[index] ?? "").trim().length}/500 个字符
                         </span>
                         {promptError ? (
                           <span id={promptErrorId} className="text-[12px] text-red-600">{promptError}</span>
@@ -497,14 +496,14 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
           {!isDefault ? (
             <div className="grid items-start gap-5 lg:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <p className="text-[13px] font-medium text-gray-700">Members</p>
+                <p className="text-[13px] font-medium text-gray-700">成员</p>
                 <div className="flex max-h-64 min-h-[160px] flex-col gap-2 overflow-auto rounded-[22px] border border-gray-200 p-3">
                   {(orgContext?.members ?? []).length === 0 ? (
                     <Link
                       href={getMembersRoute(orgSlug)}
                       className="flex flex-1 items-center justify-center rounded-xl px-3 py-6 text-center text-[13px] text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     >
-                      Invite members to assign them to this policy.
+                      先邀请成员，再把此策略分配给他们。
                     </Link>
                   ) : (
                     (orgContext?.members ?? []).map((member) => (
@@ -526,14 +525,14 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-[13px] font-medium text-gray-700">Teams</p>
+                <p className="text-[13px] font-medium text-gray-700">团队</p>
                 <div className="flex max-h-64 min-h-[160px] flex-col gap-2 overflow-auto rounded-[22px] border border-gray-200 p-3">
                   {(orgContext?.teams ?? []).length === 0 ? (
                     <Link
                       href={getMembersRoute(orgSlug)}
                       className="flex flex-1 items-center justify-center rounded-xl px-3 py-6 text-center text-[13px] text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     >
-                      Click here to set up your teams.
+                      点击这里创建团队。
                     </Link>
                   ) : (
                     (orgContext?.teams ?? []).map((team) => (
@@ -561,10 +560,10 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
               href={listRoute}
               className="inline-flex h-10 items-center justify-center rounded-full border border-gray-200 bg-white px-5 text-[13px] font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
             >
-              Cancel
+              取消
             </Link>
             <DenButton type="button" onClick={() => void handleSave()} loading={saving} disabled={togglingEnabled}>
-              {isEditing ? "Save changes" : "Create policy"}
+              {isEditing ? "保存修改" : "创建策略"}
             </DenButton>
           </div>
         </section>

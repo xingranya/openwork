@@ -776,7 +776,7 @@ export function AppSidebar(props: AppSidebarProps) {
           >
             <img
               src={brandLogoUrl}
-              alt="Organization logo"
+              alt="公司图标"
               className="max-h-9 w-auto max-w-[140px] object-contain object-left"
             />
           </div>

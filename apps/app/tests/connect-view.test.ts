@@ -110,7 +110,7 @@ describe("Connect cloud-readiness row resolution", () => {
   });
 
   test("formats row meta for component counts and mixed setup states", () => {
-    expect(formatPluginConnectRowMeta({ componentCounts: { skill: 2, command: 1 } })).toBe("2 skills · 1 command");
+    expect(formatPluginConnectRowMeta({ componentCounts: { skill: 2, command: 1 } })).toBe("2 个Skill · 1 个命令");
     expect(formatPluginConnectRowMeta({
       componentCounts: { skill: 1, mcp: 1 },
       cloudReadiness: {
@@ -118,7 +118,7 @@ describe("Connect cloud-readiness row resolution", () => {
         hasInstructional: true,
         connections: [{ id: null, name: "Sales", url: "https://sales.example.test/mcp" }],
       },
-    })).toBe("skills ready now · app needs setup · needs Sales");
+    })).toBe("Skill 已可用 · 应用仍需设置 · 需要设置：Sales");
   });
 
   test("never groups a connected account with missing features as ready", () => {

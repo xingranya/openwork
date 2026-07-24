@@ -113,7 +113,7 @@ function SidePanelTab({ tab, active, onSelect, onClose }: SidePanelTabProps) {
             showBrowserTabContextMenu();
           } : undefined}
           title={tab.label}
-          aria-label={`Select tab: ${tab.label}`}
+          aria-label={`选择标签页：${tab.label}`}
         >
           {tab.type === "browser" ? (
             tab.favicon ? (
@@ -302,13 +302,13 @@ function BrowserPanelContent({
                     size="icon-sm"
                     onClick={back}
                     disabled={!tab.canGoBack}
-                    aria-label="Go back"
+                    aria-label="后退"
                   >
                     <ArrowLeft />
                   </Button>
                 )}
               />
-              <TooltipContent>Back</TooltipContent>
+              <TooltipContent>后退</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -318,13 +318,13 @@ function BrowserPanelContent({
                     size="icon-sm"
                     onClick={forward}
                     disabled={!tab.canGoForward}
-                    aria-label="Go forward"
+                    aria-label="前进"
                   >
                     <ArrowRight />
                   </Button>
                 )}
               />
-              <TooltipContent>Forward</TooltipContent>
+              <TooltipContent>前进</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -333,13 +333,13 @@ function BrowserPanelContent({
                     variant="ghost"
                     size="icon-sm"
                     onClick={reload}
-                    aria-label="Reload page"
+                    aria-label="重新加载页面"
                   >
                     {tab.status === "loading" ? <Loader2 className="animate-spin" /> : <RotateCw />}
                   </Button>
                 )}
               />
-              <TooltipContent>Reload</TooltipContent>
+              <TooltipContent>重新加载</TooltipContent>
             </Tooltip>
             <InputGroup className="mx-1 h-7 flex-1 rounded-md">
               <InputGroupInput
@@ -356,7 +356,7 @@ function BrowserPanelContent({
                 onBlur={() => {
                   urlFocusedRef.current = false;
                 }}
-                placeholder="Enter URL..."
+                placeholder="输入网址..."
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -367,15 +367,15 @@ function BrowserPanelContent({
           </>
         ) : (
           <p className="px-2 text-sm text-muted-foreground">
-            Browser panel is only available in the desktop app.
+            浏览器面板仅可在桌面客户端中使用。
           </p>
         )}
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
-          title="Close panel"
-          aria-label="Close panel"
+          title="关闭面板"
+          aria-label="关闭面板"
         >
           <X />
         </Button>
@@ -562,13 +562,13 @@ export function SidePanel({
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => createTab()}
-                      aria-label="New tab"
+                      aria-label="新建标签页"
                     >
                       <Plus />
                     </Button>
                   )}
                 />
-                <TooltipContent>New tab</TooltipContent>
+                <TooltipContent>新建标签页</TooltipContent>
               </Tooltip>
             ) : null}
           </div>
@@ -599,7 +599,7 @@ export function SidePanel({
 function PanelEmpty() {
   return (
     <div className="flex h-full items-center justify-center p-4 text-center">
-      <p className="text-sm text-muted-foreground">Open an artifact or browser tab to get started.</p>
+      <p className="text-sm text-muted-foreground">打开文件或浏览器标签页后，可在这里查看。</p>
     </div>
   );
 }

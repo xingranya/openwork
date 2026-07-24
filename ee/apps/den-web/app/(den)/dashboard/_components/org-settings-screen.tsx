@@ -206,14 +206,14 @@ export function OrgSettingsScreen() {
           throw new Error(
             getErrorMessage(
               payload,
-              `Failed to load desktop version metadata (${response.status}).`,
+              `加载 FoxWork 版本信息失败（${response.status}）。`,
             ),
           );
         }
 
         const metadata = getDesktopVersionMetadata(payload);
         if (!metadata) {
-          throw new Error("Desktop version metadata was incomplete.");
+          throw new Error("FoxWork 版本信息不完整。");
         }
 
         if (cancelled) {
@@ -229,11 +229,7 @@ export function OrgSettingsScreen() {
         if (!cancelled) {
           setDesktopVersionOptions([]);
           setDesktopVersionRange(null);
-          setDesktopVersionOptionsError(
-            error instanceof Error
-              ? error.message
-              : "Could not load desktop versions.",
-          );
+          setDesktopVersionOptionsError(getErrorMessage(error, "加载 FoxWork 版本失败。"));
         }
       } finally {
         if (!cancelled) {
@@ -271,17 +267,17 @@ export function OrgSettingsScreen() {
 
   const createdAtLabel = useMemo(() => {
     if (!orgContext?.organization.createdAt) {
-      return "Not available";
+      return "暂无日期";
     }
 
-    return new Date(orgContext.organization.createdAt).toLocaleDateString();
+    return new Date(orgContext.organization.createdAt).toLocaleDateString("zh-CN");
   }, [orgContext?.organization.createdAt]);
 
   if (orgBusy && !orgContext) {
     return (
       <div className="mx-auto max-w-[860px] p-8">
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading workspace settings...
+          正在加载公司设置...
         </div>
       </div>
     );
@@ -291,7 +287,7 @@ export function OrgSettingsScreen() {
     return (
       <div className="mx-auto max-w-[860px] p-8">
         <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-10 text-[15px] text-red-700">
-          {orgError ?? "Workspace settings are not available right now."}
+          {getErrorMessage(orgError, "暂时无法加载公司设置。")}
         </div>
       </div>
     );
@@ -347,28 +343,24 @@ export function OrgSettingsScreen() {
       });
       setDomainEditModeEnabled(false);
     } catch (error) {
-      setPageError(
-        error instanceof Error
-          ? error.message
-          : "Could not update workspace settings.",
-      );
+      setPageError(getErrorMessage(error, "更新公司设置失败，请重试。"));
     }
   }
 
   return (
     <DashboardPageTemplate
       icon={SlidersHorizontal}
-      title="Org settings"
+      title="公司设置"
       description={(
         <span className="flex w-full items-baseline justify-between gap-4">
-          <span>Control your organization&apos;s settings.</span>
+          <span>管理公司身份、访问规则、登录方式和客户端版本。</span>
           {denVersion ? (
             <span
               className="font-normal tabular-nums text-gray-300"
               data-den-runtime-version={denVersion}
-              title={`Den API version ${denVersion}`}
+              title={`公司服务版本 ${denVersion}`}
             >
-              Den {denVersion}
+              公司服务 {denVersion}
             </span>
           ) : null}
         </span>
@@ -376,7 +368,7 @@ export function OrgSettingsScreen() {
       colors={["#D9F99D", "#0F172A", "#0F766E", "#FDE68A"]}
     >
       {orgContext && !orgContext.entitlements.orgControls ? (
-        <EnterprisePlanNotice feature="Enforced SSO and desktop version control" />
+        <EnterprisePlanNotice feature="强制 SSO 和桌面版本控制" />
       ) : null}
       {pageError ? (
         <DenNotice message={pageError} className="mb-6" />
@@ -391,17 +383,17 @@ export function OrgSettingsScreen() {
         <DenCard size="spacious" className="grid gap-6">
           <div className="grid gap-2">
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-              Core
+              基础信息
             </p>
             <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">
-              Organization Identity
+              公司身份
             </h2>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
             <label className="grid gap-3">
               <span className="text-[14px] font-medium text-gray-700">
-                Name
+                公司名称
               </span>
               <DenInput
                 type="text"
@@ -420,7 +412,7 @@ export function OrgSettingsScreen() {
                 <DenInput
                   value={organizationId}
                   readOnly
-                  aria-label="Organization ID"
+                  aria-label="公司 ID"
                   className="font-mono text-[13px]"
                 />
                 <DenButton
@@ -429,7 +421,7 @@ export function OrgSettingsScreen() {
                   icon={copiedOrgId ? Check : Copy}
                   onClick={() => void handleCopyOrgId()}
                 >
-                  {copiedOrgId ? "Copied" : "Copy"}
+                  {copiedOrgId ? "已复制" : "复制"}
                 </DenButton>
               </div>
             </div>
@@ -440,22 +432,21 @@ export function OrgSettingsScreen() {
           <div className="flex items-start justify-between gap-4">
             <div className="grid gap-2">
               <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                Access rules
+                加入规则
               </p>
               <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">
-                Allowed email domains
+                允许的邮箱域名
               </h2>
               <p className="text-[14px] text-gray-500">
-                Only allow people with specific email domains to join this
-                Organization.
+                只允许使用指定邮箱域名的员工加入公司。
               </p>
             </div>
             <div className="flex items-center gap-3 pt-1">
               <span className="text-[13px] font-medium text-gray-500">
-                {domainRestrictionsEnabled ? "On" : "Off"}
+                {domainRestrictionsEnabled ? "已开启" : "已关闭"}
               </span>
               <SettingsToggle
-                label="Restrict allowed email domains"
+                label="限制允许加入的邮箱域名"
                 checked={domainRestrictionsEnabled}
                 disabled={
                   !isOwner || (domainRestrictionsEnabled && hasDraftDomains)
@@ -468,10 +459,10 @@ export function OrgSettingsScreen() {
           {domainRestrictionsEnabled && domainEditModeEnabled ? (
             <label className="grid gap-3">
               <span className="text-[14px] font-medium text-gray-700">
-                Domain allowlist
+                域名允许列表
               </span>
               <span className="text-[10px] text-gray-500">
-                Enter domains one per line or with comma as separator
+                每行填写一个域名，也可以使用逗号分隔
               </span>
               <DenTextarea
                 value={allowedDomainsDraft}
@@ -499,7 +490,7 @@ export function OrgSettingsScreen() {
                   </div>
                 ) : (
                   <p className="text-[14px] text-gray-600">
-                    No email domains are configured yet.
+                    尚未配置邮箱域名。
                   </p>
                 )}
                 {isOwner ? (
@@ -514,7 +505,7 @@ export function OrgSettingsScreen() {
                       setDomainEditModeEnabled(true);
                     }}
                   >
-                    Edit
+                    编辑
                   </DenButton>
                 ) : null}
               </div>
@@ -525,25 +516,25 @@ export function OrgSettingsScreen() {
         <DenCard size="spacious" className="grid gap-6">
           <div className="grid gap-2">
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-              Authentication
+              身份认证
             </p>
             <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">
-              Single sign-on requirement
+              单点登录要求
             </h2>
             <p className="text-[14px] text-gray-500">
-              Require members to use the workspace SSO entrypoint when their email domain matches this organization.
+              当员工邮箱域名匹配公司设置时，要求使用公司的单点登录入口。
             </p>
           </div>
 
           <div className="flex items-start justify-between gap-4 rounded-[24px] border border-gray-200 bg-white px-5 py-4">
             <div className="grid gap-1 pr-4">
-              <p className="text-[15px] font-medium text-gray-900">Require SSO for matching domains</p>
+              <p className="text-[15px] font-medium text-gray-900">匹配公司域名时强制使用 SSO</p>
               <p className="text-[13px] text-gray-500">
-                Email/password sign-in will redirect users to the org SSO flow when their email domain matches the configured SSO connection.
+                使用匹配邮箱域名的员工通过邮箱和密码登录时，会自动转到公司 SSO 流程。
               </p>
             </div>
             <SettingsToggle
-              label="Require SSO for this organization"
+              label="公司强制使用 SSO"
               checked={requireSsoEnabled}
               disabled={!isOwner}
               onChange={setRequireSsoEnabled}
@@ -554,27 +545,24 @@ export function OrgSettingsScreen() {
         <DenCard size="spacious" className="grid gap-6">
           <div className="grid gap-2">
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-              Desktop app
+              FoxWork 客户端
             </p>
             <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">
-              Allowed Desktop Versions
+              允许登录的 FoxWork 版本
             </h2>
             <p className="text-[14px] text-gray-500">
-              Choose which supported desktop versions can sign in to this
-              workspace.
+              选择可以登录公司服务的 FoxWork 版本。
             </p>
             {desktopVersionRange ? (
               <p className="text-[10px] text-gray-400">
-                This server currently supports desktop v
-                {desktopVersionRange.minVersion} to v
-                {desktopVersionRange.maxVersion}.
+                当前公司服务支持 FoxWork v{desktopVersionRange.minVersion} 至 v{desktopVersionRange.maxVersion}。
               </p>
             ) : null}
           </div>
 
           {desktopVersionOptionsBusy ? (
             <div className="rounded-[24px] border border-dashed border-gray-200 bg-gray-50 px-5 py-4 text-[14px] text-gray-500">
-              Loading desktop versions...
+              正在加载 FoxWork 版本...
             </div>
           ) : null}
 
@@ -626,7 +614,7 @@ export function OrgSettingsScreen() {
                         </p>
                         {requiresServerUpgrade ? (
                           <p className="text-[12px] text-gray-400">
-                            Upgrade server to allow this version
+                            升级公司服务后才能允许此版本
                           </p>
                         ) : null}
                       </div>
@@ -634,7 +622,7 @@ export function OrgSettingsScreen() {
                         type="checkbox"
                         checked={checked}
                         disabled={!canManageDesktopVersions || requiresServerUpgrade}
-                        aria-label={`Allow desktop version v${version}`}
+                        aria-label={`允许 FoxWork v${version} 登录`}
                         onChange={(event) =>
                           setAllowedDesktopVersionsDraft((current) =>
                             toggleAllowedDesktopVersion(
@@ -656,9 +644,9 @@ export function OrgSettingsScreen() {
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <p className="text-[13px] text-gray-500">
             {!isOwner && canManageDesktopVersions
-              ? "Admins can change allowed desktop versions. Other settings require a workspace owner."
+              ? "管理员可以修改允许登录的 FoxWork 版本，其他设置需要公司所有者操作。"
               : !isOwner
-                ? "Only workspace owners and admins can change these settings."
+                ? "只有公司所有者和管理员可以修改这些设置。"
                 : null}
           </p>
           {access.isAdmin ? (
@@ -666,7 +654,7 @@ export function OrgSettingsScreen() {
               type="submit"
               loading={mutationBusy === "update-organization-settings"}
             >
-              Save settings
+              保存设置
             </DenButton>
           ) : null}
         </div>

@@ -135,7 +135,7 @@ export function SidebarBrandMark({
     return (
       <div
         className="h-10 w-10 rounded-xl"
-        aria-label="正在加载工作区图标"
+        aria-label="正在加载公司图标"
         data-sidebar-brand-icon="loading"
       />
     );
@@ -157,7 +157,7 @@ export function SidebarBrandMark({
     >
       <img
         src={iconUrl}
-        alt={`${organizationName}工作区图标`}
+        alt={`${organizationName}公司图标`}
         className={`h-full w-full object-contain transition-opacity ${loadedUrl === iconUrl ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setLoadedUrl(iconUrl)}
         onError={() => setFailedUrl(iconUrl)}
@@ -432,7 +432,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
             {activeOrg?.name ?? runtimeConfig.singleOrgName}
           </p>
           <p className="truncate text-[12px] text-gray-500">
-            {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备工作区"}
+            {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备公司信息"}
           </p>
         </div>
       </div>
@@ -459,7 +459,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               {activeOrg?.name ?? "正在加载..."}
             </p>
             <p className="truncate text-[12px] text-gray-500">
-              {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备工作区"}
+              {activeOrg ? formatRoleLabel(activeOrg.role) : "正在准备公司信息"}
             </p>
           </div>
         </div>
@@ -483,7 +483,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
 
           <div className="px-3 pb-1 pt-1">
             <p className="text-[11px] font-medium text-gray-500">
-              切换工作区
+              切换公司
             </p>
           </div>
 
@@ -493,7 +493,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
                 type="search"
                 value={switcherQuery}
                 onChange={(event) => setSwitcherQuery(event.target.value)}
-                placeholder="搜索工作区"
+                placeholder="搜索公司"
                 className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] text-gray-900 outline-none transition focus:border-gray-400"
               />
             </div>
@@ -532,7 +532,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {switcherFilteredCount === 0 && switcherQuery ? (
-            <p className="px-3 py-1 text-[12px] text-gray-500">没有找到匹配的工作区。</p>
+            <p className="px-3 py-1 text-[12px] text-gray-500">没有找到匹配的公司。</p>
           ) : null}
 
           {switcherHasMore ? (
@@ -553,7 +553,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
               onClick={() => setSwitcherOpen(false)}
             >
-              <span className="text-gray-400 text-[16px] leading-none">+</span> 创建或加入工作区
+              <span className="text-gray-400 text-[16px] leading-none">+</span> 创建或加入公司
             </Link>
           </div>
 
@@ -673,7 +673,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         {orgSwitcher}
 
         {orgBusy ? (
-          <p className="mt-3 px-2 text-[11px] text-gray-400">正在刷新工作区...</p>
+          <p className="mt-3 px-2 text-[11px] text-gray-400">正在刷新公司信息...</p>
         ) : null}
         {orgError ? (
           <p className="mt-3 px-2 text-[11px] font-medium text-rose-600">{orgError}</p>
@@ -745,7 +745,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         <UserProfileDialog
           key={user.id}
           user={user}
-          descriptor="修改你在公司工作区中显示的姓名"
+          descriptor="修改你在公司中显示的姓名"
           onCancel={() => setProfilePromptDismissed(true)}
           onSave={async (input) => {
             await updateUserProfile(input);

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { formatRoleLabel } from "../../(den)/_lib/den-org";
+import { getErrorMessage } from "../../(den)/_lib/den-flow";
 import { useOrgListWindow } from "../../(den)/_lib/use-org-list-window";
 
 type Organization = {
@@ -31,14 +33,6 @@ function readPayloadString(payload: unknown, key: "message" | "error" | "url") {
   return null;
 }
 
-function getErrorMessage(payload: unknown, fallback: string) {
-  return (
-    readPayloadString(payload, "message") ??
-    readPayloadString(payload, "error") ??
-    fallback
-  );
-}
-
 async function requestJson(path: string, init?: RequestInit) {
   const response = await fetch(path, {
     credentials: "include",
@@ -51,20 +45,11 @@ async function requestJson(path: string, init?: RequestInit) {
 
 function getInitials(value: string) {
   const cleaned = value.trim();
-  if (!cleaned) return "OW";
+  if (!cleaned) return "FW";
   const parts = cleaned.split(/\s+/).filter(Boolean);
   const initials =
     (parts[0]?.slice(0, 1) ?? "") + (parts[1]?.slice(0, 1) ?? "");
   return initials.toUpperCase() || cleaned.slice(0, 2).toUpperCase();
-}
-
-function formatRole(role: string | null | undefined) {
-  if (!role) return "Member";
-  return role
-    .split(/[-_,\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
 }
 
 function parseOrgs(payload: unknown): Organization[] {
@@ -126,7 +111,7 @@ export default function McpSelectOrganizationPage() {
 
       if (!response.ok) {
         setErrorMessage(
-          getErrorMessage(payload, "Sign in before authorizing MCP access."),
+          getErrorMessage(payload, "请先登录，再授权 MCP 访问。"),
         );
         setFlowState("error");
         return;
@@ -160,7 +145,7 @@ export default function McpSelectOrganizationPage() {
     if (!active.response.ok) {
       setFlowState("ready");
       setErrorMessage(
-        getErrorMessage(active.payload, "Failed to select organization."),
+        getErrorMessage(active.payload, "无法选择公司，请重试。"),
       );
       return;
     }
@@ -178,7 +163,7 @@ export default function McpSelectOrganizationPage() {
       setErrorMessage(
         getErrorMessage(
           continued.payload,
-          "Failed to continue OAuth authorization.",
+          "无法继续 OAuth 授权，请重试。",
         ),
       );
       return;
@@ -214,26 +199,26 @@ export default function McpSelectOrganizationPage() {
     }
 
     setFlowState(orgs.length ? "ready" : "empty");
-    setErrorMessage("Authorization cancelled. You can close this tab.");
+    setErrorMessage("授权已取消，可以关闭此页面。");
   }
 
   const introCopy =
     flowState === "loading"
-      ? "Loading the workspaces you can access..."
+      ? "正在加载你可以访问的公司..."
       : flowState === "empty"
-        ? "You don't belong to any workspaces yet. Create one before authorizing the MCP client."
+        ? "当前账号尚未加入公司，请先联系管理员。"
         : flowState === "redirecting"
-          ? "Finishing authorization and sending you back to the MCP client now."
+          ? "授权即将完成，正在返回 MCP 客户端。"
           : flowState === "submitting"
-            ? "Authorizing the MCP client..."
-            : "The MCP client will only see data for the workspace you choose.";
+            ? "正在授权 MCP 客户端..."
+            : "MCP 客户端只能访问当前公司的数据和工具。";
 
   const primaryLabel =
     flowState === "submitting"
-      ? "Authorizing..."
+      ? "正在授权..."
       : flowState === "redirecting"
-        ? "Redirecting..."
-        : "Authorize and continue";
+        ? "正在返回..."
+        : "授权并继续";
 
   return (
     <main className="den-page flex min-h-screen w-full items-center py-6">
@@ -252,23 +237,22 @@ export default function McpSelectOrganizationPage() {
               <div className="flex items-center gap-3">
                 <img
                   src="/openwork-logo-transparent.svg"
-                  alt="OpenWork"
+                  alt="FoxWork"
                   className="h-9 w-auto"
                 />
                 <span className="text-[13px] font-medium text-white/80">
-                  OpenWork Cloud
+                  FoxWork 公司服务
                 </span>
               </div>
               <div className="grid gap-4">
                 <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white backdrop-blur-md">
-                  MCP authorization
+                  MCP 授权
                 </span>
                 <h1 className="max-w-[14ch] text-[2rem] font-semibold leading-[0.97] tracking-[-0.05em] md:text-[2.6rem]">
-                  Pick the workspace this client can use.
+                  确认 MCP 客户端使用的公司
                 </h1>
                 <p className="max-w-[34rem] text-[14px] leading-7 text-white/80">
-                  The MCP client only sees data and tools for the workspace you
-                  select here.
+                  授权后，MCP 客户端只能访问当前公司的数据和工具。
                 </p>
               </div>
             </div>
@@ -278,9 +262,9 @@ export default function McpSelectOrganizationPage() {
         <div className="order-1 lg:order-2">
           <div className="den-frame grid h-full gap-6 p-6 md:p-7">
             <div className="grid gap-3">
-              <p className="den-eyebrow">Choose workspace</p>
+              <p className="den-eyebrow">选择公司</p>
               <h2 className="den-title-lg">
-                Where should this client work?
+                允许客户端访问哪家公司？
               </h2>
               <p className="den-copy">{introCopy}</p>
             </div>
@@ -297,11 +281,10 @@ export default function McpSelectOrganizationPage() {
                   href="/organization"
                   className="den-button-primary w-full sm:w-auto"
                 >
-                  Create your first workspace
+                  返回公司入口
                 </Link>
                 <p className="text-[13px] text-[var(--dls-text-secondary)]">
-                  Once it is set up, run the MCP authorization again from your
-                  client.
+                  加入公司后，请从 MCP 客户端重新发起授权。
                 </p>
               </div>
             ) : null}
@@ -316,7 +299,7 @@ export default function McpSelectOrganizationPage() {
                     type="search"
                     value={orgQuery}
                     onChange={(event) => setOrgQuery(event.target.value)}
-                    placeholder="Search organizations"
+                    placeholder="搜索公司"
                     className="rounded-2xl border border-[var(--dls-border)] px-4 py-3 text-[14px] text-[var(--dls-text-primary)] outline-none transition focus:border-[var(--dls-accent)]"
                   />
                 ) : null}
@@ -353,8 +336,8 @@ export default function McpSelectOrganizationPage() {
                               {display}
                             </span>
                             <span className="text-[12px] text-[var(--dls-text-secondary)]">
-                              {formatRole(org.role)}
-                              {org.isActive ? " · Current workspace" : ""}
+                              {formatRoleLabel(org.role ?? "")}
+                              {org.isActive ? " · 当前公司" : ""}
                             </span>
                           </span>
                           <span
@@ -376,20 +359,20 @@ export default function McpSelectOrganizationPage() {
                 </ul>
 
                 {orgFilteredCount === 0 && orgQuery ? (
-                  <p className="text-[13px] text-[var(--dls-text-secondary)]">No organizations match your search.</p>
+                  <p className="text-[13px] text-[var(--dls-text-secondary)]">没有找到匹配的公司。</p>
                 ) : null}
 
                 {orgHasMore ? (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-[13px] text-[var(--dls-text-secondary)]">
-                      Showing {visibleOrgs.length} of {orgFilteredCount} organizations
+                      当前显示 {visibleOrgs.length} 个，共 {orgFilteredCount} 个公司
                     </p>
                     <button
                       type="button"
                       onClick={showMoreOrgs}
                       className="den-button-ghost w-full sm:w-auto"
                     >
-                      Show more
+                      展开更多
                     </button>
                   </div>
                 ) : null}
@@ -407,7 +390,7 @@ export default function McpSelectOrganizationPage() {
                 onClick={() => void cancelFlow()}
                 disabled={isBusy || flowState === "loading"}
               >
-                Cancel
+                取消
               </button>
               <button
                 type="button"

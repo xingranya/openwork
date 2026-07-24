@@ -78,7 +78,7 @@ test("renders a copy action when a tool result is available", () => {
   const html = renderToStaticMarkup(<Tool toolPart={toolPart} />)
 
   expect(html).toContain('data-testid="tool-result-copy-action"')
-  expect(html).toContain('aria-label="Copy tool result"')
+  expect(html).toContain('aria-label="复制工具结果"')
 })
 
 test("does not render a copy action before a tool has a result", () => {

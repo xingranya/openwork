@@ -108,7 +108,7 @@ export function ReauthDialog({
         return;
       }
       stopPopupWatcher();
-      setError("The sign-in window was closed before confirmation. Try again when you're ready.");
+      setError("登录窗口已关闭，身份尚未确认。请重新操作。");
       setBusy(false);
     }, 500);
   }
@@ -183,7 +183,7 @@ export function ReauthDialog({
       popup?.close();
 
       if (message.error) {
-        setError("Sign-in was cancelled or failed. Try again.");
+        setError("登录已取消或失败，请重试。");
         setBusy(false);
         return;
       }
@@ -196,7 +196,7 @@ export function ReauthDialog({
         try {
           await onVerifiedRef.current();
         } catch (nextError) {
-          setError(nextError instanceof Error ? nextError.message : "Re-authentication failed.");
+          setError(nextError instanceof Error ? nextError.message : "身份确认失败。");
           setBusy(false);
         }
       })();
@@ -225,14 +225,14 @@ export function ReauthDialog({
       });
 
       if (!response.ok) {
-        setError(getErrorMessage(payload, `Re-authentication failed (${response.status}).`));
+        setError(getErrorMessage(payload, `身份确认失败（${response.status}）。`));
         return;
       }
 
       await onVerified();
       setPassword("");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Re-authentication failed.");
+      setError(nextError instanceof Error ? nextError.message : "身份确认失败。");
     } finally {
       setBusy(false);
     }
@@ -241,7 +241,7 @@ export function ReauthDialog({
   async function continueSocial(provider: SocialAuthProvider) {
     const popup = window.open("", "openwork-reauth", "popup,width=480,height=640");
     if (!popup) {
-      setError("OpenWork could not open the sign-in window. Allow popups for OpenWork, then try again.");
+      setError("FoxWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
       return;
     }
 
@@ -256,7 +256,7 @@ export function ReauthDialog({
       });
       if (!response.ok) {
         popup?.close();
-        setError(getErrorMessage(payload, `${getSocialLabel(provider)} sign-in failed (${response.status}).`));
+        setError(getErrorMessage(payload, `${getSocialLabel(provider)} 登录失败（${response.status}）。`));
         setBusy(false);
         return;
       }
@@ -264,7 +264,7 @@ export function ReauthDialog({
       const redirectUrl = getRedirectUrl(response, payload);
       if (!redirectUrl) {
         popup?.close();
-        setError(`${getSocialLabel(provider)} sign-in did not return a redirect URL.`);
+        setError(`${getSocialLabel(provider)} 登录没有返回跳转地址。`);
         setBusy(false);
         return;
       }
@@ -273,20 +273,20 @@ export function ReauthDialog({
       startPopupWatcher(popup);
     } catch (nextError) {
       popup?.close();
-      setError(nextError instanceof Error ? nextError.message : `${getSocialLabel(provider)} sign-in failed.`);
+      setError(nextError instanceof Error ? nextError.message : `${getSocialLabel(provider)} 登录失败。`);
       setBusy(false);
     }
   }
 
   function continueSso() {
     if (!ssoUrl || !user?.email) {
-      setError("This workspace is managed by your organization, but no SSO sign-in URL is available for this email.");
+      setError("公司已启用统一身份管理，但这个邮箱没有可用的单点登录地址。");
       return;
     }
 
     const popup = window.open("", "openwork-reauth", "popup,width=480,height=640");
     if (!popup) {
-      setError("OpenWork could not open the sign-in window. Allow popups for OpenWork, then try again.");
+      setError("FoxWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
       return;
     }
 
@@ -301,7 +301,7 @@ export function ReauthDialog({
       startPopupWatcher(popup);
     } catch (nextError) {
       popup?.close();
-      setError(nextError instanceof Error ? nextError.message : "Organization SSO sign-in failed.");
+      setError(nextError instanceof Error ? nextError.message : "公司单点登录失败。");
       setBusy(false);
     }
   }
@@ -323,7 +323,7 @@ export function ReauthDialog({
         <div className="relative border-b border-slate-100 bg-slate-50/70 px-6 pb-5 pt-6">
           <button
             type="button"
-            aria-label="Close security check"
+            aria-label="关闭安全确认"
             className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white hover:text-slate-700"
             disabled={busy}
             onClick={onCancel}
@@ -334,12 +334,12 @@ export function ReauthDialog({
             <ShieldCheck size={20} strokeWidth={1.8} aria-hidden="true" />
           </div>
           <div className="grid gap-2 pr-8">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Security check</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">安全确认</p>
             <h2 id="reauth-dialog-title" className="text-[22px] font-semibold tracking-[-0.03em] text-slate-950">
               {WORKSPACE_REAUTH_SECURITY_MESSAGE}
             </h2>
             <p className="text-[14px] leading-6 text-slate-600">
-              OpenWork retries the pending action automatically after you confirm.
+              确认身份后，FoxWork 会自动重试刚才的操作。
             </p>
           </div>
         </div>
@@ -351,7 +351,7 @@ export function ReauthDialog({
                 {user.email.slice(0, 1)}
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">Signing in as</p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">当前账号</p>
                 <p className="truncate text-[13px] font-medium text-slate-700">{user.email}</p>
               </div>
             </div>
@@ -364,13 +364,13 @@ export function ReauthDialog({
           <div className="grid gap-4">
             {loadingMethods ? (
               <div className="rounded-[18px] border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-gray-500">
-                Checking available sign-in methods...
+                正在查询可用的登录方式...
               </div>
             ) : null}
 
             {hasManagedOrgSignIn ? (
               <DenButton className="w-full" onClick={continueSso} loading={busy || loadingMethods} disabled={!ssoUrl || busy || loadingMethods}>
-                Continue with organization SSO
+                使用公司单点登录
               </DenButton>
             ) : null}
 
@@ -384,7 +384,7 @@ export function ReauthDialog({
                   disabled={busy}
                   onClick={() => void continueSocial(provider)}
                 >
-                  Continue with {getSocialLabel(provider)}
+                  使用 {getSocialLabel(provider)} 继续
                 </button>
               );
             })}
@@ -392,7 +392,7 @@ export function ReauthDialog({
             {hasPassword ? (
               <form className="grid gap-3" onSubmit={submitPassword}>
                 <label className="grid gap-2">
-                  <span className="text-[13px] font-medium text-gray-700">Password</span>
+                  <span className="text-[13px] font-medium text-gray-700">密码</span>
                   <DenInput
                     type="password"
                     value={password}
@@ -403,7 +403,7 @@ export function ReauthDialog({
                   />
                 </label>
                 <DenButton className="w-full" type="submit" loading={busy} disabled={!password.trim()}>
-                  Verify password
+                  确认密码
                 </DenButton>
               </form>
             ) : null}
@@ -415,7 +415,7 @@ export function ReauthDialog({
             onClick={onCancel}
             disabled={busy}
           >
-            Cancel
+            取消
           </button>
         </div>
       </div>

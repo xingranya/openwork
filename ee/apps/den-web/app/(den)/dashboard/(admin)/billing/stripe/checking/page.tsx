@@ -26,11 +26,8 @@ export default function StripeCheckingPage() {
   const [failed, setFailed] = useState(false);
   const attemptsRef = useRef(0);
   const intervalRef = useRef<number | null>(null);
-  // Inference checkouts started from the OpenWork Models page carry
-  // `return=models` so the user lands back where they subscribed from and
-  // sees the value unlocked, not the billing status page. Read from
-  // window.location instead of useSearchParams to avoid the Suspense
-  // requirement on this client-only page.
+  // 从模型服务页发起的结算会带上 return=models，完成后返回原页面。
+  // 此页面仅在客户端运行，直接读取 window.location 可避免额外的 Suspense 包装。
   const returnTarget = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("return")
     : null;
@@ -60,7 +57,7 @@ export default function StripeCheckingPage() {
           return;
         }
       } catch {
-        // Ignore and let the polling loop continue until MAX_ATTEMPTS.
+        // 单次检查失败后继续轮询，直到达到最大次数。
       }
       if (attemptsRef.current >= MAX_ATTEMPTS) {
         stop();
@@ -80,26 +77,25 @@ export default function StripeCheckingPage() {
   return (
     <DashboardPageTemplate
       icon={CreditCard}
-      title="Confirming Stripe"
-      description="Finishing your checkout and refreshing workspace access."
+      title="正在确认 Stripe 订阅"
+      description="正在完成结算并刷新公司的使用权限。"
       colors={["#F5F3FF", "#312E81", "#635BFF", "#C4B5FD"]}
     >
       <section className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-2xl border border-violet-100 bg-white p-12 text-center shadow-[0_8px_30px_-20px_rgba(49,46,129,0.45)]">
         {failed ? (
           <>
             <AlertCircle className="h-10 w-10 text-red-500" aria-hidden="true" />
-            <p className="text-[17px] font-medium text-gray-950">We couldn&apos;t confirm the subscription yet</p>
+            <p className="text-[17px] font-medium text-gray-950">暂时无法确认订阅状态</p>
             <p className="max-w-[480px] text-[14px] leading-6 text-gray-600">
-              If your payment went through, refresh Stripe from the billing page or contact{" "}
-              <a className="font-medium text-blue-600 hover:underline" href="mailto:team@openworklabs.com">team@openworklabs.com</a>.
+              如果已经完成付款，请返回账单页刷新 Stripe 状态，或联系公司管理员。
             </p>
-            <DenButton onClick={() => router.replace(billingRoute)}>Return to Stripe</DenButton>
+            <DenButton onClick={() => router.replace(billingRoute)}>返回账单页</DenButton>
           </>
         ) : (
           <>
             <Loader2 className="h-9 w-9 animate-spin text-[#635BFF]" aria-hidden="true" />
-            <p className="text-[16px] font-medium text-gray-950">Stripe is confirming your subscription</p>
-            <p className="max-w-sm text-[13px] leading-6 text-gray-500">This page updates automatically. You&apos;ll return to your workspace as soon as access is ready.</p>
+            <p className="text-[16px] font-medium text-gray-950">Stripe 正在确认订阅</p>
+            <p className="max-w-sm text-[13px] leading-6 text-gray-500">页面会自动更新，权限生效后将返回公司工作区。</p>
           </>
         )}
       </section>

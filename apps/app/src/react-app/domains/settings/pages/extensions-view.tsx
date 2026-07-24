@@ -37,9 +37,9 @@ export type ExtensionsViewProps = {
   suggestedPlugins: SuggestedPlugin[];
   extensions: PluginsExtensionsStore;
   mcpConnectedAppsCount: number;
-  /** The MCP view (quick-connect grid + configured servers). Skills are injected into it. */
+  /** MCP 视图包含快捷连接、已配置服务以及合并显示的 Skills。 */
   mcpView: ReactNode;
-  /** Organization marketplace content, rendered in the same Extensions pane. */
+  /** 公司能力市场内容，与本机扩展显示在同一页面。 */
   cloudMarketplaceView?: ReactNode;
   onRefresh: () => void;
   onOpenConnect?: () => void;
@@ -103,15 +103,15 @@ export function ExtensionsView(props: ExtensionsViewProps) {
 
       {activeView === "my" ? (
         <>
-          {/* Runtime extensions: MCPs + skills + marketplace imports in one view */}
+          {/* 将 MCP、Skills 和能力市场导入项合并显示。 */}
           {props.mcpView}
 
-          {/* OpenCode plugins -- advanced, collapsed */}
+          {/* OpenCode 插件属于高级设置，默认折叠。 */}
           {pluginCount > 0 ? (
             <details className="group">
               <summary className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-2 text-sm font-medium text-dls-secondary transition-colors hover:text-dls-text">
                 <Cpu size={14} />
-                <span>OpenCode Plugins</span>
+                <span>OpenCode 插件</span>
                 <span className="text-[11px] text-dls-secondary">({pluginCount})</span>
               </summary>
               <div className="mt-3">
@@ -130,7 +130,7 @@ export function ExtensionsView(props: ExtensionsViewProps) {
         </>
       ) : props.cloudMarketplaceView ?? (
         <div className="rounded-xl border border-dashed border-dls-border px-5 py-10 text-center text-sm text-dls-secondary">
-          Marketplace is unavailable.
+          暂时无法使用能力市场。
         </div>
       )}
     </section>

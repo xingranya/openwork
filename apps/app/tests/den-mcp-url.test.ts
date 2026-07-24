@@ -1,11 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  buildDenAuthUrl,
   getDenMcpUrl,
   isLegacyWebAppMcpUrl,
   resolveCloudMcpResourceUrl,
   resolveDenBaseUrls,
+  setDenBootstrapConfig,
 } from "../src/app/lib/den";
+
+describe("buildDenAuthUrl", () => {
+  test("未配置公司地址时返回明确的中文错误", () => {
+    expect(() => buildDenAuthUrl("", "sign-in"))
+      .toThrow("FoxWork 公司登录地址尚未配置，请联系管理员。");
+  });
+});
 
 describe("resolveDenBaseUrls", () => {
   test("always derives the API proxy from the base URL", () => {
@@ -39,10 +48,14 @@ describe("resolveDenBaseUrls", () => {
 });
 
 describe("getDenMcpUrl", () => {
-  test("never targets the bare web-app origin", () => {
+  test("never targets the bare web-app origin", async () => {
+    await setDenBootstrapConfig({
+      baseUrl: "https://den.example.test",
+      requireSignin: false,
+    });
     const url = getDenMcpUrl();
     expect(isLegacyWebAppMcpUrl(url)).toBe(false);
-    expect(url.endsWith("/mcp")).toBe(true);
+    expect(url).toBe("https://den.example.test/api/den/mcp");
   });
 });
 

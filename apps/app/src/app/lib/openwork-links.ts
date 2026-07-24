@@ -1,4 +1,8 @@
 import { DEFAULT_DEN_BASE_URL, normalizeDenBaseUrl } from "./den";
+import {
+  foxWorkDesktopLinkPattern,
+  isFoxWorkDesktopProtocol,
+} from "./foxwork-brand";
 import { normalizeOpenworkServerUrl } from "./openwork-server";
 
 export type RemoteWorkspaceDefaults = {
@@ -22,7 +26,7 @@ export type ConnectDeepLink = {
 
 function isSupportedDeepLinkProtocol(protocol: string): boolean {
   const normalized = protocol.toLowerCase();
-  return normalized === "openwork:" || normalized === "openwork-dev:" || normalized === "https:" || normalized === "http:";
+  return isFoxWorkDesktopProtocol(normalized, { allowLegacy: true }) || normalized === "https:" || normalized === "http:";
 }
 
 export function parseRemoteConnectDeepLink(rawUrl: string): RemoteWorkspaceDefaults | null {
@@ -149,7 +153,7 @@ export function parseConnectDeepLink(rawUrl: string): ConnectDeepLink | null {
   // Unlike sibling parsers, organization connect credentials only ride the
   // dedicated desktop scheme, never ordinary web URLs.
   const protocol = url.protocol.toLowerCase();
-  if (protocol !== "openwork:" && protocol !== "openwork-dev:") {
+  if (!isFoxWorkDesktopProtocol(protocol, { allowLegacy: true })) {
     return null;
   }
 
@@ -177,7 +181,8 @@ function normalizeDebugDeepLinkInput(rawValue: string): string {
   const trimmed = rawValue.trim();
   if (!trimmed) return "";
 
-  const directMatch = trimmed.match(/(?:openwork-dev|openwork|https?):\/\/[^\s"'<>]+/i);
+  const directMatch = trimmed.match(foxWorkDesktopLinkPattern())
+    ?? trimmed.match(/https?:\/\/[^\s"'<>]+/i);
   if (directMatch) return directMatch[0];
 
   return trimmed;

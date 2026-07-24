@@ -36,8 +36,8 @@ import {
   openWorkModelsPromoChangedEvent,
 } from "../../cloud/openwork-models-promo";
 
-export const MODEL_PICKER_DEFAULT_SUBTITLE = "Select a model for this session.";
-export const MODEL_PICKER_UNAVAILABLE_SUBTITLE = "The model you were using is no longer available, please select a different model for this session.";
+export const MODEL_PICKER_DEFAULT_SUBTITLE = "为当前会话选择模型。";
+export const MODEL_PICKER_UNAVAILABLE_SUBTITLE = "原模型已不可用，请为当前会话选择其他模型。";
 
 export function resolveModelPickerSubtitle(subtitle: string | undefined) {
   return subtitle ?? MODEL_PICKER_DEFAULT_SUBTITLE;
@@ -223,7 +223,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
     >
       <DialogContent className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Models</DialogTitle>
+          <DialogTitle>模型</DialogTitle>
           <DialogDescription>
             {resolveModelPickerSubtitle(props.subtitle)}
           </DialogDescription>
@@ -237,7 +237,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
               ref={searchInputRef}
               type="text"
               className="h-10 w-full rounded-xl border border-dls-border bg-dls-surface pl-9 pr-3 text-sm text-dls-text placeholder:text-dls-secondary focus:outline-none focus:ring-2 focus:ring-[rgba(var(--dls-accent-rgb),0.2)]"
-              placeholder="Search providers and models..."
+              placeholder="搜索模型服务和模型..."
               value={props.query}
               onChange={(e) => props.setQuery(e.target.value)}
             />
@@ -257,11 +257,11 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
                     <span>{OPENWORK_MODELS_PROVIDER_NAME}</span>
                   </div>
                   <div className="truncate text-[11px] text-dls-secondary">
-                    {denAuth.isSignedIn ? "Subscribe to use hosted frontier models in this workspace." : "Sign in to unlock hosted frontier models for your team."}
+                    {denAuth.isSignedIn ? "查看当前工作区可用的公司共享模型。" : "登录后查看团队可用的公司共享模型。"}
                   </div>
                 </div>
                 <span className="flex shrink-0 items-center gap-1 rounded-full border border-blue-6 bg-blue-3 px-2 py-0.5 text-[11px] font-medium text-blue-11">
-                  {denAuth.isSignedIn ? "Subscribe" : "Sign in"}
+                  {denAuth.isSignedIn ? "查看" : "登录"}
                   <ArrowRight className="size-3" />
                 </span>
               </button>
@@ -269,7 +269,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
                 type="button"
                 className="flex size-9 shrink-0 items-center justify-center border-l border-blue-6/60 text-blue-11 transition-colors hover:bg-blue-3/70"
                 onClick={hideOpenWorkModels}
-                aria-label="Hide OpenWork Models"
+                aria-label="关闭公司共享模型提示"
               >
                 <X className="size-3.5" />
               </button>
@@ -281,11 +281,11 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
             {providerGroups.length === 0 ? (
               <div className="space-y-3 rounded-2xl border border-dls-border bg-dls-hover/30 px-4 py-6 text-center">
                 <div className="text-sm text-dls-secondary">
-                  {props.query.trim() ? "No models match your search." : "No models available. Connect a provider to get started."}
+                  {props.query.trim() ? "没有符合搜索条件的模型。" : "暂无可用模型，请先连接模型服务。"}
                 </div>
                 {!props.query.trim() ? (
                   <Button variant="outline" onClick={props.onOpenSettings}>
-                    Connect a provider
+                    连接模型服务
                   </Button>
                 ) : null}
               </div>
@@ -309,7 +309,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
         {/* Footer */}
         <DialogFooter className="shrink-0">
           <DialogClose render={<Button variant="outline" />}>
-            Done
+            完成
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -355,18 +355,18 @@ function ProviderAccordion({
           <div className="min-w-0 flex-1">
             <span className="text-[13px] font-medium text-dls-text">{group.name}</span>
             <span className="ml-2 text-[11px] text-dls-secondary">
-              {totalModels} model{totalModels === 1 ? "" : "s"}
+              {totalModels} 个模型
             </span>
           </div>
           <span className="flex shrink-0 items-center gap-1.5">
             {group.isNew ? (
-              <span className="rounded-md bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">New</span>
+              <span className="rounded-md bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">新增</span>
             ) : null}
             {group.isCloud ? (
-              <span className="rounded-md bg-blue-3/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-11/70">Cloud</span>
+              <span className="rounded-md bg-blue-3/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-11/70">公司</span>
             ) : null}
             {group.hasCurrent ? (
-              <span className="rounded-md bg-green-3 px-1.5 py-0.5 text-[10px] font-medium text-green-11">Current</span>
+              <span className="rounded-md bg-green-3 px-1.5 py-0.5 text-[10px] font-medium text-green-11">当前</span>
             ) : null}
           </span>
         </button>
@@ -380,9 +380,9 @@ function ProviderAccordion({
                 : "bg-green-3 text-green-11 hover:bg-green-4",
             ].join(" ")}
             onClick={(e) => { e.stopPropagation(); onToggleProvider?.(group.id, group.isDisabled); }}
-            title={group.isDisabled ? "Enable this provider" : "Disable this provider"}
+            title={group.isDisabled ? "启用此模型服务" : "停用此模型服务"}
           >
-            {group.isDisabled ? "Enable" : "Enabled"}
+            {group.isDisabled ? "启用" : "已启用"}
           </button>
         ) : null}
       </div>
@@ -393,7 +393,7 @@ function ProviderAccordion({
           {group.recommended.length > 0 ? (
             <>
               <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-dls-secondary">
-                Recommended
+                推荐
               </div>
               {group.recommended.map((opt) => (
                 <DefaultModelRow key={opt.modelID} opt={opt} current={current} onSelect={onSelect} recommended />
@@ -404,7 +404,7 @@ function ProviderAccordion({
             <>
               {group.recommended.length > 0 ? (
                 <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-dls-secondary">
-                  All models
+                  全部模型
                 </div>
               ) : null}
               {group.other.map((opt) => (

@@ -31,9 +31,13 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "../settings-section";
 
 const RELEASE_CHANNEL_OPTIONS: { label: string; value: ReleaseChannel }[] = [
-  { label: "Stable", value: "stable" },
-  { label: "Alpha", value: "alpha" },
+  { label: "稳定版", value: "stable" },
+  { label: "测试版", value: "alpha" },
 ];
+
+function localizedUpdateMessage(message: string | null, fallback: string) {
+  return message && /[\u3400-\u9fff]/.test(message) ? message : fallback;
+}
 
 type UpdateDownloadProgressProps = {
   downloadedBytes: number | null;
@@ -73,18 +77,14 @@ export type UpdatesViewProps = {
   checkForUpdates: () => void | Promise<void>;
   downloadUpdate: () => void | Promise<void>;
   installUpdateAndRestart: () => void | Promise<void>;
-  /** Currently selected release channel. Optional; callers may omit. */
+  /** 当前更新渠道；调用方可以不提供。 */
   releaseChannel?: ReleaseChannel;
   /**
-   * Change the release channel. When not provided, the channel row is
-   * rendered read-only — useful for contexts where the pref can't be
-   * mutated (e.g. web preview).
+   * 修改更新渠道。未提供时以只读方式显示，适用于网页预览等不能修改偏好的环境。
    */
   onReleaseChannelChange?: (next: ReleaseChannel) => void;
   /**
-   * Whether the alpha channel is available on this platform. Alpha is
-   * macOS-only today; other platforms should receive `false` so the
-   * toggle is hidden.
+   * 当前平台是否支持测试版渠道。测试版暂时仅支持 macOS，其他平台传入 false 并隐藏入口。
    */
   alphaChannelSupported?: boolean;
 };
@@ -110,7 +110,7 @@ export function UpdatesView(props: UpdatesViewProps) {
       {props.appVersion ? (
         <LayoutSectionItem>
           <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>Current version</LayoutSectionItemTitle>
+            <LayoutSectionItemTitle>当前版本</LayoutSectionItemTitle>
             <LayoutSectionItemDescription className="font-mono">v{props.appVersion}</LayoutSectionItemDescription>
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
@@ -188,14 +188,14 @@ export function UpdatesView(props: UpdatesViewProps) {
               {updateState === "error" && updateErrorMessage ? (
                 <Alert variant="destructive">
                   <CircleAlert />
-                  <AlertDescription>{updateErrorMessage}</AlertDescription>
+                  <AlertDescription>{localizedUpdateMessage(updateErrorMessage, "检查更新失败，请稍后重试。")}</AlertDescription>
                 </Alert>
               ) : null}
 
               {updateState === "blocked" && updateErrorMessage ? (
                 <Alert>
                   <Info />
-                  <AlertDescription>{updateErrorMessage}</AlertDescription>
+                  <AlertDescription>{localizedUpdateMessage(updateErrorMessage, "当前版本暂时无法更新，请稍后重试。")}</AlertDescription>
                 </Alert>
               ) : null}
 
@@ -222,7 +222,7 @@ export function UpdatesView(props: UpdatesViewProps) {
 
             {updateState === "available" && updateNotes ? (
               <LayoutSectionItem className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
-                {updateNotes}
+                {localizedUpdateMessage(updateNotes, "此版本暂无中文更新说明。")}
               </LayoutSectionItem>
             ) : null}
 
@@ -232,7 +232,7 @@ export function UpdatesView(props: UpdatesViewProps) {
         </Alert>
       ) : props.updateEnv && props.updateEnv.supported === false ? (
         <Alert>
-          <AlertDescription>{props.updateEnv.reason ?? t("settings.updates_not_supported")}</AlertDescription>
+          <AlertDescription>{localizedUpdateMessage(props.updateEnv.reason ?? null, t("settings.updates_not_supported"))}</AlertDescription>
         </Alert>
       ) : (
         <>
@@ -240,9 +240,9 @@ export function UpdatesView(props: UpdatesViewProps) {
           {props.alphaChannelSupported && props.releaseChannel ? (
             <LayoutSectionItem>
               <LayoutSectionItemHeader>
-                <LayoutSectionItemTitle>Release channel</LayoutSectionItemTitle>
+                <LayoutSectionItemTitle>更新渠道</LayoutSectionItemTitle>
                 <LayoutSectionItemDescription>
-                  Stable gets fully tested releases. Alpha includes the very latest changes but may be less polished (macOS only).
+                  稳定版经过完整测试；测试版包含最新改动，稳定性可能较低，目前仅支持 macOS。
                 </LayoutSectionItemDescription>
                 <LayoutSectionItemHeaderActions>
                   <Select
@@ -255,7 +255,7 @@ export function UpdatesView(props: UpdatesViewProps) {
                     }}
                     disabled={!props.onReleaseChannelChange}
                   >
-                    <SelectTrigger aria-label="Release channel" className="w-48">
+                    <SelectTrigger aria-label="更新渠道" className="w-48">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

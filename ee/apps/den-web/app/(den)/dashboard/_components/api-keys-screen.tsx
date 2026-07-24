@@ -7,7 +7,7 @@ import { DenButton } from "../../_components/ui/button";
 import { DenNotice } from "../../_components/ui/notice";
 import { DenCard } from "../../_components/ui/card";
 import { DenInput } from "../../_components/ui/input";
-import { getRequestError, isReauthRequiredError, requestJson } from "../../_lib/den-flow";
+import { getErrorMessage, getRequestError, isReauthRequiredError, requestJson } from "../../_lib/den-flow";
 import {
     getOrgAccessFlags,
     parseOrgApiKeysPayload,
@@ -17,15 +17,15 @@ import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 
 function formatDateTime(value: string | null) {
     if (!value) {
-        return "Never";
+        return "从未";
     }
 
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
-        return "Never";
+        return "从未";
     }
 
-    return date.toLocaleString();
+    return date.toLocaleString("zh-CN");
 }
 
 function formatKeyPreview(apiKey: DenOrgApiKey) {
@@ -94,7 +94,7 @@ export function ApiKeysScreen() {
                 12000,
             );
             if (!response.ok) {
-                throw getRequestError(payload, response, `Failed to load API keys (${response.status}).`);
+                throw getRequestError(payload, response, `API 密钥加载失败（${response.status}）。`);
             }
 
             if (isCurrent()) {
@@ -108,8 +108,8 @@ export function ApiKeysScreen() {
             if (isCurrent()) {
                 setError(
                     nextError instanceof Error
-                        ? nextError.message
-                        : "Failed to load API keys.",
+                        ? getErrorMessage(nextError.message, "API 密钥加载失败，请重试。")
+                        : "API 密钥加载失败，请重试。",
                 );
             }
         } finally {
@@ -125,8 +125,8 @@ export function ApiKeysScreen() {
             if (active) {
                 setError(
                     nextError instanceof Error
-                        ? nextError.message
-                        : "Failed to load API keys.",
+                        ? getErrorMessage(nextError.message, "API 密钥加载失败，请重试。")
+                        : "API 密钥加载失败，请重试。",
                 );
             }
         });
@@ -147,7 +147,7 @@ export function ApiKeysScreen() {
     async function handleCreate(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (!orgId) {
-            setError("Organization not found.");
+            setError("没有找到公司信息，请刷新后重试。");
             return;
         }
 
@@ -172,14 +172,14 @@ export function ApiKeysScreen() {
                         throw getRequestError(
                             payload,
                             response,
-                            `Failed to create API key (${response.status}).`,
+                            `API 密钥创建失败（${response.status}）。`,
                         );
                     }
 
                     const nextKey = getCreatedKey(payload);
                     if (!nextKey) {
                         throw new Error(
-                            "API key was created, but the secret was not returned.",
+                            "API 密钥已创建，但没有返回密钥内容，请删除后重新创建。",
                         );
                     }
 
@@ -195,8 +195,8 @@ export function ApiKeysScreen() {
         } catch (nextError) {
             setError(
                 nextError instanceof Error
-                    ? nextError.message
-                    : "Failed to create API key.",
+                    ? getErrorMessage(nextError.message, "API 密钥创建失败，请重试。")
+                    : "API 密钥创建失败，请重试。",
             );
         }
     }
@@ -219,7 +219,7 @@ export function ApiKeysScreen() {
         if (
             !orgId ||
             !window.confirm(
-                `Delete ${apiKey.name ?? apiKey.start ?? "this API key"}? This cannot be undone.`,
+                `确定删除“${apiKey.name ?? apiKey.start ?? "此 API 密钥"}”吗？删除后无法恢复。`,
             )
         ) {
             return;
@@ -240,7 +240,7 @@ export function ApiKeysScreen() {
                         throw getRequestError(
                             payload,
                             response,
-                            `Failed to delete API key (${response.status}).`,
+                            `API 密钥删除失败（${response.status}）。`,
                         );
                     }
 
@@ -252,8 +252,8 @@ export function ApiKeysScreen() {
         } catch (nextError) {
             setError(
                 nextError instanceof Error
-                    ? nextError.message
-                    : "Failed to delete API key.",
+                    ? getErrorMessage(nextError.message, "API 密钥删除失败，请重试。")
+                    : "API 密钥删除失败，请重试。",
             );
         }
     }
@@ -268,7 +268,7 @@ export function ApiKeysScreen() {
             setCopied(true);
         } catch {
             setError(
-                "Could not copy the API key. Copy it manually before leaving this page.",
+                "无法复制 API 密钥，请在离开此页面前手动复制。",
             );
         }
     }
@@ -277,13 +277,13 @@ export function ApiKeysScreen() {
         return (
             <DashboardPageTemplate
                 icon={KeyRound}
-                badgeLabel="Admin"
-                title="API Keys"
-                description="Create named, rate-limited API keys for your own org membership and revoke any key in the workspace when needed."
+                badgeLabel="管理员"
+                title="API 密钥"
+                description="创建带名称和限流策略的公司 API 密钥，并随时撤销不再使用的密钥。"
                 colors={["#E6FFFA", "#0F766E", "#14B8A6", "#99F6E4"]}
             >
                 <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-                    Loading organization details...
+                    正在加载公司信息…
                 </div>
             </DashboardPageTemplate>
         );
@@ -292,15 +292,14 @@ export function ApiKeysScreen() {
     return (
         <DashboardPageTemplate
             icon={KeyRound}
-            badgeLabel="Admin"
-            title="API Keys"
-            description="Manage your OpenWork API keys."
+            badgeLabel="管理员"
+            title="API 密钥"
+            description="管理当前公司的 FoxWork API 密钥。"
             colors={["#E6FFFA", "#0F766E", "#14B8A6", "#99F6E4"]}
         >
             {!access.canManageApiKeys ? (
                 <div className="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-5 text-[14px] text-amber-900">
-                    Only organization owners and admins can view or manage API
-                    keys.
+                    只有公司所有者和管理员可以查看或管理 API 密钥。
                 </div>
             ) : (
                 <>
@@ -315,11 +314,11 @@ export function ApiKeysScreen() {
                                     <div>
                                         <p className="text-[16px] font-semibold tracking-[-0.03em]">
                                             {createdKeyName
-                                                ? `${createdKeyName} is ready`
-                                                : "Your new API key is ready"}
+                                                ? `“${createdKeyName}”已创建`
+                                                : "新的 API 密钥已创建"}
                                         </p>
                                         <p className="mt-1 text-[14px] leading-6 text-slate-300">
-                                            The key will only be shown once.
+                                            密钥只会显示这一次，请立即妥善保存。
                                         </p>
                                     </div>
                                 </div>
@@ -336,10 +335,10 @@ export function ApiKeysScreen() {
                                         icon={Copy}
                                         onClick={() => void copyCreatedKey()}
                                     >
-                                        {copied ? "Copied" : "Copy key"}
+                                        {copied ? "已复制" : "复制密钥"}
                                     </DenButton>
                                     <DenButton onClick={openCreateForm}>
-                                        Create another key
+                                        再创建一个密钥
                                     </DenButton>
                                 </div>
                             </div>
@@ -348,18 +347,17 @@ export function ApiKeysScreen() {
                                 <div className="mb-5 flex items-start justify-between gap-4">
                                     <div>
                                         <p className="text-[16px] font-semibold tracking-[-0.03em] text-gray-900">
-                                            Issue a new key
+                                            创建 API 密钥
                                         </p>
                                         <p className="mt-1 text-[14px] leading-6 text-gray-500">
-                                            Keys are issued to you for this
-                                            organization only.
+                                            此密钥只会关联当前公司和你的成员身份。
                                         </p>
                                     </div>
                                 </div>
 
                                 <label className="grid gap-3">
                                     <span className="text-[14px] font-medium text-gray-700">
-                                        Key name
+                                        密钥名称
                                     </span>
                                     <DenInput
                                         type="text"
@@ -367,7 +365,7 @@ export function ApiKeysScreen() {
                                         onChange={(event) =>
                                             setName(event.target.value)
                                         }
-                                        placeholder="CI worker"
+                                        placeholder="例如：自动化任务"
                                         required
                                     />
                                 </label>
@@ -378,10 +376,10 @@ export function ApiKeysScreen() {
                                         variant="secondary"
                                         onClick={closeCreateForm}
                                     >
-                                        Cancel
+                                        取消
                                     </DenButton>
                                     <DenButton type="submit" loading={creating}>
-                                        Create API key
+                                        创建 API 密钥
                                     </DenButton>
                                 </div>
                             </form>
@@ -389,11 +387,11 @@ export function ApiKeysScreen() {
                             <div className="flex flex-wrap items-center justify-between gap-4">
                                 <div>
                                     <p className="text-[16px] font-semibold tracking-[-0.03em] text-gray-900">
-                                        Create a new API key
+                                        创建新的 API 密钥
                                     </p>
                                 </div>
                                  <DenButton onClick={openCreateForm}>
-                                    New key
+                                    新建密钥
                                 </DenButton>
                             </div>
                         )}
@@ -401,19 +399,19 @@ export function ApiKeysScreen() {
 
                     <div className="overflow-hidden rounded-[28px] border border-gray-100 bg-white">
                         <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_180px_120px] gap-4 border-b border-gray-100 px-6 py-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                            <span>Key</span>
-                            <span>Owner</span>
-                            <span>Last used</span>
+                            <span>密钥</span>
+                            <span>所有者</span>
+                            <span>最后使用</span>
                             <span />
                         </div>
 
                         {busy ? (
                             <div className="px-6 py-8 text-center text-[13px] text-gray-400">
-                                Loading API keys...
+                                正在加载 API 密钥…
                             </div>
                         ) : apiKeys.length === 0 ? (
                             <div className="px-6 py-8 text-center text-[13px] text-gray-400">
-                                No API keys for this workspace yet.
+                                当前公司还没有 API 密钥。
                             </div>
                         ) : (
                             apiKeys.map((apiKey) => (
@@ -425,7 +423,7 @@ export function ApiKeysScreen() {
                                         <p className="truncate text-[14px] font-medium text-gray-900">
                                             {apiKey.name ??
                                                 apiKey.start ??
-                                                "Untitled key"}
+                                                "未命名密钥"}
                                         </p>
                                         <p className="mt-1 truncate text-[12px] text-gray-400">
                                             {formatKeyPreview(apiKey)}{" "}
@@ -457,8 +455,8 @@ export function ApiKeysScreen() {
                                             disabled={deletingId === apiKey.id}
                                         >
                                             {deletingId === apiKey.id
-                                                ? "Deleting..."
-                                                : "Delete"}
+                                                ? "正在删除…"
+                                                : "删除"}
                                         </DenButton>
                                     </div>
                                 </div>

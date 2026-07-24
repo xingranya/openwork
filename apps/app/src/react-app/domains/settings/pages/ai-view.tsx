@@ -39,10 +39,10 @@ export type AiSettingsViewProps = {
   onOpenProviderAuth: () => void | Promise<void>;
   onDisconnectProvider: (providerId: string) => void | Promise<void>;
   canDisconnectProvider: (source?: ConnectedProvider["source"]) => boolean;
-  /** Set of local provider IDs that were imported from cloud. */
+  /** 从公司服务导入的本地模型服务 ID。 */
   cloudProviderIds?: Set<string>;
   showOpenWorkModelsSubscribe?: boolean;
-  /** Subtle fallback row when OpenWork Models is not connected and the banner was dismissed. */
+  /** 公司共享模型尚未连接且提示已关闭时显示的简洁入口。 */
   showOpenWorkModelsConnect?: boolean;
   onSubscribeOpenWorkModels?: () => void | Promise<void>;
   onDismissOpenWorkModels?: () => void | Promise<void>;
@@ -66,7 +66,7 @@ function providerStatusTone(label: string): "ready" | "warning" | "neutral" {
 export function AiSettingsView(props: AiSettingsViewProps) {
   return (
     <LayoutStack>
-      {/* ---- Providers ---- */}
+      {/* 模型服务 */}
       <LayoutSection>
         <LayoutSectionHeader>
           <LayoutSectionTitle>{t("settings.providers_title")}</LayoutSectionTitle>
@@ -101,7 +101,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               type="button"
               className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-full text-blue-11 transition-colors hover:bg-blue-3/70"
               onClick={() => void props.onDismissOpenWorkModels?.()}
-              aria-label="Dismiss OpenWork Models banner"
+              aria-label="关闭公司共享模型提示"
             >
               <X className="size-3.5" />
             </button>
@@ -110,21 +110,21 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 <ProviderIcon providerId="openwork" size={22} className="mt-0.5 shrink-0 text-blue-11" />
                 <div className="min-w-0 space-y-2">
                   <div>
-                    <div className="text-sm font-medium text-dls-text">OpenWork Models</div>
+                    <div className="text-sm font-medium text-dls-text">公司共享模型</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
-                      Hosted frontier models for OpenWork tasks without managing provider API keys.
+                      使用公司统一配置的 AI 模型，无需员工自行管理 API 密钥。
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 text-[11px] text-blue-11">
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-6 bg-blue-3 px-2 py-0.5">
-                      <CheckCircle2 className="size-3" /> Managed by OpenWork Cloud
+                      <CheckCircle2 className="size-3" /> 公司统一管理
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-6 bg-blue-3 px-2 py-0.5">
-                      <KeyRound className="size-3" /> No API key setup
+                      <KeyRound className="size-3" /> 无需配置 API 密钥
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pricing is handled through OpenWork Cloud. You can continue using OpenCode Zen or your own providers.
+                    公司共享模型由管理员统一配置；也可以继续使用 OpenCode Zen 或个人模型服务。
                   </p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 onClick={() => void props.onSubscribeOpenWorkModels?.()}
                 disabled={props.busy || props.providerAuthBusy}
               >
-                Subscribe
+                查看公司模型
                 <ArrowRight className="ml-1.5 size-3.5" />
               </Button>
             </div>
@@ -154,7 +154,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       <span className="truncate text-sm font-medium text-dls-text">{provider.name}</span>
                       {props.cloudProviderIds?.has(provider.id) ? (
                         <span className="shrink-0 rounded-full border border-blue-6 bg-blue-2 px-2 py-0.5 text-[10px] font-medium text-blue-11">
-                          Cloud
+                          公司
                         </span>
                       ) : null}
                       {provider.source === "env" ? (
@@ -195,13 +195,13 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               <ProviderIcon providerId="openwork" size={20} className="text-muted-foreground" />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-dls-text">OpenWork Models</span>
+                  <span className="truncate text-sm font-medium text-dls-text">公司共享模型</span>
                   <span className="shrink-0 rounded-full border border-dls-border bg-dls-sidebar/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Not connected
+                    未连接
                   </span>
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  Hosted frontier models without managing API keys.
+                  使用公司统一配置的模型，无需管理 API 密钥。
                 </div>
               </div>
             </div>
@@ -210,7 +210,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               onClick={() => void props.onSubscribeOpenWorkModels?.()}
               disabled={props.busy || props.providerAuthBusy}
             >
-              Connect
+              连接
               <ArrowRight className="ml-1.5 size-3.5" />
             </Button>
           </LayoutSectionItem>

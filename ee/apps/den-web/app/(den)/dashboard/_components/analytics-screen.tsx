@@ -8,7 +8,7 @@ import { DenSelect } from "../../_components/ui/select";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import { EnterprisePlanNotice } from "./enterprise-plan-notice";
 
-/* ── Types ── */
+/* 类型 */
 
 type AnalyticsWeek = {
   weekStart: string;
@@ -43,7 +43,7 @@ type DimensionOption = {
 
 const PROJECT_DIMENSION_TYPE = "project";
 
-/* ── Data ── */
+/* 数据读取 */
 
 function readNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -131,18 +131,18 @@ function sortProjectOptions(options: DimensionOption[]): DimensionOption[] {
   });
 }
 
-/* ── Helpers ── */
+/* 格式化方法 */
 
 function formatDuration(ms: number | null): string {
   if (ms === null) return "—";
-  if (ms < 1000) return "<1s";
+  if (ms < 1000) return "<1 秒";
   const totalSeconds = Math.round(ms / 1000);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
+  if (totalSeconds < 60) return `${totalSeconds} 秒`;
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  if (minutes < 60) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  if (minutes < 60) return seconds > 0 ? `${minutes} 分 ${seconds} 秒` : `${minutes} 分`;
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
+  return `${hours} 小时 ${minutes % 60} 分`;
 }
 
 function formatWeekLabel(weekStart: string): string {
@@ -166,7 +166,7 @@ function toneBg(tone: "violet" | "green" | "blue" | "amber") {
   }
 }
 
-/* ── Small components ── */
+/* 页面组件 */
 
 function StatCard({ icon, title, value, sub, tone }: {
   icon: React.ReactNode; title: string; value: string; sub?: string; tone: "violet" | "green" | "blue" | "amber";
@@ -229,7 +229,7 @@ function TrendChart({ title, subtitle, weeks, series }: {
                 return (
                   <div
                     key={s.label}
-                    title={`Week of ${formatWeekLabel(week.weekStart)} — ${s.label}: ${value}`}
+                    title={`${formatWeekLabel(week.weekStart)}当周 · ${s.label}：${value}`}
                     className="w-full max-w-[18px] rounded-t-[3px] transition-[height]"
                     style={{
                       height: `${height}%`,
@@ -243,7 +243,7 @@ function TrendChart({ title, subtitle, weeks, series }: {
         </div>
         {!hasData ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-[12px] text-[#637291]">No usage events yet</span>
+            <span className="rounded-full bg-white/90 px-3 py-1 text-[12px] text-[#637291]">暂无用量事件</span>
           </div>
         ) : null}
       </div>
@@ -256,14 +256,13 @@ function TrendChart({ title, subtitle, weeks, series }: {
   );
 }
 
-/* ── Main screen ── */
+/* 分析页面 */
 
 export function AnalyticsScreen() {
   const { activeOrg, orgContext } = useOrgDashboard();
   const [selectedProjectValue, setSelectedProjectValue] = useState("");
 
-  // Server enforces the same gate with a 402 on /v1/telemetry/analytics
-  // (entitlements.ts); this mirrors the SSO / desktop policies screens.
+  // 服务端会在分析接口上用 402 执行同一授权门，行为与 SSO 和桌面策略页一致。
   const locked = Boolean(orgContext) && !orgContext?.entitlements.analytics;
 
   const { data: rawProjectOptions = [] } = useQuery({
@@ -295,38 +294,37 @@ export function AnalyticsScreen() {
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-4 sm:px-6 md:px-8">
 
-      {/* Breadcrumb */}
+      {/* 面包屑 */}
       <div className="flex flex-wrap items-center gap-2.5 border-b border-[#e7e9f0] pb-3">
-        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "OpenWork Cloud"}</span>
+        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "FoxWork"}</span>
         <ChevronRight className="h-3.5 w-3.5 text-[#9AA5BA]" />
-        <span className="text-[14px] font-medium tracking-[-0.01em] text-[#5A6886]">Analytics</span>
+        <span className="text-[14px] font-medium tracking-[-0.01em] text-[#5A6886]">用量分析</span>
       </div>
 
-      {/* Header */}
+      {/* 页面标题 */}
       <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#07192C]">Usage &amp; adoption</h1>
+        <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#07192C]">使用情况</h1>
         <span className="rounded-full border border-[#d8e0ec] bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6F3DFF]">
-          Enterprise
+          企业版
         </span>
       </div>
       <p className="mt-1 text-[14px] leading-6 text-[#5A6886]">
-        See how your team is adopting OpenWork — active members, sessions, and task activity over time.
-        Only event metadata is collected — never prompts, code, or file contents.
+        查看团队的活跃成员、会话和任务变化。这里只采集事件元数据，不采集提示词、代码或文件内容。
       </p>
 
       {!locked ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="text-[12px] font-semibold uppercase text-[#637291]" htmlFor="analytics-project-filter">
-            Project
+            项目
           </label>
           <DenSelect
             id="analytics-project-filter"
             value={selectedProjectValue}
             onChange={(event) => setSelectedProjectValue(event.target.value)}
-            aria-label="Project analytics filter"
+            aria-label="按项目筛选用量分析"
             className="h-9 min-w-[240px]"
           >
-            <option value="">All projects</option>
+            <option value="">全部项目</option>
             {projectOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -335,7 +333,7 @@ export function AnalyticsScreen() {
           </DenSelect>
           {selectedProject ? (
             <span className="text-[12px] text-[#637291]">
-              {selectedProject.sessionCount} {selectedProject.sessionCount === 1 ? "session" : "sessions"}
+              {selectedProject.sessionCount} 个会话
             </span>
           ) : null}
         </div>
@@ -343,99 +341,98 @@ export function AnalyticsScreen() {
 
       {locked ? (
         <div className="mt-5">
-          <EnterprisePlanNotice feature="Usage analytics" />
+          <EnterprisePlanNotice feature="用量分析" />
         </div>
       ) : (
       <>
-      {/* Summary cards */}
+      {/* 汇总数据 */}
       <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Users className="h-5 w-5 text-[#6F3DFF]" />}
-          title="OpenWork users"
+          title="FoxWork 用户"
           value={isLoading ? "…" : `${data?.members ?? 0}`}
-          sub={isProjectFiltered ? "Org total, not project-scoped" : `${data?.pendingInvites ?? 0} pending invites`}
+          sub={isProjectFiltered ? "公司总数，不受项目筛选影响" : `${data?.pendingInvites ?? 0} 个待处理邀请`}
           tone="violet"
         />
         <StatCard
           icon={<Activity className="h-5 w-5 text-[#1D63FF]" />}
-          title="Active this week"
+          title="本周活跃成员"
           value={isLoading ? "…" : `${data?.activeMembers7d ?? 0}`}
-          sub={`${data?.activeMembers30d ?? 0} active in last 30 days`}
+          sub={`近 30 天活跃 ${data?.activeMembers30d ?? 0} 人`}
           tone="blue"
         />
         <StatCard
           icon={<Zap className="h-5 w-5 text-[#B7791F]" />}
-          title="Sessions this week"
+          title="本周会话"
           value={isLoading ? "…" : `${data?.sessions7d ?? 0}`}
-          sub={`${data?.sessions30d ?? 0} in last 30 days`}
+          sub={`近 30 天 ${data?.sessions30d ?? 0} 个`}
           tone="amber"
         />
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5 text-[#18A34A]" />}
-          title="Tasks this week"
+          title="本周任务"
           value={isLoading ? "…" : `${tasks7d}`}
-          sub={`${successRate(data?.tasksCompleted7d ?? 0, data?.tasksFailed7d ?? 0)} success rate`}
+          sub={`成功率 ${successRate(data?.tasksCompleted7d ?? 0, data?.tasksFailed7d ?? 0)}`}
           tone="green"
         />
       </div>
 
-      {/* Trend charts */}
+      {/* 趋势图 */}
       <div className="mt-4 grid gap-3.5 lg:grid-cols-2">
         <TrendChart
-          title="Weekly active users"
-          subtitle={isProjectFiltered ? "Members with project-matched events, last 12 weeks" : "Members with at least one event, last 12 weeks"}
+          title="每周活跃成员"
+          subtitle={isProjectFiltered ? "近 12 周内有此项目事件的成员" : "近 12 周内至少产生一次事件的成员"}
           weeks={weekly}
-          series={[{ label: "Active users", color: "#6F3DFF", values: weekly.map((w) => w.activeMembers) }]}
+          series={[{ label: "活跃成员", color: "#6F3DFF", values: weekly.map((w) => w.activeMembers) }]}
         />
         <TrendChart
-          title="Sessions per week"
-          subtitle="Distinct sessions, last 12 weeks"
+          title="每周会话"
+          subtitle="近 12 周的独立会话"
           weeks={weekly}
-          series={[{ label: "Sessions", color: "#1D63FF", values: weekly.map((w) => w.sessions) }]}
+          series={[{ label: "会话", color: "#1D63FF", values: weekly.map((w) => w.sessions) }]}
         />
       </div>
 
       <div className="mt-3.5">
         <TrendChart
-          title="Tasks per week"
-          subtitle="Completed and failed task runs, last 12 weeks"
+          title="每周任务"
+          subtitle="近 12 周已完成和失败的任务运行"
           weeks={weekly}
           series={[
-            { label: "Completed", color: "#18A34A", values: weekly.map((w) => w.tasksCompleted) },
-            { label: "Failed", color: "#E5484D", values: weekly.map((w) => w.tasksFailed) },
+            { label: "已完成", color: "#18A34A", values: weekly.map((w) => w.tasksCompleted) },
+            { label: "失败", color: "#E5484D", values: weekly.map((w) => w.tasksFailed) },
           ]}
         />
       </div>
 
-      {/* 30-day detail */}
+      {/* 近 30 天数据 */}
       <div className="mt-4 grid gap-3.5 sm:grid-cols-3">
         <StatCard
           icon={<Clock className="h-5 w-5 text-[#1D63FF]" />}
-          title="Avg task duration"
+          title="平均任务耗时"
           value={isLoading ? "…" : formatDuration(data?.avgTaskDurationMs30d ?? null)}
-          sub="Completed tasks, last 30 days"
+          sub="近 30 天完成的任务"
           tone="blue"
         />
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5 text-[#18A34A]" />}
-          title="Tasks completed"
+          title="已完成任务"
           value={isLoading ? "…" : `${data?.tasksCompleted30d ?? 0}`}
-          sub="Last 30 days"
+          sub="近 30 天"
           tone="green"
         />
         <StatCard
           icon={<Activity className="h-5 w-5 text-[#E5484D]" />}
-          title="Tasks failed"
+          title="失败任务"
           value={isLoading ? "…" : `${data?.tasksFailed30d ?? 0}`}
-          sub={`${successRate(data?.tasksCompleted30d ?? 0, data?.tasksFailed30d ?? 0)} success rate over 30 days`}
+          sub={`近 30 天成功率 ${successRate(data?.tasksCompleted30d ?? 0, data?.tasksFailed30d ?? 0)}`}
           tone="amber"
         />
       </div>
 
-      {/* Privacy note */}
+      {/* 隐私说明 */}
       <p className="mt-5 text-[12px] leading-5 text-[#9AA5BA]">
-        Telemetry never includes prompt contents, code, file contents, diffs, secrets, or terminal output.
-        Usage data appears here once members sign in to the OpenWork app and start running tasks.
+        遥测不会包含提示词、代码、文件内容、差异、密钥或终端输出。成员登录 FoxWork 并运行任务后，用量数据会显示在这里。
       </p>
       </>
       )}

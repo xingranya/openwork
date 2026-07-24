@@ -68,7 +68,7 @@ type PendingReauthMutation = {
 
 const OrgDashboardContext = createContext<OrgDashboardContextValue | null>(null);
 const ORG_SETTINGS_PATH = "/dashboard/org-settings";
-const ORG_SETTINGS_UPDATED_MESSAGE = "Workspace settings updated.";
+const ORG_SETTINGS_UPDATED_MESSAGE = "公司设置已更新。";
 
 function consumePendingOrgSelectionRequest(): boolean {
   if (typeof window === "undefined") {
@@ -112,14 +112,14 @@ export function OrgDashboardProvider({
 
   function ensureActiveOrganizationSelected() {
     if (!activeOrgId) {
-      throw new Error("Organization not found.");
+      throw new Error("没有找到当前公司。请刷新后重试。");
     }
   }
 
   async function loadOrgDirectory() {
     const { response, payload } = await requestJson("/v1/me/orgs", { method: "GET" }, 12000);
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Failed to load organizations (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `无法加载公司列表（${response.status}）。`));
     }
 
     return parseOrgListPayload(payload);
@@ -136,7 +136,7 @@ export function OrgDashboardProvider({
     );
 
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Failed to switch organization (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `无法切换公司（${response.status}）。`));
     }
   }
 
@@ -148,15 +148,15 @@ export function OrgDashboardProvider({
     );
     if (!response.ok) {
       if (response.status === 404) {
-        throw new OrganizationNotFoundError(getErrorMessage(payload, `Failed to load organization (${response.status}).`));
+        throw new OrganizationNotFoundError(getErrorMessage(payload, `无法加载公司信息（${response.status}）。`));
       }
 
-      throw new Error(getErrorMessage(payload, `Failed to load organization (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `无法加载公司信息（${response.status}）。`));
     }
 
     const parsed = parseOrgContextPayload(payload);
     if (!parsed) {
-      throw new Error("Organization context response was incomplete.");
+      throw new Error("公司服务返回的信息不完整，请刷新后重试。");
     }
 
     return parsed;
@@ -253,12 +253,12 @@ export function OrgDashboardProvider({
         try {
           await recoverFromOrganizationNotFound();
         } catch (recoveryError) {
-          setOrgError(recoveryError instanceof Error ? recoveryError.message : "Failed to load organization details.");
+          setOrgError(recoveryError instanceof Error ? recoveryError.message : "无法加载公司详细信息。");
         }
         return;
       }
 
-      setOrgError(error instanceof Error ? error.message : "Failed to load organization details.");
+      setOrgError(error instanceof Error ? error.message : "无法加载公司详细信息。");
     } finally {
       setOrgBusy(false);
     }
@@ -390,12 +390,12 @@ export function OrgDashboardProvider({
 
   async function createOrganization(name: string) {
     if (isSingleOrgMode) {
-      throw new Error("This deployment uses one managed organization.");
+      throw new Error("当前账号只能加入这一家公司。");
     }
 
     const trimmed = name.trim();
     if (!trimmed) {
-      throw new Error("Enter an organization name.");
+      throw new Error("请输入公司名称。");
     }
 
     setMutationBusy("create-organization");
@@ -411,7 +411,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to create organization (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `无法创建公司（${response.status}）。`));
       }
 
       const organization =
@@ -421,7 +421,7 @@ export function OrgDashboardProvider({
       const nextSlug = typeof organization?.slug === "string" ? organization.slug : null;
 
       if (!nextSlug) {
-        throw new Error("Organization was created, but no slug was returned.");
+        throw new Error("公司已创建，但服务端没有返回公司标识。");
       }
 
       router.push(getOrgDashboardRoute(nextSlug));
@@ -460,13 +460,13 @@ export function OrgDashboardProvider({
           try {
             await recoverFromOrganizationNotFound();
           } catch (recoveryError) {
-            setOrgError(recoveryError instanceof Error ? recoveryError.message : "Failed to switch organization.");
+            setOrgError(recoveryError instanceof Error ? recoveryError.message : "无法切换公司。");
           }
           return;
         }
 
         setRequestOrgScope(orgContext?.organization.id ?? null);
-        setOrgError(error instanceof Error ? error.message : "Failed to switch organization.");
+        setOrgError(error instanceof Error ? error.message : "无法切换公司。");
       } finally {
         setMutationBusy(null);
       }
@@ -476,7 +476,7 @@ export function OrgDashboardProvider({
   async function updateOrganizationName(name: string) {
     const trimmed = name.trim();
     if (!trimmed) {
-      throw new Error("Enter an organization name.");
+      throw new Error("请输入公司名称。");
     }
 
     await updateOrganizationSettings({ name: trimmed });
@@ -488,7 +488,7 @@ export function OrgDashboardProvider({
     if (typeof input.name === "string") {
       const trimmed = input.name.trim();
       if (!trimmed) {
-        throw new Error("Enter an organization name.");
+        throw new Error("请输入公司名称。");
       }
       body.name = trimmed;
     }
@@ -526,7 +526,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to update organization (${response.status}).`);
+        throw getRequestError(payload, response, `无法更新公司设置（${response.status}）。`);
       }
     });
 
@@ -557,7 +557,7 @@ export function OrgDashboardProvider({
         if (limitError) {
           throw limitError;
         }
-        throw getRequestError(payload, response, `Failed to invite member (${response.status}).`);
+        throw getRequestError(payload, response, `无法邀请成员（${response.status}）。`);
       }
     });
   }
@@ -578,14 +578,14 @@ export function OrgDashboardProvider({
         );
 
         if (!response.ok) {
-          throw getRequestError(payload, response, `Seat billing checkout failed (${response.status}).`);
+          throw getRequestError(payload, response, `无法打开订阅页面（${response.status}）。`);
         }
 
         const url = payload && typeof payload === "object" && "url" in payload && typeof payload.url === "string"
           ? payload.url
           : null;
         if (!url) {
-          throw new Error("Seat billing checkout response did not include a URL.");
+          throw new Error("公司服务没有返回订阅页面地址。");
         }
 
         window.location.href = url;
@@ -605,7 +605,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to cancel invitation (${response.status}).`);
+        throw getRequestError(payload, response, `无法取消邀请（${response.status}）。`);
       }
     });
   }
@@ -623,7 +623,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to update member (${response.status}).`);
+        throw getRequestError(payload, response, `无法更新成员（${response.status}）。`);
       }
     });
   }
@@ -638,7 +638,7 @@ export function OrgDashboardProvider({
       );
 
       if (response.status !== 204 && !response.ok) {
-        throw getRequestError(payload, response, `Failed to remove member (${response.status}).`);
+        throw getRequestError(payload, response, `无法移除成员（${response.status}）。`);
       }
     });
   }
@@ -656,7 +656,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to create role (${response.status}).`);
+        throw getRequestError(payload, response, `无法创建角色（${response.status}）。`);
       }
     });
   }
@@ -674,7 +674,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to create team (${response.status}).`);
+        throw getRequestError(payload, response, `无法创建团队（${response.status}）。`);
       }
     });
   }
@@ -692,7 +692,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to update team (${response.status}).`);
+        throw getRequestError(payload, response, `无法更新团队（${response.status}）。`);
       }
     });
   }
@@ -707,7 +707,7 @@ export function OrgDashboardProvider({
       );
 
       if (response.status !== 204 && !response.ok) {
-        throw getRequestError(payload, response, `Failed to delete team (${response.status}).`);
+        throw getRequestError(payload, response, `无法删除团队（${response.status}）。`);
       }
     });
   }
@@ -725,7 +725,7 @@ export function OrgDashboardProvider({
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to update role (${response.status}).`);
+        throw getRequestError(payload, response, `无法更新角色（${response.status}）。`);
       }
     });
   }
@@ -740,7 +740,7 @@ export function OrgDashboardProvider({
       );
 
       if (response.status !== 204 && !response.ok) {
-        throw getRequestError(payload, response, `Failed to delete role (${response.status}).`);
+        throw getRequestError(payload, response, `无法删除角色（${response.status}）。`);
       }
     });
   }
@@ -789,10 +789,10 @@ export function OrgDashboardProvider({
     createOrganization,
     updateOrganizationName,
     updateOrganizationSettings,
-      switchOrganization,
-      inviteMember,
-      startSeatCheckout,
-      cancelInvitation,
+    switchOrganization,
+    inviteMember,
+    startSeatCheckout,
+    cancelInvitation,
     updateMemberRole,
     removeMember,
     createTeam,

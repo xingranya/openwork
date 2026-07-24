@@ -10,40 +10,21 @@ import es from "./locales/es";
 import ru from "./locales/ru";
 export const LANGUAGE_PREF_KEY = "openwork.language";
 
-/**
- * Supported languages
- */
+/** FoxWork 固定使用的语言。 */
 export type Language = "en" | "ja" | "zh" | "vi" | "pt-BR" | "th" | "fr" | "ca" | "es" | "ru";
 export type Locale = Language;
 
-/**
- * All supported languages - single source of truth
- */
-export const LANGUAGES: Language[] = ["en", "ja", "zh", "vi", "pt-BR", "th", "fr", "ca", "es", "ru"];
+/** 唯一允许的界面语言。 */
+export const LANGUAGES: Language[] = ["zh"];
 
-/**
- * Language options for UI - single source of truth
- */
+/** 界面语言信息；设置页不提供切换入口。 */
 export const LANGUAGE_OPTIONS = [
-  { value: "en" as Language, label: "English", nativeName: "English" },
-  { value: "ja" as Language, label: "Japanese", nativeName: "日本語" },
-  { value: "zh" as Language, label: "Chinese (Simplified)", nativeName: "简体中文" },
-  { value: "vi" as Language, label: "Vietnamese", nativeName: "Tiếng Việt" },
-  { value: "pt-BR" as Language, label: "Portuguese (BR)", nativeName: "Português (BR)" },
-  { value: "th" as Language, label: "Thai", nativeName: "ไทย" },
-  { value: "fr" as Language, label: "French", nativeName: "Français" },
-  { value: "ca" as Language, label: "Catalan", nativeName: "Català" },
-  { value: "es" as Language, label: "Spanish", nativeName: "Español" },
-  { value: "ru" as Language, label: "Russian", nativeName: "Русский" },
+  { value: "zh" as Language, label: "简体中文", nativeName: "简体中文" },
 ] as const;
 
 const PLURAL_SUFFIX_EMPTY_LANGUAGES = new Set<Language>(["ja", "zh", "th"]);
 
-/**
- * Current translation strings use an English-style plural suffix placeholder.
- * Some locales render the noun without a visible plural marker, so we keep
- * that suffix empty for them.
- */
+/** 中文等语言不需要英文复数后缀。 */
 export const pluralSuffix = (locale: Language, count: number): string => {
   if (PLURAL_SUFFIX_EMPTY_LANGUAGES.has(locale)) {
     return "";
@@ -52,9 +33,7 @@ export const pluralSuffix = (locale: Language, count: number): string => {
   return count === 1 ? "" : "s";
 };
 
-/**
- * Translation maps
- */
+/** 翻译资源。FoxWork 运行时只读取简体中文。 */
 const TRANSLATIONS: Record<Language, Record<string, string>> = {
   en,
   ja,
@@ -68,55 +47,33 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
   ru,
 };
 
-/**
- * Type guard to validate if a value is a Language
- * Replaces long chains like: value === "en" || value === "zh"
- */
+/** 判断输入是否为受支持的语言值。 */
 export const isLanguage = (value: unknown): value is Language => {
   return typeof value === "string" && LANGUAGES.includes(value as Language);
 };
 
-let localeValue: Language = "en";
+let localeValue: Language = "zh";
 
-/**
- * Get current locale
- */
+/** 返回当前语言。 */
 export const currentLocale = (): Language => locale();
 function locale(): Language {
   return localeValue;
 }
 
-/**
- * Set locale and persist to localStorage
- */
+/** FoxWork 不允许切换语言，此入口始终保持简体中文。 */
 export const setLocale = (newLocale: Language) => {
-  if (!isLanguage(newLocale)) {
-    console.warn(`Invalid locale: ${newLocale}, falling back to "en"`);
-    newLocale = "en";
-  }
+  void newLocale;
+  localeValue = "zh";
 
-  localeValue = newLocale;
-
-  if (typeof document !== "undefined") {
-    document.documentElement.setAttribute("lang", newLocale);
-  }
-
-  // Persist to localStorage
-  if (typeof window !== "undefined") {
-    try {
-      window.localStorage.setItem(LANGUAGE_PREF_KEY, newLocale);
-    } catch (e) {
-      console.warn("Failed to persist language preference:", e);
-    }
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.setAttribute("lang", "zh-CN");
   }
 };
 
-/**
- * Resolve a translation entry with the locale → English → null fallback chain.
- */
+/** 查找中文文案；不存在时返回空值。 */
 const lookupEntry = (loc: Language, candidateKey: string): string | null => {
-  if (TRANSLATIONS[loc]?.[candidateKey]) return TRANSLATIONS[loc][candidateKey];
-  if (loc !== "en" && TRANSLATIONS.en?.[candidateKey]) return TRANSLATIONS.en[candidateKey];
+  void loc;
+  if (TRANSLATIONS.zh?.[candidateKey]) return TRANSLATIONS.zh[candidateKey];
   return null;
 };
 
@@ -136,13 +93,7 @@ const pluralRule = (loc: Language, count: number): Intl.LDMLPluralRule => {
   return pluralRulesByLanguage[loc].select(count);
 };
 
-/**
- * Pick the right key variant for a count. Tries `${key}_zero` (only when count === 0),
- * then `${key}_${rule}` (e.g. `_one` / `_other`), then `${key}_other`, then the bare
- * key. Asian locales (no grammatical plural) define only the bare key and hit the
- * final step. Each candidate runs through the locale → English fallback so an
- * untranslated key still resolves to the English `_one` / `_other` variant.
- */
+/** 按数量选择对应文案；中文优先使用基础键，并兼容带数量后缀的资源。 */
 const resolvePluralKey = (loc: Language, key: string, count: number): string => {
   const candidates: string[] = [];
   if (count === 0) candidates.push(`${key}_zero`);
@@ -154,13 +105,7 @@ const resolvePluralKey = (loc: Language, key: string, count: number): string => 
   return key;
 };
 
-/**
- * Translation function with fallback behavior.
- * - Locale fallback: target language → English → key itself.
- * - Plural fallback: when params include a numeric `count`, the lookup picks
- *   `${key}_one` / `${key}_other` (or `${key}_zero` when count === 0) per
- *   `Intl.PluralRules`, and falls back to the bare key when no variants exist.
- */
+/** 读取中文文案并替换参数；未知键不得暴露内部名称。 */
 type TranslationParams = Record<string, string | number> & { lng?: Language };
 
 export const t = (
@@ -179,7 +124,7 @@ export const t = (
     typeof params?.count === "number" ? resolvePluralKey(loc, key, params.count) : key;
 
   const result = lookupEntry(loc, lookupKey);
-  if (result === null) return key;
+  if (result === null) return "暂不可用";
 
   if (!params) return result;
 
@@ -191,31 +136,11 @@ export const t = (
   return out;
 };
 
-/**
- * Initialize locale from localStorage
- * Call this during app initialization
- */
+/** 初始化页面语言并固定为简体中文。 */
 export const initLocale = (): Language => {
-  if (typeof window === "undefined") {
-    return "en";
+  localeValue = "zh";
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.setAttribute("lang", "zh-CN");
   }
-
-  try {
-    const stored = window.localStorage.getItem(LANGUAGE_PREF_KEY);
-    if (isLanguage(stored)) {
-      localeValue = stored;
-      if (typeof document !== "undefined") {
-        document.documentElement.setAttribute("lang", stored);
-      }
-      return stored;
-    }
-  } catch (e) {
-    console.warn("Failed to read language preference:", e);
-  }
-
-  if (typeof document !== "undefined") {
-    document.documentElement.setAttribute("lang", "en");
-  }
-
-  return "en";
+  return "zh";
 };

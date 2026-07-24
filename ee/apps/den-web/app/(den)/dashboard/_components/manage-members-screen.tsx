@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   DEN_ROLE_PERMISSION_OPTIONS,
+  formatPermissionLabel,
   formatRoleLabel,
   getJoinOrgRoute,
   getOrgAccessFlags,
@@ -286,15 +287,12 @@ export function ManageMembersScreen() {
       });
 
       if (!mintedInstallPageUrl) {
-        throw new Error("The install link response was incomplete.");
+        throw new Error("公司服务没有返回完整的安装链接。");
       }
 
-      // The clipboard write is best-effort presentation, kept outside the
-      // queued action: after a step-up verification the retry runs without
-      // transient user activation, and some browsers deniy programmatic
-      // clipboard access entirely. The mint already succeeded either way, so
-      // failure falls back to showing the link for a manual copy instead of
-      // surfacing a raw browser error.
+      // 剪贴板写入放在重验队列之外：重验后的重试没有临时用户激活，
+      // 部分浏览器也会直接拒绝程序写入。链接已经生成成功，因此写入失败时
+      // 改为展示链接供员工手动复制，不暴露浏览器底层错误。
       try {
         await navigator.clipboard.writeText(mintedInstallPageUrl);
         setInstallLinkCopied(true);
@@ -303,7 +301,7 @@ export function ManageMembersScreen() {
         setInstallLinkShareUrl(mintedInstallPageUrl);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Could not copy install link.");
+      setPageError(error instanceof Error ? error.message : "无法复制安装链接。");
     } finally {
       setInstallLinkBusy(false);
     }
@@ -330,7 +328,7 @@ export function ManageMembersScreen() {
     return (
       <div className="mx-auto max-w-[1200px] px-6 py-8 md:px-8">
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading organization details...
+          正在加载公司成员信息...
         </div>
       </div>
     );
@@ -340,7 +338,7 @@ export function ManageMembersScreen() {
     return (
       <div className="mx-auto max-w-[1200px] px-6 py-8 md:px-8">
         <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-4 text-[15px] text-red-700">
-          {orgError ?? "Organization details are unavailable."}
+          {orgError ?? "暂时无法获取公司成员信息。"}
         </div>
       </div>
     );
@@ -373,23 +371,23 @@ export function ManageMembersScreen() {
               setPageError(
                 error instanceof Error
                   ? error.message
-                  : "Could not invite member.",
+                  : "无法邀请成员。",
               );
             }
           }}
         >
           <label className="grid gap-3">
-            <span className="text-[14px] font-medium text-gray-700">Email</span>
+            <span className="text-[14px] font-medium text-gray-700">邮箱</span>
             <DenInput
               type="email"
               value={inviteEmail}
               onChange={(event) => setInviteEmail(event.target.value)}
-              placeholder="teammate@example.com"
+              placeholder="name@company.com"
               required
             />
           </label>
           <label className="grid gap-3">
-            <span className="text-[14px] font-medium text-gray-700">Role</span>
+            <span className="text-[14px] font-medium text-gray-700">角色</span>
             <DenSelect value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
               {assignableRoles.map((role) => (
                 <option key={role.id} value={role.role}>
@@ -399,9 +397,9 @@ export function ManageMembersScreen() {
             </DenSelect>
           </label>
           <div className="flex gap-2 lg:justify-end">
-            <ActionButton size="md" onClick={resetInviteForm}>Cancel</ActionButton>
+            <ActionButton size="md" onClick={resetInviteForm}>取消</ActionButton>
             <DenButton type="submit" loading={mutationBusy === "invite-member"}>
-              Send invite
+              发送邀请
             </DenButton>
           </div>
         </form>
@@ -423,13 +421,13 @@ export function ManageMembersScreen() {
               setPageError(
                 error instanceof Error
                   ? error.message
-                  : "Could not update member role.",
+                  : "无法更新成员角色。",
               );
             }
           }}
         >
           <label className="grid gap-3">
-            <span className="text-[14px] font-medium text-gray-700">Role</span>
+            <span className="text-[14px] font-medium text-gray-700">角色</span>
             <DenSelect value={memberRoleDraft} onChange={(event) => setMemberRoleDraft(event.target.value)}>
               {assignableRoles.map((role) => (
                 <option key={role.id} value={role.role}>
@@ -439,9 +437,9 @@ export function ManageMembersScreen() {
             </DenSelect>
           </label>
           <div className="flex gap-2 lg:justify-end">
-            <ActionButton size="md" onClick={resetMemberEditor}>Cancel</ActionButton>
+            <ActionButton size="md" onClick={resetMemberEditor}>取消</ActionButton>
             <DenButton type="submit" loading={mutationBusy === "update-member-role"}>
-              Save member
+              保存成员
             </DenButton>
           </div>
         </form>
@@ -471,31 +469,31 @@ export function ManageMembersScreen() {
               resetTeamEditor();
             } catch (error) {
               setPageError(
-                error instanceof Error ? error.message : "Could not save team.",
+                error instanceof Error ? error.message : "无法保存团队。",
               );
             }
           }}
         >
           <label className="grid gap-3 lg:max-w-[420px]">
             <span className="text-[14px] font-medium text-gray-700">
-              Team name
+              团队名称
             </span>
             <DenInput
               type="text"
               value={teamNameDraft}
               onChange={(event) => setTeamNameDraft(event.target.value)}
-              placeholder="Core Engineering"
+              placeholder="例如：品牌组"
               required
             />
           </label>
 
           <div>
             <p className="mb-3 text-[14px] font-medium text-gray-700">
-              Team members
+              团队成员
             </p>
             {orgContext.members.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-gray-200 bg-gray-50 px-5 py-6 text-[14px] text-gray-500">
-                Invite a member before assigning people to this team.
+                请先邀请成员，再将成员加入这个团队。
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
@@ -532,12 +530,12 @@ export function ManageMembersScreen() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <ActionButton size="md" onClick={resetTeamEditor}>Cancel</ActionButton>
+            <ActionButton size="md" onClick={resetTeamEditor}>取消</ActionButton>
             <DenButton
               type="submit"
               loading={mutationBusy === "create-team" || mutationBusy === "update-team"}
             >
-              {editingTeamId ? "Save team" : "Create team"}
+              {editingTeamId ? "保存团队" : "创建团队"}
             </DenButton>
           </div>
         </form>
@@ -567,20 +565,20 @@ export function ManageMembersScreen() {
               resetRoleEditor();
             } catch (error) {
               setPageError(
-                error instanceof Error ? error.message : "Could not save role.",
+                error instanceof Error ? error.message : "无法保存角色。",
               );
             }
           }}
         >
           <label className="grid gap-3 lg:max-w-[420px]">
             <span className="text-[14px] font-medium text-gray-700">
-              Role name
+              角色名称
             </span>
             <DenInput
               type="text"
               value={roleNameDraft}
               onChange={(event) => setRoleNameDraft(event.target.value)}
-              placeholder="qa-reviewer"
+              placeholder="例如：内容审核"
               required
             />
           </label>
@@ -593,7 +591,7 @@ export function ManageMembersScreen() {
                   className="rounded-[24px] border border-gray-200 bg-[#f8fafc] p-4"
                 >
                   <p className="mb-3 text-[15px] font-semibold text-gray-900">
-                    {formatRoleLabel(resource)}
+                    {formatPermissionLabel(resource)}
                   </p>
                   <div className="grid gap-2">
                     {actions.map((action) => {
@@ -619,7 +617,7 @@ export function ManageMembersScreen() {
                               )
                             }
                           />
-                          <span>{formatRoleLabel(action)}</span>
+                          <span>{formatPermissionLabel(action)}</span>
                         </label>
                       );
                     })}
@@ -630,12 +628,12 @@ export function ManageMembersScreen() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <ActionButton size="md" onClick={resetRoleEditor}>Cancel</ActionButton>
+            <ActionButton size="md" onClick={resetRoleEditor}>取消</ActionButton>
             <DenButton
               type="submit"
               loading={mutationBusy === "create-role" || mutationBusy === "update-role"}
             >
-              {editingRoleId ? "Save role" : "Create role"}
+              {editingRoleId ? "保存角色" : "创建角色"}
             </DenButton>
           </div>
         </form>
@@ -645,7 +643,7 @@ export function ManageMembersScreen() {
   const toolbarAction = (() => {
     if (activeTab === "members" && access.canInviteMembers) {
       return {
-        label: "Add member",
+        label: "添加成员",
         onClick: () => {
           resetMemberEditor();
           setShowInviteForm((current) => !current);
@@ -654,7 +652,7 @@ export function ManageMembersScreen() {
     }
     if (activeTab === "teams" && access.canManageTeams) {
       return {
-        label: "Create Team",
+        label: "创建团队",
         onClick: () => {
           resetTeamEditor();
           setShowTeamForm((current) => !current);
@@ -663,7 +661,7 @@ export function ManageMembersScreen() {
     }
     if (activeTab === "roles" && access.canManageRoles) {
       return {
-        label: "Add role",
+        label: "添加角色",
         onClick: () => {
           setShowRoleForm((current) => !current);
           setEditingRoleId(null);
@@ -678,17 +676,17 @@ export function ManageMembersScreen() {
   return (
     <DashboardPageTemplate
       icon={Users}
-      title="Members"
-      description="Invite teammates, adjust roles, and keep access clean."
+      title="成员管理"
+      description="邀请成员、设置团队和角色，并管理公司访问权限。"
       colors={["#F3EEFF", "#4A1D96", "#7C3AED", "#C4B5FD"]}
     >
       <OrgLimitDialog
         open={Boolean(limitDialogError)}
-        title={limitDialogError?.limitType === "members" ? "Member limit reached" : "Worker limit reached"}
-        message={limitDialogError?.message ?? "This workspace reached its current plan limit."}
+        title={limitDialogError?.limitType === "members" ? "成员名额已用完" : "远程工作区名额已用完"}
+        message={limitDialogError?.limitType === "members" ? "当前方案不能再添加成员。" : "当前方案不能再添加远程工作区。"}
         detail={
           limitDialogError
-            ? `${limitDialogError.currentCount} of ${limitDialogError.limit} ${limitDialogError.limitType} are already in use.`
+            ? `已使用 ${limitDialogError.currentCount}/${limitDialogError.limit} 个${limitDialogError.limitType === "members" ? "成员名额" : "远程工作区名额"}。`
             : null
         }
         feedbackHref={feedbackHref}
@@ -696,12 +694,12 @@ export function ManageMembersScreen() {
       />
       <OrgLimitDialog
         open={Boolean(seatBillingDialogError)}
-        eyebrow="Seat billing"
-        title="Subscribe to add more users"
-        message="The first 5 users in your organization are free, additional users are charged at $10 per user per month"
-        detail={canStartSeatCheckout ? null : "Only workspace owners can start billing checkout."}
-        closeLabel="Cancel"
-        actionLabel="Subscribe"
+        eyebrow="席位计费"
+        title="订阅后可添加更多成员"
+        message="公司前 5 名成员免费，超出后每名成员每月收费 10 美元。"
+        detail={canStartSeatCheckout ? null : "只有公司所有者可以开通订阅。"}
+        closeLabel="取消"
+        actionLabel="开通订阅"
         actionLoading={mutationBusy === "seat-checkout"}
         actionDisabled={!canStartSeatCheckout}
         onClose={() => setSeatBillingDialogError(null)}
@@ -710,7 +708,7 @@ export function ManageMembersScreen() {
             return;
           }
           void startSeatCheckout().catch((error) => {
-            setPageError(error instanceof Error ? error.message : "Could not start seat billing checkout.");
+            setPageError(error instanceof Error ? error.message : "无法打开订阅页面。");
           });
         }}
       />
@@ -724,9 +722,9 @@ export function ManageMembersScreen() {
         activeTab={activeTab}
         onChange={setActiveTab}
         tabs={[
-          { value: "members", label: "Members", icon: User, count: tabCounts.members },
-          { value: "teams", label: "Teams", icon: Users, count: tabCounts.teams },
-          { value: "roles", label: "Roles", icon: Shield, count: tabCounts.roles },
+          { value: "members", label: "成员", icon: User, count: tabCounts.members },
+          { value: "teams", label: "团队", icon: Users, count: tabCounts.teams },
+          { value: "roles", label: "角色", icon: Shield, count: tabCounts.roles },
         ]}
       />
 
@@ -740,10 +738,10 @@ export function ManageMembersScreen() {
           <div className="mb-6 flex items-center justify-between gap-4">
             <p className="text-[15px] text-gray-400">
               {access.canManageMembers
-                ? "Invite people, update their role, or remove them from the organization."
+                ? "邀请成员、调整角色，或移除不再需要访问公司服务的成员。"
                 : access.canRemoveMembers
-                  ? "Invite people or remove non-owner members from the organization."
-                : "View who is in the organization and what role they currently hold."}
+                  ? "邀请成员，或移除公司所有者以外的成员。"
+                : "查看公司成员及其当前角色。"}
             </p>
             {toolbarAction ? (
               <div className="flex flex-wrap justify-end gap-2">
@@ -755,7 +753,7 @@ export function ManageMembersScreen() {
                     onClick={() => void handleCopyInstallLink()}
                     loading={installLinkBusy || mutationBusy === "copy-install-link"}
                   >
-                    {installLinkCopied ? "Copied" : "Copy install link"}
+                    {installLinkCopied ? "已复制" : "复制安装链接"}
                   </DenButton>
                 ) : null}
                 <DenButton icon={Plus} onClick={toolbarAction.onClick}>
@@ -768,7 +766,7 @@ export function ManageMembersScreen() {
           {installLinkShareUrl ? (
             <div className="mb-6 rounded-[24px] border border-gray-200 bg-white px-5 py-4">
               <p className="text-[13px] text-gray-500">
-                Copy blocked by the browser — copy the link manually:
+                浏览器未允许自动复制，请手动复制下面的链接：
               </p>
               <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center">
                 <DenInput
@@ -776,7 +774,7 @@ export function ManageMembersScreen() {
                   data-testid="install-link-share-url"
                   value={installLinkShareUrl}
                   readOnly
-                  aria-label="Install link"
+                  aria-label="安装链接"
                   className="font-mono text-[12px]"
                   onFocus={(event) => event.currentTarget.select()}
                   onClick={(event) => event.currentTarget.select()}
@@ -788,7 +786,7 @@ export function ManageMembersScreen() {
                     size="sm"
                     onClick={() => void handleInstallLinkShareCopy()}
                   >
-                    {installLinkShareCopied ? "Copied" : "Copy"}
+                    {installLinkShareCopied ? "已复制" : "复制"}
                   </DenButton>
                   <DenButton
                     variant="secondary"
@@ -798,7 +796,7 @@ export function ManageMembersScreen() {
                       setInstallLinkShareCopied(false);
                     }}
                   >
-                    Done
+                    完成
                   </DenButton>
                 </div>
               </div>
@@ -807,9 +805,9 @@ export function ManageMembersScreen() {
 
           <div className="overflow-visible rounded-2xl border border-gray-100 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_180px_140px_160px] gap-4 border-b border-gray-100 px-6 py-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-              <span>Member</span>
-              <span>Role</span>
-              <span>Joined</span>
+              <span>成员</span>
+              <span>角色</span>
+              <span>加入时间</span>
               <span />
             </div>
 
@@ -834,14 +832,14 @@ export function ManageMembersScreen() {
                   </span>
                   <span className="text-[13px] text-gray-400">
                     {member.joinedAt
-                      ? new Date(member.joinedAt).toLocaleDateString()
-                      : "Pending"}
+                      ? new Date(member.joinedAt).toLocaleDateString("zh-CN")
+                      : "等待加入"}
                   </span>
                   <div className="relative flex items-center justify-end gap-2">
                     {member.isOwner ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-[12px] text-gray-400">
                         <Lock className="h-3 w-3" />
-                        Locked
+                        已锁定
                       </span>
                     ) : canOpenActions ? (
                       <>
@@ -849,7 +847,7 @@ export function ManageMembersScreen() {
                           type="button"
                           onClick={() => setOpenMemberMenuId((current) => current === member.id ? null : member.id)}
                           className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                          aria-label={`Open actions for ${member.user.name}`}
+                          aria-label={`打开 ${member.user.name} 的操作菜单`}
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
@@ -866,7 +864,7 @@ export function ManageMembersScreen() {
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50"
                               >
                                 <Link className="h-3.5 w-3.5" />
-                                Copy invite link
+                                复制邀请链接
                               </button>
                             ) : null}
                             {isInvited && access.canInviteMembers ? (
@@ -878,14 +876,14 @@ export function ManageMembersScreen() {
                                     await inviteMember({ email: member.user.email, role: member.role });
                                     setOpenMemberMenuId(null);
                                   } catch (error) {
-                                    setPageError(error instanceof Error ? error.message : "Could not resend invitation.");
+                                    setPageError(error instanceof Error ? error.message : "无法重新发送邀请。");
                                   }
                                 }}
                                 disabled={mutationBusy === "invite-member"}
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <Send className="h-3.5 w-3.5" />
-                                Resend invite
+                                重新发送邀请
                               </button>
                             ) : null}
                             {isInvited && access.canCancelInvitations && inviteId ? (
@@ -897,14 +895,14 @@ export function ManageMembersScreen() {
                                     await cancelInvitation(inviteId);
                                     setOpenMemberMenuId(null);
                                   } catch (error) {
-                                    setPageError(error instanceof Error ? error.message : "Could not cancel invitation.");
+                                    setPageError(error instanceof Error ? error.message : "无法取消邀请。");
                                   }
                                 }}
                                 disabled={mutationBusy === "cancel-invitation"}
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                Cancel invite
+                                取消邀请
                               </button>
                             ) : null}
                             {!isInvited && access.canManageMembers ? (
@@ -919,7 +917,7 @@ export function ManageMembersScreen() {
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50"
                               >
                                 <Settings className="h-3.5 w-3.5" />
-                                Edit role
+                                修改角色
                               </button>
                             ) : null}
                             {!isInvited && access.canManageTeams ? (
@@ -938,7 +936,7 @@ export function ManageMembersScreen() {
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50"
                               >
                                 <Users className="h-3.5 w-3.5" />
-                                Manage teams
+                                管理团队
                               </button>
                             ) : null}
                             {!isInvited && access.canRemoveMembers ? (
@@ -953,21 +951,21 @@ export function ManageMembersScreen() {
                                     }
                                     setOpenMemberMenuId(null);
                                   } catch (error) {
-                                    setPageError(error instanceof Error ? error.message : "Could not remove member.");
+                                    setPageError(error instanceof Error ? error.message : "无法移除成员。");
                                   }
                                 }}
                                 disabled={mutationBusy === "remove-member"}
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                Remove member
+                                移除成员
                               </button>
                             ) : null}
                           </div>
                         ) : null}
                       </>
                     ) : (
-                      <span className="text-[13px] text-gray-400">Read only</span>
+                      <span className="text-[13px] text-gray-400">只读</span>
                     )}
                   </div>
                 </div>
@@ -976,7 +974,7 @@ export function ManageMembersScreen() {
                     <div className="flex flex-wrap items-start gap-4">
                       <div className="flex-1">
                         <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-gray-400">
-                          Teams for {member.user.name}
+                          {member.user.name} 所在的团队
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {(orgContext?.teams ?? []).map((team) => {
@@ -1015,7 +1013,7 @@ export function ManageMembersScreen() {
                           onClick={() => setEditingMemberTeamsId(null)}
                           className="inline-flex h-8 items-center rounded-full border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-50"
                         >
-                          Cancel
+                          取消
                         </button>
                         <button
                           type="button"
@@ -1023,7 +1021,7 @@ export function ManageMembersScreen() {
                           onClick={async () => {
                             setPageError(null);
                             try {
-                              // For each team, update its member list to add or remove this member.
+                              // 逐个更新团队成员列表，确保该成员的团队归属与当前选择一致。
                               for (const team of orgContext?.teams ?? []) {
                                 const wasInTeam = team.memberIds.includes(member.id);
                                 const shouldBeInTeam = memberTeamsDraft.has(team.id);
@@ -1035,12 +1033,12 @@ export function ManageMembersScreen() {
                               }
                               setEditingMemberTeamsId(null);
                             } catch (error) {
-                              setPageError(error instanceof Error ? error.message : "Could not update teams.");
+                              setPageError(error instanceof Error ? error.message : "无法更新团队归属。");
                             }
                           }}
                           className="inline-flex h-8 items-center rounded-full bg-gray-900 px-3.5 text-[13px] font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Save teams
+                          保存团队
                         </button>
                       </div>
                     </div>
@@ -1056,7 +1054,7 @@ export function ManageMembersScreen() {
       {activeTab === "teams" ? (
         <div>
           <div className="mb-6 flex items-center justify-between gap-4">
-            <p className="text-[15px] text-gray-400">Manage teams and their members.</p>
+            <p className="text-[15px] text-gray-400">管理公司内的团队及其成员。</p>
             {toolbarAction ? (
               <DenButton icon={Plus} onClick={toolbarAction.onClick}>
                 {toolbarAction.label}
@@ -1066,14 +1064,14 @@ export function ManageMembersScreen() {
 
           <div className="overflow-x-auto overflow-y-visible rounded-2xl border border-gray-100 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_160px_200px] gap-4 border-b border-gray-100 px-6 py-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-              <span>Team</span>
-              <span>Members</span>
+              <span>团队</span>
+              <span>成员数</span>
               <span />
             </div>
 
             {orgContext.teams.length === 0 ? (
               <div className="px-6 py-8 text-center text-[13px] text-gray-400">
-                No teams yet.
+                暂无团队。
               </div>
             ) : (
               orgContext.teams.map((team) => (
@@ -1088,22 +1086,22 @@ export function ManageMembersScreen() {
                       </span>
                       {team.managedByScim ? (
                         <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700">
-                          Managed by SCIM
+                          由 SCIM 管理
                         </span>
                       ) : null}
                     </div>
                     <p className="mt-0.5 text-[12px] text-gray-400">
                       {teamMemberNames.get(team.id)?.slice(0, 3).join(", ") ||
-                        "No members assigned yet"}
+                        "尚未分配成员"}
                       {(teamMemberNames.get(team.id)?.length ?? 0) > 3
                         ? ` +${(teamMemberNames.get(team.id)?.length ?? 0) - 3}`
                         : ""}
                     </p>
                   </div>
-                  <span className="text-[13px] text-gray-400">{`${team.memberIds.length} ${team.memberIds.length === 1 ? "member" : "members"}`}</span>
+                  <span className="text-[13px] text-gray-400">{`${team.memberIds.length} 名成员`}</span>
                   <div className="flex items-center justify-end gap-3">
                     {team.managedByScim ? (
-                      <span className="text-[12px] font-medium text-cyan-700">Managed by identity provider</span>
+                      <span className="text-[12px] font-medium text-cyan-700">由身份服务统一管理</span>
                     ) : access.canManageTeams ? (
                       <>
                         <ActionButton
@@ -1115,7 +1113,7 @@ export function ManageMembersScreen() {
                             setTeamMemberDraft(team.memberIds);
                           }}
                         >
-                          Edit
+                          编辑
                         </ActionButton>
                         <ActionButton
                           tone="danger"
@@ -1132,17 +1130,17 @@ export function ManageMembersScreen() {
                               setPageError(
                                 error instanceof Error
                                   ? error.message
-                                  : "Could not delete team.",
+                                  : "无法删除团队。",
                               );
                             }
                           }}
                         >
-                          {mutationBusy === "delete-team" ? "Deleting..." : "Delete"}
+                          {mutationBusy === "delete-team" ? "正在删除..." : "删除"}
                         </ActionButton>
                       </>
                     ) : (
                       <span className="text-[13px] text-gray-400">
-                        Read only
+                        只读
                       </span>
                     )}
                   </div>
@@ -1158,8 +1156,8 @@ export function ManageMembersScreen() {
           <div className="mb-6 flex items-center justify-between gap-4">
             <p className="text-[15px] text-gray-400">
               {access.canManageRoles
-                ? "Default roles stay available, and owners can add, edit, or remove custom roles here."
-                : "Role definitions are visible here, but only owners can change them."}
+                ? "系统角色会一直保留，公司所有者可以添加、修改或删除自定义角色。"
+                : "你可以查看角色定义，但只有公司所有者可以修改。"}
             </p>
             {toolbarAction ? (
               <DenButton icon={Plus} onClick={toolbarAction.onClick}>
@@ -1170,8 +1168,8 @@ export function ManageMembersScreen() {
 
           <div className="overflow-x-auto overflow-y-visible rounded-2xl border border-gray-100 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_120px_200px] gap-4 border-b border-gray-100 px-6 py-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
-              <span>Role</span>
-              <span>Type</span>
+              <span>角色</span>
+              <span>类型</span>
               <span />
             </div>
 
@@ -1185,10 +1183,10 @@ export function ManageMembersScreen() {
                 </span>
                 <span className="text-[13px] text-gray-400">
                   {role.protected
-                    ? "System"
+                    ? "系统角色"
                     : role.builtIn
-                      ? "Default"
-                      : "Custom"}
+                      ? "默认角色"
+                      : "自定义角色"}
                 </span>
                 <div className="flex items-center justify-end gap-3">
                   {access.canManageRoles && !role.protected ? (
@@ -1204,7 +1202,7 @@ export function ManageMembersScreen() {
                           );
                         }}
                       >
-                        Edit
+                        编辑
                       </ActionButton>
                       <ActionButton
                         tone="danger"
@@ -1221,16 +1219,16 @@ export function ManageMembersScreen() {
                             setPageError(
                               error instanceof Error
                                 ? error.message
-                                : "Could not delete role.",
+                                : "无法删除角色。",
                             );
                           }
                         }}
                       >
-                        {mutationBusy === "delete-role" ? "Deleting..." : "Delete"}
+                        {mutationBusy === "delete-role" ? "正在删除..." : "删除"}
                       </ActionButton>
                     </>
                   ) : (
-                    <span className="text-[13px] text-gray-400">Read only</span>
+                    <span className="text-[13px] text-gray-400">只读</span>
                   )}
                 </div>
               </div>

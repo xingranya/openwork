@@ -127,14 +127,14 @@ export const INTEGRATION_PROVIDERS: Record<IntegrationProvider, IntegrationProvi
   github: {
     provider: "github",
     name: "GitHub",
-    description: "Install the OpenWork GitHub App, then pick a repository to turn into a connector instance.",
+    description: "安装 FoxWork GitHub App，再选择要连接的代码仓库。",
     docsHref: "https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps",
     scopes: ["metadata:read", "contents:read", "webhooks"],
   },
   bitbucket: {
     provider: "bitbucket",
     name: "Bitbucket",
-    description: "Connect Bitbucket workspaces to pull in plugins and skills from your team repos.",
+    description: "连接 Bitbucket 工作区，导入团队代码仓库中的插件和技能。",
     docsHref: "https://support.atlassian.com/bitbucket-cloud/docs/use-oauth-on-bitbucket-cloud/",
     scopes: ["repository", "account"],
   },
@@ -163,21 +163,21 @@ export function getMockReposFor(provider: IntegrationProvider, accountId: string
       id: `${tag}:openwork`,
       name: "openwork",
       fullName: `${accountToLabel(accountId)}/openwork`,
-      description: "Core OpenWork monorepo — desktop, server, and orchestrator.",
+      description: "OpenWork 主仓库，包含桌面端、服务端和编排器。",
       hasPlugins: true,
     },
     {
       id: `${tag}:openwork-plugins`,
       name: "openwork-plugins",
       fullName: `${accountToLabel(accountId)}/openwork-plugins`,
-      description: "Internal plugin marketplace: release kit, commit commands, linear groomer.",
+      description: "内部插件市场，包含发布工具、提交命令和 Linear 整理工具。",
       hasPlugins: true,
     },
     {
       id: `${tag}:den-infra`,
       name: "den-infra",
       fullName: `${accountToLabel(accountId)}/den-infra`,
-      description: "Infra-as-code for Den Cloud. No plugins yet.",
+      description: "Den Cloud 基础设施即代码，暂未包含插件。",
       hasPlugins: false,
     },
   ];
@@ -303,7 +303,7 @@ async function fetchGithubConnections() {
       .map((instance) => ({
         connectorInstanceId: instance.id,
         defaultBranch: null,
-        description: "Repository selected for connector sync.",
+        description: "已选择同步此代码仓库。",
         fullName: instance.remoteId ?? instance.name,
         hasPlugins: true,
         id: instance.id,
@@ -318,10 +318,10 @@ async function fetchConnections(): Promise<ConnectedIntegration[]> {
 }
 
 export function formatIntegrationTimestamp(value: string | null): string {
-  if (!value) return "Recently connected";
+  if (!value) return "最近连接";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recently connected";
-  return new Intl.DateTimeFormat("en-US", {
+  if (Number.isNaN(date.getTime())) return "最近连接";
+  return new Intl.DateTimeFormat("zh-CN", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -485,10 +485,10 @@ export function useGithubInstallCompletion(input: { installationId: number | nul
               return [{
                 defaultBranch: asNullableString(entry.defaultBranch),
                 description: manifestKind === "marketplace"
-                  ? "Claude marketplace manifest detected."
+                  ? "检测到 Claude 能力市场清单。"
                   : manifestKind === "plugin"
-                    ? "Claude plugin manifest detected."
-                    : "Repository available to connect.",
+                    ? "检测到 Claude 插件清单。"
+                    : "可以连接此代码仓库。",
                 fullName,
                 hasPluginManifest: Boolean(entry.hasPluginManifest),
                 hasPlugins: Boolean(entry.hasPluginManifest),
@@ -558,10 +558,10 @@ export function useGithubAccountRepositories(connectorAccountId: string | null) 
             return [{
               defaultBranch: asNullableString(entry.defaultBranch),
               description: manifestKind === "marketplace"
-                ? "Claude marketplace manifest detected."
+                ? "检测到 Claude 能力市场清单。"
                 : manifestKind === "plugin"
-                  ? "Claude plugin manifest detected."
-                  : "Repository available to connect.",
+                  ? "检测到 Claude 插件清单。"
+                  : "可以连接此代码仓库。",
               fullName,
               hasPluginManifest: Boolean(entry.hasPluginManifest),
               hasPlugins: Boolean(entry.hasPluginManifest),

@@ -8,6 +8,7 @@ import { StaticSeededGradient } from "@openwork/ui/react";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
 import { DenInput } from "../../_components/ui/input";
 import { buttonVariants, DenButton } from "../../_components/ui/button";
+import { getErrorMessage } from "../../_lib/den-flow";
 import { getIntegrationsRoute, getMarketplaceRoute, getOrgAccessFlags } from "../../_lib/den-org";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import { useHasAnyIntegration } from "./integration-data";
@@ -43,9 +44,9 @@ export function MarketplacesScreen() {
   return (
     <DashboardPageTemplate
       icon={Store}
-      badgeLabel="Preview"
-      title="Marketplaces"
-      description="Marketplaces contain plugins. OpenWork Marketplace is built in, and assigned marketplaces show up inside the desktop app after sign-in."
+      badgeLabel="预览"
+      title="应用市场"
+      description="应用市场用于集中管理插件。分配给全公司、指定成员或团队的市场，会在员工登录 FoxWork 后自动显示。"
       colors={["#FEF3C7", "#92400E", "#F59E0B", "#FDE68A"]}
     >
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
@@ -55,39 +56,41 @@ export function MarketplacesScreen() {
             icon={Search}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search marketplaces..."
+            placeholder="搜索应用市场"
           />
         </div>
         {access.isAdmin ? (
           <DenButton icon={Plus} onClick={() => setCreateOpen(true)}>
-            New marketplace
+            新建应用市场
           </DenButton>
         ) : null}
       </div>
 
       {error ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {error instanceof Error ? error.message : "Failed to load marketplaces."}
+          {error instanceof Error
+            ? getErrorMessage(error.message, "应用市场加载失败，请重试。")
+            : "应用市场加载失败，请重试。"}
         </div>
       ) : null}
 
       {isLoading || integrationsLoading ? (
         <div className="rounded-2xl border border-gray-100 bg-white px-6 py-10 text-[14px] text-gray-500">
-          Loading marketplaces…
+          正在加载应用市场…
         </div>
       ) : !hasAnyIntegration && marketplaces.length === 0 ? (
         <ConnectIntegrationEmptyState integrationsHref={getIntegrationsRoute(orgSlug)} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={marketplaces.length === 0 ? "No marketplaces yet" : "No marketplaces match that search"}
+          title={marketplaces.length === 0 ? "还没有应用市场" : "没有符合条件的应用市场"}
           description={
             marketplaces.length === 0
-              ? "Create or connect a marketplace, then assign it to everyone in your org or specific users and teams."
-              : "Try a different search term or open the plugins tab."
+              ? "新建或连接一个应用市场，再将它分配给全公司、指定成员或团队。"
+              : "请更换关键词，或前往插件页面查看。"
           }
           action={
             marketplaces.length === 0
-              ? { href: getIntegrationsRoute(orgSlug), label: "Open Integrations", icon: Cable }
+              ? { href: getIntegrationsRoute(orgSlug), label: "打开数据源", icon: Cable }
               : undefined
           }
         />
@@ -120,7 +123,7 @@ export function MarketplacesScreen() {
                       {marketplace.name}
                     </h2>
                     <span className="shrink-0 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500">
-                      {marketplace.pluginCount} plugin{marketplace.pluginCount === 1 ? "" : "s"}
+                      {marketplace.pluginCount} 个插件
                     </span>
                   </div>
                   {marketplace.description ? (
@@ -129,7 +132,7 @@ export function MarketplacesScreen() {
                     </p>
                   ) : null}
                   <p className="mt-3 text-[11.5px] text-gray-400">
-                    Added {formatMarketplaceTimestamp(marketplace.createdAt)}
+                    添加于 {formatMarketplaceTimestamp(marketplace.createdAt)}
                   </p>
                 </div>
               </div>
@@ -178,7 +181,7 @@ function CreateMarketplaceDialog({
       setDescription("");
       onCreated(created);
     } catch {
-      // The mutation error is rendered in the dialog.
+      // 提交错误会直接显示在对话框中。
     }
   }
 
@@ -192,27 +195,27 @@ function CreateMarketplaceDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="create-marketplace-title" className="text-[16px] font-semibold tracking-[-0.01em] text-gray-950">
-          New marketplace
+          新建应用市场
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-500">
-          Create a catalog for your organization. You can add plugins and choose its audience after creation.
+          为公司建立一个插件目录。创建后可以添加插件，并设置可使用的成员或团队。
         </p>
 
         <label className="mt-4 block">
-          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Name</span>
+          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</span>
           <DenInput
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Engineering tools"
+            placeholder="例如：设计团队工具"
             autoFocus
           />
         </label>
         <label className="mt-3 block">
-          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Description (optional)</span>
+          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">说明（选填）</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="What belongs in this marketplace?"
+            placeholder="说明这里包含哪些插件"
             rows={2}
             className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-[13px] text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400"
           />
@@ -220,17 +223,19 @@ function CreateMarketplaceDialog({
 
         {createMutation.error ? (
           <p className="mt-3 text-[12.5px] text-red-600">
-            {createMutation.error instanceof Error ? createMutation.error.message : "Failed to create marketplace."}
+            {createMutation.error instanceof Error
+              ? getErrorMessage(createMutation.error.message, "应用市场创建失败，请重试。")
+              : "应用市场创建失败，请重试。"}
           </p>
         ) : null}
 
         <div className="mt-5 flex items-center justify-end gap-2">
           <DenButton variant="secondary" onClick={onClose} disabled={createMutation.isPending}>
-            Cancel
+            取消
           </DenButton>
           <DenButton disabled={!trimmedName || createMutation.isPending} onClick={() => void submit()}>
             {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            Create marketplace
+            创建应用市场
           </DenButton>
         </div>
       </div>
@@ -267,9 +272,9 @@ function EmptyState({
 function ConnectIntegrationEmptyState({ integrationsHref }: { integrationsHref: string }) {
   return (
     <EmptyState
-      title="Connect an integration to discover marketplaces"
-      description="Marketplaces are created when OpenWork finds plugins in a connected repository. Assign them to everyone in your org or specific users and teams."
-      action={{ href: integrationsHref, label: "Open Integrations", icon: Cable }}
+      title="连接数据源以发现插件"
+      description="FoxWork 会在已连接的代码仓库中查找插件并建立应用市场，之后可将其分配给全公司、指定成员或团队。"
+      action={{ href: integrationsHref, label: "打开数据源", icon: Cable }}
     />
   );
 }

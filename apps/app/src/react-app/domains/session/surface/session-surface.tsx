@@ -7,6 +7,7 @@ import { Check, Minimize2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 import { captureAnalyticsEvent } from "@/app/lib/analytics";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { createClient, unwrap } from "@/app/lib/opencode";
 import { abortSessionSafe } from "@/app/lib/opencode-session";
 import { t } from "@/i18n";
@@ -333,7 +334,7 @@ function parseSessionError(thrown: unknown): SessionError {
     if (parsed?.name === "ProviderModelNotFoundError" && parsed?.data) {
       const { providerID, modelID, suggestions } = parsed.data;
       return {
-        message: `Model ${providerID}/${modelID} is not available.`,
+        message: `模型 ${providerID}/${modelID} 当前不可用。`,
         kind: "model-not-found",
         failedModel: { providerID, modelID },
         suggestions: Array.isArray(suggestions) ? suggestions : [],
@@ -344,9 +345,9 @@ function parseSessionError(thrown: unknown): SessionError {
   }
   // Check if the raw string mentions model-not-found patterns
   if (/ProviderModelNotFoundError/i.test(raw) || /model.*not found/i.test(raw)) {
-    return { message: raw, kind: "model-not-found" };
+    return { message: toChineseUserMessage(raw, "当前模型不可用，请更换模型后重试。"), kind: "model-not-found" };
   }
-  return { message: raw || "Failed to send prompt." };
+  return { message: toChineseUserMessage(raw, "发送失败，请稍后重试。") };
 }
 
 function SessionErrorCard({ error, onDismiss, onChangeModel, onOpenModelPicker }: {
@@ -374,7 +375,7 @@ function SessionErrorCard({ error, onDismiss, onChangeModel, onOpenModelPicker }
                         onDismiss();
                       }}
                     >
-                      Use {s.providerID}/{s.modelID}
+                      使用 {s.providerID}/{s.modelID}
                     </button>
                   ))
                 ) : null}
@@ -386,7 +387,7 @@ function SessionErrorCard({ error, onDismiss, onChangeModel, onOpenModelPicker }
                     onDismiss();
                   }}
                 >
-                  Change model
+                  更换模型
                 </button>
               </div>
             ) : null}
@@ -395,7 +396,7 @@ function SessionErrorCard({ error, onDismiss, onChangeModel, onOpenModelPicker }
             type="button"
             className="shrink-0 rounded-full p-1 text-red-10 transition-colors hover:bg-red-3 hover:text-red-11"
             onClick={onDismiss}
-            aria-label="Dismiss error"
+            aria-label="关闭错误提示"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
           </button>
@@ -1206,7 +1207,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const connect = await connectPromise;
     const servers = [...localServers, ...connect.mcpServers];
     const statuses = { ...connect.mcpStatuses, ...localStatuses };
-    const status = servers.length ? null : "No MCP servers loaded.";
+    const status = servers.length ? null : "尚未加载 MCP 服务。";
     setToolMcpServers(servers);
     setToolMcpStatuses(statuses);
     setToolMcpStatus(status);
@@ -1251,7 +1252,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       const results = await Promise.all(input.map((file) => props.client.uploadInbox(props.workspaceId, file)));
       return results;
     } catch (nextError) {
-      toast.warning(nextError instanceof Error ? nextError.message : "Shared folder upload failed");
+      toast.warning(toChineseUserMessage(nextError, "上传到共享文件夹失败，请稍后重试。"));
       throw nextError;
     }
   };
@@ -1341,7 +1342,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const organizationId = settings.activeOrgId?.trim() ?? "";
     if (!token || !organizationId) {
       props.onOpenConnect();
-      throw new Error("Sign in to OpenWork Cloud, then try reconnecting again.");
+      throw new Error("请先登录公司账号，然后重新连接。");
     }
 
     const scope: ChatMcpReconnectScope = {
@@ -1362,7 +1363,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       const connections = await denClient.listMcpConnections(organizationId, "usable");
       const connection = connections.find((entry) => entry.id === action.connectionId);
       if (!connection || connection.authType !== "oauth" || connection.credentialMode !== "per_member") {
-        throw new Error(`${action.connectionName} is no longer available as your reconnectable account.`);
+        throw new Error(`${action.connectionName} 当前不可重新连接。`);
       }
 
       recordInspectorEvent("mcp.chat_reconnect.started", {
@@ -1381,7 +1382,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         });
         return "connected";
       }
-      if (!result.authorizeUrl) throw new Error(`Could not start ${action.connectionName} authorization.`);
+      if (!result.authorizeUrl) throw new Error(`无法启动 ${action.connectionName} 授权。`);
 
       await openDesktopUrl(result.authorizeUrl);
       onProgress({ phase: "authorization_opened", authorizeUrl: result.authorizeUrl });
@@ -1423,7 +1424,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, [props.sessionId, props.workspaceId]);
 
   const handleMcpRetry = useCallback(async (action: ChatToolReconnectAction) => {
-    const prompt = `The ${action.connectionName} connection is restored. Search for the capability again and retry the previous request. Before repeating any write action, confirm it did not already complete.`;
+    const prompt = `${action.connectionName} 连接已恢复。请重新查找所需能力并重试上一个请求；再次执行任何写操作前，先确认该操作尚未完成。`;
     await typeComposerText(prompt);
     props.onDraftChange(buildDraft(prompt, attachments));
     recordInspectorEvent("mcp.chat_reconnect.retry_drafted", {
@@ -1537,7 +1538,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       {model.transitionState === "switching" && showDelayedLoading ? (
         <div className="flex justify-center px-6 pt-4">
           <div className="rounded-full border border-dls-border bg-dls-hover/80 px-3 py-1 text-xs text-dls-secondary">
-            {model.renderSource === "cache" ? "Switching session from cache..." : "Switching session..."}
+            {model.renderSource === "cache" ? "正在从缓存切换会话..." : "正在切换会话..."}
           </div>
         </div>
       ) : null}
@@ -1569,7 +1570,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             {showDelayedLoading && pendingSessionLoad ? (
               <div className="px-6 py-16">
                 <div className="mx-auto max-w-sm rounded-3xl border border-dls-border bg-dls-hover/60 px-8 py-10 text-center">
-                  <div className="text-sm text-dls-secondary">Opening session…</div>
+                  <div className="text-sm text-dls-secondary">正在打开会话...</div>
                 </div>
               </div>
             ) : (snapshotQuery.isError || error) && !snapshot && renderedMessages.length === 0 ? (
@@ -1583,7 +1584,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                   />
                 ) : (
                   <div className="mx-auto max-w-xl rounded-3xl border border-red-6/40 bg-red-3/20 px-6 py-5 text-sm text-red-11">
-                    {snapshotQuery.error instanceof Error ? snapshotQuery.error.message : "Failed to load session."}
+                    {toChineseUserMessage(snapshotQuery.error, "无法加载会话，请稍后重试。")}
                   </div>
                 )}
               </div>
@@ -1658,8 +1659,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
             className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-amber-7/40 bg-amber-2/30 px-3 py-2 text-left text-xs text-amber-11 transition-colors hover:bg-amber-3/40"
             onClick={() => props.onOpenSettingsSection?.("providers")}
           >
-            <span className="font-medium">No AI model connected.</span>
-            <span className="text-amber-11/70">Add a provider to run tasks.</span>
+            <span className="font-medium">尚未连接 AI 模型。</span>
+            <span className="text-amber-11/70">添加模型服务后即可运行任务。</span>
           </button>
         ) : null}
         <DevProfiler id="SessionComposer">
@@ -1670,15 +1671,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
           >
             <span className="min-w-0 flex-1">
               {[
-                props.cloudMcpSubmissionState.issue?.message ?? "Connected service tools could not be prepared.",
+                toChineseUserMessage(
+                  props.cloudMcpSubmissionState.issue?.message,
+                  "无法准备公司工具。",
+                ),
                 props.cloudMcpSubmissionState.issue?.recommendedAction,
               ].filter(Boolean).join(" ")}
             </span>
             <button type="button" className="font-medium hover:underline" onClick={handleRetryCloudSubmission}>
-              Retry
+              重试
             </button>
             <button type="button" className="font-medium hover:underline" onClick={props.onOpenConnect}>
-              Open Connect
+              打开连接设置
             </button>
           </div>
         ) : null}

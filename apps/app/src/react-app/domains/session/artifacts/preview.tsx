@@ -94,5 +94,5 @@ export function ImagePreview({ src, alt, className, ...props }: ImagePreviewProp
 interface PreviewUnavailableProps extends React.ComponentProps<"div"> {}
 
 export function PreviewUnavailable({ className, ...props }: PreviewUnavailableProps) {
-  return <div className={cn("p-4 text-sm text-muted-foreground", className)} {...props}>Preview unavailable. Open externally to view this file.</div>;
+  return <div className={cn("p-4 text-sm text-muted-foreground", className)} {...props}>暂不支持预览，请使用外部应用打开此文件。</div>;
 }

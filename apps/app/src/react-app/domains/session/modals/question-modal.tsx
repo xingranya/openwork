@@ -256,7 +256,7 @@ export function QuestionPanel(props: QuestionPanelProps) {
 
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-dls-secondary flex items-center gap-2">
-            {props.busy ? "Submitting..." : null}
+            {props.busy ? "正在提交..." : null}
           </div>
 
           <div className="flex gap-2">

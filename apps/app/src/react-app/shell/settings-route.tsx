@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 import { SUGGESTED_PLUGINS } from "@/app/constants";
 import type { EnablementContext } from "@/app/enablement";
 import { createClient, unwrap } from "@/app/lib/opencode";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   createOpenworkServerClient,
   isLoopbackOpenworkServerUrl,
@@ -39,7 +40,7 @@ import type {
   WorkspaceSessionGroup,
 } from "@/app/types";
 import { getWorkspaceTaskLoadErrorDisplay } from "@/app/utils";
-import { currentLocale, t, setLocale, type Language } from "@/i18n";
+import { t } from "@/i18n";
 import { useModelPicker } from "@/react-app/domains/session/modals/use-model-picker";
 import {
   type RouteWorkspace,
@@ -168,6 +169,7 @@ import { buildCommandPaletteSessions } from "./command-palette-sessions";
 import { useCommandPaletteShortcut } from "./use-shell-shortcuts";
 import { buildFeedbackUrl } from "@/app/lib/feedback";
 import { getDenInferenceUrl, type DenSettings } from "@/app/lib/den";
+import { FOXWORK_FEEDBACK_URL, FOXWORK_ISSUE_URL } from "@/app/lib/foxwork-brand";
 import { readActiveWorkspaceId, writeActiveWorkspaceId } from "./session-memory";
 import { workspaceSessionRoute, workspaceSettingsRoute } from "./workspace-routes";
 import { getReactQueryClient } from "@/react-app/infra/query-client";
@@ -1883,18 +1885,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   };
 
   const handleOpenCreateWorkspace = () => {
-    if (
-      workspaces.length > 0 &&
-      checkDesktopRestriction({ restriction: "allowMultipleWorkspaces" })
-    ) {
-      restrictionNotice.show({
-        title: "Additional workspaces are restricted",
-        message:
-          "Your organization administrator has restricted access to adding additional workspaces.",
-      });
-      return;
-    }
-
     setCreateWorkspaceError(null);
     setCreateWorkspaceRemoteError(null);
     setCreateWorkspaceOpen(true);
@@ -1930,7 +1920,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setRenameWorkspaceBusy(true);
     try {
       if (!openworkClient) {
-        toast.error("OpenWork server is unavailable. Reconnect the server before renaming workspaces.");
+        toast.error("FoxWork 服务不可用，请重新连接后再重命名工作区。");
         return;
       }
       await openworkClient.updateWorkspaceDisplayName(renameWorkspaceId, trimmed);
@@ -1938,8 +1928,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       setRenameWorkspaceTitle("");
       await refreshRouteState();
     } catch (error) {
-      toast.error("Workspace rename failed", {
-        description: describeRouteError(error),
+      toast.error("工作区重命名失败", {
+        description: toChineseUserMessage(error, "请稍后重试。"),
       });
     } finally {
       setRenameWorkspaceBusy(false);
@@ -2097,9 +2087,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           <GeneralSettingsView
             onNavigateTab={(tab) => navigateSettingsPath(tab)}
             developerMode={developerMode}
-            onSendFeedback={() => platform.openLink(buildFeedbackUrl({ entrypoint: "settings" }))}
-            onJoinDiscord={() => platform.openLink("https://discord.gg/VEhNQXxYMB")}
-            onReportIssue={() => platform.openLink("https://github.com/different-ai/openwork/issues/new?template=bug.yml")}
+            onSendFeedback={() => {
+              const feedbackUrl = buildFeedbackUrl({ entrypoint: "settings" });
+              if (feedbackUrl) platform.openLink(feedbackUrl);
+            }}
+            showFeedback={Boolean(FOXWORK_FEEDBACK_URL)}
+            onReportIssue={() => {
+              if (FOXWORK_ISSUE_URL) platform.openLink(FOXWORK_ISSUE_URL);
+            }}
+            showReportIssue={Boolean(FOXWORK_ISSUE_URL)}
           />
         );
       case "permissions":
@@ -2413,8 +2409,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             busy={busy}
             themeMode={themeMode}
             setThemeMode={setThemeModeState}
-            language={currentLocale() as Language}
-            setLanguage={setLocale}
             hideTitlebar={hideTitlebar}
             toggleHideTitlebar={() => setHideTitlebar((current) => !current)}
           />

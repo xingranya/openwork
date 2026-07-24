@@ -43,20 +43,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: metadataBaseFromOrigin(metadataOrigin),
-    title: "OpenWork Cloud",
+    title: "FoxWork 公司工作区",
     description:
-      "Share your OpenWork setup with your team, manage billing, and use OpenWork Cloud from app.openworklabs.com.",
+      "统一管理公司账号、工作区、模型、MCP、Skills 和插件。",
     openGraph: {
-      title: "OpenWork Cloud",
+      title: "FoxWork 公司工作区",
       description:
-        "Share your OpenWork setup with your team and keep selected workflows available in OpenWork Cloud.",
+        "统一管理公司账号、工作区和 AI 能力。",
       images: ["/opengraph-image"]
     },
     twitter: {
       card: "summary_large_image",
-      title: "OpenWork Cloud",
+      title: "FoxWork 公司工作区",
       description:
-        "Share your OpenWork setup with your team and manage OpenWork Cloud from app.openworklabs.com.",
+        "登录 FoxWork，进入获授权的公司工作区。",
       images: ["/opengraph-image"]
     },
     icons: {

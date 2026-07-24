@@ -149,14 +149,14 @@ export function BillingDashboardScreen() {
     if (!quiet) setStripeError(null);
     try {
       const { response, payload } = await requestJson("/v1/billing", { method: "GET" }, 12000);
-      if (!response.ok) throw new Error(getErrorMessage(payload, `Stripe billing lookup failed (${response.status}).`));
+      if (!response.ok) throw new Error(getErrorMessage(payload, `查询 Stripe 账单失败（${response.status}）。`));
       const parsed = parseStripeBilling(payload);
-      if (!parsed) throw new Error("Stripe billing response was incomplete.");
+      if (!parsed) throw new Error("Stripe 账单数据不完整。");
       setStripeBilling(parsed);
       setPolarBilling(parsePolarBilling(payload));
       return parsed;
     } catch (error) {
-      if (!quiet) setStripeError(error instanceof Error ? error.message : "Could not load Stripe billing.");
+      if (!quiet) setStripeError(getErrorMessage(error, "加载 Stripe 账单失败，请重试。"));
       return null;
     } finally {
       setStripeBusy(false);
@@ -190,12 +190,12 @@ export function BillingDashboardScreen() {
               12000,
             );
             if (!response.ok) {
-              setStripeError(getErrorMessage(payload, `Stripe checkout sync failed (${response.status}).`));
+              setStripeError(getErrorMessage(payload, `同步 Stripe 结账结果失败（${response.status}）。`));
             }
           });
         } catch (error) {
           if (!cancelled) {
-            setStripeError(error instanceof Error ? error.message : "Could not sync Stripe checkout session.");
+            setStripeError(getErrorMessage(error, "同步 Stripe 结账结果失败，请重试。"));
           }
         }
       }
@@ -231,13 +231,13 @@ export function BillingDashboardScreen() {
           { method: "POST", body: JSON.stringify({ type: "seat" }) },
           12000,
         );
-        if (!response.ok) throw getRequestError(payload, response, `Seat checkout failed (${response.status}).`);
+        if (!response.ok) throw getRequestError(payload, response, `创建成员订阅订单失败（${response.status}）。`);
         const url = payload && typeof payload === "object" && "url" in payload && typeof payload.url === "string" ? payload.url : null;
-        if (!url) throw new Error("Seat checkout response did not include a URL.");
+        if (!url) throw new Error("公司服务没有返回结账地址。");
         window.location.href = url;
       });
     } catch (error) {
-      setStripeError(error instanceof Error ? error.message : "Could not start seat billing checkout.");
+      setStripeError(getErrorMessage(error, "发起成员订阅失败，请重试。"));
     } finally {
       setStripeActionBusy(null);
     }
@@ -249,13 +249,13 @@ export function BillingDashboardScreen() {
       await runReauthableAction("billing-portal", async () => {
         setStripeActionBusy("portal");
         const { response, payload } = await requestJson("/v1/billing/stripe/portal", { method: "POST" }, 12000);
-        if (!response.ok) throw getRequestError(payload, response, `Billing portal failed (${response.status}).`);
+        if (!response.ok) throw getRequestError(payload, response, `打开账单管理页失败（${response.status}）。`);
         const url = payload && typeof payload === "object" && "url" in payload && typeof payload.url === "string" ? payload.url : null;
-        if (!url) throw new Error("Billing portal response did not include a URL.");
+        if (!url) throw new Error("公司服务没有返回账单管理地址。");
         window.location.href = url;
       });
     } catch (error) {
-      setStripeError(error instanceof Error ? error.message : "Could not open Stripe billing portal.");
+      setStripeError(getErrorMessage(error, "打开 Stripe 账单管理页失败，请重试。"));
     } finally {
       setStripeActionBusy(null);
     }
@@ -271,8 +271,8 @@ export function BillingDashboardScreen() {
     <div data-testid="stripe-billing-screen">
       <DashboardPageTemplate
         icon={CreditCard}
-        title="Stripe"
-        description="Manage workspace subscriptions, seats, and OpenWork Models in one place."
+        title="Stripe 账单"
+        description="集中查看和管理公司成员席位与公司模型订阅。"
         colors={["#F5F3FF", "#312E81", "#635BFF", "#C4B5FD"]}
       >
       {stripeError && stripeBilling ? (
@@ -281,13 +281,13 @@ export function BillingDashboardScreen() {
 
       {isOwner ? null : (
         <div className="mb-6 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-          Only workspace owners can start checkout or open billing portals. Other members can view the current billing state.
+          只有公司所有者可以购买订阅或打开账单管理页，其他成员只能查看当前账单状态。
         </div>
       )}
 
       {stripeReturnChecking ? (
         <div className="mb-6 rounded-[20px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] text-blue-800">
-          We&apos;re checking your Stripe subscription. This page will refresh automatically.
+          正在确认 Stripe 订阅状态，页面会自动刷新。
         </div>
       ) : null}
 
@@ -296,13 +296,13 @@ export function BillingDashboardScreen() {
           {stripeBusy ? (
             <div className="flex min-h-36 items-center justify-center gap-3 text-[14px] text-gray-500">
               <RefreshCw className="size-4 animate-spin text-[#635BFF]" aria-hidden="true" />
-              Loading Stripe billing details...
+              正在加载 Stripe 账单详情...
             </div>
           ) : (
             <div className="mx-auto grid max-w-lg justify-items-start gap-3">
-              <p className="text-[16px] font-medium text-gray-950">Stripe details could not be loaded</p>
-              <p className="text-[13px] leading-6 text-gray-500">{stripeError ?? "The billing response did not include the details this page needs."}</p>
-              <DenButton icon={RefreshCw} onClick={() => void refreshStripeBilling(false)}>Try again</DenButton>
+              <p className="text-[16px] font-medium text-gray-950">无法加载 Stripe 账单详情</p>
+              <p className="text-[13px] leading-6 text-gray-500">{stripeError ?? "公司服务返回的账单数据不完整。"}</p>
+              <DenButton icon={RefreshCw} onClick={() => void refreshStripeBilling(false)}>重试</DenButton>
             </div>
           )}
         </section>
@@ -310,10 +310,10 @@ export function BillingDashboardScreen() {
         <>
           <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-violet-100 bg-violet-50/70 px-5 py-4">
             <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#635BFF]">Stripe workspace billing</p>
-              <p className="mt-1 text-[13px] text-violet-950/70">Prices and billing intervals below come directly from your Stripe configuration.</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#635BFF]">公司 Stripe 账单</p>
+              <p className="mt-1 text-[13px] text-violet-950/70">下方价格和计费周期来自公司 Stripe 配置。</p>
             </div>
-            <DenButton variant="secondary" icon={RefreshCw} loading={stripeBusy} onClick={() => void refreshStripeBilling(false)}>Refresh</DenButton>
+            <DenButton variant="secondary" icon={RefreshCw} loading={stripeBusy} onClick={() => void refreshStripeBilling(false)}>刷新</DenButton>
           </div>
 
       {showPolar ? (
@@ -321,14 +321,14 @@ export function BillingDashboardScreen() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-gray-400">Polar</p>
-              <h2 className="text-[18px] font-medium text-gray-950">Cloud worker plan</h2>
+              <h2 className="text-[18px] font-medium text-gray-950">云端 Worker 套餐</h2>
               <p className="mt-2 text-[14px] text-gray-500">
-                Your existing Polar subscription is {formatSubscriptionStatus(polarBilling?.subscription?.status ?? "active").toLowerCase()}.
+                当前 Polar 订阅状态：{formatSubscriptionStatus(polarBilling?.subscription?.status ?? "active")}。
               </p>
             </div>
             {polarBilling?.portalUrl ? (
               <a href={polarBilling.portalUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "secondary" })}>
-                Open Polar portal
+                打开 Polar 管理页
               </a>
             ) : null}
           </div>
@@ -339,30 +339,30 @@ export function BillingDashboardScreen() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-blue-500">Stripe</p>
-            <h2 className="text-[20px] font-medium text-gray-950">OpenWork Users</h2>
+            <h2 className="text-[20px] font-medium text-gray-950">公司成员席位</h2>
             <p className="mt-2 max-w-[620px] text-[14px] leading-6 text-gray-500">
-              The first {seatBilling?.freeSeatCount} users in your organization are included. Additional users are {seatPrice} per user per {seatBilling?.interval}.
+              公司前 {seatBilling?.freeSeatCount} 位成员已包含在套餐中，超出部分按每位成员每{seatBilling?.interval === "year" ? "年" : seatBilling?.interval === "month" ? "月" : "个计费周期"} {seatPrice} 计费。
             </p>
           </div>
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Included users</p>
+            <p className="text-[12px] text-gray-500">套餐内席位</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">{seatBilling?.freeSeatCount}</p>
           </div>
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Active users</p>
+            <p className="text-[12px] text-gray-500">当前成员</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">{activeMemberCount}</p>
           </div>
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Billable users</p>
+            <p className="text-[12px] text-gray-500">计费成员</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">{seatBilling?.billableSeatCount}</p>
           </div>
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Status</p>
+            <p className="text-[12px] text-gray-500">订阅状态</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">
-              {seatBilling?.hasActiveSubscription ? formatSubscriptionStatus(seatBilling.subscription?.status ?? "active") : "Not subscribed"}
+              {seatBilling?.hasActiveSubscription ? formatSubscriptionStatus(seatBilling.subscription?.status ?? "active") : "未订阅"}
             </p>
           </div>
         </div>
@@ -372,20 +372,20 @@ export function BillingDashboardScreen() {
             <DenButton variant="secondary" onClick={() => {
               window.location.href = getMembersRoute(activeOrg?.slug);
             }}>
-              Manage Members
+              管理成员
             </DenButton>
             <DenButton disabled={!isOwner} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
-              Manage subscription
+              管理订阅
             </DenButton>
           </div>
         ) : (
           <div className="flex flex-col gap-4 rounded-[16px] border border-blue-100 bg-blue-50 p-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[15px] font-medium text-blue-950">Subscribe when your workspace grows beyond {seatBilling?.freeSeatCount} users</p>
-              <p className="mt-1 text-[13px] leading-5 text-blue-900/70">You will only be charged for users above the free included seats.</p>
+              <p className="text-[15px] font-medium text-blue-950">成员超过 {seatBilling?.freeSeatCount} 人后再购买订阅</p>
+              <p className="mt-1 text-[13px] leading-5 text-blue-900/70">只对超出套餐内席位的成员收费。</p>
             </div>
             <DenButton disabled={!isOwner || seatBilling?.configured === false} loading={stripeActionBusy === "seat-checkout"} onClick={startSeatCheckout}>
-              Subscribe with Stripe
+              通过 Stripe 订阅
             </DenButton>
           </div>
         )}
@@ -395,26 +395,26 @@ export function BillingDashboardScreen() {
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-blue-500">Stripe</p>
-            <h2 className="text-[20px] font-medium text-gray-950">OpenWork Models</h2>
+            <h2 className="text-[20px] font-medium text-gray-950">公司模型</h2>
             <p className="mt-2 max-w-[620px] text-[14px] leading-6 text-gray-500">
-              Model access is billed at {stripePrice} per user per {stripeBilling.interval}.
+              模型服务按每位成员每{stripeBilling.interval === "year" ? "年" : stripeBilling.interval === "month" ? "月" : "个计费周期"} {stripePrice} 计费。
             </p>
           </div>
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Price</p>
-            <p className="mt-1 text-[20px] font-semibold text-gray-950">{stripePrice}<span className="text-[13px] font-medium text-gray-500"> / user / {stripeBilling.interval}</span></p>
+            <p className="text-[12px] text-gray-500">价格</p>
+            <p className="mt-1 text-[20px] font-semibold text-gray-950">{stripePrice}<span className="text-[13px] font-medium text-gray-500"> / 每位成员 / {stripeBilling.interval === "year" ? "年" : stripeBilling.interval === "month" ? "月" : "计费周期"}</span></p>
           </div>
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Active members</p>
+            <p className="text-[12px] text-gray-500">当前成员</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">{stripeBilling.memberCount}</p>
           </div>
           <div className="rounded-[16px] border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[12px] text-gray-500">Status</p>
+            <p className="text-[12px] text-gray-500">订阅状态</p>
             <p className="mt-1 text-[20px] font-semibold text-gray-950">
-              {stripeBilling?.hasActiveSubscription ? formatSubscriptionStatus(stripeBilling.subscription?.status ?? "active") : "Not subscribed"}
+              {stripeBilling?.hasActiveSubscription ? formatSubscriptionStatus(stripeBilling.subscription?.status ?? "active") : "未订阅"}
             </p>
           </div>
         </div>
@@ -422,19 +422,19 @@ export function BillingDashboardScreen() {
         {stripeBilling?.hasActiveSubscription ? (
           <div className="flex justify-end">
             <DenButton disabled={!isOwner} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
-              Manage subscription
+              管理订阅
             </DenButton>
           </div>
         ) : (
           <div className="flex flex-col gap-4 rounded-[16px] border border-blue-100 bg-blue-50 p-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[15px] font-medium text-blue-950">Not subscribed yet</p>
+              <p className="text-[15px] font-medium text-blue-950">尚未订阅</p>
               <p className="mt-1 text-[13px] leading-5 text-blue-900/70">
-                See the model lineup and subscribe from the OpenWork Models page.
+                前往公司模型页面查看可用模型并订阅。
               </p>
             </div>
             <DenButton onClick={() => router.push(getInferenceRoute(activeOrg?.slug))}>
-              View OpenWork Models
+              查看公司模型
             </DenButton>
           </div>
         )}

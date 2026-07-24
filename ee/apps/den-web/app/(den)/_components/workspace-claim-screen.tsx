@@ -12,12 +12,13 @@ import {
 } from "../_lib/den-org";
 import { useDenFlow } from "../_providers/den-flow-provider";
 import { AuthPanel } from "./auth-panel";
+import { FOXWORK_DESKTOP_SCHEME } from "../_lib/foxwork-brand";
 
 function LoadingCard({ title, body }: { title: string; body: string }) {
   return (
     <section className="den-page py-4 lg:py-6">
       <div className="den-frame grid max-w-[44rem] gap-4 p-6 md:p-7">
-        <p className="den-eyebrow">OpenWork Cloud</p>
+        <p className="den-eyebrow">FoxWork 公司服务</p>
         <div className="grid gap-2">
           <h1 className="den-title-lg">{title}</h1>
           <p className="den-copy">{body}</p>
@@ -51,7 +52,7 @@ function parseAcceptedClaim(payload: unknown): AcceptedClaim | null {
   const slug = (organization as { slug?: unknown }).slug;
 
   return {
-    organizationName: typeof name === "string" ? name : "your workspace",
+    organizationName: typeof name === "string" ? name : "公司",
     organizationSlug: typeof slug === "string" ? slug : "",
   };
 }
@@ -65,10 +66,6 @@ function getOpenworkUrl(payload: unknown): string | null {
   return typeof url === "string" && url.trim() ? url : null;
 }
 
-function pluralize(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 async function inviteTeammates(inviteEmails: readonly string[]): Promise<string> {
   const results = await Promise.allSettled(
     inviteEmails.map((email) =>
@@ -80,12 +77,12 @@ async function inviteTeammates(inviteEmails: readonly string[]): Promise<string>
   const failed = inviteEmails.length - succeeded;
 
   if (failed === 0) {
-    return `Invited ${pluralize(succeeded, "teammate")}.`;
+    return `已邀请 ${succeeded} 名成员。`;
   }
   if (succeeded === 0) {
-    return `Could not invite ${pluralize(failed, "teammate")}. You can invite them later from Manage Members.`;
+    return `${failed} 名成员邀请失败，可以稍后在成员管理中重试。`;
   }
-  return `Invited ${pluralize(succeeded, "teammate")}; ${pluralize(failed, "invite")} did not go through. You can retry from Manage Members.`;
+  return `已邀请 ${succeeded} 名成员，另有 ${failed} 名邀请失败。可以在成员管理中重试。`;
 }
 
 export function WorkspaceClaimScreen({
@@ -131,7 +128,7 @@ export function WorkspaceClaimScreen({
 
   async function handleClaim() {
     if (!token) {
-      setClaimError("Missing claim link.");
+      setClaimError("公司初始化链接不完整。");
       return;
     }
 
@@ -153,8 +150,8 @@ export function WorkspaceClaimScreen({
           getErrorMessage(
             payload,
             response.status === 404
-              ? "This claim link is missing, expired, or already used."
-              : `Could not claim the workspace (${response.status}).`,
+              ? "公司初始化链接不存在、已过期或已经使用。"
+              : `无法完成公司初始化（${response.status}）。`,
           ),
         );
         return;
@@ -183,7 +180,7 @@ export function WorkspaceClaimScreen({
       // "open this link?" prompt without asking.
       setClaimedOrg(parseAcceptedClaim(payload));
     } catch (error) {
-      setClaimError(error instanceof Error ? error.message : "Could not claim the workspace.");
+      setClaimError(error instanceof Error ? error.message : "无法完成公司初始化。");
     } finally {
       setClaimBusy(false);
     }
@@ -203,18 +200,18 @@ export function WorkspaceClaimScreen({
       "/v1/auth/desktop-handoff",
       {
         method: "POST",
-        body: JSON.stringify({ desktopScheme: "openwork" }),
+        body: JSON.stringify({ desktopScheme: FOXWORK_DESKTOP_SCHEME }),
       },
       12000,
     );
 
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Could not prepare a desktop sign-in link (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `无法准备 FoxWork 登录链接（${response.status}）。`));
     }
 
     const openworkUrl = getOpenworkUrl(payload);
     if (!openworkUrl) {
-      throw new Error("Desktop sign-in succeeded, but no app link was returned.");
+      throw new Error("登录交接已完成，但没有返回 FoxWork 打开链接。");
     }
 
     return openworkUrl;
@@ -228,7 +225,7 @@ export function WorkspaceClaimScreen({
     try {
       window.location.assign(await createDesktopHandoff());
     } catch (error) {
-      setHandoffError(error instanceof Error ? error.message : "Could not open OpenWork.");
+      setHandoffError(error instanceof Error ? error.message : "无法打开 FoxWork。");
     } finally {
       setHandoffBusy(false);
     }
@@ -241,19 +238,19 @@ export function WorkspaceClaimScreen({
 
     try {
       if (!navigator.clipboard) {
-        throw new Error("Clipboard is not available in this browser.");
+        throw new Error("当前浏览器无法使用剪贴板。");
       }
 
       const grant = getDesktopGrant(await createDesktopHandoff());
       if (!grant) {
-        throw new Error("Desktop sign-in succeeded, but no one-time code was returned.");
+        throw new Error("登录交接已完成，但没有返回一次性登录码。");
       }
 
       await navigator.clipboard.writeText(grant);
       setCodeCopied(true);
       window.setTimeout(() => setCodeCopied(false), 1800);
     } catch (error) {
-      setHandoffError(error instanceof Error ? error.message : "Could not copy the sign-in code.");
+      setHandoffError(error instanceof Error ? error.message : "无法复制登录码。");
     } finally {
       setCopyBusy(false);
     }
@@ -268,13 +265,13 @@ export function WorkspaceClaimScreen({
       <section className="den-page py-4 lg:py-6">
         <div className="den-frame grid max-w-[44rem] gap-6 p-6 md:p-8">
           <div className="grid gap-2">
-            <p className="den-eyebrow">OpenWork Cloud</p>
-            <h1 className="den-title-lg">This claim link can&apos;t be opened.</h1>
-            <p className="den-copy">The link is missing its claim token. Re-open the link from your setup, or ask for a new one.</p>
+            <p className="den-eyebrow">FoxWork 公司服务</p>
+            <h1 className="den-title-lg">无法打开公司初始化链接</h1>
+            <p className="den-copy">链接缺少必要信息，请重新打开原链接或向管理员索取新链接。</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/" className="den-button-primary w-full sm:w-auto">
-              Back to OpenWork Cloud
+              返回公司入口
             </Link>
           </div>
         </div>
@@ -283,7 +280,7 @@ export function WorkspaceClaimScreen({
   }
 
   if (!sessionHydrated) {
-    return <LoadingCard title="Loading workspace claim." body="Checking your account state..." />;
+    return <LoadingCard title="正在准备公司初始化" body="正在检查账号状态..." />;
   }
 
   // Signed out: collect credentials, then resume on this page automatically.
@@ -292,29 +289,29 @@ export function WorkspaceClaimScreen({
       <section className="den-page py-6 lg:py-10">
         <div className="mx-auto grid w-full max-w-[32rem] gap-5">
           <div className="grid gap-2 text-center">
-            <p className="den-eyebrow">OpenWork Cloud</p>
-            <h1 className="den-title-lg">Claim your workspace</h1>
+            <p className="den-eyebrow">FoxWork 公司服务</p>
+            <h1 className="den-title-lg">完成公司初始化</h1>
             <p className="den-copy">
-              Sign in or create an account to become the owner. Your workspace is already set up.
+              登录或创建账号后，该账号将成为公司所有者。
             </p>
           </div>
 
           <AuthPanel
-            eyebrow="Workspace owner"
+            eyebrow="公司所有者"
             // Prefill only - never locked. The claim token (not the email) is
             // what authorizes accepting this claim, so the human can still
             // claim with a different email if they want to.
             prefilledEmail={prefilledEmail}
             prefillKey={token}
             signUpContent={{
-              title: "Create your account",
-              copy: "You will become the workspace owner.",
-              submitLabel: "Create account and claim",
+              title: "创建公司账号",
+              copy: "这个账号将成为公司所有者。",
+              submitLabel: "创建账号并完成初始化",
             }}
             signInContent={{
-              title: "Sign in to continue",
-              copy: "You will become the workspace owner.",
-              submitLabel: "Sign in and claim",
+              title: "登录后继续",
+              copy: "当前账号将成为公司所有者。",
+              submitLabel: "登录并完成初始化",
             }}
           />
         </div>
@@ -336,12 +333,12 @@ export function WorkspaceClaimScreen({
           </div>
 
           <div className="grid justify-items-center gap-3">
-            <p className={`den-eyebrow ${isLoopback ? "text-blue-700" : ""}`}>{isLoopback ? "Demo workspace ready" : "Workspace ready"}</p>
-            <h1 className="den-title-lg max-w-[22ch]">{claimedOrg.organizationName} is yours.</h1>
+            <p className={`den-eyebrow ${isLoopback ? "text-blue-700" : ""}`}>{isLoopback ? "测试环境已准备" : "公司初始化完成"}</p>
+            <h1 className="den-title-lg max-w-[22ch]">已完成 {claimedOrg.organizationName} 的初始化</h1>
             <p className="den-copy max-w-[46ch]">
               {isLoopback
-                ? "Copy the one-time code, then paste it into OpenWork to finish signing in."
-                : "Open the desktop app to finish signing in. You will not need to enter your password again."}
+                ? "复制一次性登录码，再粘贴到 FoxWork 中完成登录。"
+                : "打开 FoxWork 完成登录，无需再次输入密码。"}
             </p>
           </div>
 
@@ -354,7 +351,7 @@ export function WorkspaceClaimScreen({
                 disabled={handoffBusy || copyBusy}
               >
                 <Copy className="size-4" aria-hidden />
-                {copyBusy ? "Copying..." : codeCopied ? "Code copied" : "Copy sign-in code"}
+                {copyBusy ? "正在复制..." : codeCopied ? "登录码已复制" : "复制登录码"}
               </button>
             ) : (
               <button
@@ -363,7 +360,7 @@ export function WorkspaceClaimScreen({
                 onClick={() => void handleOpenDesktop()}
                 disabled={handoffBusy || copyBusy}
               >
-                {handoffBusy ? "Opening OpenWork..." : "Open OpenWork"}
+                {handoffBusy ? "正在打开 FoxWork..." : "打开 FoxWork"}
               </button>
             )}
 
@@ -376,7 +373,7 @@ export function WorkspaceClaimScreen({
                   disabled={handoffBusy || copyBusy}
                 >
                   <ExternalLink className="size-3.5" aria-hidden />
-                  {handoffBusy ? "Opening OpenWork..." : "Open OpenWork"}
+                  {handoffBusy ? "正在打开 FoxWork..." : "打开 FoxWork"}
                 </button>
               ) : (
                 <button
@@ -386,7 +383,7 @@ export function WorkspaceClaimScreen({
                   disabled={handoffBusy || copyBusy}
                 >
                   <Copy className="size-3.5" aria-hidden />
-                  {copyBusy ? "Copying..." : codeCopied ? "Code copied" : "Copy sign-in code"}
+                  {copyBusy ? "正在复制..." : codeCopied ? "登录码已复制" : "复制登录码"}
                 </button>
               )}
               <span className="hidden text-[var(--dls-border)] sm:inline" aria-hidden>•</span>
@@ -396,20 +393,20 @@ export function WorkspaceClaimScreen({
                 onClick={continueInBrowser}
                 disabled={handoffBusy || copyBusy}
               >
-                Continue in browser instead
+                在浏览器中继续
               </button>
             </div>
           </div>
 
           {codeCopied ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-              In OpenWork, choose &quot;Paste sign-in code&quot; and paste it once.
+              在 FoxWork 中选择“粘贴登录码”，然后粘贴一次。
             </div>
           ) : null}
 
           {handoffAttempted && !handoffError ? (
             <p className="den-copy text-sm">
-              Opening OpenWork now. If nothing happens (for example, the app isn&apos;t installed on this machine), use &quot;Continue in browser instead&quot;.
+              正在打开 FoxWork。如果没有反应，可能是这台电脑尚未安装应用，请先在浏览器中继续。
             </p>
           ) : null}
           {handoffError ? <div className="den-notice is-error">{handoffError}</div> : null}
@@ -423,20 +420,20 @@ export function WorkspaceClaimScreen({
     <section className="den-page py-6 lg:py-10">
       <div className="den-frame mx-auto grid max-w-[34rem] gap-6 p-6 md:p-8">
         <div className="grid gap-2">
-          <p className="den-eyebrow">OpenWork Cloud</p>
-          <h1 className="den-title-lg">Claim your workspace</h1>
-          <p className="den-copy">Confirm this account to become the owner.</p>
+          <p className="den-eyebrow">FoxWork 公司服务</p>
+          <h1 className="den-title-lg">确认公司所有者</h1>
+          <p className="den-copy">确认后，当前账号将成为公司所有者。</p>
         </div>
 
         <div className="den-frame-inset grid gap-1 rounded-[1.5rem] px-4 py-3">
-          <p className="den-label">Signed in as</p>
+          <p className="den-label">当前账号</p>
           <p className="m-0 text-sm font-medium text-[var(--dls-text-primary)]">{user.email}</p>
         </div>
 
         <div className="grid gap-4">
           {inviteEmails.length > 0 ? (
             <div className="den-frame-inset rounded-[1.5rem] px-4 py-3">
-              <p className="den-label">Will invite on claim</p>
+              <p className="den-label">初始化后邀请以下成员</p>
               <p className="m-0 text-sm text-[var(--dls-text-primary)]">{inviteEmails.join(", ")}</p>
             </div>
           ) : null}
@@ -447,7 +444,7 @@ export function WorkspaceClaimScreen({
               onClick={() => void handleClaim()}
               disabled={claimBusy}
             >
-              {claimBusy ? (inviteSummary ?? "Claiming...") : "Claim this workspace"}
+              {claimBusy ? (inviteSummary ?? "正在完成初始化...") : "确认并完成初始化"}
             </button>
             <button
               type="button"
@@ -455,7 +452,7 @@ export function WorkspaceClaimScreen({
               onClick={() => void signOut()}
               disabled={claimBusy}
             >
-              Use a different account
+              切换账号
             </button>
           </div>
         </div>

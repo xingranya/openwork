@@ -33,12 +33,12 @@ export function ConnectorQuickAddGrid({
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-gray-900">Google Workspace</p>
             <p className="mt-1 text-[12px] leading-[1.5] text-gray-500">
-              Your company&apos;s Google. Set it up once — every member connects their own account.
+              统一配置公司的 Google 服务，每位成员连接自己的账号。
             </p>
           </div>
         </div>
         <p className="mt-2 text-[12px] font-medium text-gray-900">
-          {googleConfigured ? "Configured — tap to update" : "Tap to set up"}
+          {googleConfigured ? "已配置，点击更新" : "点击配置"}
         </p>
       </button>
 
@@ -53,12 +53,12 @@ export function ConnectorQuickAddGrid({
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-gray-900">Microsoft 365</p>
             <p className="mt-1 text-[12px] leading-[1.5] text-gray-500">
-              Outlook mail, calendar, and OneDrive. Each teammate connects their own work account.
+              使用 Outlook 邮件、日历和 OneDrive，每位成员连接自己的工作账号。
             </p>
           </div>
         </div>
         <p className="mt-2 text-[12px] font-medium text-gray-900">
-          {microsoftConfigured ? "Configured — tap to update" : "Tap to set up"}
+          {microsoftConfigured ? "已配置，点击更新" : "点击配置"}
         </p>
       </button>
 
@@ -73,12 +73,12 @@ export function ConnectorQuickAddGrid({
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold text-gray-900">Telegram</p>
             <p className="mt-1 text-[12px] leading-[1.5] text-gray-500">
-              Pair a private Telegram chat to a cloud worker for tasks and replies.
+              将私密 Telegram 会话连接到远程工作区，用于接收任务和回复。
             </p>
           </div>
         </div>
         <p className="mt-2 text-[12px] font-medium text-gray-900">
-          {telegramConnected ? "Connected — tap to manage" : "Tap to set up"}
+          {telegramConnected ? "已连接，点击管理" : "点击配置"}
         </p>
       </button>
 
@@ -100,7 +100,7 @@ export function ConnectorQuickAddGrid({
               </div>
             </div>
             <p className="mt-2 text-[12px] font-medium text-gray-900">
-              {alreadyAdded ? "Already added" : "Tap to add"}
+              {alreadyAdded ? "已添加" : "点击添加"}
             </p>
           </button>
         );

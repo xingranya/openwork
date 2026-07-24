@@ -35,7 +35,7 @@ export function WebsearchTool({ part }: WebsearchToolProps) {
     <ChainOfThought>
       <ChainOfThoughtStep>
         <ChainOfThoughtTrigger leftIcon={<Search className="size-4" />}>
-          {results.length > 0 ? `Searching for "${part.input.query}"` : "Web search (No results)"}
+          {results.length > 0 ? `正在搜索“${part.input.query}”` : "网页搜索（无结果）"}
         </ChainOfThoughtTrigger>
         <ChainOfThoughtContent>
           <div className="flex flex-wrap items-center gap-2">

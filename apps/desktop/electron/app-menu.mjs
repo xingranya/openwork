@@ -54,14 +54,14 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
               submenu: [
                 { role: "about" },
                 {
-                  label: "Check for Updates...",
+                  label: "检查更新…",
                   click: () => {
                     void checkForUpdatesFromNativeMenu();
                   },
                 },
                 { type: "separator" },
                 {
-                  label: "Settings...",
+                  label: "设置…",
                   accelerator: "Command+,",
                   click: () => {
                     void openSettingsFromNativeMenu();
@@ -80,13 +80,13 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
           ]
         : []),
       {
-        label: "File",
+        label: "文件",
         submenu: [
           ...(isMac
             ? []
             : [
                 {
-                  label: "Settings",
+                  label: "设置",
                   accelerator: "Control+,",
                   click: () => {
                     void openSettingsFromNativeMenu();
@@ -98,7 +98,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
         ],
       },
       {
-        label: "Edit",
+        label: "编辑",
         submenu: [
           { role: "undo" },
           { role: "redo" },
@@ -113,7 +113,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
                 { role: "selectAll" },
                 { type: "separator" },
                 {
-                  label: "Speech",
+                  label: "语音",
                   submenu: [
                     { role: "startSpeaking" },
                     { role: "stopSpeaking" },
@@ -121,7 +121,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
                 },
                 { type: "separator" },
                 {
-                  label: "Settings...",
+                  label: "设置…",
                   click: () => {
                     void openSettingsFromNativeMenu();
                   },
@@ -135,10 +135,10 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
         ],
       },
       {
-        label: "View",
+        label: "视图",
         submenu: [
           {
-            label: "Toggle Sidebar",
+            label: "显示/隐藏侧栏",
             accelerator: "CommandOrControl+B",
             click: () => {
               void toggleSidebarFromNativeMenu();
@@ -150,21 +150,21 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
           { role: "toggleDevTools" },
           { type: "separator" },
           {
-            label: "Actual Size",
+            label: "实际大小",
             accelerator: "CommandOrControl+0",
             click: () => {
               void zoomFromNativeMenu("reset");
             },
           },
           {
-            label: "Zoom In",
+            label: "放大",
             accelerator: "CommandOrControl+Plus",
             click: () => {
               void zoomFromNativeMenu("in");
             },
           },
           {
-            label: "Zoom Out",
+            label: "缩小",
             accelerator: "CommandOrControl+-",
             click: () => {
               void zoomFromNativeMenu("out");
@@ -175,7 +175,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
         ],
       },
       {
-        label: "Window",
+        label: "窗口",
         submenu: [
           { role: "minimize" },
           { role: "zoom" },
@@ -198,19 +198,23 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
             ? []
             : [
                 {
-                  label: "Check for Updates...",
+                  label: "检查更新…",
                   click: () => {
                     void checkForUpdatesFromNativeMenu();
                   },
                 },
                 { type: "separator" },
               ]),
-          {
-            label: "Docs",
-            click: async () => {
-              await shell.openExternal(docsUrl);
-            },
-          },
+          ...(docsUrl
+            ? [
+                {
+                  label: "使用说明",
+                  click: async () => {
+                    await shell.openExternal(docsUrl);
+                  },
+                },
+              ]
+            : []),
         ],
       },
     ]);

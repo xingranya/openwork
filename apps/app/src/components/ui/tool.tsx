@@ -292,7 +292,7 @@ const Tool = ({
           </span>
           <span className="min-w-0 truncate">{label}</span>
           {isError && !errorAttribution ? (
-            <span className="text-destructive shrink-0 text-xs">failed</span>
+            <span className="text-destructive shrink-0 text-xs">失败</span>
           ) : null}
           {errorAttribution ? (
             <span
@@ -346,8 +346,8 @@ const Tool = ({
             variant="ghost"
             size="icon-xs"
             data-testid="tool-result-copy-action"
-            title={copied ? "Copied" : "Copy tool result"}
-            aria-label={copied ? "Tool result copied" : "Copy tool result"}
+            title={copied ? "已复制" : "复制工具结果"}
+            aria-label={copied ? "工具结果已复制" : "复制工具结果"}
             onClick={() => void handleCopyResult()}
           >
             {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
@@ -383,7 +383,7 @@ const Tool = ({
             </pre>
           ) : null}
           {inFlight && !hasInput ? (
-            <span className="text-muted-foreground">Waiting for input…</span>
+            <span className="text-muted-foreground">正在等待输入…</span>
           ) : null}
         </div>
       </CollapsibleContent>

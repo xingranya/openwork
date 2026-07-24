@@ -20,6 +20,7 @@ import {
   type DenOrgSummary,
 } from "@/app/lib/den";
 import { clearDesktopBootstrapConfig } from "@/app/lib/desktop";
+import { isFoxWorkDesktopProtocol } from "@/app/lib/foxwork-brand";
 import { exchangeHandoffAndSignIn } from "@/app/lib/den-handoff";
 import {
   denSessionUpdatedEvent,
@@ -77,7 +78,7 @@ function parseManualAuthInput(value: string) {
     const routeSegments = routePath.split("/").filter(Boolean);
     const routeTail = routeSegments[routeSegments.length - 1] ?? "";
     if (
-      (protocol === "openwork:" || protocol === "openwork-dev:") &&
+      isFoxWorkDesktopProtocol(protocol, { allowLegacy: true }) &&
       (routeHost === "den-auth" || routePath === "den-auth" || routeTail === "den-auth")
     ) {
       const grant = url.searchParams.get("grant")?.trim() ?? "";

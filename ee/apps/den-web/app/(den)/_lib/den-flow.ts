@@ -1,5 +1,6 @@
 import { DEN_WORKER_POLL_INTERVAL_MS } from "./CONSTS";
 import { ORG_SCOPE_HEADER, getRequestOrgScope, shouldPinOrgScopePath } from "./org-scope";
+import { FOXWORK_DESKTOP_SCHEME } from "./foxwork-brand";
 
 export type AuthMode = "sign-in" | "sign-up";
 export type SocialAuthProvider = "github" | "google";
@@ -87,9 +88,9 @@ export class ReauthRequiredError extends Error {
 }
 
 function formatDeadlineDuration(timeoutMs: number): string {
-  if (timeoutMs < 1000) return `${timeoutMs} milliseconds`;
+  if (timeoutMs < 1000) return `${timeoutMs} 毫秒`;
   const seconds = timeoutMs / 1000;
-  return Number.isInteger(seconds) ? `${seconds} seconds` : `${seconds.toFixed(1)} seconds`;
+  return Number.isInteger(seconds) ? `${seconds} 秒` : `${seconds.toFixed(1)} 秒`;
 }
 
 export class DenRequestTimeoutError extends Error {
@@ -98,7 +99,7 @@ export class DenRequestTimeoutError extends Error {
 
   constructor(timeoutMs: number, cause?: unknown) {
     super(
-      `OpenWork stopped waiting after ${formatDeadlineDuration(timeoutMs)}. The operation’s outcome is unknown.`,
+      `等待 ${formatDeadlineDuration(timeoutMs)}后仍未收到结果。操作可能已经执行，请刷新后确认。`,
       cause === undefined ? undefined : { cause },
     );
     this.name = "DenRequestTimeoutError";
@@ -111,7 +112,7 @@ export class DenRequestCanceledError extends Error {
 
   constructor(cause?: unknown) {
     super(
-      "The OpenWork request was canceled before the dashboard received a result. The operation’s outcome is unknown.",
+      "请求已取消，但操作结果尚未确认。请刷新后查看。",
       cause === undefined ? undefined : { cause },
     );
     this.name = "DenRequestCanceledError";
@@ -369,75 +370,135 @@ export function formatMoneyMinor(amount: number | null, currency: string | null)
 
 export function formatIsoDate(value: string | null): string {
   if (!value) {
-    return "Not available";
+    return "暂无日期";
   }
 
   try {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
-      return "Not available";
+      return "暂无日期";
     }
-    return date.toLocaleDateString();
+    return date.toLocaleDateString("zh-CN");
   } catch {
-    return "Not available";
+    return "暂无日期";
   }
 }
 
 export function formatRecurringInterval(interval: string | null, count: number | null): string {
   if (!interval) {
-    return "billing cycle";
+    return "每个计费周期";
   }
 
-  const normalizedInterval = interval.replace(/_/g, " ");
+  const normalizedInterval = interval.trim().toLowerCase();
   const normalizedCount = typeof count === "number" && Number.isFinite(count) ? count : 1;
-
-  if (normalizedCount <= 1) {
-    return `per ${normalizedInterval}`;
-  }
-
-  const pluralSuffix = normalizedInterval.endsWith("s") ? "" : "s";
-  return `every ${normalizedCount} ${normalizedInterval}${pluralSuffix}`;
+  const unit = normalizedInterval === "day" ? "天"
+    : normalizedInterval === "week" ? "周"
+      : normalizedInterval === "month" ? "个月"
+        : normalizedInterval === "year" ? "年"
+          : "个计费周期";
+  return normalizedCount <= 1 ? `每${unit}` : `每 ${normalizedCount} ${unit}`;
 }
 
 export function formatSubscriptionStatus(status: string): string {
   const normalized = status.trim().toLowerCase();
-  if (!normalized) {
-    return "Unknown";
-  }
-
-  return normalized
-    .split("_")
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
+  const labels: Record<string, string> = {
+    active: "有效",
+    canceled: "已取消",
+    cancelled: "已取消",
+    incomplete: "待完成",
+    incomplete_expired: "未完成且已过期",
+    past_due: "已逾期",
+    paused: "已暂停",
+    trialing: "试用中",
+    unpaid: "未付款",
+  };
+  return labels[normalized] ?? "状态未知";
 }
 
 export function getErrorMessage(payload: unknown, fallback: string): string {
+  const safeFallback = localizeErrorText(fallback, "操作失败，请重试。");
   if (typeof payload === "string" && payload.trim().length > 0) {
     const trimmed = payload.trim();
     const lower = trimmed.toLowerCase();
     if (lower.startsWith("<!doctype") || lower.startsWith("<html") || lower.includes("<body")) {
-      return `${fallback} Upstream returned an HTML error page.`;
+      return `${safeFallback} 公司服务返回了异常页面。`;
     }
     if (trimmed.length > 240) {
-      return `${fallback} Upstream returned a non-JSON error payload.`;
+      return `${safeFallback} 公司服务返回了无法识别的内容。`;
     }
-    return trimmed;
+    return localizeErrorText(trimmed, safeFallback);
   }
 
   if (!isRecord(payload)) {
-    return fallback;
+    return safeFallback;
   }
 
   const message = payload.message;
   if (typeof message === "string" && message.trim().length > 0) {
-    return message;
+    return localizeErrorText(message, safeFallback);
   }
 
   const error = payload.error;
   if (typeof error === "string" && error.trim().length > 0) {
-    return error;
+    return localizeErrorText(error, safeFallback);
   }
 
+  return safeFallback;
+}
+
+const ERROR_TEXT_BY_KEY: Record<string, string> = {
+  unauthorized: "登录状态已失效，请重新登录。",
+  forbidden: "当前账号没有执行此操作的权限。",
+  invalid_credentials: "邮箱或密码不正确。",
+  invalid_password: "密码不正确。",
+  user_not_found: "没有找到这个账号。",
+  user_already_exists: "这个邮箱已经注册，请直接登录。",
+  email_already_exists: "这个邮箱已经注册，请直接登录。",
+  email_not_verified: "邮箱尚未验证。",
+  invalid_token: "链接或凭据无效，请重新操作。",
+  expired_token: "链接或凭据已过期，请重新操作。",
+  organization_not_found: "没有找到公司信息。",
+  single_org_mode: "当前账号只能加入这一家公司。",
+  org_limit_reached: "公司当前名额已满，请联系管理员。",
+  payment_required: "当前服务方案不支持此操作，请联系管理员。",
+  rate_limit_exceeded: "操作过于频繁，请稍后再试。",
+};
+
+function localizeErrorText(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+  if (/[\u3400-\u9fff]/u.test(trimmed)) {
+    return trimmed;
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/[\s-]+/g, "_").replace(/[^a-z0-9_]/g, "");
+  const direct = ERROR_TEXT_BY_KEY[normalized];
+  if (direct) {
+    return direct;
+  }
+  if (/invalid.*credential|credential.*invalid|incorrect.*password|password.*incorrect/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.invalid_credentials;
+  }
+  if (/already.*(exist|register)|email.*taken/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.user_already_exists;
+  }
+  if (/not.*authori[sz]ed|unauthori[sz]ed|sign.?in required/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.unauthorized;
+  }
+  if (/forbidden|permission denied|not allowed/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.forbidden;
+  }
+  if (/rate limit|too many requests/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.rate_limit_exceeded;
+  }
+  if (/single.?org|one managed organi[sz]ation/i.test(trimmed)) {
+    return ERROR_TEXT_BY_KEY.single_org_mode;
+  }
+  if (/expired/i.test(trimmed)) {
+    return "当前链接或凭据已过期，请重新操作。";
+  }
   return fallback;
 }
 
@@ -788,18 +849,18 @@ export function getWorkerStatusMeta(status: string): { label: string; bucket: Wo
   const normalized = status.trim().toLowerCase();
 
   if (normalized === "healthy" || normalized === "ready") {
-    return { label: "Ready", bucket: "ready" };
+    return { label: "可用", bucket: "ready" };
   }
 
   if (normalized === "provisioning" || normalized === "starting") {
-    return { label: "Starting", bucket: "starting" };
+    return { label: "启动中", bucket: "starting" };
   }
 
   if (normalized === "failed" || normalized === "suspended" || normalized === "stopped") {
-    return { label: "Needs attention", bucket: "attention" };
+    return { label: "需要处理", bucket: "attention" };
   }
 
-  return { label: "Unknown", bucket: "other" };
+  return { label: "未知", bucket: "other" };
 }
 
 export function getWorkerStatusCopy(status: string): string {
@@ -807,17 +868,17 @@ export function getWorkerStatusCopy(status: string): string {
   switch (normalized) {
     case "provisioning":
     case "starting":
-      return "Starting...";
+      return "正在启动...";
     case "healthy":
     case "ready":
-      return "Ready to connect.";
+      return "可以连接。";
     case "failed":
-      return "Worker failed to start.";
+      return "远程工作区启动失败。";
     case "suspended":
     case "stopped":
-      return "Worker is suspended.";
+      return "远程工作区已暂停。";
     default:
-      return "Worker status unknown.";
+      return "远程工作区状态未知。";
   }
 }
 
@@ -931,7 +992,7 @@ export function buildOpenworkDeepLink(
     params.set("workerName", workerName);
   }
 
-  return `openwork://connect-remote?${params.toString()}`;
+  return `${FOXWORK_DESKTOP_SCHEME}://connect-remote?${params.toString()}`;
 }
 
 export function buildOpenworkAppConnectUrl(

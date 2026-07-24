@@ -25,7 +25,7 @@ export function WebfetchTool({ part }: WebfetchToolProps) {
   return (
     <div className="flex gap-2">
       <WebfetchTrigger leftIcon={<Globe className="size-4" />}>
-        Fetching
+        正在获取
       </WebfetchTrigger>
       <Source href={part.input.url}>
         <SourceTrigger showFavicon />

@@ -114,7 +114,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
     expect(target.ok).toBe(false);
     if (target.ok) return;
     expect(target.state.status).toBe("error");
-    expect(target.state.message).toContain("URL is missing");
+    expect(target.state.message).toContain("缺少远程工作环境地址");
   });
 
   test("fails fast when a remote worker endpoint is invalid", () => {
@@ -127,7 +127,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
     expect(target.ok).toBe(false);
     if (target.ok) return;
     expect(target.state.status).toBe("error");
-    expect(target.state.message).toContain("URL is invalid");
+    expect(target.state.message).toContain("远程工作环境地址无效");
   });
 
   test("does not run OpenWork probes against non-OpenWork remote workspaces", () => {
@@ -143,7 +143,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
     expect(target.ok).toBe(false);
     if (target.ok) return;
     expect(target.state.status).toBe("error");
-    expect(target.state.message).toContain("OpenWork remote workers");
+    expect(target.state.message).toContain("仅支持 FoxWork 远程工作区");
   });
 
   test("does not run OpenWork probes against stale OpenWork fields on non-OpenWork remotes", () => {
@@ -158,7 +158,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
 
     expect(target.ok).toBe(false);
     if (target.ok) return;
-    expect(target.state.message).toContain("OpenWork remote workers");
+    expect(target.state.message).toContain("仅支持 FoxWork 远程工作区");
   });
 });
 
@@ -172,7 +172,7 @@ describe("testRemoteWorkspaceConnection", () => {
     expect(result.ok).toBe(true);
     expect(result.state).toEqual({
       status: "connected",
-      message: "Connected to Worker project.",
+      message: "已连接到 Worker project。",
       checkedAt: 123,
     });
   });
@@ -184,9 +184,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("Token is missing");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("缺少登录令牌");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("reports unhealthy health responses as endpoint failures", async () => {
@@ -199,9 +199,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("unhealthy response");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("健康检查返回异常状态");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("uses fallback OpenWork tokens saved on older workspace records", async () => {
@@ -233,9 +233,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("Token was rejected by worker.example.com");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("服务器 worker.example.com 拒绝了登录令牌");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("reports a missing workspace separately from a dead worker", async () => {
@@ -250,9 +250,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("Workspace ws_remote was not found");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("没有找到工作区 ws_remote");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("uses workspace list when the saved remote target is not workspace-scoped", async () => {
@@ -276,7 +276,7 @@ describe("testRemoteWorkspaceConnection", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.state.message).toBe("Connected to Worker project.");
+    expect(result.state.message).toBe("已连接到 Worker project。");
   });
 
   test("reports rejected credentials from the workspace list fallback", async () => {
@@ -298,9 +298,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("Token was rejected by worker.example.com");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("服务器 worker.example.com 拒绝了登录令牌");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("reports unauthorized workspace status separately from bad credentials", async () => {
@@ -315,9 +315,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("is not authorized");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("工作区 ws_remote 无权访问 worker.example.com");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("reports endpoint reachability failures from the health probe", async () => {
@@ -332,9 +332,9 @@ describe("testRemoteWorkspaceConnection", () => {
 
     expect(result.ok).toBe(false);
     expect(result.state.status).toBe("error");
-    expect(result.state.message).toContain("Cannot reach worker.example.com");
-    expect(result.state.message).toContain("Upgrade the OpenWork host");
-    expect(result.state.message).toContain("team@openworklabs.com");
+    expect(result.state.message).toContain("无法连接 worker.example.com");
+    expect(result.state.message).toContain("公司批准版本");
+    expect(result.state.message).toContain("公司管理员");
   });
 
   test("redacts token-like values from diagnostic error messages", async () => {
@@ -390,7 +390,7 @@ describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
 
     expect(state).toEqual({
       status: "error",
-      message: "Worker is reachable, but tasks failed to load: Session list failed",
+      message: "远程工作环境可以连接，但任务加载失败：Session list failed",
       checkedAt: 456,
     });
   });
@@ -410,7 +410,7 @@ describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
     );
 
     expect(state.status).toBe("error");
-    expect(state.message).toContain("Cannot reach worker.example.com");
+    expect(state.message).toContain("无法连接 worker.example.com");
   });
 
   test("redacts token-like values from task load fallbacks", async () => {

@@ -23,8 +23,8 @@ describe("QuestionPanel", () => {
       options: [{ label: "Yes", description: "Proceed" }],
     });
 
-    expect(html).toContain("Or type a custom answer");
-    expect(html).toContain("Type your answer here...");
+    expect(html).toContain("或输入自定义回答");
+    expect(html).toContain("在此输入你的回答…");
   });
 
   test("hides custom answer input when custom is false", () => {
@@ -35,7 +35,7 @@ describe("QuestionPanel", () => {
       custom: false,
     });
 
-    expect(html).not.toContain("Or type a custom answer");
-    expect(html).not.toContain("Type your answer here...");
+    expect(html).not.toContain("或输入自定义回答");
+    expect(html).not.toContain("在此输入你的回答…");
   });
 });

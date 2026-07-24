@@ -13,12 +13,12 @@ export function DashboardHomeScreen() {
     orgContext?.roles,
   );
 
-  // Switching keeps the old orgContext until the new one loads; route switches
-  // through the placeholder so admin/member home layouts don't hard-swap and jump.
+  // 切换公司时保留旧上下文，直到新上下文加载完成。
+  // 路由先显示占位状态，避免管理员和成员首页直接切换引起跳动。
   if (orgBusy || mutationBusy === "switch-organization" || !orgContext) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-[14px] text-gray-500">
-        Loading your workspace...
+        正在加载工作区...
       </div>
     );
   }

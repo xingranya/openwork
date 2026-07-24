@@ -1,6 +1,5 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { ArrowUpRight } from "lucide-react";
 
 export type WebUnavailableSurfaceProps = {
   unavailable: boolean;
@@ -11,7 +10,7 @@ export type WebUnavailableSurfaceProps = {
 };
 
 const MESSAGE =
-  "This feature is currently unavailable in OpenWork Web, check OpenWork Desktop for full functionality.";
+  "此功能暂不支持网页版，请使用 FoxWork 桌面端。";
 
 export function WebUnavailableSurface(props: WebUnavailableSurfaceProps) {
   const innerProps = props.unavailable
@@ -36,15 +35,7 @@ export function WebUnavailableSurface(props: WebUnavailableSurfaceProps) {
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{MESSAGE}</span>
-            <a
-              href="https://openworklabs.com"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 underline underline-offset-2 hover:no-underline"
-            >
-              <span>Download OpenWork Desktop</span>
-              <ArrowUpRight size={props.compact ? 12 : 14} />
-            </a>
+            <span>请联系公司管理员获取 FoxWork 安装包。</span>
           </div>
         </div>
       ) : null}

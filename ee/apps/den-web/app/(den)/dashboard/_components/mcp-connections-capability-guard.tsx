@@ -18,7 +18,7 @@ export function McpConnectionsCapabilityGuard({ children }: { children: React.Re
   if (orgBusy || !orgContext) {
     return (
       <div className="flex min-h-[320px] items-center justify-center px-6 text-[14px] text-gray-500">
-        Checking workspace access...
+        正在检查工作区权限...
       </div>
     );
   }
@@ -26,7 +26,7 @@ export function McpConnectionsCapabilityGuard({ children }: { children: React.Re
   if (!enabled) {
     return (
       <div className="flex min-h-[320px] items-center justify-center px-6 text-[14px] text-gray-500">
-        Redirecting to your dashboard...
+        正在返回工作台...
       </div>
     );
   }

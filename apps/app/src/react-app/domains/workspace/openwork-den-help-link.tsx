@@ -12,13 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const SUPPORT_EMAIL = "team@openworklabs.com";
-const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=OpenWork%20Den%20remote%20worker%20upgrade`;
-
 /**
- * Small inline link rendered inside the remote-worker error card. When clicked,
- * it opens a dialog explaining the OpenWork Den upgrade situation and how to
- * reach support.
+ * 远程 Worker 连接失败时显示兼容性说明，并引导员工联系公司管理员。
  */
 export function OpenWorkDenHelpLink() {
   const [open, setOpen] = useState(false);
@@ -30,53 +25,34 @@ export function OpenWorkDenHelpLink() {
         className="mt-2 inline-flex items-center text-[11px] font-medium text-blue-11 underline-offset-2 hover:underline"
         onClick={() => setOpen(true)}
       >
-        Using OpenWork Den Remote Workers? Click here
+        远程 Worker 无法连接？查看处理方法
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>OpenWork Den remote workers</DialogTitle>
+            <DialogTitle>远程 Worker 兼容说明</DialogTitle>
             <DialogDescription>
-              We recently upgraded our servers. If your remote worker was
-              provisioned before that upgrade, it may no longer be compatible
-              with the current OpenWork app.
+              如果远程 Worker 创建于公司服务器升级之前，它可能与当前 FoxWork 版本不兼容。
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-[13px] leading-5 text-gray-11">
-            <p>To get back online, you have two options:</p>
+            <p>请按以下顺序处理：</p>
             <ul className="ml-4 list-disc space-y-2">
               <li>
-                Email{" "}
-                <a
-                  href={SUPPORT_MAILTO}
-                  className="font-medium text-blue-11 hover:underline"
-                >
-                  {SUPPORT_EMAIL}
-                </a>{" "}
-                and ask us to upgrade your worker.
+                确认 FoxWork 与公司 Den、远程 Worker 使用兼容版本。
               </li>
               <li>
-                Use the in-app{" "}
-                <span className="font-medium text-dls-text">Feedback</span>{" "}
-                button to send us a note, and we&apos;ll pick it up from there.
+                如果仍无法连接，请联系公司管理员升级或重新创建此 Worker。
               </li>
             </ul>
           </div>
 
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>
-              Close
+              关闭
             </DialogClose>
-            <Button
-              type="button"
-              onClick={() => {
-                window.location.href = SUPPORT_MAILTO;
-              }}
-            >
-              Email support
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

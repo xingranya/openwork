@@ -1,36 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getErrorMessage, requestJson } from "../_lib/den-flow";
 import { createOrganizationInstallLink } from "../_lib/install-link-data";
 import { isMobileUserAgent } from "../_lib/platform";
 
-const OPENWORK_DOWNLOAD_URL = "https://openworklabs.com/download";
-
 const capabilities = [
   {
-    title: "Edit spreadsheets",
-    description: "Create, clean, and transform CSV and Excel files.",
+    title: "处理表格",
+    description: "新建、整理和转换 CSV、Excel 文件。",
   },
   {
-    title: "Control your browser",
-    description: "Automate the built-in browser for repetitive web tasks.",
+    title: "操作浏览器",
+    description: "让内置浏览器自动完成重复操作。",
   },
   {
-    title: "Organize files",
-    description: "Read, write, and manage files and folders.",
+    title: "整理文件",
+    description: "读取、修改和管理文件与文件夹。",
   },
   {
-    title: "Automate tasks",
-    description: "Build reusable workflows with skills and commands.",
+    title: "自动处理任务",
+    description: "使用 Skills 和命令复用常用工作流程。",
   },
   {
-    title: "Generate content",
-    description: "Draft documents, emails, and reports.",
+    title: "撰写内容",
+    description: "起草文档、邮件和报告。",
   },
   {
-    title: "Connect to APIs",
-    description: "Plug into external services and tools via MCP.",
+    title: "连接业务工具",
+    description: "通过 MCP 使用外部服务和工具。",
   },
 ];
 
@@ -43,8 +40,6 @@ type JoinOrgSuccessProps = {
 export function JoinOrgSuccess({ organizationId, organizationName, onContinueInBrowser }: JoinOrgSuccessProps) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [installBusy, setInstallBusy] = useState(false);
-  const [emailBusy, setEmailBusy] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,27 +53,9 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
     try {
       window.location.assign(await createOrganizationInstallLink(organizationId));
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Could not prepare your download.");
+      setActionError(error instanceof Error ? error.message : "暂时无法准备安装包，请重试。");
     } finally {
       setInstallBusy(false);
-    }
-  }
-
-  async function handleEmailDownload() {
-    setEmailBusy(true);
-    setActionError(null);
-
-    try {
-      const { response, payload } = await requestJson("/v1/me/send-download-link", { method: "POST" }, 12000);
-      if (!response.ok) {
-        setActionError(getErrorMessage(payload, `Could not send the download link (${response.status}).`));
-        return;
-      }
-      setEmailSent(true);
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Could not send the download link.");
-    } finally {
-      setEmailBusy(false);
     }
   }
 
@@ -86,31 +63,24 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
     <section className="den-page py-4 lg:py-6" data-testid="join-org-success">
       <div className="den-frame grid max-w-[48rem] gap-6 p-6 md:p-8">
         <div className="grid gap-2">
-          <p className="den-eyebrow">OpenWork Cloud</p>
-          <h1 className="den-title-xl max-w-[16ch]">You&apos;re in, welcome to {organizationName}</h1>
-          <p className="den-copy">The desktop app is where OpenWork runs on your computer and puts your team&apos;s setup to work.</p>
+          <p className="den-eyebrow">FoxWork 公司服务</p>
+          <h1 className="den-title-xl max-w-[16ch]">已加入 {organizationName}</h1>
+          <p className="den-copy">安装 FoxWork 后，就可以在电脑上使用公司的模型、MCP 和 Skills。</p>
         </div>
 
         {isMobile === null ? (
-          <p className="den-copy">Preparing your next step...</p>
+          <p className="den-copy">正在准备下一步...</p>
         ) : isMobile ? (
           <div className="grid gap-5">
             <div className="den-frame-inset grid gap-2 rounded-[1.5rem] p-5" data-testid="join-org-mobile-note">
-              <p className="m-0 text-base font-medium text-[var(--dls-text-primary)]">OpenWork runs on your computer.</p>
-              <p className="den-copy">You&apos;re in — next time you&apos;re at your computer, download the desktop app to put your team to work.</p>
+              <p className="m-0 text-base font-medium text-[var(--dls-text-primary)]">FoxWork 需要安装在电脑上</p>
+              <p className="den-copy">账号已经加入公司。回到电脑后安装 FoxWork，再用当前账号登录即可。</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                className="den-button-primary w-full sm:w-auto"
-                onClick={() => void handleEmailDownload()}
-                disabled={emailBusy || emailSent}
-                data-testid="join-org-email-download"
-              >
-                {emailBusy ? "Sending..." : emailSent ? "Sent" : "Email me the download link"}
+              <button type="button" className="den-button-primary w-full sm:w-auto" onClick={onContinueInBrowser}>
+                先在浏览器中继续
               </button>
             </div>
-            {emailSent ? <div className="den-notice is-info">Sent — check your inbox when you&apos;re back at your desk.</div> : null}
           </div>
         ) : (
           <div className="grid gap-5">
@@ -131,18 +101,12 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
                 disabled={installBusy}
                 data-testid="join-org-get-app"
               >
-                {installBusy ? "Preparing your download..." : "Get the desktop app"}
+                {installBusy ? "正在准备安装包..." : "下载 FoxWork"}
               </button>
               {actionError ? (
-                <a
-                  href={OPENWORK_DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="den-button-secondary w-full sm:w-auto"
-                  data-testid="join-org-download"
-                >
-                  Download the desktop app
-                </a>
+                <span className="self-center text-sm text-[var(--dls-text-secondary)]">
+                  请联系公司管理员获取安装包。
+                </span>
               ) : null}
             </div>
           </div>
@@ -154,7 +118,7 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
           onClick={onContinueInBrowser}
           data-testid="join-org-continue-browser"
         >
-          Continue in the browser
+          在浏览器中继续
         </button>
 
         {actionError ? <div className="den-notice is-error">{actionError}</div> : null}

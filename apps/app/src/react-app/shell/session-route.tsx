@@ -19,6 +19,7 @@ import { captureAnalyticsEvent, markTaskRunStart } from "@/app/lib/analytics";
 import { trackSessionActive, trackTaskStarted } from "@/app/lib/den-telemetry";
 import { buildDiagnosticsBundleJson } from "@/app/lib/diagnostics-bundle";
 import { downloadTextAsFile } from "@/app/lib/download";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { createClient, unwrap } from "@/app/lib/opencode";
 import { abortSessionSafe, forkSession, listCommands, revertSession, setSessionArchived, shellInSession } from "@/app/lib/opencode-session";
 import { useSessionManagementStore as sessionManagementStore } from "@/react-app/domains/session/sidebar/session-management-store";
@@ -94,7 +95,6 @@ import { usePlatform } from "@/react-app/kernel/platform";
 import { SessionPage, type OpenSessionTab } from "@/react-app/domains/session/chat/session-page";
 import { isDesktopProviderBlocked } from "@/app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction } from "@/react-app/domains/cloud/desktop-config-provider";
-import { useRestrictionNotice } from "@/react-app/domains/cloud/restriction-notice-provider";
 import { ReactSessionRuntime } from "@/react-app/domains/session/sync/runtime-sync";
 import { useSessionActivityStore } from "@/react-app/domains/session/status/session-activity-store";
 import { buildOpenworkEnvSystemContext } from "@/react-app/domains/session/sync/env-context";
@@ -328,7 +328,6 @@ export function SessionRoute() {
   const local = useLocal();
   const reloadCoordinator = useReloadCoordinator();
   const checkDesktopRestriction = useCheckDesktopRestriction();
-  const restrictionNotice = useRestrictionNotice();
   const [openworkServerHostInfoState, setOpenworkServerHostInfoState] = useState<OpenworkServerInfo | null>(null);
   const [openworkServerSettingsVersion, setOpenworkServerSettingsVersion] = useState(0);
   const [developerMode, setDeveloperMode] = useState(() => {
@@ -1075,24 +1074,9 @@ export function SessionRoute() {
   ]);
 
   const handleOpenCreateWorkspace = useCallback(() => {
-    // Respect the org-level `allowMultipleWorkspaces` restriction (dev
-    // #1505). If the checker returns true, the admin has disabled
-    // adding further workspaces; surface a friendly notice instead of
-    // opening the modal.
-    if (
-      workspaces.length > 0 &&
-      checkDesktopRestriction({ restriction: "allowMultipleWorkspaces" })
-    ) {
-      restrictionNotice.show({
-        title: "Additional workspaces are restricted",
-        message:
-          "Your organization administrator has restricted access to adding additional workspaces.",
-      });
-      return;
-    }
     setCreateWorkspaceRemoteError(null);
     setCreateWorkspaceOpen(true);
-  }, [checkDesktopRestriction, restrictionNotice, workspaces.length]);
+  }, []);
 
   const handleOpenRenameWorkspace = useCallback((workspaceId: string) => {
     const workspace = workspaces.find((item) => item.id === workspaceId);
@@ -1113,7 +1097,7 @@ export function SessionRoute() {
     setRenameWorkspaceBusy(true);
     try {
       if (!client) {
-        toast.error("OpenWork server is unavailable. Reconnect the server before renaming workspaces.");
+        toast.error("FoxWork 服务不可用，请重新连接后再重命名工作区。");
         return;
       }
       await client.updateWorkspaceDisplayName(renameWorkspaceId, trimmed);
@@ -1121,8 +1105,8 @@ export function SessionRoute() {
       setRenameWorkspaceTitle("");
       await refreshRouteState();
     } catch (error) {
-      toast.error("Workspace rename failed", {
-        description: describeRouteError(error),
+      toast.error("工作区重命名失败", {
+        description: toChineseUserMessage(error, "请稍后重试。"),
       });
     } finally {
       setRenameWorkspaceBusy(false);
@@ -1162,7 +1146,7 @@ export function SessionRoute() {
         downloadWorkspaceJson(workspaceExportFilename(workspace), payload);
         return;
       }
-      throw new Error("OpenWork server is unavailable. Reconnect the server before exporting workspace config.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再导出工作区配置。");
     },
     [endpointForWorkspace, workspaces],
   );
@@ -1172,7 +1156,7 @@ export function SessionRoute() {
       if (typeof window !== "undefined") {
         const message =
           t("workspace_list.remove_confirm") ||
-          "Remove this workspace from the sidebar?";
+          "要从侧边栏移除此工作区吗？";
         if (!window.confirm(message)) return;
       }
       // Remove from both stores so the next refresh can't resurrect the row
@@ -1247,13 +1231,14 @@ export function SessionRoute() {
       return session.id;
     } catch (error) {
       const message = describeTaskCreateError(error);
-      setRouteError(message);
-      setErrorsByWorkspaceId((current) => ({ ...current, [workspaceId]: message }));
-      toast.error("OpenCode unavailable", {
+      const displayMessage = toChineseUserMessage(message, "OpenCode 暂时不可用，请稍后重试。");
+      setRouteError(displayMessage);
+      setErrorsByWorkspaceId((current) => ({ ...current, [workspaceId]: displayMessage }));
+      toast.error("OpenCode 暂时不可用", {
         id: taskCreateUnavailableToastId(workspaceId),
-        description: message,
+        description: displayMessage,
         action: {
-          label: "Retry",
+          label: "重试",
           onClick: () => void handleCreateTaskInWorkspace(workspaceId),
         },
         duration: Infinity,
@@ -1906,11 +1891,8 @@ export function SessionRoute() {
       providers={providers}
       mcpConnectedCount={mcpConnectedCount}
       onSendFeedback={() => {
-        platform.openLink(
-          buildFeedbackUrl({
-            entrypoint: "status-bar",
-          }),
-        );
+        const feedbackUrl = buildFeedbackUrl({ entrypoint: "status-bar" });
+        if (feedbackUrl) platform.openLink(feedbackUrl);
       }}
       onOpenSettings={() => handleOpenSettings("/settings/general")}
       onOpenProviderAuth={() => sessionProviderAuthStore.openProviderAuthModal({ returnFocusTarget: "composer" })}

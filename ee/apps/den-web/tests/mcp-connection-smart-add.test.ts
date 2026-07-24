@@ -138,9 +138,9 @@ describe("planSmartAdd", () => {
 
 describe("smartAddAuthLabel", () => {
   test("labels each detected auth kind", () => {
-    expect(smartAddAuthLabel(discovery({ kind: "none" }))).toBe("No sign-in needed");
-    expect(smartAddAuthLabel(discovery({ kind: "oauth" }))).toBe("OAuth sign-in");
-    expect(smartAddAuthLabel(discovery({ kind: "manual_bearer" }))).toBe("API key");
-    expect(smartAddAuthLabel(discovery({ kind: "unknown" }))).toBe("Sign-in unclear");
+    expect(smartAddAuthLabel(discovery({ kind: "none" }))).toBe("无需登录");
+    expect(smartAddAuthLabel(discovery({ kind: "oauth" }))).toBe("OAuth 登录");
+    expect(smartAddAuthLabel(discovery({ kind: "manual_bearer" }))).toBe("API 密钥");
+    expect(smartAddAuthLabel(discovery({ kind: "unknown" }))).toBe("认证方式待确认");
   });
 });

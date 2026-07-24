@@ -147,7 +147,7 @@ export function CreateWorkspaceLocalPanel(
                 </span>
               ) : (
                 <span className="text-[14px] text-dls-secondary">
-                  No folder selected yet.
+                  尚未选择文件夹。
                 </span>
               )}
             </div>
@@ -166,10 +166,10 @@ export function CreateWorkspaceLocalPanel(
                       </span>
                       <span className="min-w-0">
                         <span className="block text-[14px] font-semibold text-dls-text">
-                          Want more analytics?
+                          需要按项目查看统计？
                         </span>
                         <span className="mt-1 block text-[12px] leading-5 text-dls-secondary">
-                          Add a project name to group this workspace's sessions in Analytics.
+                          填写项目名称，可在统计页面中汇总当前工作区的会话。
                         </span>
                       </span>
                     </span>
@@ -177,13 +177,13 @@ export function CreateWorkspaceLocalPanel(
                   <AccordionContent className="space-y-3 px-4 pb-4">
                     <div>
                       <label className="text-[13px] font-medium text-dls-text">
-                        Project name <span className="text-dls-secondary">(optional)</span>
+                        项目名称 <span className="text-dls-secondary">（可选）</span>
                       </label>
                       <input
                         type="text"
                         value={props.projectLabel}
                         onChange={(event) => props.onProjectLabelInput(event.currentTarget.value)}
-                        placeholder="Billing API"
+                        placeholder="品牌资料分析"
                         disabled={props.submitting}
                         className="mt-2 w-full rounded-[20px] border border-dls-border bg-dls-surface px-4 py-3 text-[14px] text-dls-text outline-none placeholder:text-dls-secondary transition-colors focus:border-dls-accent disabled:cursor-not-allowed disabled:opacity-60"
                       />
@@ -206,7 +206,7 @@ export function CreateWorkspaceLocalPanel(
                 )}
                 {props.hasSelectedFolder
                   ? t("dashboard.change")
-                  : "Select folder"}
+                  : "选择文件夹"}
               </button>
             </div>
           </div>
@@ -225,13 +225,13 @@ export function CreateWorkspaceLocalPanel(
                   ) : (
                     <Loader2 size={14} className="animate-spin text-dls-accent" />
                   )}
-                  Sandbox setup
+                  沙箱设置
                 </div>
                 <div className="mt-1 truncate text-[14px] leading-snug text-dls-text">
                   {progress.stage}
                 </div>
                 <div className="mt-1 font-mono text-[10px] uppercase tracking-wider text-dls-secondary">
-                  {props.elapsedSeconds}s
+                  {props.elapsedSeconds} 秒
                 </div>
               </div>
               <button
@@ -239,7 +239,7 @@ export function CreateWorkspaceLocalPanel(
                 className={pillGhostClass}
                 onClick={props.onToggleProgressDetails}
               >
-                {props.showProgressDetails ? "Hide logs" : "Show logs"}
+                {props.showProgressDetails ? "隐藏日志" : "显示日志"}
               </button>
             </div>
 
@@ -274,7 +274,7 @@ export function CreateWorkspaceLocalPanel(
             {props.showProgressDetails && progress.logs.length > 0 ? (
               <div className={`mt-3 ${softCardClass}`}>
                 <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-dls-secondary">
-                  Live logs
+                  实时日志
                 </div>
                 <div className="max-h-[120px] space-y-0.5 overflow-y-auto">
                   {toKeyedLines(progress.logs.slice(-10)).map(({ key, line }) => (
@@ -328,7 +328,7 @@ export function CreateWorkspaceLocalPanel(
                 className={`mt-3 ${softCardClass} text-[11px] text-dls-text`}
               >
                 <summary className="cursor-pointer text-[12px] font-semibold text-dls-text">
-                  Docker debug details
+                  Docker 调试详情
                 </summary>
                 <div className="mt-2 space-y-1 break-words font-mono">
                   {toKeyedLines(props.workerDebugLines).map(({ key, line }) => (
@@ -398,7 +398,7 @@ export function CreateWorkspaceLocalPanel(
             {props.submitting ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 size={16} className="animate-spin" />
-                Creating…
+                正在创建…
               </span>
             ) : (
               (props.confirmLabel ??

@@ -485,13 +485,13 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onClearDeveloperLog = useCallback(() => {
     setDeveloperLog([]);
-    setDeveloperLogStatus("Cleared developer log.");
+    setDeveloperLogStatus("开发者日志已清空。");
   }, []);
 
   const onCopyDeveloperLog = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(developerLog.join("\n"));
-      setDeveloperLogStatus("Copied developer log to clipboard.");
+      setDeveloperLogStatus("开发者日志已复制到剪贴板。");
     } catch (error) {
       setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
@@ -500,11 +500,11 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   const onExportDeveloperLog = useCallback(async () => {
     try {
       downloadTextAsFile(
-        `openwork-developer-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
+        `foxwork-developer-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
         developerLog.join("\n"),
         "text/plain",
       );
-      setDeveloperLogStatus("Exported developer log.");
+      setDeveloperLogStatus("开发者日志已导出。");
     } catch (error) {
       setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
@@ -513,7 +513,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   const onOpenElectronPreviewRelease = useCallback(async () => {
     try {
       await openDesktopUrl(ELECTRON_ALPHA_RELEASE_PAGE_URL);
-      setElectronMigrationStatus("Opened the rolling Electron alpha release. Download links live there after dev builds finish.");
+      setElectronMigrationStatus("已打开 Electron 滚动测试版发布页。开发构建完成后可在该页面下载安装包。");
     } catch (error) {
       setElectronMigrationStatus(error instanceof Error ? error.message : safeStringify(error));
     }
@@ -531,38 +531,38 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const electronMigrationArtifactLabel = useMemo(() => {
     if (!electronMigrationArtifact) return null;
-    return `Resolved v${electronMigrationArtifact.version} (${electronMigrationArtifact.arch}) · ${electronMigrationArtifact.path}`;
+    return `已解析 v${electronMigrationArtifact.version}（${electronMigrationArtifact.arch}）· ${electronMigrationArtifact.path}`;
   }, [electronMigrationArtifact]);
 
   const onResolveElectronAlphaArtifact = useCallback(async () => {
-    setElectronMigrationStatus("Tauri → Electron migration controls were removed after Electron became the desktop runtime.");
+    setElectronMigrationStatus("FoxWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的迁移操作。");
   }, []);
 
   const onRevealElectronMigrationBackup = useCallback(async () => {
     if (!isElectronRuntime()) {
-      setElectronMigrationStatus("Migration backup reveal is available only in the desktop app.");
+      setElectronMigrationStatus("只有桌面应用可以打开迁移备份。");
       return;
     }
     try {
       const env = await updaterEnvironmentCmd() as { appBundlePath?: string };
       const appBundlePath = env.appBundlePath?.trim();
       if (!appBundlePath) {
-        setElectronMigrationStatus("Could not resolve the current OpenWork.app bundle path.");
+        setElectronMigrationStatus("无法获取当前 FoxWork.app 的应用路径。");
         return;
       }
       await revealDesktopItemInDir(`${appBundlePath}.migrate-bak`);
-      setElectronMigrationStatus("Requested Finder reveal for OpenWork.app.migrate-bak. The backup exists after an install handoff completes.");
+      setElectronMigrationStatus("已请求在访达中显示 FoxWork.app.migrate-bak。完成安装交接后才会生成该备份。");
     } catch (error) {
       setElectronMigrationStatus(error instanceof Error ? error.message : safeStringify(error));
     }
   }, []);
 
   const onPrepareElectronMigrationSnapshot = useCallback(async () => {
-    setElectronMigrationStatus("Tauri migration snapshots are no longer available because Tauri has been removed.");
+    setElectronMigrationStatus("FoxWork 已移除 Tauri，不再提供 Tauri 迁移快照。");
   }, []);
 
   const onInstallElectronPreviewFromTauri = useCallback(async () => {
-    setElectronMigrationStatus("Tauri → Electron install handoff is no longer available because Electron is now the desktop runtime.");
+    setElectronMigrationStatus("FoxWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的安装交接。");
   }, []);
 
   useEffect(() => {
@@ -583,16 +583,16 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onSetElectronAlphaUpdaterChannel = useCallback(async (channel: ReleaseChannel) => {
     if (!isElectronRuntime()) {
-      setElectronAlphaUpdaterStatus("Electron updater channels are available only in the Electron desktop app.");
+      setElectronAlphaUpdaterStatus("只有 Electron 桌面应用可以切换更新渠道。");
       return;
     }
     if (channel === "alpha" && !isMacPlatform()) {
-      setElectronAlphaUpdaterStatus("Electron alpha updates are macOS-only for now.");
+      setElectronAlphaUpdaterStatus("Electron 测试版更新目前仅支持 macOS。");
       return;
     }
     const bridge = window.__OPENWORK_ELECTRON__?.updater;
     if (!bridge?.setChannel) {
-      setElectronAlphaUpdaterStatus("Electron updater bridge is unavailable.");
+      setElectronAlphaUpdaterStatus("Electron 更新服务暂时不可用。");
       return;
     }
     setElectronAlphaUpdaterBusy(true);
@@ -601,9 +601,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       const state = await bridge.setChannel(channel);
       setElectronAlphaUpdaterChannel(state.channel ?? channel);
       setElectronAlphaUpdaterStatus(
-        `Subscribed Electron updater to ${state.channel ?? channel} (${state.feedUrl}).`,
+        `Electron 更新渠道已切换为${state.channel === "alpha" ? "测试版" : "稳定版"}（${state.feedUrl}）。`,
       );
-      pushDeveloperLog(`set Electron updater channel=${state.channel ?? channel}`);
+      pushDeveloperLog(`已设置 Electron 更新渠道：${state.channel ?? channel}`);
     } catch (error) {
       setElectronAlphaUpdaterStatus(error instanceof Error ? error.message : safeStringify(error));
     } finally {
@@ -613,12 +613,12 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onCheckElectronAlphaUpdates = useCallback(async () => {
     if (!isElectronRuntime()) {
-      setElectronAlphaUpdaterStatus("Electron update checks are available only in the Electron desktop app.");
+      setElectronAlphaUpdaterStatus("只有 Electron 桌面应用可以检查更新。");
       return;
     }
     const bridge = window.__OPENWORK_ELECTRON__?.updater;
     if (!bridge?.check) {
-      setElectronAlphaUpdaterStatus("Electron updater bridge is unavailable.");
+      setElectronAlphaUpdaterStatus("Electron 更新服务暂时不可用。");
       return;
     }
     setElectronAlphaUpdaterBusy(true);
@@ -627,20 +627,20 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       const result = await bridge.check();
       if (result.channel) setElectronAlphaUpdaterChannel(result.channel);
       if (result.reason === "unavailable") {
-        setElectronAlphaUpdaterStatus("Electron updater is available only in packaged Electron builds.");
+        setElectronAlphaUpdaterStatus("只有已打包的 Electron 应用可以使用更新服务。");
         return;
       }
       if (result.reason) {
-        setElectronAlphaUpdaterStatus(result.reason);
+        setElectronAlphaUpdaterStatus("无法检查 Electron 更新，请稍后重试。");
         return;
       }
       setElectronAlphaUpdaterStatus(
         result.available
-          ? `Update available: v${result.latestVersion ?? "unknown"} on ${result.channel ?? electronAlphaUpdaterChannel}. Use Settings → Updates to download and install.`
-          : `No Electron update available on ${result.channel ?? electronAlphaUpdaterChannel}.`,
+          ? `发现新版本 v${result.latestVersion ?? "未知"}，请前往“设置 → 更新”下载并安装。`
+          : "当前渠道暂无可用更新。",
       );
-    } catch (error) {
-      setElectronAlphaUpdaterStatus(error instanceof Error ? error.message : safeStringify(error));
+    } catch {
+      setElectronAlphaUpdaterStatus("无法检查 Electron 更新，请稍后重试。");
     } finally {
       setElectronAlphaUpdaterBusy(false);
     }
@@ -914,8 +914,8 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       if (!isDesktopRuntime()) return;
       const message =
         mode === "all"
-          ? "Reset ALL OpenWork app data? Open sessions and workspaces will be removed."
-          : "Reset onboarding state only?";
+          ? "确定重置全部 FoxWork 应用数据吗？当前会话和工作区记录将被移除。"
+          : "确定只重置首次使用引导吗？";
       if (typeof window !== "undefined" && !window.confirm(message)) {
         return;
       }
@@ -926,8 +926,8 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
           clearOpenworkLocalStorageForReset(mode);
           setResetStatus(
             mode === "all"
-              ? "Reset OpenWork state. Restart the app to see changes."
-              : "Reset onboarding state. Restart the app to see changes.",
+              ? "FoxWork 状态已重置，重启应用后生效。"
+              : "首次使用引导已重置，重启应用后生效。",
           );
           pushDeveloperLog(`reset_openwork_state mode=${mode}`);
         })
@@ -947,7 +947,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       typeof window === "undefined"
         ? true
         : window.confirm(
-            "Delete ALL local OpenWork + OpenCode config and quit? This cannot be undone.",
+            "确定删除全部本机 FoxWork 和 OpenCode 配置并退出吗？此操作无法撤销。",
           );
     if (!confirmed) return;
     setNukeConfigBusy(true);
@@ -963,7 +963,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const [workspaceDebugEventsStatus, setWorkspaceDebugEventsStatus] = useState<string | null>(null);
   const onClearWorkspaceDebugEvents = useCallback(async () => {
-    setWorkspaceDebugEventsStatus("Workspace debug events are not retained in the React route yet.");
+    setWorkspaceDebugEventsStatus("当前界面尚未保留工作区调试事件。");
   }, []);
 
   const debugProps: DebugViewModelProps = useMemo(

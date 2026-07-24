@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createDenClient, readDenSettings, type DenExternalMcpConnection } from "@/app/lib/den";
 import { denSettingsChangedEvent } from "@/app/lib/den-session-events";
 import { openDesktopUrl } from "@/app/lib/desktop";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { isDesktopRuntime } from "@/app/utils";
 import { connectionNeedsReconnect, isNativeProviderConnectionId } from "./native-provider-connections";
 
@@ -155,7 +156,7 @@ export function useOrgMcpConnections() {
         refreshRunRef.current !== run
         || (expectedScope && !isActionScopeCurrent(expectedScope))
       ) return;
-      setError(fetchError instanceof Error ? fetchError.message : "Failed to load organization MCP connections.");
+      setError(toChineseUserMessage(fetchError, "无法加载公司 MCP 连接，请稍后重试。"));
     } finally {
       if (
         refreshRunRef.current === run
@@ -237,7 +238,7 @@ export function useOrgMcpConnections() {
       }, CONNECT_POLL_INTERVAL_MS);
     } catch (connectError) {
       if (!isActionScopeCurrent(pollScope)) return;
-      setError(connectError instanceof Error ? connectError.message : "Failed to start the connection.");
+      setError(toChineseUserMessage(connectError, "无法启动连接，请检查账号授权后重试。"));
       setConnectingId(null);
     }
   }, [isActionScopeCurrent, refresh, stopPolling]);
@@ -266,7 +267,7 @@ export function useOrgMcpConnections() {
       if (!isActionScopeCurrent(actionScope)) return;
     } catch (disconnectError) {
       if (!isActionScopeCurrent(actionScope)) return;
-      setError(disconnectError instanceof Error ? disconnectError.message : "Failed to disconnect the account.");
+      setError(toChineseUserMessage(disconnectError, "无法断开账号连接，请稍后重试。"));
     } finally {
       if (isActionScopeCurrent(actionScope)) setDisconnectingId(null);
     }

@@ -1121,7 +1121,7 @@ export function useDeleteTelegramConnection() {
           { method: "DELETE", headers: getOrgScopeHeaders(requireOrgId(orgId)) },
           20000,
         );
-        if (!response.ok) throw getRequestError(payload, response, `Failed to disconnect Telegram (${response.status}).`);
+        if (!response.ok) throw getRequestError(payload, response, `断开 Telegram 连接失败（${response.status}）。`);
       });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mcpConnectionQueryKeys.telegram(orgId) }),
@@ -1129,8 +1129,8 @@ export function useDeleteTelegramConnection() {
 }
 
 export function formatMcpConnectedTimestamp(value: string | null): string {
-  if (!value) return "Not connected";
+  if (!value) return "未连接";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not connected";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  if (Number.isNaN(date.getTime())) return "未连接";
+  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "short", day: "numeric" }).format(date);
 }

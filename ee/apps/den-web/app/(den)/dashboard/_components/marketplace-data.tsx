@@ -167,7 +167,7 @@ export function parseMarketplaceResolvedPayload(payload: unknown): MarketplaceRe
   const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
   const marketplace = item && isRecord(item.marketplace) ? parseMarketplace(item.marketplace) : null;
   if (!item || !marketplace) {
-    throw new Error("Marketplace resolved response was incomplete.");
+    throw new Error("应用市场详情返回不完整，请刷新后重试。");
   }
 
   const plugins = Array.isArray(item.plugins)
@@ -222,7 +222,7 @@ export function useMarketplace(marketplaceId: string | null) {
         15000,
       );
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load marketplace (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `应用市场加载失败（${response.status}）。`));
       }
 
       return parseMarketplaceResolvedPayload(payload);
@@ -258,7 +258,7 @@ export function useMarketplaceAccess(marketplaceId: string | null) {
         15000,
       );
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load marketplace access (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `应用市场权限加载失败（${response.status}）。`));
       }
 
       const items = isRecord(payload) && Array.isArray(payload.items) ? payload.items : [];
@@ -294,7 +294,7 @@ export function useGrantMarketplaceAccess() {
         15000,
       );
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to grant access (${response.status}).`);
+        throw getRequestError(payload, response, `应用市场权限分配失败（${response.status}）。`);
       }
       });
       return input.marketplaceId;
@@ -319,7 +319,7 @@ export function useRevokeMarketplaceAccess() {
         15000,
       );
       if (response.status !== 204 && !response.ok) {
-        throw getRequestError(payload, response, `Failed to revoke access (${response.status}).`);
+        throw getRequestError(payload, response, `应用市场权限撤销失败（${response.status}）。`);
       }
       });
       return input.marketplaceId;
@@ -355,7 +355,7 @@ function parseConfiguredPluginMcpConnection(payload: unknown): ConfiguredPluginM
   const links = item && isRecord(item.links) ? item.links : null;
   const connectionId = connection ? asString(connection.id) : null;
   if (!connectionId) {
-    throw new Error("Plugin MCP setup response was incomplete.");
+    throw new Error("插件 MCP 连接返回不完整，请重试。");
   }
   return {
     connectionId,
@@ -387,11 +387,11 @@ export function useConfigurePluginMcpConnection() {
           20000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to configure plugin connection (${response.status}).`);
+          throw getRequestError(payload, response, `插件连接配置失败（${response.status}）。`);
         }
         configured = parseConfiguredPluginMcpConnection(payload);
       });
-      if (!configured) throw new Error("Plugin MCP setup response was incomplete.");
+      if (!configured) throw new Error("插件 MCP 连接返回不完整，请重试。");
       return configured;
     },
     onSuccess: () => {
@@ -411,7 +411,7 @@ export function useMarketplaces() {
         15000,
       );
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load marketplaces (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `应用市场加载失败（${response.status}）。`));
       }
 
       const items = isRecord(payload) && Array.isArray(payload.items) ? payload.items : [];
@@ -442,12 +442,12 @@ export function useCreateMarketplace() {
           15000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to create marketplace (${response.status}).`);
+          throw getRequestError(payload, response, `应用市场创建失败（${response.status}）。`);
         }
         created = isRecord(payload) && isRecord(payload.item) ? parseMarketplace(payload.item) : null;
       });
       if (!created) {
-        throw new Error("Marketplace create response was incomplete.");
+        throw new Error("应用市场创建结果不完整，请刷新后确认。");
       }
       return created;
     },
@@ -458,11 +458,11 @@ export function useCreateMarketplace() {
 }
 
 export function formatMarketplaceTimestamp(value: string | null): string {
-  if (!value) return "Recently added";
+  if (!value) return "最近";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recently added";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
+  if (Number.isNaN(date.getTime())) return "最近";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
     day: "numeric",
     year: "numeric",
   }).format(date);

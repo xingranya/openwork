@@ -165,6 +165,7 @@ export function AuthPanel({
   const visibleAuthMode = resolveVisibleAuthMode({ authMode, runtimeConfig, runtimeConfigLoaded });
   const singleOrgName = runtimeConfig.singleOrgName || "FoxWork";
   const singleOrgSlug = runtimeConfig.singleOrgSlug.trim();
+  const emailRecoveryEnabled = runtimeConfig.emailRecoveryEnabled;
 
   useEffect(() => {
     if (isSingleOrgPrivateSignup && authMode === "sign-up") {
@@ -193,7 +194,7 @@ export function AuthPanel({
     title: isSingleOrgMode ? `登录 ${singleOrgName}` : "欢迎回来",
     copy: isSingleOrgMode
       ? "使用公司账号继续。"
-      : "登录后进入团队工作区。",
+      : "登录后进入公司。",
     submitLabel: "登录",
     ...signInContent,
   };
@@ -396,6 +397,10 @@ export function AuthPanel({
 
   const submitPasswordResetRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!emailRecoveryEnabled) {
+      setPasswordResetError("公司当前未启用邮件找回密码，请联系管理员重置密码。");
+      return;
+    }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setPasswordResetError("请输入接收重置链接的邮箱。");
@@ -596,7 +601,7 @@ export function AuthPanel({
                 required
               />
             </label>
-            <div className="-mt-2 flex justify-end">
+            {emailRecoveryEnabled ? <div className="-mt-2 flex justify-end">
               <button
                 type="button"
                 className="text-sm font-medium text-[var(--dls-text-primary)] transition hover:opacity-70"
@@ -609,7 +614,7 @@ export function AuthPanel({
               >
                 忘记密码？
               </button>
-            </div>
+            </div> : null}
             <button type="submit" className="den-button-primary w-full" disabled={formBusy}>
               {formBusy ? "请稍候..." : "登录"}
               {!formBusy ? <ArrowRight className="h-4 w-4" /> : null}
@@ -858,7 +863,7 @@ export function AuthPanel({
           </label>
         ) : null}
 
-        {showEmailPasswordAuth && !verificationRequired && !isPasswordResetRequest && !hideEmailField ? (
+        {emailRecoveryEnabled && showEmailPasswordAuth && !verificationRequired && !isPasswordResetRequest && !hideEmailField ? (
           // Always rendered (invisible in sign-up) so switching modes never
           // changes the card height.
           <div className={`-mt-2 flex justify-end ${visibleAuthMode === "sign-in" ? "" : "invisible"}`}>

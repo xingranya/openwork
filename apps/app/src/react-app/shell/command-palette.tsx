@@ -457,11 +457,11 @@ export function CommandPalette(props: CommandPaletteProps) {
           {mode === "sessions"
             ? t("session.palette_title_sessions")
             : mode === "accessible-items"
-              ? "Accessible items"
+              ? "可用内容"
               : mode === "agents"
                 ? t("session.cmd_agents_title")
                 : mode === "groups"
-                  ? "Move to Group"
+                  ? "移至分组"
                   : t("session.palette_title_actions")
           }
         </CommandDialogTitle>
@@ -479,18 +479,18 @@ export function CommandPalette(props: CommandPaletteProps) {
                 mode === "sessions"
                   ? t("session.palette_placeholder_sessions")
                   : mode === "accessible-items"
-                    ? "Search servers and artifacts..."
+                    ? "搜索服务和文件..."
                     : mode === "agents"
                       ? t("session.palette_placeholder_agents")
                       : mode === "groups"
-                        ? "Search groups..."
+                        ? "搜索分组..."
                         : t("session.palette_placeholder_actions")
               }
               onKeyDown={handleBackspace}
             />
           </CommandHeader>
           <CommandPanel>
-            <CommandEmpty>{mode === "accessible-items" ? "No accessible items found for this session." : mode === "groups" ? "No groups found for this workspace." : t("session.palette_no_matches")}</CommandEmpty>
+            <CommandEmpty>{mode === "accessible-items" ? "当前会话没有可用内容。" : mode === "groups" ? "当前工作区没有可用分组。" : t("session.palette_no_matches")}</CommandEmpty>
             <CommandList>
               {(item: PaletteItem) => (
                 <CommandItem

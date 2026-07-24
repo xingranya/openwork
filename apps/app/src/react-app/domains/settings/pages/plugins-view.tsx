@@ -212,7 +212,7 @@ export function PluginsView(props: PluginsViewProps) {
                           ) : null}
                           {step.url ? (
                             <div className="text-xs text-gray-10">
-                              Open:{" "}
+                              打开：{" "}
                               <span className="font-mono text-gray-11">
                                 {step.url}
                               </span>
@@ -220,7 +220,7 @@ export function PluginsView(props: PluginsViewProps) {
                           ) : null}
                           {step.path ? (
                             <div className="text-xs text-gray-10">
-                              Path:{" "}
+                              路径：{" "}
                               <span className="font-mono text-gray-11">
                                 {step.path}
                               </span>
@@ -255,8 +255,8 @@ export function PluginsView(props: PluginsViewProps) {
                   {!plugin.removable ? (
                     <div className="mt-1 text-xs text-gray-10">
                       {plugin.source === "dir.global"
-                        ? "Discovered from a global plugin folder."
-                        : "Discovered from the workspace plugin folder."}
+                        ? "发现于全局插件文件夹。"
+                        : "发现于工作区插件文件夹。"}
                     </div>
                   ) : null}
                 </div>
@@ -285,7 +285,7 @@ export function PluginsView(props: PluginsViewProps) {
             <div className="flex-1">
               <TextInput
                 label={t("plugins.add_label")}
-                placeholder="opencode-wakatime"
+                placeholder="输入插件包名"
                 value={extensions.pluginInput()}
                 onChange={(event) =>
                   extensions.setPluginInput(event.currentTarget.value)

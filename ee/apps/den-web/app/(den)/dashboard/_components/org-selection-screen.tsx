@@ -94,9 +94,9 @@ export function OrgSelectionScreen({
       >
         <div className="den-frame w-full p-6 md:p-8">
           <div className="mb-6 text-center">
-            <h1 className="den-title-lg">选择公司工作区</h1>
+            <h1 className="den-title-lg">选择公司</h1>
             <p className="mt-2 text-[13px] text-[var(--dls-text-secondary)]">
-              你已加入 {orgs.length} 个工作区。请选择一个继续。
+              你已加入 {orgs.length} 个公司。请选择一个继续。
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export function OrgSelectionScreen({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索工作区"
+              placeholder="搜索公司"
               className="den-input mb-3 px-3 py-2.5 text-[13px]"
             />
           ) : null}
@@ -145,7 +145,7 @@ export function OrgSelectionScreen({
 
           {filteredCount === 0 && query ? (
             <p className="mt-3 px-1 text-[13px] text-[var(--dls-text-secondary)]">
-              没有找到匹配的工作区。
+              没有找到匹配的公司。
             </p>
           ) : null}
 
@@ -178,7 +178,7 @@ export function OrgSelectionScreen({
               href="/organization"
               className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--dls-text-secondary)] transition-colors hover:text-[var(--dls-text-primary)] focus:outline-none focus:ring-4 focus:ring-slate-950/5"
             >
-              <Plus className="h-4 w-4" /> 创建或加入工作区
+              <Plus className="h-4 w-4" /> 创建或加入公司
             </Link>
             <button
               type="button"

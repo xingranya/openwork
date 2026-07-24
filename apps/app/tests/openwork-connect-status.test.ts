@@ -16,8 +16,8 @@ function maintenance(
           code: "cloud_mcp_unavailable",
           stage: "engine_delivery",
           retryable: false,
-          recommendedAction: "Run diagnostics",
-          message: "Connected service tools could not be verified.",
+          recommendedAction: "运行诊断",
+          message: "无法确认已连接的公司工具是否可用。",
         }
       : null,
     attempt: status === "retrying" ? 2 : 1,
@@ -25,10 +25,10 @@ function maintenance(
   };
 }
 
-describe("OpenWork Connect status", () => {
-  test("labels the diagnosed message as one possible issue for native tooltips", () => {
-    expect(openWorkConnectAttentionTitle("Connected service tools could not be verified."))
-      .toBe("One possible issue: Connected service tools could not be verified.");
+describe("公司连接状态", () => {
+  test("原生提示会把诊断结果标记为可能的问题", () => {
+    expect(openWorkConnectAttentionTitle("无法确认已连接的公司工具是否可用。"))
+      .toBe("可能的问题：无法确认已连接的公司工具是否可用。");
   });
 
   test("is hidden while signed out", () => {
@@ -38,28 +38,28 @@ describe("OpenWork Connect status", () => {
   test("maps the shared lifecycle to checking, ready, and needs attention", () => {
     expect(resolveOpenWorkConnectStatus(true, undefined)).toMatchObject({
       state: "checking",
-      label: "Checking",
+      label: "正在检查",
     });
     expect(resolveOpenWorkConnectStatus(true, maintenance("checking"))).toMatchObject({
       state: "checking",
-      label: "Checking",
+      label: "正在检查",
     });
     expect(resolveOpenWorkConnectStatus(true, maintenance("retrying"))).toMatchObject({
       state: "checking",
-      description: "Restoring connected service tools (2/3).",
+      description: "正在恢复公司工具（2/3）。",
     });
     expect(resolveOpenWorkConnectStatus(true, maintenance("ready"))).toMatchObject({
       state: "ready",
-      label: "Ready",
+      label: "已就绪",
     });
     expect(resolveOpenWorkConnectStatus(true, maintenance("failed"))).toEqual({
       state: "needs_attention",
-      label: "Needs attention",
-      description: "Connected service tools could not be verified.",
+      label: "需要处理",
+      description: "无法确认已连接的公司工具是否可用。",
     });
     expect(resolveOpenWorkConnectStatus(true, maintenance("skipped"))).toMatchObject({
       state: "needs_attention",
-      label: "Needs attention",
+      label: "需要处理",
     });
   });
 });

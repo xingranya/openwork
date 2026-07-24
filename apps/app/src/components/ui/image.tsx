@@ -141,7 +141,7 @@ export const Image = ({
               className="rounded-full border border-border bg-background/95 px-3 py-1 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
               onClick={() => setExpanded(true)}
             >
-              Show full image
+              查看完整图片
             </button>
           </div>
         ) : null}
@@ -152,7 +152,7 @@ export const Image = ({
           className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           onClick={() => setExpanded(false)}
         >
-          Show less
+          收起图片
         </button>
       ) : null}
     </div>

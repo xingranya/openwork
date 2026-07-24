@@ -19,12 +19,12 @@ export async function createOrganizationInstallLink(organizationId: string, rota
   );
 
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload, `Could not create install link (${response.status}).`));
+    throw new Error(getErrorMessage(payload, `无法创建安装链接（${response.status}）。`));
   }
 
   const installPageUrl = getInstallPageUrl(payload);
   if (!installPageUrl) {
-    throw new Error("The install link response was incomplete.");
+    throw new Error("安装链接返回的信息不完整。");
   }
 
   return installPageUrl;

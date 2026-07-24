@@ -302,15 +302,15 @@ export function getProviderApiBase(config: Record<string, unknown>): string | nu
 
 export function formatProviderTimestamp(value: string | null) {
   if (!value) {
-    return "Recently updated";
+    return "最近更新";
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "Recently updated";
+    return "最近更新";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("zh-CN", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -321,7 +321,7 @@ export function buildCustomProviderTemplate() {
   return JSON.stringify(
     {
       id: "custom-provider",
-      name: "Custom Provider",
+      name: "自定义模型服务",
       npm: "@ai-sdk/openai-compatible",
       env: ["CUSTOM_PROVIDER_API_KEY"],
       doc: "https://example.com/docs/models",
@@ -329,7 +329,7 @@ export function buildCustomProviderTemplate() {
       models: [
         {
           id: "custom-provider/example-model",
-          name: "Example Model",
+          name: "示例模型",
           attachment: false,
           reasoning: false,
           tool_call: true,
@@ -413,8 +413,7 @@ function asProbeResult(value: unknown): LlmProviderProbeResult | null {
 }
 
 /**
- * Probe an OpenAI-compatible endpoint through den-api: heals common URL
- * mistakes and returns the model ids the endpoint actually serves.
+ * 通过 Den API 探测 OpenAI 兼容接口，修正常见地址问题并返回实际模型 ID。
  */
 export async function requestLlmProviderTestConnection(input: {
   api: string;
@@ -428,11 +427,11 @@ export async function requestLlmProviderTestConnection(input: {
     timeoutMs,
   );
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload, `Endpoint test failed (${response.status}).`));
+    throw new Error(getErrorMessage(payload, `模型接口测试失败（${response.status}）。`));
   }
   const result = isRecord(payload) ? asProbeResult(payload.result) : null;
   if (!result) {
-    throw new Error("Endpoint test returned an unexpected response.");
+    throw new Error("模型接口测试返回了无法识别的数据。");
   }
   const verifications = isRecord(payload) && Array.isArray(payload.verifications)
     ? payload.verifications
@@ -445,7 +444,7 @@ export async function requestLlmProviderTestConnection(input: {
 export async function requestLlmProviderCatalog(orgId: string) {
   const { response, payload } = await requestJson(`/v1/llm-provider-catalog`, { method: "GET" }, 20000);
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload, `Failed to load the provider catalog (${response.status}).`));
+    throw new Error(getErrorMessage(payload, `加载模型服务目录失败（${response.status}）。`));
   }
 
   return isRecord(payload) && Array.isArray(payload.providers)
@@ -461,16 +460,16 @@ export async function requestLlmProviderCatalogDetail(orgId: string, providerId:
   );
 
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload, `Failed to load provider details (${response.status}).`));
+    throw new Error(getErrorMessage(payload, `加载模型服务详情失败（${response.status}）。`));
   }
 
   if (!isRecord(payload) || !payload.provider) {
-    throw new Error("Provider details were missing from the response.");
+    throw new Error("公司服务未返回模型服务详情。");
   }
 
   const detail = asCatalogProviderDetail(payload.provider);
   if (!detail) {
-    throw new Error("Provider details could not be parsed.");
+    throw new Error("无法读取模型服务详情。");
   }
 
   return detail;
@@ -488,7 +487,7 @@ export function useOrgLlmProviders(
   async function loadProviders() {
     if (!orgId) {
       setLlmProviders([]);
-      setError("Organization not found.");
+      setError("未找到当前公司。");
       return;
     }
 
@@ -501,7 +500,7 @@ export function useOrgLlmProviders(
         15000,
       );
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load providers (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `加载模型服务失败（${response.status}）。`));
       }
 
       const nextProviders = isRecord(payload) && Array.isArray(payload.llmProviders)
@@ -509,7 +508,7 @@ export function useOrgLlmProviders(
         : [];
       setLlmProviders(nextProviders);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load the provider library.");
+      setError(getErrorMessage(loadError instanceof Error ? loadError.message : null, "加载模型服务库失败。"));
     } finally {
       setBusy(false);
     }

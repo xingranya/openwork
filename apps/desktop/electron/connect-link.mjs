@@ -9,6 +9,11 @@ import { Buffer } from "node:buffer";
 import { createPublicKey, verify } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  FOXWORK_DEV_PROTOCOL_SCHEME,
+  FOXWORK_PROTOCOL_SCHEME,
+  FOXWORK_LEGACY_PROTOCOL_SCHEMES,
+} from "./foxwork-brand.mjs";
 
 const CONNECT_LINK_ALGORITHM = "EdDSA";
 const CONNECT_LINK_AUDIENCE = "openwork-desktop-connect";
@@ -19,6 +24,15 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const CONNECT_EXCHANGE_CODE_PATTERN = /^[A-Za-z0-9_-]{24,128}$/;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const REPLAY_GUARD_MAX_ENTRIES = 512;
+const DESKTOP_PROTOCOLS = new Set([
+  FOXWORK_PROTOCOL_SCHEME,
+  FOXWORK_DEV_PROTOCOL_SCHEME,
+  ...FOXWORK_LEGACY_PROTOCOL_SCHEMES,
+]);
+
+function isDesktopProtocol(protocol) {
+  return DESKTOP_PROTOCOLS.has(String(protocol ?? "").replace(/:$/, "").toLowerCase());
+}
 
 /**
  * @param {string} value
@@ -144,9 +158,8 @@ function normalizeClaims(payload) {
 }
 
 /**
- * Extracts the signed token from a connect deep link. Accepts the openwork
- * and openwork-dev schemes and both authority forms (openwork://connect and
- * openwork:///connect).
+ * 提取连接深链中的签名令牌。新发行使用 foxwork://；旧 openwork://
+ * 仅用于升级兼容，并同时支持两种地址形式。
  *
  * @param {string} rawUrl
  * @returns {string | null}
@@ -159,7 +172,7 @@ export function extractConnectLinkToken(rawUrl) {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "openwork:" && parsed.protocol !== "openwork-dev:") return null;
+  if (!isDesktopProtocol(parsed.protocol)) return null;
   const route = (parsed.hostname || parsed.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
   if (route !== CONNECT_LINK_ROUTE) return null;
   if (parsed.searchParams.has("code") || parsed.searchParams.has("apiBaseUrl")) return null;
@@ -179,7 +192,7 @@ export function extractConnectExchange(rawUrl) {
   } catch {
     return null;
   }
-  if (parsed.protocol !== "openwork:" && parsed.protocol !== "openwork-dev:") return null;
+  if (!isDesktopProtocol(parsed.protocol)) return null;
   const route = (parsed.hostname || parsed.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
   if (route !== CONNECT_LINK_ROUTE || parsed.searchParams.has("token")) return null;
   const code = parsed.searchParams.get("code")?.trim() ?? "";

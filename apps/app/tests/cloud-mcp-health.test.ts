@@ -335,7 +335,7 @@ describe("OpenWork Cloud MCP reconciler", () => {
       signedIn: true,
       orgSelected: true,
       health: health({ usable: false, failure: failure("provider_projection_missing") }),
-    })).toBe("Current model can’t use Cloud tools");
+    })).toBe("当前模型不能使用公司工具");
 
     const summary = cloudMcpDisplaySummary({
       signedIn: true,
@@ -343,8 +343,8 @@ describe("OpenWork Cloud MCP reconciler", () => {
       connecting: false,
       health: health({ usable: true, projectionChecked: false }),
     });
-    expect(summary.statusLabel).toBe("Ready");
-    expect(summary.recommendedAction).toContain("not checked");
+    expect(summary.statusLabel).toBe("已就绪");
+    expect(summary.recommendedAction).toContain("未检查模型权限");
   });
 
   test("missing desired config is degraded while explicit disabled config is disabled", () => {
@@ -364,8 +364,8 @@ describe("OpenWork Cloud MCP reconciler", () => {
       connecting: false,
       health: missingDesired,
     });
-    expect(missingSummary.statusLabel).toBe("Degraded");
-    expect(missingSummary.stageLabel).toBe("Couldn’t apply Cloud access to this workspace");
+    expect(missingSummary.statusLabel).toBe("需要处理");
+    expect(missingSummary.stageLabel).toBe("无法为当前工作区启用公司服务");
 
     const disabledSummary = cloudMcpDisplaySummary({
       signedIn: true,
@@ -379,6 +379,6 @@ describe("OpenWork Cloud MCP reconciler", () => {
         },
       },
     });
-    expect(disabledSummary.statusLabel).toBe("Disabled");
+    expect(disabledSummary.statusLabel).toBe("已关闭");
   });
 });

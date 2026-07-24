@@ -73,6 +73,8 @@ function failureOf(result) {
 }
 
 test("extracts only dedicated desktop connect links", () => {
+  assert.equal(extractConnectLinkToken("foxwork://connect?token=a.b.c"), "a.b.c");
+  assert.equal(extractConnectLinkToken("foxwork-dev://connect?token=a.b.c"), "a.b.c");
   assert.equal(extractConnectLinkToken("openwork://connect?token=a.b.c"), "a.b.c");
   assert.equal(extractConnectLinkToken("openwork-dev://connect?token=a.b.c"), "a.b.c");
   assert.equal(extractConnectLinkToken("openwork:///connect?token=a.b.c"), "a.b.c");

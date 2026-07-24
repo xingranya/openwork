@@ -21,14 +21,14 @@ describe("organization desktop version settings", () => {
 
     expect(source).toContain("requiresServerUpgrade");
     expect(source).toContain("disabled={!canManageDesktopVersions || requiresServerUpgrade}");
-    expect(source).toContain("Upgrade server to allow this version");
+    expect(source).toContain("升级公司服务后才能允许此版本");
   });
 
   test("allows workspace admins to save desktop version settings", () => {
     const source = readFileSync(settingsPath, "utf8");
 
     expect(source).toContain("const canManageDesktopVersions = access.isAdmin");
-    expect(source).toContain("Admins can change allowed desktop versions");
+    expect(source).toContain("管理员可以修改允许登录的 FoxWork 版本");
     expect(source).toContain("{access.isAdmin ? (");
   });
 });

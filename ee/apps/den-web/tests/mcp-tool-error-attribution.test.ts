@@ -41,10 +41,10 @@ describe("browser-to-Den timeout", () => {
     expect(error.timeoutMs).toBe(5);
     expect(error.outcome).toBe("unknown");
     expect(error.message).toBe(
-      "OpenWork stopped waiting after 5 milliseconds. The operation’s outcome is unknown.",
+      "等待 5 毫秒后仍未收到结果。操作可能已经执行，请刷新后确认。",
     );
     expect(new DenRequestTimeoutError(160_000).message).toBe(
-      "OpenWork stopped waiting after 160 seconds. The operation’s outcome is unknown.",
+      "等待 160 秒后仍未收到结果。操作可能已经执行，请刷新后确认。",
     );
   });
 
@@ -83,9 +83,9 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: "OpenWork sent the request, but the remote MCP did not respond before OpenWork’s deadline.",
-      lastConfirmedBoundary: "OpenWork started the outbound tools/call",
-      likelySource: "Network or remote MCP",
+      summary: "FoxWork 已发出请求，但远程 MCP 未在规定时间内响应。",
+      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      likelySource: "网络或远程 MCP",
       confidence: "Inferred",
       outcome: "unknown",
       diagnosticReference: "req_deadline",
@@ -102,9 +102,9 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: `The remote MCP returned HTTP ${status}.`,
-      lastConfirmedBoundary: `Remote MCP returned HTTP ${status}`,
-      likelySource: "Remote MCP",
+      summary: `远程 MCP 返回 HTTP ${status}。`,
+      lastConfirmedBoundary: `远程 MCP 已返回 HTTP ${status}`,
+      likelySource: "远程 MCP",
       confidence: "Confirmed",
       outcome: "failed",
     });
@@ -128,9 +128,9 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: "The remote MCP responded, but the downstream provider rejected the operation.",
-      lastConfirmedBoundary: "Remote MCP returned HTTP 200 with a tool error",
-      likelySource: "Downstream provider",
+      summary: "远程 MCP 已响应，但下游服务拒绝了本次操作。",
+      lastConfirmedBoundary: "远程 MCP 返回 HTTP 200 和工具错误",
+      likelySource: "下游服务",
       confidence: "Confirmed",
       providerRequestId: "provider-request-123",
     });
@@ -153,9 +153,9 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: "The remote MCP responded and requires user authorization for the downstream provider.",
-      lastConfirmedBoundary: "Remote MCP returned an authorization request",
-      likelySource: "Downstream provider authorization",
+      summary: "远程 MCP 已响应，但还需要登录下游服务账号。",
+      lastConfirmedBoundary: "远程 MCP 已返回账号授权要求",
+      likelySource: "下游服务账号尚未授权",
       confidence: "Confirmed",
       outcome: "failed",
       diagnosticReference: "req_provider_auth",
@@ -173,17 +173,16 @@ describe("MCP failure attribution", () => {
         retryable: false,
         actionOwner: "organization_admin",
       },
-      // The inspector captures before the SSRF guard, so this request record
-      // does not prove that anything left Den.
+      // 检查器在 SSRF 防护之前捕获请求，因此这条记录不能证明请求已经离开 Den。
       inspection: { request: {} },
       browserTimeout: null,
       mayHaveSideEffects: true,
     });
 
     expect(attribution).toMatchObject({
-      summary: "OpenWork blocked the request before it was sent.",
-      lastConfirmedBoundary: "OpenWork evaluated the outbound request",
-      likelySource: "OpenWork",
+      summary: "FoxWork 在请求发出前将其拦截。",
+      lastConfirmedBoundary: "FoxWork 已完成外发安全检查",
+      likelySource: "FoxWork 安全策略",
       confidence: "Confirmed",
       outcome: "failed",
     });
@@ -198,10 +197,10 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution.summary).toBe(
-      "OpenWork stopped waiting after 160 seconds. The operation’s outcome is unknown.",
+      "FoxWork 等待 160 秒后停止，本次操作结果尚未确认。",
     );
-    expect(attribution.retryGuidance).toContain("Do not retry immediately");
-    expect(attribution.retryGuidance).toContain("may have changed external data");
+    expect(attribution.retryGuidance).toContain("不要立即重试");
+    expect(attribution.retryGuidance).toContain("可能已经修改外部数据");
   });
 
   test("parses current diagnostics and falls back to wire evidence across deploy skew", () => {
@@ -253,7 +252,7 @@ describe("MCP failure attribution", () => {
       mayHaveSideEffects: false,
     });
     expect(attribution).toMatchObject({
-      summary: "The remote MCP returned HTTP 504.",
+      summary: "远程 MCP 返回 HTTP 504。",
       confidence: "Confirmed",
       providerRequestId: "wire-request-789",
     });

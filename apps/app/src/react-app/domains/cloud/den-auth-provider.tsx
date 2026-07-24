@@ -32,6 +32,7 @@ import {
   type DeepLinkBridgeDetail,
 } from "../../../app/lib/deep-link-bridge";
 import { parseDenAuthDeepLink } from "../../../app/lib/openwork-links";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 
 export type DenAuthStatus =
   | "checking"
@@ -148,11 +149,12 @@ export function DenAuthProvider({ children }: DenAuthProviderProps) {
         lastSignalRetryAtRef.current = null;
       }
 
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "Failed to restore OpenWork Cloud session.",
-      );
+      setError(toChineseUserMessage(
+        nextError,
+        failureStatus === "signed_out"
+          ? "登录已失效，请重新登录。"
+          : "暂时无法连接公司服务，FoxWork 会自动重试。",
+      ));
       updateStatus(failureStatus);
     }
   }, [updateStatus]);

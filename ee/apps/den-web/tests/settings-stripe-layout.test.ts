@@ -16,23 +16,23 @@ describe("Den settings destinations", () => {
     expect(shell).toContain('label: "Stripe 账单"');
   });
 
-  test("renders one truthful Stripe refresh surface with explicit loading and error states", () => {
+  test("账单页保留唯一刷新入口并明确显示加载和错误状态", () => {
     const billing = read("../app/(den)/dashboard/_components/billing-dashboard-screen.tsx");
-    const refreshLabels = billing.match(/>Refresh<\/DenButton>/g) ?? [];
+    const refreshLabels = billing.match(/>刷新<\/DenButton>/g) ?? [];
 
     expect(billing).toContain('data-testid="stripe-billing-screen"');
-    expect(billing).toContain('title="Stripe"');
-    expect(billing).toContain("Loading Stripe billing details...");
-    expect(billing).toContain("Stripe details could not be loaded");
-    expect(billing).toContain("per user per {seatBilling?.interval}");
+    expect(billing).toContain('title="Stripe 账单"');
+    expect(billing).toContain("正在加载 Stripe 账单详情...");
+    expect(billing).toContain("无法加载 Stripe 账单详情");
+    expect(billing).toContain("公司前 {seatBilling?.freeSeatCount} 位成员");
     expect(refreshLabels).toHaveLength(1);
   });
 
-  test("uses designed access transitions instead of bare redirect copy", () => {
+  test("无权限时使用完整状态页而不是裸跳转文案", () => {
     const accessLayout = read("../app/(den)/dashboard/(admin)/layout.tsx");
 
     expect(accessLayout).toContain('data-testid="admin-access-state"');
-    expect(accessLayout).toContain("Your workspace is ready");
-    expect(accessLayout).not.toContain("Redirecting to your dashboard...");
+    expect(accessLayout).toContain("公司服务已就绪");
+    expect(accessLayout).not.toContain("正在跳转到管理首页...");
   });
 });

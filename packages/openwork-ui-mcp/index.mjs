@@ -46,6 +46,9 @@ function userAppDataDir() {
 function discoveryPaths() {
   return [
     process.env.OPENWORK_UI_CONTROL_DISCOVERY?.trim(),
+    // FoxWork 新版路径优先；旧路径保留用于已有安装的平滑升级。
+    join(userAppDataDir(), "com.foxwork.desktop", DISCOVERY_FILE),
+    join(userAppDataDir(), "com.foxwork.desktop.dev", DISCOVERY_FILE),
     join(userAppDataDir(), "com.differentai.openwork", DISCOVERY_FILE),
     join(userAppDataDir(), "com.differentai.openwork.dev", DISCOVERY_FILE),
   ].filter(Boolean);

@@ -30,9 +30,9 @@ export function ProviderSelectionStep({
 
       <div className="relative z-10 w-full max-w-md px-6">
         <PageHeader className="mb-8 text-center">
-          <PageTitle>Power your first task</PageTitle>
+          <PageTitle>为第一个任务选择模型</PageTitle>
           <PageDescription>
-            Connect a model, then try a real task in chat so you can see OpenWork work.
+            连接模型后，即可在对话中开始处理实际工作。
           </PageDescription>
         </PageHeader>
 
@@ -46,10 +46,10 @@ export function ProviderSelectionStep({
               <SparklesIcon className="mt-0.5 size-5 shrink-0 text-blue-10" />
               <div>
                 <div className="text-sm font-medium text-foreground">
-                  Use OpenWork Models
+                  使用公司共享模型
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  Pay through OpenWork Cloud and skip API key setup.
+                  使用公司统一配置的模型，无需管理 API 密钥。
                 </div>
               </div>
             </button>
@@ -63,10 +63,10 @@ export function ProviderSelectionStep({
             <KeyRoundIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
             <div>
               <div className="text-sm font-medium text-foreground">
-                Bring your own API key
+                使用个人 API 密钥
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                Connect OpenAI, Anthropic, Google, or another provider, then run your first task.
+                连接 OpenAI、Anthropic、Google 或其他模型服务。
               </div>
             </div>
           </button>
@@ -74,7 +74,7 @@ export function ProviderSelectionStep({
           <div className="pt-1 text-center">
             <Button variant="ghost" size="sm" onClick={onSkip}>
               <SkipForwardIcon className="mr-1.5 size-3.5" />
-              Skip and use the free model
+              跳过，使用免费模型
             </Button>
           </div>
         </div>

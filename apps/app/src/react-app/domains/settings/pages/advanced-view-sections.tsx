@@ -331,32 +331,33 @@ function DiagnosticRow(props: { label: string; value: string }) {
 }
 
 function joinList(values: string[]): string {
-  return values.length ? values.join(", ") : "none";
+  return values.length ? values.join("、") : "无";
 }
 
 function formatMaybe(value: string | number | boolean | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "unknown";
+  if (value === null || value === undefined || value === "") return "未知";
+  if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
 }
 
 function formatMetadataRecord(value: Record<string, string | number | boolean | null> | null | undefined): string {
-  if (!value || Object.keys(value).length === 0) return "none";
-  return Object.entries(value).map(([key, nested]) => `${key}=${formatMaybe(nested)}`).join(", ");
+  if (!value || Object.keys(value).length === 0) return "无";
+  return Object.entries(value).map(([key, nested]) => `${key}=${formatMaybe(nested)}`).join("、");
 }
 
 function formatSupportedFeatures(features: OpenworkCloudMcpHealth["compatibility"]["supportedFeatures"]): string {
-  return Object.entries(features).map(([key, enabled]) => `${key}:${enabled ? "yes" : "no"}`).join(", ");
+  return Object.entries(features).map(([key, enabled]) => `${key}:${enabled ? "是" : "否"}`).join("、");
 }
 
 function formatPluginHashes(hashes: OpenworkCloudMcpHealth["compatibility"]["pluginFileHashes"]): string {
-  if (hashes.length === 0) return "none";
-  return hashes.map((hash) => `${hash.name}=${hash.sha256 ? hash.sha256.slice(0, 12) : `unavailable${hash.error ? ` (${hash.error})` : ""}`}`).join(", ");
+  if (hashes.length === 0) return "无";
+  return hashes.map((hash) => `${hash.name}=${hash.sha256 ? hash.sha256.slice(0, 12) : "不可用"}`).join("、");
 }
 
 function formatMcpToolExposure(input: { checked: boolean; includesMcpTools: boolean | null; present: string[]; missing: string[]; limitation?: string }): string {
-  if (!input.checked) return "not checked";
-  const includes = input.includesMcpTools === null ? "unknown" : input.includesMcpTools ? "yes" : "no";
-  return `includes MCP tools: ${includes}; present ${joinList(input.present)}; missing ${joinList(input.missing)}${input.limitation ? `; limitation: ${input.limitation}` : ""}`;
+  if (!input.checked) return "未检查";
+  const includes = input.includesMcpTools === null ? "未知" : input.includesMcpTools ? "是" : "否";
+  return `包含 MCP 工具：${includes}；已有：${joinList(input.present)}；缺少：${joinList(input.missing)}${input.limitation ? `；限制：${input.limitation}` : ""}`;
 }
 
 interface AdvancedCloudMcpDiagnosticsSectionProps {
@@ -384,31 +385,31 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
   const copy = async () => {
     const payload = JSON.stringify({ cloudMcpHealth: safeHealth }, null, 2);
     await navigator.clipboard.writeText(payload);
-    setCopyStatus("Copied sanitized Cloud diagnostic.");
+    setCopyStatus("已复制脱敏后的公司服务诊断信息。");
   };
 
   return (
     <LayoutSection>
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Agent access diagnostics</LayoutSectionTitle>
+        <LayoutSectionTitle>AI 服务权限诊断</LayoutSectionTitle>
         <LayoutSectionDescription>
-          Technical details for OpenWork Cloud MCP delivery. Tokens and Authorization headers are redacted before display or copy.
+          查看 FoxWork 公司 MCP 的下发详情。显示或复制前会移除令牌和 Authorization 请求头。
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>OpenWork Cloud MCP health</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>FoxWork 公司 MCP 运行状态</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Use this when support needs exact runtime state. The main Connect card stays user-facing.
+            用于排查具体运行状态；日常连接信息仍在“连接”页面查看。
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
               <RefreshCcw size={14} className={busy ? "animate-spin" : ""} />
-              Refresh
+              刷新
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void copy()} disabled={!props.cloudMcpHealth}>
-              Copy sanitized diagnostic
+              复制脱敏诊断信息
             </Button>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
@@ -417,37 +418,37 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
         {props.cloudMcpHealth ? (
           <div className="space-y-2 rounded-xl border border-gray-6 bg-gray-1/60 p-3">
             <div className="grid gap-2">
-              <DiagnosticRow label="Active workspace" value={`${props.cloudMcpHealth.workspace.id} (${props.cloudMcpHealth.workspace.directory ?? "no directory"})`} />
-              <DiagnosticRow label="Desired revision" value={props.cloudMcpHealth.desired.revision ?? "none"} />
-              <DiagnosticRow label="Applied revision" value={props.cloudMcpHealth.delivery.appliedRevision ?? "none"} />
-              <DiagnosticRow label="Delivery" value={`${props.cloudMcpHealth.delivery.state}${props.cloudMcpHealth.delivery.trigger ? ` / ${props.cloudMcpHealth.delivery.trigger}` : ""}`} />
-              <DiagnosticRow label="Engine status" value={props.cloudMcpHealth.engine.status} />
-              <DiagnosticRow label="Provider/model" value={projection?.checked ? `${projection.provider ?? "unknown"}/${projection.model ?? "unknown"}; source ${projection.source ?? "unknown"}; tool calling ${formatMaybe(projection.toolCalling)}; present ${joinList(projection.present)}; missing ${joinList(projection.missing)}${projection.limitation ? `; limitation: ${projection.limitation}` : ""}` : "not checked"} />
-              <DiagnosticRow label="Cloud tools" value={`derived present ${joinList(props.cloudMcpHealth.tools.present)}; missing ${joinList(props.cloudMcpHealth.tools.missing)}`} />
-              <DiagnosticRow label="Direct tools/list" value={`present ${joinList(props.cloudMcpHealth.tools.direct.present)}; missing ${joinList(props.cloudMcpHealth.tools.direct.missing)}`} />
-              <DiagnosticRow label="Plugin canaries" value={`present ${joinList(props.cloudMcpHealth.pluginCanaries.present)}; missing ${joinList(props.cloudMcpHealth.pluginCanaries.missing)}`} />
-              <DiagnosticRow label="Safe capabilities" value={`schema v${props.cloudMcpHealth.schemaVersion}; connect catalog ${props.cloudMcpHealth.connectCatalogEnabled ? "enabled" : "disabled"}`} />
+              <DiagnosticRow label="当前工作区" value={`${props.cloudMcpHealth.workspace.id}（${props.cloudMcpHealth.workspace.directory ?? "无目录"}）`} />
+              <DiagnosticRow label="目标版本" value={props.cloudMcpHealth.desired.revision ?? "无"} />
+              <DiagnosticRow label="已应用版本" value={props.cloudMcpHealth.delivery.appliedRevision ?? "无"} />
+              <DiagnosticRow label="下发状态" value={`${props.cloudMcpHealth.delivery.state}${props.cloudMcpHealth.delivery.trigger ? ` / ${props.cloudMcpHealth.delivery.trigger}` : ""}`} />
+              <DiagnosticRow label="引擎状态" value={props.cloudMcpHealth.engine.status} />
+              <DiagnosticRow label="模型服务 / 模型" value={projection?.checked ? `${projection.provider ?? "未知"}/${projection.model ?? "未知"}；来源：${projection.source ?? "未知"}；工具调用：${formatMaybe(projection.toolCalling)}；已有：${joinList(projection.present)}；缺少：${joinList(projection.missing)}${projection.limitation ? `；限制：${projection.limitation}` : ""}` : "未检查"} />
+              <DiagnosticRow label="公司工具" value={`已派生：${joinList(props.cloudMcpHealth.tools.present)}；缺少：${joinList(props.cloudMcpHealth.tools.missing)}`} />
+              <DiagnosticRow label="直接工具列表" value={`已有：${joinList(props.cloudMcpHealth.tools.direct.present)}；缺少：${joinList(props.cloudMcpHealth.tools.direct.missing)}`} />
+              <DiagnosticRow label="插件探针" value={`已有：${joinList(props.cloudMcpHealth.pluginCanaries.present)}；缺少：${joinList(props.cloudMcpHealth.pluginCanaries.missing)}`} />
+              <DiagnosticRow label="受控能力" value={`Schema v${props.cloudMcpHealth.schemaVersion}；连接目录：${props.cloudMcpHealth.connectCatalogEnabled ? "已启用" : "已关闭"}`} />
               {compatibility ? (
                 <>
-                  <DiagnosticRow label="OpenWork versions" value={`server ${formatMaybe(compatibility.openwork.serverVersion)}; app ${formatMetadataRecord(compatibility.openwork.app)}`} />
-                  <DiagnosticRow label="OpenCode compatibility" value={`expected ${formatMaybe(compatibility.opencode.expectedVersion)}; actual ${formatMaybe(compatibility.opencode.actualVersion)}; probe ${compatibility.opencode.probe}`} />
-                  <DiagnosticRow label="Feature probes" value={formatSupportedFeatures(compatibility.supportedFeatures)} />
-                  <DiagnosticRow label="Experimental tool IDs" value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
-                  <DiagnosticRow label="Experimental provider tools" value={formatMcpToolExposure(compatibility.experimentalProviderTools)} />
-                  <DiagnosticRow label="Plugin hashes" value={formatPluginHashes(compatibility.pluginFileHashes)} />
+                  <DiagnosticRow label="FoxWork 版本" value={`服务端：${formatMaybe(compatibility.openwork.serverVersion)}；应用：${formatMetadataRecord(compatibility.openwork.app)}`} />
+                  <DiagnosticRow label="OpenCode 兼容性" value={`预期：${formatMaybe(compatibility.opencode.expectedVersion)}；实际：${formatMaybe(compatibility.opencode.actualVersion)}；探测：${compatibility.opencode.probe}`} />
+                  <DiagnosticRow label="功能探针" value={formatSupportedFeatures(compatibility.supportedFeatures)} />
+                  <DiagnosticRow label="实验工具 ID" value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
+                  <DiagnosticRow label="实验模型服务工具" value={formatMcpToolExposure(compatibility.experimentalProviderTools)} />
+                  <DiagnosticRow label="插件哈希" value={formatPluginHashes(compatibility.pluginFileHashes)} />
                 </>
               ) : null}
-              <DiagnosticRow label="Live verification" value={props.cloudMcpHealth.checkedAt} />
+              <DiagnosticRow label="实时检查时间" value={props.cloudMcpHealth.checkedAt} />
             </div>
             <details className="rounded-lg bg-gray-3 p-2">
-              <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show sanitized health JSON</summary>
+              <summary className="cursor-pointer text-[11px] font-medium text-gray-11">显示脱敏后的运行状态 JSON</summary>
               <pre className="mt-2 max-h-72 overflow-auto font-mono text-[11px] text-gray-11">
                 {JSON.stringify(safeHealth, null, 2)}
               </pre>
             </details>
           </div>
         ) : (
-          <SettingsNotice>No Cloud MCP health has been loaded for this workspace yet.</SettingsNotice>
+          <SettingsNotice>尚未加载当前工作区的公司 MCP 运行状态。</SettingsNotice>
         )}
       </LayoutSectionItem>
     </LayoutSection>
@@ -467,7 +468,7 @@ interface AdvancedRuntimeMigrationSectionProps {
 }
 
 function formatKeys(keys: string[]) {
-  return keys.length ? keys.join(", ") : "none";
+  return keys.length ? keys.join("、") : "无";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -503,29 +504,29 @@ function RuntimeConfigSummary(props: { config: Record<string, unknown> }) {
   const mcps = countRecord(config.mcp);
   const permissions = countRecord(config.permission);
   const disabledProviders = countArray(config.disabled_providers);
-  const defaultAgent = typeof config.default_agent === "string" ? config.default_agent : "not set";
+  const defaultAgent = typeof config.default_agent === "string" ? config.default_agent : "未设置";
 
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Default agent</div>
+        <div className="text-[10px] tracking-wide text-gray-8">默认 Agent</div>
         <div className="mt-1 truncate font-mono text-[11px] text-gray-12" title={defaultAgent}>{defaultAgent}</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Providers / models</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{providers} providers, {models} models</div>
+        <div className="text-[10px] tracking-wide text-gray-8">模型服务 / 模型</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{providers} 个服务，{models} 个模型</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Agents / plugins</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{agents} agents, {plugins} plugins</div>
+        <div className="text-[10px] tracking-wide text-gray-8">Agents / 插件</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{agents} 个 Agent，{plugins} 个插件</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">MCP / permissions</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{mcps} MCPs, {permissions} permission keys</div>
+        <div className="text-[10px] tracking-wide text-gray-8">MCP / 权限</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{mcps} 个 MCP，{permissions} 个权限项</div>
       </div>
       {disabledProviders ? (
         <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2 sm:col-span-2 lg:col-span-4">
-          <div className="text-[10px] uppercase tracking-wide text-gray-8">Disabled providers</div>
+          <div className="text-[10px] tracking-wide text-gray-8">已停用的模型服务</div>
           <div className="mt-1 font-mono text-[11px] text-gray-12">{disabledProviders}</div>
         </div>
       ) : null}
@@ -548,12 +549,12 @@ function RuntimeConfigSourceBlock(props: {
         <div className="font-medium text-gray-12">{props.title}</div>
         <div className="text-[11px] text-gray-9">{props.description}</div>
         {props.path ? <div className="mt-1 break-all font-mono text-[11px] text-gray-8">{props.path}</div> : null}
-        {props.exists !== undefined ? <div className="text-[11px] text-gray-9">{props.exists ? "Found" : "Not found"}</div> : null}
-        <div className="text-[11px] text-gray-9">Keys: {formatKeys(props.keys)}</div>
+        {props.exists !== undefined ? <div className="text-[11px] text-gray-9">{props.exists ? "已找到" : "未找到"}</div> : null}
+        <div className="text-[11px] text-gray-9">配置项：{formatKeys(props.keys)}</div>
       </div>
       <RuntimeConfigSummary config={safeConfig} />
       <details className="rounded-lg bg-gray-3 p-2">
-        <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show raw JSON</summary>
+        <summary className="cursor-pointer text-[11px] font-medium text-gray-11">显示原始 JSON</summary>
         <pre className="mt-2 max-h-56 overflow-auto font-mono text-[11px] text-gray-11">
           {JSON.stringify(safeConfig, null, 2)}
         </pre>
@@ -570,17 +571,17 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
   return (
     <LayoutSection>
       <LayoutSectionHeader>
-        <LayoutSectionTitle>OpenCode config sources</LayoutSectionTitle>
+        <LayoutSectionTitle>OpenCode 配置来源</LayoutSectionTitle>
         <LayoutSectionDescription>
-          Inspect what OpenWork controls at runtime versus what belongs to your workspace config. This works through the OpenWork server and does not require the OpenCode engine to be healthy.
+          检查由 FoxWork 管理的运行时配置和工作区自有配置。此功能通过 FoxWork 服务运行，不要求 OpenCode 引擎处于正常状态。
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Move OpenWork-managed config</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>迁移 FoxWork 管理的配置</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Moves older OpenWork-owned runtime keys from `.opencode/openwork.json` and safe OpenWork-managed keys from `opencode.jsonc` into the runtime database.
+            将 `.opencode/openwork.json` 中的旧运行时配置，以及 `opencode.jsonc` 中可安全迁移的 FoxWork 配置移入运行时数据库。
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button
@@ -591,7 +592,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
               disabled={props.busy || props.configStatusBusy || !props.canMigrate}
             >
               <RefreshCcw size={14} className={props.configStatusBusy ? "animate-spin" : ""} />
-              Refresh
+              刷新
             </Button>
             <Button
               type="button"
@@ -601,7 +602,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
               disabled={props.busy || props.migrationBusy || !props.canMigrate}
             >
               <Database size={14} />
-              {props.migrationBusy ? "Migrating..." : "Migrate"}
+              {props.migrationBusy ? "正在迁移…" : "迁移"}
             </Button>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
@@ -610,13 +611,13 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
         {props.configStatus ? (
           <div className="space-y-3 rounded-xl border border-gray-6 bg-gray-1/60 p-3 text-xs text-gray-10">
             <div className="space-y-2 rounded-xl border border-blue-6/50 bg-blue-2/40 p-3">
-              <div className="font-medium text-gray-12">Desired OpenWork runtime config</div>
+              <div className="font-medium text-gray-12">FoxWork 目标运行时配置</div>
               <div className="text-[11px] text-gray-9">
-                This is the OpenWork-built config object requested for the runtime database and injected safely by the server. Sensitive headers are redacted here.
+                此配置由 FoxWork 生成，写入运行时数据库后由服务端安全注入。敏感请求头会在此处脱敏。
               </div>
               <RuntimeConfigSummary config={effectiveRuntimeConfig ?? {}} />
               <details className="rounded-lg bg-gray-3 p-2">
-                <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show desired JSON</summary>
+                <summary className="cursor-pointer text-[11px] font-medium text-gray-11">显示目标 JSON</summary>
                 <pre className="mt-2 max-h-72 overflow-auto font-mono text-[11px] text-gray-11">
                   {JSON.stringify(effectiveRuntimeConfig, null, 2)}
                 </pre>
@@ -625,62 +626,62 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
             {props.configStatus.sources ? (
               <div className="space-y-3">
                 <div>
-                  <div className="font-medium text-gray-12">OpenCode source breakdown</div>
+                  <div className="font-medium text-gray-12">OpenCode 配置来源明细</div>
                   <div className="text-[11px] text-gray-9">
-                    OpenCode also reads its own project and global config files. OpenWork injects the runtime config separately; for OpenWork-managed keys, the injected config is the source to inspect.
+                    OpenCode 也会读取项目和全局配置文件。FoxWork 会单独注入运行时配置；排查 FoxWork 管理项时，应以注入配置为准。
                   </div>
                 </div>
                 <RuntimeConfigSourceBlock
-                  title="Project opencode config"
-                  description="Workspace-level OpenCode config owned by the user/project."
+                  title="项目 OpenCode 配置"
+                  description="由员工或项目维护的工作区级 OpenCode 配置。"
                   path={props.configStatus.sources.projectOpencode.path}
                   exists={props.configStatus.sources.projectOpencode.exists}
                   keys={props.configStatus.sources.projectOpencode.keys}
                   config={props.configStatus.sources.projectOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="Global opencode config"
-                  description="User-level OpenCode config under ~/.config/opencode."
+                  title="全局 OpenCode 配置"
+                  description="位于 ~/.config/opencode 的员工级 OpenCode 配置。"
                   path={props.configStatus.sources.globalOpencode.path}
                   exists={props.configStatus.sources.globalOpencode.exists}
                   keys={props.configStatus.sources.globalOpencode.keys}
                   config={props.configStatus.sources.globalOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="OpenWork runtime DB"
-                  description="OpenWork-managed runtime values stored outside workspace files."
+                  title="FoxWork 运行时数据库"
+                  description="保存在工作区文件之外、由 FoxWork 管理的运行时配置。"
                   keys={props.configStatus.sources.runtimeDatabase.keys}
                   config={props.configStatus.sources.runtimeDatabase.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="OpenWork injected config"
-                  description="The object OpenWork injects into OpenCode at runtime."
+                  title="FoxWork 注入配置"
+                  description="FoxWork 运行时注入 OpenCode 的配置对象。"
                   keys={props.configStatus.sources.injected.keys}
                   config={props.configStatus.sources.injected.config}
                 />
               </div>
             ) : null}
             <div>
-              <div className="font-medium text-gray-12">Runtime database</div>
-              <div>Stored keys: {formatKeys(props.configStatus.runtimeKeys)}</div>
+              <div className="font-medium text-gray-12">运行时数据库</div>
+              <div>已存配置项：{formatKeys(props.configStatus.runtimeKeys)}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">Legacy OpenWork metadata</div>
+              <div className="font-medium text-gray-12">旧版 FoxWork 元数据</div>
               <div className="break-all">{props.configStatus.legacyOpenwork.path}</div>
               {props.configStatus.legacyOpenwork.error ? (
-                <div className="text-amber-11">{props.configStatus.legacyOpenwork.error}; fix this file before moving legacy config.</div>
+                <div className="text-amber-11">旧配置文件存在错误，请先修复后再迁移。</div>
               ) : null}
-              <div>Migratable keys: {formatKeys(props.configStatus.legacyOpenwork.keys)}</div>
+              <div>可迁移配置项：{formatKeys(props.configStatus.legacyOpenwork.keys)}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">User opencode.jsonc</div>
+              <div className="font-medium text-gray-12">员工的 opencode.jsonc</div>
               <div className="break-all">{props.configStatus.userOpencode.path}</div>
-              <div>{props.configStatus.userOpencode.exists ? "Found" : "Not found"}</div>
-              <div>User-owned keys: {formatKeys(props.configStatus.userOpencode.keys)}</div>
-              <div>Migratable keys: {formatKeys(props.configStatus.userOpencode.migratableKeys)}</div>
+              <div>{props.configStatus.userOpencode.exists ? "已找到" : "未找到"}</div>
+              <div>员工自有配置项：{formatKeys(props.configStatus.userOpencode.keys)}</div>
+              <div>可迁移配置项：{formatKeys(props.configStatus.userOpencode.migratableKeys)}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">Runtime DB JSON</div>
+              <div className="font-medium text-gray-12">运行时数据库 JSON</div>
               <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-gray-3 p-2 font-mono text-[11px] text-gray-11">
                 {JSON.stringify(runtimeConfig, null, 2)}
               </pre>
@@ -741,19 +742,19 @@ export function AdvancedFeatureFlagsSection(props: AdvancedFeatureFlagsSectionPr
   return (
     <LayoutSection>
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Feature flags</LayoutSectionTitle>
-        <LayoutSectionDescription>Experimental controls for sandbox and workspace behaviors.</LayoutSectionDescription>
+        <LayoutSectionTitle>实验功能</LayoutSectionTitle>
+        <LayoutSectionDescription>控制沙箱和工作区的实验行为。</LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Create Sandbox uses microsandbox image</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>创建沙箱时使用 microsandbox 镜像</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            When enabled, Create Sandbox launches the detached worker with the microsandbox image flow instead of the default Docker image flow.
+            启用后，“创建沙箱”会使用 microsandbox 镜像启动独立 Worker，而不使用默认 Docker 镜像流程。
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
-              aria-label="Create Sandbox uses microsandbox image"
+              aria-label="创建沙箱时使用 microsandbox 镜像"
               checked={props.microsandboxCreateSandboxEnabled}
               disabled={props.busy || !isDesktopRuntime()}
               onCheckedChange={props.onToggleMicrosandboxCreateSandbox}
@@ -827,7 +828,7 @@ export function AdvancedDeveloperSection(props: AdvancedDeveloperSectionProps) {
                   value={props.deepLinkInput}
                   onChange={(event) => props.onDeepLinkInput(event.currentTarget.value)}
                   rows={3}
-                  placeholder="openwork://..."
+                  placeholder="foxwork://...（仅供调试）"
                   className="font-mono text-xs"
                 />
               </Field>

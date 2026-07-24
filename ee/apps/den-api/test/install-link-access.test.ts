@@ -460,7 +460,7 @@ test("zero-config install config mints a short-lived exchange without storing th
 
   expect(response.status).toBe(200)
   const body = await response.json()
-  expect(body.connectUrl).toStartWith("openwork://connect?code=")
+  expect(body.connectUrl).toStartWith("foxwork://connect?code=")
   expect(body.requireSignin).toBe(true)
   expect(Date.parse(body.connectExpiresAt)).toBeGreaterThan(Date.now())
 
@@ -549,7 +549,7 @@ test("install config includes a fresh signed organization handoff while preservi
 
   expect(response.status).toBe(200)
   const body = await response.json()
-  expect(body.connectUrl).toStartWith("openwork://connect?token=")
+  expect(body.connectUrl).toStartWith("foxwork://connect?token=")
   expect(body.requireSignin).toBe(true)
 
   const token = new URL(body.connectUrl).searchParams.get("token") ?? ""

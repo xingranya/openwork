@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { DenButton } from "../../_components/ui/button";
+import { getErrorMessage } from "../../_lib/den-flow";
 import { createOrganizationInstallLink } from "../../_lib/install-link-data";
 
 export function OrganizationDownloadCard({
@@ -22,7 +23,7 @@ export function OrganizationDownloadCard({
       const installPageUrl = await createOrganizationInstallLink(organizationId);
       window.location.assign(installPageUrl);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Could not open the workspace download.");
+      setError(getErrorMessage(downloadError instanceof Error ? downloadError.message : null, "无法打开工作区下载页面。"));
       setBusy(false);
     }
   }
@@ -36,10 +37,10 @@ export function OrganizationDownloadCard({
         <div>
           <div className="flex items-center gap-2.5">
             <Download className="h-5 w-5 text-[#07192C]/70" aria-hidden="true" />
-            <h2 className="text-[16px] font-semibold text-[#07192C]">Download OpenWork for {organizationName}</h2>
+            <h2 className="text-[16px] font-semibold text-[#07192C]">下载 {organizationName} 专用 FoxWork</h2>
           </div>
           <p className="mt-2 max-w-[620px] text-[13px] leading-[1.6] text-[#5A6886]">
-            Download the standard app, then connect it to this workspace and sign in.
+            下载公司客户端，安装后登录即可连接当前工作区。
           </p>
           {error ? (
             <p className="mt-3 text-[13px] text-red-600" role="alert">
@@ -54,7 +55,7 @@ export function OrganizationDownloadCard({
           loading={busy}
           onClick={() => void handleDownload()}
         >
-          Download for this workspace
+          下载公司客户端
         </DenButton>
       </div>
     </section>

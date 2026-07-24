@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollAreaViewport } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { OrganizationServerAffordance } from "../settings/cloud/organization-server-affordance";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 
 interface BrandIconProps {
   slug: string;
@@ -36,33 +37,33 @@ function BrandIcon({ slug, className }: BrandIconProps) {
 const capabilities = [
   {
     slug: "googlesheets",
-    title: "Edit spreadsheets",
-    desc: "Create, clean, and transform CSV and Excel files.",
+    title: "处理表格",
+    desc: "创建、清理和转换 CSV、Excel 文件。",
   },
   {
     slug: "semanticweb",
-    title: "Control your browser",
-    desc: "Automate the built-in browser for repetitive web tasks.",
+    title: "操作浏览器",
+    desc: "自动完成重复的网页操作。",
   },
   {
     slug: "apple",
-    title: "Organize files",
-    desc: "Read, write, and manage files and folders.",
+    title: "整理文件",
+    desc: "读取、写入和管理文件与文件夹。",
   },
   {
     slug: "zapier",
-    title: "Automate tasks",
-    desc: "Build reusable workflows with skills and commands.",
+    title: "自动执行任务",
+    desc: "通过技能和命令复用工作流程。",
   },
   {
     slug: "medium",
-    title: "Generate content",
-    desc: "Draft documents, emails, and reports.",
+    title: "生成内容",
+    desc: "起草文档、邮件和报告。",
   },
   {
     slug: "stripe",
-    title: "Connect to APIs",
-    desc: "Plug into external services and tools via MCP.",
+    title: "连接业务系统",
+    desc: "通过 MCP 使用公司服务和工具。",
   },
 ];
 
@@ -71,9 +72,9 @@ function ShowcasePanel() {
     <div className="flex flex-col gap-5">
       <div>
         <h2 className="text-lg font-semibold tracking-[-0.01em] text-foreground">
-          Your computer,
+          你的电脑，
           <br />
-          but it works for you.
+          交给 AI 协助
         </h2>
       </div>
 
@@ -96,10 +97,10 @@ function ShowcasePanel() {
             <ShareIcon className="size-4 shrink-0 text-muted-foreground" />
             <div className="flex flex-col gap-1.5">
               <div className="text-sm font-medium text-foreground">
-              Shared extensions
+              公司能力
               </div>
               <div className="text-xs leading-snug text-muted-foreground">
-              Share approved skills, MCPs, and plugins with your organization.
+              使用公司批准的技能、MCP 和插件。
               </div>
             </div>
           </div>
@@ -107,10 +108,10 @@ function ShowcasePanel() {
           <UserGroupIcon className="size-4 shrink-0 text-muted-foreground" />
           <div className="flex flex-col gap-1.5">
             <div className="text-sm font-medium text-foreground">
-              Provision your team
+              团队协作
             </div>
             <div className="text-xs leading-snug text-muted-foreground">
-              Manage workspaces, models, and permissions.
+              统一管理工作区、模型和权限。
             </div>
           </div>
         </div>
@@ -192,17 +193,17 @@ export function WelcomePage({
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      Get started
+                      开始使用
                     </h2>
                   </div>
-                  <OnboardingStep number="1" title="Pick a folder">
-                    Choose any folder on your machine to get started.
+                  <OnboardingStep number="1" title="选择文件夹">
+                    选择电脑上的任意文件夹作为工作区。
                   </OnboardingStep>
-                  <OnboardingStep number="2" title="Chat">
-                    Describe what you need. OpenWork handles the rest.
+                  <OnboardingStep number="2" title="开始对话">
+                    说清楚要处理的事情，FoxWork 会协助完成。
                   </OnboardingStep>
-                  <OnboardingStep number="3" title="Interact">
-                    Review results, approve actions, and iterate.
+                  <OnboardingStep number="3" title="确认结果">
+                    检查结果、批准操作，再继续调整。
                   </OnboardingStep>
                 </div>
 
@@ -217,7 +218,9 @@ export function WelcomePage({
                   </Button>
                   <OrganizationServerAffordance
                     busy={organizationServerBusy}
-                    error={organizationServerError}
+                    error={organizationServerError
+                      ? toChineseUserMessage(organizationServerError, "无法连接公司服务器，请检查地址后重试。")
+                      : null}
                     onSave={onOrganizationServerSave}
                     url={organizationServerUrl}
                   />
@@ -233,12 +236,14 @@ export function WelcomePage({
                     </Button>
                   ) : null}
                   {error ? (
-                    <p className="text-center text-xs text-destructive">{error}</p>
+                    <p className="text-center text-xs text-destructive">
+                      {toChineseUserMessage(error, "无法创建工作区，请稍后重试。")}
+                    </p>
                   ) : null}
                   {showManualFolder ? (
                     <div className="rounded-xl border border-dashed border-border p-3">
                       <label className="grid gap-2 text-xs font-medium text-muted-foreground">
-                        Daytona folder path
+                        Daytona 文件夹路径
                         <input
                           className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal text-foreground outline-none focus:border-ring"
                           value={manualFolder ?? ""}
@@ -252,7 +257,7 @@ export function WelcomePage({
                         onClick={onUseManualFolder}
                         disabled={busy || !manualFolder?.trim()}
                       >
-                        Use this folder
+                        使用此文件夹
                       </Button>
                     </div>
                   ) : null}

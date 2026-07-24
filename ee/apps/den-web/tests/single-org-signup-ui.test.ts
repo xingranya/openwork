@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { isSingleOrgSignupDisabled, resolveVisibleAuthMode } from "../app/(den)/_lib/auth-ui-policy";
 import { EMPTY_RUNTIME_CONFIG, type DenWebRuntimeConfig } from "../app/(den)/_lib/runtime-config";
 import { GET } from "../app/api/runtime-config/route";
@@ -7,7 +9,17 @@ const originalEnv = {
   DEN_API_BASE: process.env.DEN_API_BASE,
   DEN_ORG_MODE: process.env.DEN_ORG_MODE,
   DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP: process.env.DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP,
+  DEN_EMAIL_RECOVERY_ENABLED: process.env.DEN_EMAIL_RECOVERY_ENABLED,
 };
+
+const organizationScreenSource = readFileSync(
+  fileURLToPath(new URL("../app/(den)/_components/organization-screen.tsx", import.meta.url)),
+  "utf8",
+);
+const dashboardProviderSource = readFileSync(
+  fileURLToPath(new URL("../app/(den)/dashboard/_providers/org-dashboard-provider.tsx", import.meta.url)),
+  "utf8",
+);
 
 function restoreEnvValue(name: keyof typeof originalEnv) {
   const value = originalEnv[name];
@@ -30,6 +42,7 @@ afterEach(() => {
   restoreEnvValue("DEN_API_BASE");
   restoreEnvValue("DEN_ORG_MODE");
   restoreEnvValue("DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP");
+  restoreEnvValue("DEN_EMAIL_RECOVERY_ENABLED");
 });
 
 describe("single-org public signup UI policy", () => {
@@ -41,6 +54,7 @@ describe("single-org public signup UI policy", () => {
     const payload: unknown = await (await GET()).json();
 
     expect(readBooleanProperty(payload, "singleOrgAllowPublicSignup")).toBe(false);
+    expect(readBooleanProperty(payload, "emailRecoveryEnabled")).toBe(false);
   });
 
   test("runtime config parses Helm string public-signup values", async () => {
@@ -51,6 +65,16 @@ describe("single-org public signup UI policy", () => {
     const payload: unknown = await (await GET()).json();
 
     expect(readBooleanProperty(payload, "singleOrgAllowPublicSignup")).toBe(true);
+  });
+
+  test("邮件找回只有显式启用后才会开放", async () => {
+    delete process.env.DEN_API_BASE;
+    process.env.DEN_ORG_MODE = "single_org";
+    process.env.DEN_EMAIL_RECOVERY_ENABLED = "true";
+
+    const payload: unknown = await (await GET()).json();
+
+    expect(readBooleanProperty(payload, "emailRecoveryEnabled")).toBe(true);
   });
 
   test("private single-org UI resolves sign-up requests to sign-in", () => {
@@ -91,5 +115,15 @@ describe("single-org public signup UI policy", () => {
       runtimeConfig: multiOrgConfig,
       runtimeConfigLoaded: true,
     })).toBe("sign-up");
+  });
+
+  test("已有公司成员关系时不再展示第二公司入口", () => {
+    expect(organizationScreenSource).toContain(
+      "const showDirectCreateFlow = !isSingleOrgMode && orgs.length === 0",
+    );
+    expect(dashboardProviderSource).toContain(
+      "!isSingleOrgMode &&",
+    );
+    expect(organizationScreenSource).toContain("当前账号只能加入这一家公司。");
   });
 });

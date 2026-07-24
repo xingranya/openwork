@@ -41,7 +41,7 @@ describe("join organization invite clean layout contract", () => {
     expect(source).toContain('data-shader-speed={shaderSpeed}');
   });
 
-  test("removes stacked frames while keeping a compact centered hierarchy", () => {
+  test("移除嵌套框架并保留紧凑的居中层级", () => {
     const source = readJoinOrgScreenSource();
 
     expect(source).not.toContain("den-frame");
@@ -51,32 +51,32 @@ describe("join organization invite clean layout contract", () => {
     expect(source).toContain('data-testid="join-org-invitation-details"');
     expect(source).toContain('data-testid="join-org-actions"');
     expect(source).toContain('data-testid="join-org-auth"');
-    expect(source).toContain("Organization");
-    expect(source).toContain("Invited email");
-    expect(source).toContain("Role");
-    expect(source).toContain("Account");
+    expect(source).toContain('<DetailRow label="公司">');
+    expect(source).toContain('<DetailRow label="受邀邮箱">');
+    expect(source).toContain('<DetailRow label="角色">');
+    expect(source).toContain('<DetailRow label="当前账号">');
     expect(source).not.toMatch(/\binviter\b/i);
   });
 
-  test("uses bare invite auth and a non-destructive Not now dismissal", () => {
+  test("使用简洁邀请登录和不改变邀请状态的暂不处理操作", () => {
     const source = readJoinOrgScreenSource();
 
     expect(source).toMatch(/<AuthPanel[\s\S]*?\bbare\b/);
     expect(source).toMatch(/<AuthPanel[\s\S]*?\blockEmail\b/);
     expect(source).toMatch(/<AuthPanel[\s\S]*?\bhideEmailField\b/);
     expect(source).toMatch(/<AuthPanel[\s\S]*?\bhideLockedEmailSummary\b/);
-    expect(source).toContain('title: "Create your account."');
-    expect(source).toContain('title: "Sign in to continue."');
+    expect(source).toContain('title: "创建公司账号"');
+    expect(source).toContain('title: "登录后继续"');
     expect(source).not.toContain("title: `Join ${preview.organization.name}.`");
-    expect(source).toContain("Not now");
+    expect(source).toContain("暂不处理");
     expect(source).toContain("function handleNotNow()");
     expect(source).toContain("window.sessionStorage.removeItem(PENDING_ORG_INVITATION_STORAGE_KEY);");
     expect(source).toContain('router.replace("/");');
-    expect(source).not.toContain("Decline invitation");
-    expect(source).not.toContain("Cancel invitation");
+    expect(source).not.toContain("拒绝邀请");
+    expect(source).not.toContain("取消邀请");
   });
 
-  test("preserves invitation preview, account switching, status, and accept behavior", () => {
+  test("保留邀请预览、账号切换、状态和接受行为", () => {
     const source = readJoinOrgScreenSource();
 
     expect(source).toContain("/v1/orgs/invitations/preview?id=");
@@ -86,10 +86,10 @@ describe("join organization invite clean layout contract", () => {
     expect(source).toContain("statusMessage(preview)");
     expect(source).toContain("handleSwitchAccount");
     expect(source).toContain("window.sessionStorage.setItem(PENDING_ORG_INVITATION_STORAGE_KEY, invitationId);");
-    expect(source).toContain("This invite needs a different email domain.");
-    expect(source).toContain("This invite is for");
-    expect(source).toContain("Use a different account");
-    expect(source).toContain("Log out");
-    expect(source).toContain("Join ${preview.organization.name}");
+    expect(source).toContain("请使用公司允许的邮箱");
+    expect(source).toContain("这份邀请发给了");
+    expect(source).toContain("切换账号");
+    expect(source).toContain("退出登录");
+    expect(source).toContain("加入 ${preview.organization.name}");
   });
 });

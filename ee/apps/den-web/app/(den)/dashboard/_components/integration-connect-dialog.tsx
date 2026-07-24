@@ -23,29 +23,22 @@ import {
 } from "./integration-data";
 
 /**
- * IntegrationConnectDialog
+ * 集成服务连接弹窗。
  *
- * Walks the user through a realistic OAuth-style connect flow entirely in-app:
- *   1. authorize        — eyebrow scopes + "Authorize" button (mocks the IdP redirect)
- *   2. select_account   — pick a personal account or an org/workspace
- *   3. select_repos     — pick one or more repos to expose
- *   4. connecting       — spinner while the mutation resolves
- *   5. connected        — success card with a "Done" CTA
- *
- * No real redirect to GitHub/Bitbucket — the "Authorize" step just advances
- * the wizard. All progress is stateful client-side so the walkthrough feels
- * real and the final React Query cache ends up in a correct state.
+ * 在应用内依次完成授权、选择账号、选择代码仓库、连接和结果确认。
+ * 当前 GitHub/Bitbucket 授权步骤只模拟跳转，向导状态保存在客户端，
+ * 完成后由 React Query 更新连接缓存。
  */
 
 type Step = "authorize" | "select_account" | "select_repos" | "connecting" | "connected";
 
 const STEP_ORDER: Step[] = ["authorize", "select_account", "select_repos", "connecting", "connected"];
 const STEP_LABELS: Record<Step, string> = {
-  authorize: "Authorize",
-  select_account: "Select account",
-  select_repos: "Select repositories",
-  connecting: "Connecting",
-  connected: "Connected",
+  authorize: "授权",
+  select_account: "选择账号",
+  select_repos: "选择代码仓库",
+  connecting: "正在连接",
+  connected: "连接成功",
 };
 
 export function IntegrationConnectDialog({
@@ -67,7 +60,7 @@ export function IntegrationConnectDialog({
   const reposQuery = useIntegrationRepos(provider ?? "github", selectedAccount?.id ?? null);
   const connectMutation = useConnectIntegration();
 
-  // Reset the wizard every time the dialog is re-opened.
+  // 每次打开弹窗时重置向导。
   useEffect(() => {
     if (open) {
       setStep("authorize");
@@ -86,10 +79,10 @@ export function IntegrationConnectDialog({
   const stepIndex = STEP_ORDER.indexOf(step);
   const progressLabel =
     step === "connected"
-      ? "Done"
-      : `Step ${Math.min(stepIndex + 1, 4)} of 4 · ${STEP_LABELS[step]}`;
+      ? "完成"
+      : `第 ${Math.min(stepIndex + 1, 4)} 步，共 4 步 · ${STEP_LABELS[step]}`;
 
-  // Filtered repos for the select step.
+  // 按当前关键词筛选代码仓库。
   const filteredRepos = useMemo(() => {
     const repos = reposQuery.data ?? [];
     const normalized = repoQuery.trim().toLowerCase();
@@ -117,7 +110,7 @@ export function IntegrationConnectDialog({
     if (!selectedAccount || !provider) return;
     const repos = (reposQuery.data ?? []).filter((repo) => selectedRepoIds.has(repo.id));
     if (repos.length === 0) {
-      setLocalError("Select at least one repository to connect.");
+      setLocalError("请至少选择一个代码仓库。");
       return;
     }
 
@@ -131,7 +124,7 @@ export function IntegrationConnectDialog({
       });
       setStep("connected");
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "Failed to connect integration.");
+      setLocalError(error instanceof Error ? error.message : "连接集成服务失败。");
       setStep("select_repos");
     }
   }
@@ -141,20 +134,20 @@ export function IntegrationConnectDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
       role="dialog"
       aria-modal="true"
-      aria-label={`Connect ${meta.name}`}
+      aria-label={`连接 ${meta.name}`}
     >
       <div className="relative w-full max-w-lg rounded-[28px] border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.45)]">
-        {/* Close */}
+        {/* 关闭按钮 */}
         <button
           type="button"
           onClick={onClose}
           className="absolute right-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          aria-label="Close"
+          aria-label="关闭"
         >
           <X className="h-4 w-4" />
         </button>
 
-        {/* Header */}
+        {/* 标题 */}
         <div className="grid gap-2 pr-8">
           <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-gray-400">
             {progressLabel}
@@ -163,14 +156,14 @@ export function IntegrationConnectDialog({
             <ProviderBadge provider={provider} />
             <div>
               <h2 className="text-[20px] font-semibold tracking-[-0.03em] text-gray-950">
-                Connect {meta.name}
+                连接 {meta.name}
               </h2>
               <p className="text-[13px] text-gray-500">{meta.description}</p>
             </div>
           </div>
         </div>
 
-        {/* Body */}
+        {/* 向导内容 */}
         <div className="mt-6">
           {step === "authorize" ? (
             <AuthorizeStep scopes={meta.scopes} providerName={meta.name} />
@@ -204,41 +197,41 @@ export function IntegrationConnectDialog({
           )}
         </div>
 
-        {/* Error */}
+        {/* 错误提示 */}
         {localError ? (
           <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
             {localError}
           </div>
         ) : null}
 
-        {/* Footer actions */}
+        {/* 底部操作 */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           {step === "authorize" ? (
             <>
               <DenButton variant="secondary" onClick={onClose}>
-                Cancel
+                取消
               </DenButton>
               <DenButton onClick={() => setStep("select_account")} icon={ArrowRight}>
-                Authorize with {meta.name}
+                使用 {meta.name} 授权
               </DenButton>
             </>
           ) : step === "select_account" ? (
             <>
               <DenButton variant="secondary" onClick={() => setStep("authorize")}>
-                Back
+                返回
               </DenButton>
               <DenButton
                 onClick={() => setStep("select_repos")}
                 disabled={!selectedAccount}
                 icon={ArrowRight}
               >
-                Continue
+                继续
               </DenButton>
             </>
           ) : step === "select_repos" ? (
             <>
               <DenButton variant="secondary" onClick={() => setStep("select_account")}>
-                Back
+                返回
               </DenButton>
               <DenButton
                 onClick={() => void handleConnect()}
@@ -246,14 +239,14 @@ export function IntegrationConnectDialog({
                 loading={connectMutation.isPending}
               >
                 {selectedRepoIds.size === 0
-                  ? "Select a repository"
-                  : `Connect ${selectedRepoIds.size} ${selectedRepoIds.size === 1 ? "repo" : "repos"}`}
+                  ? "选择代码仓库"
+                  : `连接 ${selectedRepoIds.size} 个代码仓库`}
               </DenButton>
             </>
           ) : step === "connecting" ? (
-            <span className={buttonVariants({ variant: "secondary" })}>Working…</span>
+            <span className={buttonVariants({ variant: "secondary" })}>正在处理...</span>
           ) : (
-            <DenButton onClick={onClose}>Done</DenButton>
+            <DenButton onClick={onClose}>完成</DenButton>
           )}
         </div>
       </div>
@@ -261,7 +254,7 @@ export function IntegrationConnectDialog({
   );
 }
 
-// ── Step components ────────────────────────────────────────────────────────
+// 向导步骤组件
 
 function ProviderBadge({ provider }: { provider: IntegrationProvider }) {
   const bg = provider === "github" ? "bg-[#0f172a]" : "bg-[#2684FF]";
@@ -281,7 +274,7 @@ function AuthorizeStep({ providerName, scopes }: { providerName: string; scopes:
     <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-5">
       <p className="flex items-center gap-2 text-[13px] font-medium text-gray-900">
         <ShieldCheck className="h-4 w-4 text-gray-500" />
-        {providerName} is requesting the following permissions
+        {providerName} 申请以下权限
       </p>
       <ul className="mt-3 grid gap-2 text-[13px] text-gray-600">
         {scopes.map((scope) => (
@@ -294,8 +287,7 @@ function AuthorizeStep({ providerName, scopes }: { providerName: string; scopes:
         ))}
       </ul>
       <p className="mt-4 text-[12px] leading-5 text-gray-400">
-        You will be redirected to {providerName} to approve access. This preview simulates that
-        redirect — no data leaves your browser.
+        下一步将模拟跳转到 {providerName} 完成授权，此预览不会向浏览器外发送数据。
       </p>
     </div>
   );
@@ -315,14 +307,14 @@ function SelectAccountStep({
   if (loading) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 px-5 py-10 text-center text-[13px] text-gray-400">
-        Loading accounts…
+        正在加载账号...
       </div>
     );
   }
   if (accounts.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 px-5 py-10 text-center text-[13px] text-gray-400">
-        No accounts available.
+        没有可用账号。
       </div>
     );
   }
@@ -333,7 +325,7 @@ function SelectAccountStep({
           <DenSelectableRow
             key={account.id}
             title={account.name}
-            description={account.kind === "user" ? "Personal account" : "Organization"}
+            description={account.kind === "user" ? "个人账号" : "组织账号"}
             descriptionBelow
             selected={selectedId === account.id}
             onClick={() => onSelect(account)}
@@ -372,16 +364,16 @@ function SelectReposStep({
         type="search"
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}
-        placeholder="Filter repositories..."
+        placeholder="筛选代码仓库..."
       />
 
       {loading ? (
         <div className="rounded-2xl border border-dashed border-gray-200 px-5 py-10 text-center text-[13px] text-gray-400">
-          Loading repositories…
+          正在加载代码仓库...
         </div>
       ) : repos.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 px-5 py-10 text-center text-[13px] text-gray-400">
-          {totalCount === 0 ? "No repositories available on this account." : "No repositories match that filter."}
+          {totalCount === 0 ? "此账号没有可用的代码仓库。" : "没有找到匹配的代码仓库。"}
         </div>
       ) : (
         <div className="max-h-[320px] overflow-y-auto rounded-2xl border border-gray-100 bg-white">
@@ -398,7 +390,7 @@ function SelectReposStep({
                 aside={
                   repo.hasPlugins ? (
                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                      has plugins
+                      包含插件
                     </span>
                   ) : null
                 }
@@ -410,8 +402,8 @@ function SelectReposStep({
 
       <p className="text-[12px] text-gray-400">
         {selectedIds.size === 0
-          ? "Select one or more repos to expose their plugins and skills."
-          : `${selectedIds.size} of ${totalCount} selected.`}
+          ? "选择一个或多个代码仓库，以导入其中的插件和技能。"
+          : `已选择 ${selectedIds.size} 个，共 ${totalCount} 个。`}
       </p>
     </div>
   );
@@ -426,8 +418,8 @@ function ConnectingStep({ providerName }: { providerName: string }) {
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
       </div>
-      <p className="text-[14px] font-medium text-gray-900">Installing {providerName} integration…</p>
-      <p className="mt-1 text-[12px] text-gray-500">Registering webhooks and indexing repository manifests.</p>
+      <p className="text-[14px] font-medium text-gray-900">正在安装 {providerName} 集成...</p>
+      <p className="mt-1 text-[12px] text-gray-500">正在登记 Webhook 并索引代码仓库清单。</p>
     </div>
   );
 }
@@ -445,10 +437,10 @@ function ConnectedStep({
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-5 py-6 text-center">
       <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-700" />
       <p className="text-[14px] font-medium text-gray-900">
-        {providerName} connected{account ? ` · ${account.name}` : ""}
+        {providerName} 已连接{account ? ` · ${account.name}` : ""}
       </p>
       <p className="mt-1 text-[12px] text-gray-500">
-        {repoCount} {repoCount === 1 ? "repository" : "repositories"} will now contribute plugins and skills.
+        已连接 {repoCount} 个代码仓库，其中的插件和技能将加入公司目录。
       </p>
     </div>
   );

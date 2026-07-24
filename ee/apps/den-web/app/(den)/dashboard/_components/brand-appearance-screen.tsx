@@ -2,7 +2,7 @@
 
 import { ImageUp, Palette, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getRequestError, requestJson } from "../../_lib/den-flow";
+import { getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
 import {
   getManagedBrandAssetFromMetadata,
   parseOrganizationMetadata,
@@ -17,6 +17,27 @@ import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import { EnterprisePlanNotice } from "./enterprise-plan-notice";
 
 const BRAND_ASSET_MAX_BYTES = 2 * 1024 * 1024;
+const ACCENT_COLOR_OPTIONS = [
+  ["blue", "蓝色"],
+  ["violet", "蓝紫色"],
+  ["purple", "紫色"],
+  ["indigo", "靛蓝色"],
+  ["iris", "鸢尾紫"],
+  ["crimson", "深红色"],
+  ["red", "红色"],
+  ["ruby", "宝石红"],
+  ["pink", "粉色"],
+  ["plum", "梅子紫"],
+  ["orange", "橙色"],
+  ["tomato", "番茄红"],
+  ["gold", "金色"],
+  ["green", "绿色"],
+  ["grass", "草绿色"],
+  ["jade", "翡翠绿"],
+  ["teal", "青绿色"],
+  ["cyan", "青色"],
+  ["sky", "天蓝色"],
+] as const;
 
 type BrandAssetKind = "logo" | "icon";
 
@@ -28,26 +49,26 @@ type BrandAssetDraft = {
 };
 
 async function createBrandAssetDraft(file: File, kind: BrandAssetKind): Promise<BrandAssetDraft> {
-  if (file.type !== "image/png" && file.type !== "image/jpeg") throw new Error("Use a PNG or JPEG image.");
-  if (file.size > BRAND_ASSET_MAX_BYTES) throw new Error("Use an image under 2 MB.");
+  if (file.type !== "image/png" && file.type !== "image/jpeg") throw new Error("请选择 PNG 或 JPEG 图片。");
+  if (file.size > BRAND_ASSET_MAX_BYTES) throw new Error("图片大小不能超过 2 MB。");
 
   let image: ImageBitmap;
   try {
     image = await createImageBitmap(file);
   } catch {
-    throw new Error("OpenWork could not decode that image.");
+    throw new Error("FoxWork 无法读取这张图片，请更换文件。");
   }
 
   const { width, height } = image;
   image.close();
-  if (width > 4096 || height > 4096) throw new Error("Use an image no larger than 4096×4096 pixels.");
+  if (width > 4096 || height > 4096) throw new Error("图片尺寸不能超过 4096×4096 像素。");
   if (kind === "icon") {
-    if (width < 64 || height < 64) throw new Error("Use a square icon at least 64×64 pixels.");
-    if (width !== height) throw new Error("Use a square image for the app icon.");
+    if (width < 64 || height < 64) throw new Error("应用图标至少需要 64×64 像素。");
+    if (width !== height) throw new Error("应用图标必须使用正方形图片。");
   } else {
     const aspectRatio = width / height;
-    if (width < 128 || height < 32) throw new Error("Use a wordmark at least 128×32 pixels.");
-    if (aspectRatio < 1.5 || aspectRatio > 8) throw new Error("Use a horizontal wordmark between 1.5:1 and 8:1.");
+    if (width < 128 || height < 32) throw new Error("品牌字标至少需要 128×32 像素。");
+    if (aspectRatio < 1.5 || aspectRatio > 8) throw new Error("品牌字标必须为横向图片，宽高比应在 1.5:1 到 8:1 之间。");
   }
 
   return { file, previewUrl: URL.createObjectURL(file), width, height };
@@ -94,20 +115,20 @@ function BrandAssetUploadField({
         {previewUrl ? (
           <img
             src={previewUrl}
-            alt={`${title} preview`}
+            alt={`${title}预览`}
             className={kind === "icon" ? "size-20 rounded-xl object-contain" : "max-h-20 max-w-full object-contain"}
             data-testid={`brand-${kind}-preview`}
           />
         ) : (
-          <span className="text-center text-[12px] text-gray-400">Default OpenWork {kind}</span>
+          <span className="text-center text-[12px] text-gray-400">默认{kind === "icon" ? "应用图标" : "品牌字标"}</span>
         )}
       </div>
       <div className="min-h-9 min-w-0 break-words text-[11px] leading-5 text-gray-500" data-testid={`brand-${kind}-status`}>
-        {draft ? `Ready to upload: ${draft.file.name} · ${dimensions}` : null}
-        {!draft && clearPending ? "Will restore the default after saving." : null}
-        {!draft && !clearPending && managedAsset ? `Stored in this Den · ${dimensions} · version ${managedAsset.version.slice(0, 10)}` : null}
-        {!draft && !clearPending && !managedAsset && currentUrl ? "Current hosted image (legacy URL). Upload a file to move it into this Den." : null}
-        {!draft && !clearPending && !currentUrl ? "No custom image saved." : null}
+        {draft ? `等待上传：${draft.file.name} · ${dimensions}` : null}
+        {!draft && clearPending ? "保存后恢复默认图片。" : null}
+        {!draft && !clearPending && managedAsset ? `已保存在公司服务中 · ${dimensions} · 版本 ${managedAsset.version.slice(0, 10)}` : null}
+        {!draft && !clearPending && !managedAsset && currentUrl ? "当前使用外部图片地址。上传文件后会转存到公司服务。" : null}
+        {!draft && !clearPending && !currentUrl ? "尚未保存自定义图片。" : null}
       </div>
       <div className="flex flex-wrap gap-2">
         <label
@@ -118,7 +139,7 @@ function BrandAssetUploadField({
           ].join(" ")}
         >
           <ImageUp size={13} aria-hidden="true" />
-          {previewUrl ? "Replace image" : "Choose image"}
+          {previewUrl ? "更换图片" : "选择图片"}
         </label>
         <input
           id={inputId}
@@ -130,7 +151,7 @@ function BrandAssetUploadField({
           onChange={(event) => onSelect(event.target.files?.item(0) ?? null)}
         />
         <DenButton type="button" variant="secondary" size="sm" icon={Trash2} disabled={disabled || !previewUrl} onClick={onClear}>
-          Clear
+          清除
         </DenButton>
       </div>
     </div>
@@ -186,11 +207,11 @@ export function BrandAppearanceScreen() {
   }, [iconDraft]);
 
   if (orgBusy && !orgContext) {
-    return <div className="mx-auto max-w-[860px] p-8 text-[14px] text-gray-500">Loading brand appearance...</div>;
+    return <div className="mx-auto max-w-[860px] p-8 text-[14px] text-gray-500">正在加载品牌外观...</div>;
   }
 
   if (!activeOrg || !orgContext) {
-    return <DenNotice message={orgError ?? "Brand appearance is not available right now."} className="m-8" />;
+    return <DenNotice message={getErrorMessage(orgError, "暂时无法加载品牌外观设置。")} className="m-8" />;
   }
 
   async function handleAssetSelection(kind: BrandAssetKind, file: File | null) {
@@ -206,7 +227,7 @@ export function BrandAppearanceScreen() {
         setIconClearPending(false);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Could not validate that image.");
+      setPageError(getErrorMessage(error, "无法验证这张图片，请更换文件。"));
     }
   }
 
@@ -234,7 +255,7 @@ export function BrandAppearanceScreen() {
           if (logoDraft) body.set("logo", logoDraft.file);
           if (iconDraft) body.set("icon", iconDraft.file);
           const { response, payload } = await requestJson("/v1/org/brand-assets", { method: "POST", body }, 30000);
-          if (!response.ok) throw getRequestError(payload, response, `Could not upload brand images (${response.status}).`);
+          if (!response.ok) throw getRequestError(payload, response, `上传品牌图片失败（${response.status}）。`);
         });
       }
 
@@ -244,9 +265,9 @@ export function BrandAppearanceScreen() {
         ...(logoClearPending ? { brandLogoUrl: null } : {}),
         ...(iconClearPending ? { brandIconUrl: null } : {}),
       });
-      setPageSuccess("Brand appearance updated.");
+      setPageSuccess("品牌外观已更新。");
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Could not update brand appearance.");
+      setPageError(getErrorMessage(error, "更新品牌外观失败，请重试。"));
     } finally {
       setUploadBusy(false);
     }
@@ -258,12 +279,12 @@ export function BrandAppearanceScreen() {
     <div data-testid="brand-appearance-screen">
       <DashboardPageTemplate
         icon={Palette}
-        title="Brand appearance"
-        description="Customize how your workspace appears across OpenWork."
+        title="品牌外观"
+        description="统一设置公司在 FoxWork 中显示的名称、字标、图标和强调色。"
         colors={["#F5F3FF", "#4C1D95", "#8B5CF6", "#DDD6FE"]}
       >
         {!orgContext.entitlements.desktopPolicies ? (
-          <EnterprisePlanNotice feature="White-label brand appearance" />
+          <EnterprisePlanNotice feature="品牌外观定制" />
         ) : (
           <form className="grid gap-6" onSubmit={handleSave}>
             {pageError ? <DenNotice message={pageError} /> : null}
@@ -271,51 +292,51 @@ export function BrandAppearanceScreen() {
 
             <DenCard size="spacious" className="grid gap-6">
               <div className="grid gap-2">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-violet-500">Workspace brand</p>
-                <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">Desktop identity</h2>
-                <p className="text-[14px] text-gray-500">Preview your workspace name, wordmark, app icon, and accent color before saving.</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-violet-500">公司品牌</p>
+                <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">客户端标识</h2>
+                <p className="text-[14px] text-gray-500">保存前可以预览公司名称、品牌字标、应用图标和强调色。</p>
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div className="grid gap-5">
                   <label className="grid gap-3">
-                    <span className="text-[14px] font-medium text-gray-700">Application name</span>
-                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="OpenWork" maxLength={64} disabled={!isOwner} />
-                    <span className="text-[11px] text-gray-400">The signed application identity stays OpenWork.</span>
+                    <span className="text-[14px] font-medium text-gray-700">应用名称</span>
+                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="FoxWork" maxLength={64} disabled={!isOwner} />
+                    <span className="text-[11px] text-gray-400">已签名的应用标识固定为 FoxWork。</span>
                   </label>
 
                   <label className="grid gap-3">
-                    <span className="text-[14px] font-medium text-gray-700">Accent color</span>
+                    <span className="text-[14px] font-medium text-gray-700">强调色</span>
                     <select value={accentColorDraft} onChange={(event) => setAccentColorDraft(event.target.value)} disabled={!isOwner} className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none">
-                      <option value="">Default (OpenWork)</option>
-                      {["blue", "violet", "purple", "indigo", "iris", "crimson", "red", "ruby", "pink", "plum", "orange", "tomato", "gold", "green", "grass", "jade", "teal", "cyan", "sky"].map((color) => (
-                        <option key={color} value={color}>{color[0].toUpperCase() + color.slice(1)}</option>
+                      <option value="">默认（FoxWork）</option>
+                      {ACCENT_COLOR_OPTIONS.map(([color, label]) => (
+                        <option key={color} value={color}>{label}</option>
                       ))}
                     </select>
                   </label>
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-950 p-5 text-white">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">Preview</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">预览</p>
                   <div className="mt-8 flex items-center gap-3">
-                    {iconPreviewUrl ? <img src={iconPreviewUrl} alt="App icon preview" className="size-12 rounded-xl bg-white object-contain" /> : <div className="flex size-12 items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-gray-950">OW</div>}
+                    {iconPreviewUrl ? <img src={iconPreviewUrl} alt="应用图标预览" className="size-12 rounded-xl bg-white object-contain" /> : <div className="flex size-12 items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-gray-950">FW</div>}
                     <div className="min-w-0">
-                      {logoPreviewUrl ? <img src={logoPreviewUrl} alt="Wordmark preview" className="mb-1 max-h-7 max-w-40 object-contain object-left brightness-0 invert" /> : null}
-                      <p className="truncate text-[15px] font-medium">{appNameDraft.trim() || "OpenWork"}</p>
+                      {logoPreviewUrl ? <img src={logoPreviewUrl} alt="品牌字标预览" className="mb-1 max-h-7 max-w-40 object-contain object-left brightness-0 invert" /> : null}
+                      <p className="truncate text-[15px] font-medium">{appNameDraft.trim() || "FoxWork"}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-                <BrandAssetUploadField kind="logo" title="Wordmark" description="Horizontal PNG or JPEG, 128×32 to 4096×4096, under 2 MB." currentUrl={currentLogoUrl} managedAsset={currentLogoAsset} draft={logoDraft} clearPending={logoClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("logo", file)} onClear={() => handleAssetClear("logo")} />
-                <BrandAssetUploadField kind="icon" title="Square app icon" description="Square PNG or JPEG, 64×64 to 4096×4096, under 2 MB." currentUrl={currentIconUrl} managedAsset={currentIconAsset} draft={iconDraft} clearPending={iconClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("icon", file)} onClear={() => handleAssetClear("icon")} />
+                <BrandAssetUploadField kind="logo" title="品牌字标" description="横向 PNG 或 JPEG，尺寸 128×32 至 4096×4096，不超过 2 MB。" currentUrl={currentLogoUrl} managedAsset={currentLogoAsset} draft={logoDraft} clearPending={logoClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("logo", file)} onClear={() => handleAssetClear("logo")} />
+                <BrandAssetUploadField kind="icon" title="正方形应用图标" description="正方形 PNG 或 JPEG，尺寸 64×64 至 4096×4096，不超过 2 MB。" currentUrl={currentIconUrl} managedAsset={currentIconAsset} draft={iconDraft} clearPending={iconClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("icon", file)} onClear={() => handleAssetClear("icon")} />
               </div>
             </DenCard>
 
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[13px] text-gray-500">{!isOwner ? "Only workspace owners can change brand appearance." : null}</p>
-              {isOwner ? <DenButton type="submit" loading={saveBusy}>Save brand appearance</DenButton> : null}
+              <p className="text-[13px] text-gray-500">{!isOwner ? "只有公司所有者可以修改品牌外观。" : null}</p>
+              {isOwner ? <DenButton type="submit" loading={saveBusy}>保存品牌外观</DenButton> : null}
             </div>
           </form>
         )}

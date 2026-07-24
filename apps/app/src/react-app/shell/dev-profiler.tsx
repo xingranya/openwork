@@ -317,10 +317,10 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
       <div className="flex items-center justify-between border-b border-dls-border px-2.5 py-1.5">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-dls-secondary">
-            react profiler
+            React 性能分析
           </span>
           <span className="text-[10px] text-dls-secondary">
-            {snapshot.totalCommits} commits · {snapshot.totalActualMs}ms
+            {snapshot.totalCommits} 次提交 · {snapshot.totalActualMs} 毫秒
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -332,15 +332,15 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
               state.recent.length = 0;
               emit();
             }}
-            title="Reset counters"
+            title="重置计数"
           >
-            reset
+            重置
           </button>
           <button
             type="button"
             className="rounded px-1.5 py-0.5 text-[10px] text-dls-secondary hover:bg-dls-hover"
             onClick={() => setCollapsed((value) => !value)}
-            title="Collapse"
+            title="折叠"
           >
             {collapsed ? "+" : "–"}
           </button>
@@ -348,7 +348,7 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
             type="button"
             className="rounded px-1.5 py-0.5 text-[10px] text-dls-secondary hover:bg-dls-hover"
             onClick={onHide}
-            title="Hide (Cmd+Shift+P to toggle)"
+            title="隐藏（按 Cmd+Shift+P 可再次显示）"
           >
             ×
           </button>
@@ -358,16 +358,16 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
         <div className="max-h-[50vh] overflow-y-auto">
           {topZones.length === 0 ? (
             <div className="p-3 text-dls-secondary">
-              No profiler data yet. Interact with the app.
+              暂无性能数据，请先操作应用。
             </div>
           ) : (
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-[10px] uppercase tracking-[0.1em] text-dls-secondary">
-                  <th className="px-2 py-1 text-left font-medium">zone</th>
+                  <th className="px-2 py-1 text-left font-medium">区域</th>
                   <th className="px-2 py-1 text-right font-medium">#</th>
-                  <th className="px-2 py-1 text-right font-medium">last</th>
-                  <th className="px-2 py-1 text-right font-medium">total</th>
+                  <th className="px-2 py-1 text-right font-medium">最近</th>
+                  <th className="px-2 py-1 text-right font-medium">累计</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,17 +385,17 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
                           {zone.id}
                         </span>
                         <span className="block text-[9px] uppercase tracking-[0.1em] text-dls-secondary">
-                          {zone.mountCount}m · {zone.updateCount}u
+                          挂载 {zone.mountCount} · 更新 {zone.updateCount}
                         </span>
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums">
                         {zone.commitCount}
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums text-dls-secondary">
-                        {zone.lastActualMs}ms
+                        {zone.lastActualMs} 毫秒
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums text-dls-secondary">
-                        {Math.round(zone.totalActualMs)}ms
+                        {Math.round(zone.totalActualMs)} 毫秒
                       </td>
                     </tr>
                   );
@@ -406,7 +406,7 @@ function DevProfilerOverlayVisible({ onHide }: { onHide: () => void }) {
         </div>
       )}
       <div className="border-t border-dls-border px-2.5 py-1 text-[10px] text-dls-secondary">
-        Cmd+Shift+P to toggle. Prod builds: off.
+        按 Cmd+Shift+P 显示或隐藏；正式版本默认关闭。
       </div>
     </div>
   );

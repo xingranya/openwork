@@ -90,10 +90,10 @@ export function ReactRenderWatchdogOverlay() {
       <div className="flex items-center justify-between border-b border-dls-border px-2.5 py-1.5">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dls-secondary">
-            render watchdog
+            渲染监控
           </div>
           <div className="text-[10px] text-dls-secondary">
-            hottest committed React surfaces
+            提交最频繁的 React 界面
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -105,7 +105,7 @@ export function ReactRenderWatchdogOverlay() {
               dispatch({ type: "snapshot", snapshot: [] });
             }}
           >
-            reset
+            重置
           </button>
           <button
             type="button"
@@ -118,7 +118,7 @@ export function ReactRenderWatchdogOverlay() {
             type="button"
             className="rounded px-1.5 py-0.5 text-[10px] text-dls-secondary hover:bg-dls-hover"
             onClick={() => dispatch({ type: "hide" })}
-            title="Hide (Cmd+Shift+L to toggle)"
+            title="隐藏（按 Cmd+Shift+L 可再次显示）"
           >
             ×
           </button>
@@ -128,16 +128,16 @@ export function ReactRenderWatchdogOverlay() {
         <div className="max-h-[50vh] overflow-y-auto">
           {hot.length === 0 ? (
             <div className="p-3 text-dls-secondary">
-              No render samples yet. Interact with the app.
+              暂无渲染样本，请先操作应用。
             </div>
           ) : (
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-[10px] uppercase tracking-[0.1em] text-dls-secondary">
-                  <th className="px-2 py-1 text-left font-medium">surface</th>
+                  <th className="px-2 py-1 text-left font-medium">界面</th>
                   <th className="px-2 py-1 text-right font-medium">2s</th>
-                  <th className="px-2 py-1 text-right font-medium">total</th>
-                  <th className="px-2 py-1 text-right font-medium">last</th>
+                  <th className="px-2 py-1 text-right font-medium">累计</th>
+                  <th className="px-2 py-1 text-right font-medium">最近</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,7 +153,7 @@ export function ReactRenderWatchdogOverlay() {
                       {item.totalCommits}
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums text-dls-secondary">
-                      {Math.round(item.lastCommitAgeMs)}ms
+                      {Math.round(item.lastCommitAgeMs)} 毫秒
                     </td>
                   </tr>
                 ))}
@@ -163,7 +163,7 @@ export function ReactRenderWatchdogOverlay() {
         </div>
       )}
       <div className="border-t border-dls-border px-2.5 py-1 text-[10px] text-dls-secondary">
-        Cmd+Shift+L toggles. Also available in window.__openwork.slice("reactRenderWatchdog").
+        按 Cmd+Shift+L 显示或隐藏，也可通过开发者控制台查看。
       </div>
     </div>
   );

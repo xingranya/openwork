@@ -281,7 +281,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
             disabled={authorizedFoldersLoading || authorizedFoldersSaving || !canPickAuthorizedFolder}
           >
             <Plus className="size-4" />
-            Add folder
+            添加文件夹
           </Button>
         </LayoutSectionItemHeaderActions>
       </LayoutSectionItemHeader>
@@ -326,7 +326,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
                 disabled={authorizedFoldersLoading || authorizedFoldersSaving || !canPickAuthorizedFolder}
               >
                 <Plus className="size-4" />
-                Add folder
+                添加文件夹
               </Button>
             </EmptyContent>
             </Empty>

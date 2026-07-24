@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "OpenWork Cloud";
+export const alt = "FoxWork 公司工作区";
 export const size = {
   width: 1200,
   height: 630
@@ -70,31 +70,31 @@ export default function OpenGraphImage() {
                   fontWeight: 700
                 }}
               >
-                OW
+                FW
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: "#64748b" }}>
-                  OpenWork Cloud
+                  FoxWork
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 600 }}>OpenWork Cloud</div>
+                <div style={{ fontSize: 24, fontWeight: 600 }}>公司工作区</div>
               </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 64, fontWeight: 600, letterSpacing: -2.8, lineHeight: 0.98 }}>
-              <div>Share your setup</div>
-              <div>with your team.</div>
+              <div>把公司能力</div>
+              <div>交给每位成员。</div>
             </div>
 
             <div style={{ fontSize: 24, lineHeight: 1.45, color: "#475569", display: "flex", maxWidth: 520 }}>
-              Share setups across your org, keep selected workflows available, and manage OpenWork Cloud from app.openworklabs.com.
+              统一管理账号、工作区、模型、MCP、Skills 和插件，让员工登录即可使用。
             </div>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               {[
-                "Open source",
-                "50+ integrations and LLMs",
-                "Free first worker",
-                "Organization billing for scale"
+                "公司内部部署",
+                "统一模型和能力",
+                "远程工作区",
+                "按团队授权"
               ].map((label) => (
                 <div
                   key={label}
@@ -144,21 +144,21 @@ export default function OpenGraphImage() {
                 <StatusDot color="#27c93f" />
               </div>
               <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", color: "#94a3b8", fontSize: 14, letterSpacing: 2, textTransform: "uppercase" }}>
-                ops-worker-01
+                工作区 01
               </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: 22, color: "white" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#94a3b8", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2.5 }}>
                 <div style={{ width: 10, height: 10, borderRadius: 999, background: "#3ddc97", boxShadow: "0 0 0 8px rgba(61, 220, 151, 0.14)" }} />
-                Running
+                运行中
               </div>
 
               {[
-                ["9:41 AM", "GitHub", "Reviewed PR #247, approved"],
-                ["10:12 AM", "Slack", "Flagged invoice #1092 as duplicate"],
-                ["1:30 PM", "Linear", "Triaged 8 issues, 2 critical"],
-                ["3:15 PM", "Billing", "Subscription portal ready"]
+                ["09:41", "GitHub", "已完成代码变更检查"],
+                ["10:12", "消息", "已整理今日待办"],
+                ["13:30", "任务", "已归类 8 项问题"],
+                ["15:15", "工作流", "待确认事项已就绪"]
               ].map(([time, source, detail]) => (
                 <div
                   key={`${time}-${source}`}

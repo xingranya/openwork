@@ -3,14 +3,12 @@ import type { ExternalMcpConnection, ExternalMcpRequiredBy } from "./mcp-connect
 export function formatRequiredBy(requiredBy: ExternalMcpRequiredBy[]): string | null {
   const names = [...new Set(requiredBy.map((entry) => entry.name.trim()).filter(Boolean))];
   if (names.length === 0) return null;
-  if (names.length === 1) return `Required by ${names[0]}`;
-  if (names.length === 2) return `Required by ${names[0]} and ${names[1]}`;
-  return `Required by ${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  return `由 ${names.join("、")} 使用`;
 }
 
 export function formatConnectionCreatorAttribution(createdByName: string | null | undefined): string | null {
   const name = createdByName?.trim();
-  return name ? `Added by ${name}` : null;
+  return name ? `由 ${name} 添加` : null;
 }
 
 export function trustedConnectionFocusId(connections: ExternalMcpConnection[], requestedConnectionId: string | null): string | null {

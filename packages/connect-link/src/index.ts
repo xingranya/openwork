@@ -90,12 +90,29 @@ export function findInsecureConnectLinkUrl(claims: ConnectLinkClaims): string | 
   return findRefusedConnectLinkUrl(claims)
 }
 
-export function buildConnectDeepLink(token: string, scheme = "openwork"): string {
-  return `${scheme}://${CONNECT_LINK_ROUTE}?token=${encodeURIComponent(token)}`
+export const FOXWORK_DESKTOP_SCHEME = "foxwork"
+export const FOXWORK_DEV_DESKTOP_SCHEME = "foxwork-dev"
+export const LEGACY_DESKTOP_SCHEMES = ["openwork", "openwork-dev"] as const
+
+const ACCEPTED_DESKTOP_SCHEMES = new Set([
+  FOXWORK_DESKTOP_SCHEME,
+  FOXWORK_DEV_DESKTOP_SCHEME,
+  ...LEGACY_DESKTOP_SCHEMES,
+])
+
+export function normalizeDesktopScheme(scheme?: string | null): string {
+  const normalized = scheme?.trim().toLowerCase() ?? ""
+  return ACCEPTED_DESKTOP_SCHEMES.has(normalized)
+    ? normalized
+    : FOXWORK_DESKTOP_SCHEME
 }
 
-export function buildConnectExchangeDeepLink(code: string, apiBaseUrl: string, scheme = "openwork"): string {
-  const url = new URL(`${scheme}://${CONNECT_LINK_ROUTE}`)
+export function buildConnectDeepLink(token: string, scheme = FOXWORK_DESKTOP_SCHEME): string {
+  return `${normalizeDesktopScheme(scheme)}://${CONNECT_LINK_ROUTE}?token=${encodeURIComponent(token)}`
+}
+
+export function buildConnectExchangeDeepLink(code: string, apiBaseUrl: string, scheme = FOXWORK_DESKTOP_SCHEME): string {
+  const url = new URL(`${normalizeDesktopScheme(scheme)}://${CONNECT_LINK_ROUTE}`)
   url.searchParams.set("code", code)
   url.searchParams.set("apiBaseUrl", apiBaseUrl)
   return url.toString()

@@ -30,13 +30,9 @@ import { usePlugin } from "./plugin-data";
 import { useMcpAccountAuthorization } from "./use-mcp-account-authorization";
 
 /**
- * The member-facing half of MCP Connections. An admin publishes a
- * connection (mcp-connections-screen.tsx, admin-only); every granted member
- * sees it here. For "per_member" connections this is where each person
- * connects their own account — after which their agent's
- * search_capabilities/execute_capability calls run as them.
- * Admins can also finish a shared-credential connection's OAuth here when
- * the org account was published but never authorized.
+ * 面向成员的 MCP 连接页。管理员发布连接并授权后，成员会在这里看到连接。
+ * 对于成员独立认证的连接，每个人在此登录自己的账号，后续 AI 调用继承本人权限。
+ * 如果公司共用账号尚未完成 OAuth 授权，管理员也可以在此继续连接。
  */
 export function YourConnectionsScreen() {
   const { data: connections = [], isLoading, error, refetch } = useMcpConnections("usable");
@@ -73,7 +69,7 @@ export function YourConnectionsScreen() {
     } catch (disconnectError) {
       setRowError({
         connectionId,
-        message: disconnectError instanceof Error ? disconnectError.message : "Failed to disconnect account.",
+        message: disconnectError instanceof Error ? disconnectError.message : "断开账号连接失败。",
       });
     }
   }
@@ -81,24 +77,24 @@ export function YourConnectionsScreen() {
   return (
     <DashboardPageTemplate
       icon={Plug}
-      title="Your Connections"
-      badgeLabel="Beta"
-      description="Tools your organization has made available to you. Connect your own account where needed; workspace admins can test tools directly, and your AI coworker uses them with your permissions."
+      title="我的连接"
+      badgeLabel="测试版"
+      description="查看公司向你开放的工具。需要个人账号时在此连接；AI 只能按你的账号权限使用这些工具。"
       colors={["#DBEAFE", "#1E3A8A", "#2563EB", "#93C5FD"]}
     >
       {error ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {error instanceof Error ? error.message : "Failed to load your connections."}
+          {error instanceof Error ? error.message : "加载连接失败。"}
         </div>
       ) : null}
 
       {isLoading ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading your connections…
+          正在加载连接...
         </div>
       ) : connections.length === 0 ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-center text-[14px] text-gray-500">
-          Nothing has been shared with you yet. Ask a workspace admin to add an MCP connection.
+          暂时没有向你开放的连接。请联系工作区管理员添加 MCP 连接。
         </div>
       ) : (
         <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white">
@@ -206,39 +202,39 @@ function YourConnectionRow({
               <p className="truncate text-[14px] font-semibold text-gray-900">{connection.name}</p>
               {needsAdminSetup ? (
                 <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                  Waiting for an admin to finish setup
+                  等待管理员完成配置
                 </span>
               ) : needsAdminRecovery ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                   <AlertTriangle className="h-3 w-3" />
-                  Admin review required
+                  需要管理员复核
                 </span>
               ) : needsReconnect ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                   <AlertTriangle className="h-3 w-3" />
-                  Reconnect required
+                  需要重新连接
                 </span>
               ) : connection.connectedForMe ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                   <Check className="h-3 w-3" />
-                  {isPerMember ? "Connected as you" : "Org account connected"}
+                  {isPerMember ? "已连接本人账号" : "公司账号已连接"}
                 </span>
               ) : polling ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for authorization…
+                  等待授权...
                 </span>
               ) : needsMyConnect ? (
                 <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                  Connect your account
+                  连接你的账号
                 </span>
               ) : needsAdminConnect ? (
                 <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                  Connect the org account
+                  连接公司账号
                 </span>
               ) : (
                 <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                  Waiting for an admin to connect
+                  等待管理员连接
                 </span>
               )}
             </div>
@@ -248,12 +244,12 @@ function YourConnectionRow({
             ) : null}
             {connection.id === "microsoft-365" && connection.tenantId ? (
               <p className="mt-1 text-[11px] text-gray-500">
-                Tenant <span className="font-mono text-gray-700">{connection.tenantId}</span>
+                租户 <span className="font-mono text-gray-700">{connection.tenantId}</span>
                 {connection.externalAccountId ? <> · {connection.externalAccountId}</> : null}
               </p>
             ) : null}
             {microsoftScopes.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Approved Microsoft 365 capabilities">
+              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="已批准的 Microsoft 365 能力">
                 {microsoftScopes.map((scope) => (
                   <span key={scope} className="rounded-full bg-blue-50 px-2 py-0.5 font-mono text-[10px] text-blue-700">{scope}</span>
                 ))}
@@ -261,7 +257,7 @@ function YourConnectionRow({
             ) : null}
             {needsAdminRecovery ? (
               <p className="mt-1 text-[12px] text-amber-700">
-                A workspace admin must review this provider&apos;s OAuth settings before anyone reconnects.
+                工作区管理员需要先复核此服务的 OAuth 设置，成员才能重新连接。
               </p>
             ) : null}
             {errorMessage ? <p className="mt-1 text-[12px] text-red-600">{errorMessage}</p> : null}
@@ -278,7 +274,7 @@ function YourConnectionRow({
           ) : null}
           {needsAdminRecovery && isAdmin ? (
             <Link href="/dashboard/mcp-connections" className={buttonVariants({ variant: "primary", size: "sm" })}>
-              Review OAuth
+              复核 OAuth
             </Link>
           ) : null}
           {canTestTools ? (
@@ -288,20 +284,20 @@ function YourConnectionRow({
               icon={Wrench}
               onClick={() => setToolRunnerOpen((open) => !open)}
               aria-expanded={toolRunnerOpen}
-              aria-label={`Test tools for ${connection.name}`}
-              title={`Test tools for ${connection.name}`}
+              aria-label={`测试 ${connection.name} 的工具`}
+              title={`测试 ${connection.name} 的工具`}
               className="h-8 w-8 !px-0"
               data-testid={`toggle-mcp-tool-runner-${connection.id}`}
             />
           ) : null}
           {canDisconnect ? (
             <DenButton variant="destructive" size="sm" loading={disconnecting} onClick={onDisconnect} data-testid={`disconnect-my-mcp-account-${connection.id}`}>
-              Disconnect
+              断开
             </DenButton>
           ) : null}
           {needsReconnect || needsMyConnect || needsAdminConnect ? (
             <DenButton variant="primary" size="sm" loading={connecting || polling} onClick={onConnect}>
-              {needsReconnect ? "Reconnect" : "Connect"}
+              {needsReconnect ? "重新连接" : "连接"}
             </DenButton>
           ) : null}
         </div>
@@ -334,7 +330,7 @@ function MarketplaceConfigureButton({
   const pluginQuery = usePlugin(target.pluginId);
 
   if (pluginQuery.isLoading) {
-    return <DenButton variant="primary" size="sm" disabled>Configure</DenButton>;
+    return <DenButton variant="primary" size="sm" disabled>配置</DenButton>;
   }
 
   const plugin = pluginQuery.data;
@@ -367,7 +363,7 @@ function MarketplaceConfigureButton({
         } satisfies MarketplacePluginCloudReadinessConnection,
       })}
     >
-      Configure
+      配置
     </DenButton>
   );
 }

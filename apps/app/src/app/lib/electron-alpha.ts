@@ -1,4 +1,5 @@
 import { desktopFetch } from "./desktop";
+import { FOXWORK_ALPHA_UPDATE_BASE_URL, FOXWORK_RELEASE_PAGE_URL } from "./foxwork-brand";
 
 export type ElectronAlphaArtifact = {
   arch: "arm64" | "x64";
@@ -10,13 +11,14 @@ export type ElectronAlphaArtifact = {
   sha512: string;
 };
 
-const ELECTRON_ALPHA_RELEASE_BASE_URL =
-  "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest";
+const ELECTRON_ALPHA_RELEASE_BASE_URL = FOXWORK_ALPHA_UPDATE_BASE_URL;
 
 export const ELECTRON_ALPHA_RELEASE_PAGE_URL =
-  "https://github.com/different-ai/openwork/releases/tag/alpha-macos-latest";
+  FOXWORK_RELEASE_PAGE_URL;
 
-export const ELECTRON_ALPHA_LATEST_MAC_YML_URL = `${ELECTRON_ALPHA_RELEASE_BASE_URL}/latest-mac.yml`;
+export const ELECTRON_ALPHA_LATEST_MAC_YML_URL = ELECTRON_ALPHA_RELEASE_BASE_URL
+  ? `${ELECTRON_ALPHA_RELEASE_BASE_URL}/latest-mac.yml`
+  : "";
 
 function parseYamlScalar(raw: string, key: string): string | null {
   const pattern = new RegExp(`^\\s*${key}:\\s*(.+?)\\s*$`, "m");
@@ -68,6 +70,9 @@ export function parseElectronLatestMacYml(
 export async function resolveElectronAlphaArtifact(
   arch: "arm64" | "x64" = "arm64",
 ): Promise<ElectronAlphaArtifact> {
+  if (!ELECTRON_ALPHA_LATEST_MAC_YML_URL || !ELECTRON_ALPHA_RELEASE_PAGE_URL) {
+    throw new Error("FoxWork 公司测试更新源尚未配置。");
+  }
   const response = await desktopFetch(ELECTRON_ALPHA_LATEST_MAC_YML_URL, {
     headers: { Accept: "text/yaml, text/plain, */*" },
   });

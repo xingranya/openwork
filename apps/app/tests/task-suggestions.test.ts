@@ -21,6 +21,6 @@ describe("organization task suggestions", () => {
     expect(resolveOrganizationPromptCardContent({
       prompt: "Draft a customer update.",
       index: 1,
-    }).title).toBe("Organization prompt 2");
+    }).title).toBe("公司任务 2");
   });
 });

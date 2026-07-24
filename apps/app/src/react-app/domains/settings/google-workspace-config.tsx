@@ -24,15 +24,15 @@ type BusyAction = "status" | "connect" | "disconnect" | "set-active" | "test" | 
 type OptionalFeature = "gmailRead" | "driveFull" | "calendarWrite" | "chat";
 
 const OPTIONAL_FEATURES: { id: OptionalFeature; label: string; description: string }[] = [
-  { id: "gmailRead", label: "Read Gmail", description: "Read your Gmail messages and threads." },
-  { id: "driveFull", label: "Full Google Drive access", description: "Search, read, and edit all files in your Drive, not just files created through OpenWork." },
-  { id: "calendarWrite", label: "Create calendar events", description: "Create events on your Google Calendar." },
-  { id: "chat", label: "Google Chat", description: "List spaces, read messages, and send messages in Google Chat." },
+  { id: "gmailRead", label: "读取 Gmail", description: "读取你的 Gmail 邮件和会话。" },
+  { id: "driveFull", label: "完整访问 Google Drive", description: "搜索、读取和编辑云端硬盘中的全部文件，不限于通过 FoxWork 创建的文件。" },
+  { id: "calendarWrite", label: "创建日历活动", description: "在 Google 日历中创建活动。" },
+  { id: "chat", label: "Google Chat", description: "列出空间、读取消息并在 Google Chat 中发送消息。" },
 ];
 type GoogleWorkspaceCommand = () => Promise<unknown>;
 const DESKTOP_ACTION_TIMEOUT_MS = 6 * 60 * 1000;
 const CONNECT_POLL_INTERVAL_MS = 1_000;
-// Must match GOOGLE_WORKSPACE_DESKTOP_CLIENT_ID in apps/server/src/extensions/google-workspace.ts.
+// 必须与 apps/server/src/extensions/google-workspace.ts 中的 GOOGLE_WORKSPACE_DESKTOP_CLIENT_ID 一致。
 const OPENWORK_BUILTIN_GOOGLE_CLIENT_ID = "929071212606-pmkqimjhm2tnp68kbklnout0irllj99h.apps.googleusercontent.com";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,11 +100,11 @@ async function waitForGoogleWorkspaceConnection(client: OpenworkServerClient, fl
     const result = await client.googleWorkspaceConnectStatus(flowId);
     if (result.status === "connected" && result.googleWorkspace) return result.googleWorkspace;
     if (result.status === "failed" || result.status === "expired") {
-      throw new Error(result.error ?? "Google Workspace connection did not complete.");
+      throw new Error(result.error ?? "Google Workspace 连接未完成。");
     }
     await sleep(CONNECT_POLL_INTERVAL_MS);
   }
-  throw new Error("Google Workspace OAuth timed out.");
+  throw new Error("Google Workspace OAuth 登录超时。");
 }
 
 function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient, onExtensionConnectionChange, restartLocalServer }: ExtensionConfigContext) {
@@ -130,7 +130,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       setStatus(result);
       onExtensionConnectionChange?.("google-workspace", result.connected);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to read Google Workspace status.");
+      setError(err instanceof Error ? err.message : "无法读取 Google Workspace 状态。");
     } finally {
       setBusyAction(null);
     }
@@ -148,14 +148,14 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       const result = await Promise.race([
         command(),
         new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error("Google Workspace connection is taking too long. Try again, or restart OpenWork if the browser already said authorization was received.")), DESKTOP_ACTION_TIMEOUT_MS);
+          window.setTimeout(() => reject(new Error("Google Workspace 连接时间过长。请重试；如果浏览器已经提示授权成功，请重启 FoxWork。")), DESKTOP_ACTION_TIMEOUT_MS);
         }),
       ]);
       const next = normalizeGoogleWorkspaceAuthStatus(result);
       setStatus(next);
       onExtensionConnectionChange?.("google-workspace", next.connected);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Google Workspace ${action} failed.`);
+      setError(err instanceof Error ? err.message : `Google Workspace 操作失败（${action}）。`);
       await loadStatus({ clearError: false });
     } finally {
       setBusyAction(null);
@@ -172,7 +172,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
 
   const saveOauthEnv = async (entries: { key: string; value: string }[], onSaved: () => void) => {
     if (!hostOpenworkServerClient) {
-      setError("Google OAuth settings can only be saved from the local desktop app.");
+      setError("Google OAuth 设置只能通过本机桌面客户端保存。");
       return;
     }
     setBusyAction("save-secret");
@@ -183,13 +183,13 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       onSaved();
       if (restartLocalServer) {
         const restarted = await restartLocalServer();
-        if (!restarted) setError("Saved Google OAuth settings. Restart OpenWork to apply them.");
+        if (!restarted) setError("Google OAuth 设置已保存，请重启 FoxWork 后使用。");
       } else {
-        setError("Saved Google OAuth settings. Restart OpenWork to apply them.");
+        setError("Google OAuth 设置已保存，请重启 FoxWork 后使用。");
       }
       await loadStatus({ clearError: false });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save Google OAuth settings.");
+      setError(err instanceof Error ? err.message : "无法保存 Google OAuth 设置。");
     } finally {
       setBusyAction(null);
     }
@@ -198,7 +198,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
   const saveGoogleClientSecret = async () => {
     const value = clientSecret.trim();
     if (!value) {
-      setError("Enter the client secret from your Google OAuth desktop client.");
+      setError("请输入 Google OAuth 桌面客户端密钥。");
       return;
     }
     await saveOauthEnv([{ key: "GOOGLE_WORKSPACE_OAUTH_CLIENT_SECRET", value }], () => setClientSecret(""));
@@ -208,11 +208,11 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
     const id = customClientId.trim();
     const secret = customClientSecret.trim();
     if (!id || !secret) {
-      setError("Enter both the client ID and client secret from your own Google OAuth desktop client.");
+      setError("请输入你自己的 Google OAuth 桌面客户端 ID 和客户端密钥。");
       return;
     }
     if (id === OPENWORK_BUILTIN_GOOGLE_CLIENT_ID) {
-      setError("That is the built-in OpenWork client ID, which cannot unlock Gmail read access. Create your own OAuth client in Google Cloud Console (APIs & Services > Credentials > Create OAuth client ID > Desktop app) and paste its client ID here.");
+      setError("这是 FoxWork 内置客户端 ID，不能用于读取 Gmail。请在 Google Cloud Console 的“API 和服务 > 凭据 > 创建 OAuth 客户端 ID > 桌面应用”中新建客户端，并在此填写客户端 ID。");
       return;
     }
     await saveOauthEnv(
@@ -234,26 +234,26 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       {!serverAvailable ? (
         <Alert variant="warning">
           <ShieldCheck />
-          <AlertTitle>OpenWork server required</AlertTitle>
-          <AlertDescription>Start OpenWork server to connect Google Workspace.</AlertDescription>
+          <AlertTitle>需要 FoxWork 服务</AlertTitle>
+          <AlertDescription>请先启动 FoxWork 服务，再连接 Google Workspace。</AlertDescription>
         </Alert>
       ) : null}
 
       {status?.connected ? (
         <Alert>
           <CheckCircle2 />
-          <AlertTitle>Connected to Google Workspace</AlertTitle>
+          <AlertTitle>已连接 Google Workspace</AlertTitle>
           <AlertDescription>
-            {connectedAccounts.length === 1 && connectedAccounts[0]?.email ? `Signed in as ${connectedAccounts[0].email}.` : `${connectedAccounts.length} Google accounts connected.`}
+            {connectedAccounts.length === 1 && connectedAccounts[0]?.email ? `当前账号：${connectedAccounts[0].email}。` : `已连接 ${connectedAccounts.length} 个 Google 账号。`}
             {status.testStatus ? ` ${status.testStatus}` : ""}
           </AlertDescription>
         </Alert>
       ) : (
         <Alert variant="warning">
           <ShieldCheck />
-          <AlertTitle>Connect Google Workspace</AlertTitle>
+          <AlertTitle>连接 Google Workspace</AlertTitle>
           <AlertDescription>
-            Let OpenWork use your calendar, selected Drive files, and Gmail drafts when you ask it to.
+            连接后，FoxWork 可以按你的要求使用日历、指定的云端硬盘文件和 Gmail 草稿。
           </AlertDescription>
         </Alert>
       )}
@@ -261,17 +261,17 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       {status && !status.configured ? (
         <Alert variant="warning">
           <XCircle />
-          <AlertTitle>Google OAuth client not configured</AlertTitle>
-          <AlertDescription>Add your Google OAuth desktop client secret to connect Google Workspace.</AlertDescription>
+          <AlertTitle>尚未配置 Google OAuth 客户端</AlertTitle>
+          <AlertDescription>添加 Google OAuth 桌面客户端密钥后即可连接 Google Workspace。</AlertDescription>
         </Alert>
       ) : null}
 
       {status && !status.configured ? (
         <Card variant="outline" size="sm">
           <CardHeader>
-            <CardTitle>Set up Google OAuth</CardTitle>
+            <CardTitle>设置 Google OAuth</CardTitle>
             <CardDescription>
-              Use a Google Cloud OAuth desktop client. OpenWork already includes the desktop client ID; paste the matching client secret here.
+              请使用 Google Cloud OAuth 桌面客户端。FoxWork 已内置客户端 ID，只需在此粘贴对应的客户端密钥。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -279,17 +279,17 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
               type="password"
               value={clientSecret}
               onChange={(event) => setClientSecret(event.target.value)}
-              placeholder="Google OAuth desktop client secret"
+              placeholder="Google OAuth 桌面客户端密钥"
               autoComplete="off"
             />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              The secret is saved locally in OpenWork environment settings and applied after the local server restarts.
+              密钥会保存在 FoxWork 本机环境设置中，并在本机服务重启后生效。
             </p>
           </CardContent>
           <CardFooter>
             <Button disabled={busyAction === "save-secret" || !clientSecret.trim() || !hostServerAvailable} onClick={() => void saveGoogleClientSecret()}>
               {busyAction === "save-secret" ? <Loader2 className="size-4 animate-spin" /> : null}
-              Save and apply
+              保存并应用
             </Button>
           </CardFooter>
         </Card>
@@ -298,15 +298,15 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       {status?.vault === "unavailable" ? (
         <Alert variant="destructive">
           <XCircle />
-          <AlertTitle>Encrypted token vault unavailable</AlertTitle>
-          <AlertDescription>OpenWork cannot securely save your Google connection on this machine right now.</AlertDescription>
+          <AlertTitle>加密令牌存储不可用</AlertTitle>
+          <AlertDescription>FoxWork 当前无法在这台电脑上安全保存 Google 连接。</AlertDescription>
         </Alert>
       ) : null}
 
       {error || status?.error ? (
         <Alert variant="destructive">
           <XCircle />
-          <AlertTitle>Google Workspace error</AlertTitle>
+          <AlertTitle>Google Workspace 出错</AlertTitle>
           <AlertDescription>{error ?? status?.error}</AlertDescription>
         </Alert>
       ) : null}
@@ -314,33 +314,33 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       {status?.smokeTest ? (
         <Alert>
           <CheckCircle2 />
-          <AlertTitle>Scope smoke test complete</AlertTitle>
-          <AlertDescription>Calendar, Drive, and Gmail draft access were verified.</AlertDescription>
+          <AlertTitle>权限检查完成</AlertTitle>
+          <AlertDescription>日历、云端硬盘和 Gmail 草稿访问均已验证。</AlertDescription>
         </Alert>
       ) : null}
 
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>What OpenWork can do</CardTitle>
+          <CardTitle>FoxWork 可以做什么</CardTitle>
           <CardDescription>
-            Connect Google Workspace so OpenWork can help with meeting prep, selected files, and draft emails.
+            连接 Google Workspace 后，FoxWork 可以协助准备会议、处理指定文件和起草邮件。
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-3">
             <CalendarDays className="mb-2 size-4 text-blue-11" />
-            <div className="text-sm font-medium text-card-foreground">Calendar read</div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">List upcoming events and provide meeting context.</div>
+            <div className="text-sm font-medium text-card-foreground">读取日历</div>
+            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">列出即将开始的活动，并提供会议背景。</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-3">
             <MailPlus className="mb-2 size-4 text-red-11" />
-            <div className="text-sm font-medium text-card-foreground">Gmail drafts</div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">Create draft emails only. No send tool in Phase 1.</div>
+            <div className="text-sm font-medium text-card-foreground">Gmail 草稿</div>
+            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">只创建邮件草稿，不会直接发送。</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-3">
             <FileText className="mb-2 size-4 text-green-11" />
-            <div className="text-sm font-medium text-card-foreground">Selected Drive files</div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">Read files explicitly selected or created through OpenWork.</div>
+            <div className="text-sm font-medium text-card-foreground">指定的云端硬盘文件</div>
+            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">只读取你明确选择或通过 FoxWork 创建的文件。</div>
           </div>
         </CardContent>
       </Card>
@@ -351,8 +351,8 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
             {connectedAccounts.map((account) => (
               <div key={account.accountId ?? account.email ?? account.sub ?? "google-account"} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-card-foreground">{account.email ?? account.name ?? "Google account"}</div>
-                  <div className="text-xs text-muted-foreground">{account.accountId === status?.activeAccountId ? "Default for extension actions" : "Connected"}</div>
+                  <div className="truncate text-sm font-medium text-card-foreground">{account.email ?? account.name ?? "Google 账号"}</div>
+                  <div className="text-xs text-muted-foreground">{account.accountId === status?.activeAccountId ? "扩展操作的默认账号" : "已连接"}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {account.accountId && account.accountId !== status?.activeAccountId ? (
@@ -362,11 +362,11 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
                       void runDesktopAction("set-active", () => openworkServerClient?.googleWorkspaceSetActiveAccount(accountId) ?? Promise.resolve(null));
                     }}>
                       {busyAction === "set-active" ? <Loader2 className="size-4 animate-spin" /> : null}
-                      Make default
+                      设为默认
                     </Button>
                   ) : null}
                   <Button variant="destructive" size="sm" disabled={Boolean(busyAction)} onClick={() => void runDesktopAction("disconnect", () => openworkServerClient?.googleWorkspaceDisconnect(account.accountId) ?? Promise.resolve(null))}>
-                    Disconnect
+                    断开连接
                   </Button>
                 </div>
               </div>
@@ -377,21 +377,21 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
           <div className="flex flex-wrap gap-2">
             <Button disabled={Boolean(busyAction) || !canConnect} onClick={() => void runDesktopAction("connect", connectGoogleWorkspace)}>
               {busyAction === "connect" ? <Loader2 className="size-4 animate-spin" /> : null}
-              {status?.connected ? "Add another Google account" : "Connect with Google"}
+              {status?.connected ? "添加其他 Google 账号" : "连接 Google 账号"}
             </Button>
             {connectedAccounts.length > 1 ? (
               <Button variant="destructive" disabled={Boolean(busyAction)} onClick={() => void runDesktopAction("disconnect", () => openworkServerClient?.googleWorkspaceDisconnect() ?? Promise.resolve(null))}>
                 {busyAction === "disconnect" ? <Loader2 className="size-4 animate-spin" /> : null}
-                Disconnect all
+                全部断开
               </Button>
             ) : null}
             <Button variant="outline" disabled={Boolean(busyAction) || !canTest} onClick={() => void runDesktopAction("test", () => openworkServerClient?.googleWorkspaceTestConnection() ?? Promise.resolve(null))}>
               {busyAction === "test" ? <Loader2 className="size-4 animate-spin" /> : null}
-              Test connection
+              测试连接
             </Button>
             <Button variant="outline" disabled={Boolean(busyAction) || !canTest} onClick={() => void runDesktopAction("smoke-test", () => openworkServerClient?.googleWorkspaceRunScopeSmokeTest() ?? Promise.resolve(null))}>
               {busyAction === "smoke-test" ? <Loader2 className="size-4 animate-spin" /> : null}
-              Run diagnostic
+              运行诊断
             </Button>
           </div>
         </CardFooter>
@@ -399,46 +399,46 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
 
       <Accordion>
         <AccordionItem value="advanced">
-          <AccordionTrigger>Advanced</AccordionTrigger>
+          <AccordionTrigger>高级设置</AccordionTrigger>
           <AccordionContent className="space-y-4">
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Use your own Google OAuth client to unlock extra permissions, like reading Gmail, full Drive access, creating calendar events, and Google Chat.
+              使用你自己的 Google OAuth 客户端可以申请更多权限，例如读取 Gmail、完整访问云端硬盘、创建日历活动和使用 Google Chat。
             </p>
             {status?.customClient ? (
               <Alert>
                 <CheckCircle2 />
-                <AlertTitle>Using your own Google OAuth client</AlertTitle>
-                <AlertDescription>Extra permissions below are available.</AlertDescription>
+                <AlertTitle>正在使用你自己的 Google OAuth 客户端</AlertTitle>
+                <AlertDescription>可以选择下方的附加权限。</AlertDescription>
               </Alert>
             ) : (
               <div className="space-y-3">
                 <Input
                   value={customClientId}
                   onChange={(event) => setCustomClientId(event.target.value)}
-                  placeholder="Your Google OAuth desktop client ID"
+                  placeholder="你的 Google OAuth 桌面客户端 ID"
                   autoComplete="off"
                 />
                 <Input
                   type="password"
                   value={customClientSecret}
                   onChange={(event) => setCustomClientSecret(event.target.value)}
-                  placeholder="Your Google OAuth desktop client secret"
+                  placeholder="你的 Google OAuth 桌面客户端密钥"
                   autoComplete="off"
                 />
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Create a desktop OAuth client in Google Cloud Console, then paste its client ID and secret. They are saved locally in OpenWork environment settings and applied after the local server restarts.
+                  请在 Google Cloud Console 中创建桌面 OAuth 客户端，再粘贴客户端 ID 和密钥。它们会保存在 FoxWork 本机环境设置中，并在本机服务重启后生效。
                 </p>
                 <Button disabled={busyAction === "save-secret" || !customClientId.trim() || !customClientSecret.trim() || !hostServerAvailable} onClick={() => void saveCustomOauthClient()}>
                   {busyAction === "save-secret" ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Save and apply
+                  保存并应用
                 </Button>
               </div>
             )}
             <div className="space-y-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {status?.customClient
-                  ? "Allow or deny each extra permission below. They are requested the next time you connect a Google account. Already connected? Disconnect and connect again to change them."
-                  : "Add your own Google OAuth client above to enable these options."}
+                  ? "请选择是否允许下方各项附加权限。下次连接 Google 账号时会申请这些权限；已连接的账号需先断开再重新连接。"
+                  : "请先在上方添加你自己的 Google OAuth 客户端，再设置这些选项。"}
               </p>
               {OPTIONAL_FEATURES.map((feature) => (
                 <label key={feature.id} className="flex items-start gap-2.5">

@@ -67,6 +67,7 @@ import {
   parseOrgListPayload,
   shouldOfferOrgSelection,
 } from "../_lib/den-org";
+import { FOXWORK_DESKTOP_SCHEME, normalizeFoxWorkDesktopScheme } from "../_lib/foxwork-brand";
 
 type LaunchWorkerResult = "success" | "limit" | "error";
 type AuthNavigationResult = "dashboard" | "join-org" | null;
@@ -191,6 +192,10 @@ function clearPendingAuthIntent() {
   window.sessionStorage.removeItem(PENDING_AUTH_INTENT_STORAGE_KEY);
 }
 
+function getCaughtErrorMessage(error: unknown, fallback: string) {
+  return getErrorMessage(error instanceof Error ? error.message : null, fallback);
+}
+
 export function DenFlowProvider({ children }: { children: ReactNode }) {
   const [authMode, setAuthModeState] = useState<AuthMode>("sign-up");
   const [email, setEmail] = useState("");
@@ -216,7 +221,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
   });
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [desktopAuthRequested, setDesktopAuthRequested] = useState(false);
-  const [desktopAuthScheme, setDesktopAuthScheme] = useState("openwork");
+  const [desktopAuthScheme, setDesktopAuthScheme] = useState(FOXWORK_DESKTOP_SCHEME);
   const [desktopRedirectBusy, setDesktopRedirectBusy] = useState(false);
   const [desktopRedirectUrl, setDesktopRedirectUrl] = useState<string | null>(null);
   const [desktopRedirectAttempted, setDesktopRedirectAttempted] = useState(false);
@@ -237,7 +242,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
   const [workerStatusFilter, setWorkerStatusFilter] = useState<WorkerStatusBucket | "all">("all");
   const [launchBusy, setLaunchBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState<"status" | "token" | null>(null);
-  const [launchStatus, setLaunchStatus] = useState("Choose a worker name and launch.");
+  const [launchStatus, setLaunchStatus] = useState("请先选择或新建远程工作区。");
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [events, setEvents] = useState<LaunchEvent[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -626,7 +631,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       if (!options.quiet) {
-        appendEvent("warning", "Credential hint", "Could not resolve /w/ URL yet. Using host URL fallback.");
+        appendEvent("warning", "连接地址提示", "暂时无法获取工作区专用地址，已改用服务器地址。");
       }
     }
 
@@ -662,7 +667,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (!options.quiet) {
-          setWorkersError(getErrorMessage(payload, `Failed to load workers (${response.status}).`));
+          setWorkersError(getErrorMessage(payload, `远程工作区加载失败（${response.status}）。`));
         }
         setWorkersLoadedOnce(true);
         return;
@@ -689,7 +694,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         setWorker(null);
         setTokenFetchedForWorkerId(null);
         setPendingRestoredWorkerId(null);
-        setLaunchStatus("Choose a worker name and launch.");
+        setLaunchStatus("请先选择或新建远程工作区。");
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(LAST_WORKER_STORAGE_KEY);
         }
@@ -708,7 +713,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       if (!options.quiet) {
-        setWorkersError(error instanceof Error ? error.message : "Unknown network error");
+        setWorkersError(getCaughtErrorMessage(error, "无法加载远程工作区，请检查网络后重试。"));
       }
       setWorkersLoadedOnce(true);
     } finally {
@@ -739,7 +744,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     if (!user || !targetWorkerId) {
       setRuntimeSnapshot(null);
       if (!options.quiet) {
-        setRuntimeError("Select a worker to inspect runtime versions.");
+        setRuntimeError("请先选择一个远程工作区，再查看运行环境版本。");
       }
       return null;
     }
@@ -760,7 +765,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       );
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Runtime check failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `运行环境检查失败（${response.status}）。`);
         if (!options.quiet) {
           setRuntimeError(message);
         }
@@ -770,7 +775,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       const snapshot = getWorkerRuntimeSnapshot(payload);
       if (!snapshot) {
         if (!options.quiet) {
-          setRuntimeError("Runtime details were missing from the worker response.");
+          setRuntimeError("远程工作区没有返回完整的运行环境信息。");
         }
         return null;
       }
@@ -778,7 +783,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       setRuntimeSnapshot(snapshot);
       return snapshot;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法检查运行环境，请稍后重试。");
       if (!options.quiet) {
         setRuntimeError(message);
       }
@@ -809,13 +814,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       );
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Runtime upgrade failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `运行环境升级失败（${response.status}）。`);
         setRuntimeError(message);
-        appendEvent("error", "Runtime upgrade failed", message);
+        appendEvent("error", "运行环境升级失败", message);
         return;
       }
 
-      appendEvent("info", "Runtime upgrade started", activeWorker?.workerName ?? selectedWorker?.workerName ?? targetWorkerId);
+      appendEvent("info", "运行环境开始升级", activeWorker?.workerName ?? selectedWorker?.workerName ?? targetWorkerId);
       setRuntimeSnapshot((current) =>
         current
           ? {
@@ -835,9 +840,9 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         void refreshRuntime(targetWorkerId, { quiet: true });
       }, 4000);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法启动运行环境升级，请稍后重试。");
       setRuntimeError(message);
-      appendEvent("error", "Runtime upgrade failed", message);
+      appendEvent("error", "运行环境升级失败", message);
     } finally {
       setRuntimeUpgradeBusy(false);
     }
@@ -847,7 +852,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setBillingSummary(null);
       if (!options.quiet) {
-        setBillingError("Sign in to view billing details.");
+        setBillingError("请先登录，再查看服务方案信息。");
       }
       return null;
     }
@@ -870,10 +875,10 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       );
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Billing lookup failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `服务方案查询失败（${response.status}）。`);
         if (!quiet) {
           setBillingError(message);
-          appendEvent("error", "Billing check failed", message);
+          appendEvent("error", "服务方案检查失败", message);
         }
         return null;
       }
@@ -881,8 +886,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       const summary = getBillingSummary(payload);
       if (!summary) {
         if (!quiet) {
-          setBillingError("Billing response was missing details.");
-          appendEvent("error", "Billing check failed", "Billing summary missing");
+          setBillingError("公司服务没有返回完整的服务方案信息。");
+          appendEvent("error", "服务方案检查失败", "服务方案信息不完整");
         }
         return null;
       }
@@ -892,10 +897,10 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       return summary;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法查询服务方案，请稍后重试。");
       if (!quiet) {
         setBillingError(message);
-        appendEvent("error", "Billing check failed", message);
+        appendEvent("error", "服务方案检查失败", message);
       }
       return null;
     } finally {
@@ -1021,16 +1026,14 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     const autoName = deriveOnboardingWorkerName(authenticatedUser);
     setWorkerName(autoName);
     setLaunchError(null);
-    setLaunchStatus("Create a workspace to get started.");
+    setLaunchStatus("账号已就绪，请在 FoxWork 中新建本地或远程工作区。");
     persistOnboardingIntent(null);
     return "dashboard" as const;
   }
 
   async function resolveUserLandingRoute() {
-    // Deliberately ignores desktopAuthRequested: callers that auto-redirect
-    // (auth-screen) gate on it themselves, while explicit actions — the
-    // "Go to dashboard" button on the signed-in handoff card — must resolve
-    // a destination even mid desktop handoff.
+    // 此处有意不检查 desktopAuthRequested：自动跳转由调用方自行限制，
+    // 用户主动点击“进入管理后台”时，即使桌面交接正在进行，也必须能够解析目标地址。
     if (!user) {
       return null;
     }
@@ -1222,7 +1225,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({})
       });
     } catch {
-      // Ignore transport issues and clear local state anyway.
+      // 即使退出请求未送达，也要清理本地登录状态。
     } finally {
       setAuthBusy(false);
     }
@@ -1254,7 +1257,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     setAuthName("");
     setPassword("");
     setAuthInfo(getAuthInfoForMode("sign-up"));
-    setLaunchStatus("Choose a worker name and launch.");
+    setLaunchStatus("请先选择或新建远程工作区。");
     setEvents([]);
     setWorkerQuery("");
     setWorkerStatusFilter("all");
@@ -1282,12 +1285,12 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     );
 
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Failed to update profile (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `个人资料更新失败（${response.status}）。`));
     }
 
     const nextUser = getUser(payload);
     if (!nextUser) {
-      throw new Error("Profile update response did not include a user.");
+      throw new Error("公司服务没有返回更新后的账号信息。");
     }
 
     setUser(nextUser);
@@ -1297,7 +1300,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function launchWorker(options: { source?: "manual" | "signup_auto"; workerNameOverride?: string } = {}) {
     if (!user) {
-      setAuthError("Sign in before launching a worker.");
+      setAuthError("请先登录，再新建远程工作区。");
       return "error" as const;
     }
 
@@ -1306,8 +1309,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     setLaunchBusy(true);
     setLaunchError(null);
     setOrgLimitError(null);
-    setLaunchStatus(options.source === "signup_auto" ? "Creating your first worker..." : "Checking worker billing and launch eligibility...");
-    appendEvent("info", "Launch requested", resolvedLaunchName);
+    setLaunchStatus(options.source === "signup_auto" ? "正在准备第一个远程工作区..." : "正在检查远程工作区创建条件...");
+    appendEvent("info", "已提交创建请求", resolvedLaunchName);
 
     try {
       const { response, payload } = await requestJson(
@@ -1328,7 +1331,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         setOrgLimitError(limitError);
         setLaunchStatus(limitError.message);
         setLaunchError(limitError.message);
-        appendEvent("warning", "Workspace limit reached", limitError.message);
+        appendEvent("warning", "远程工作区数量已达上限", limitError.message);
         return "limit" as const;
       }
 
@@ -1344,26 +1347,26 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
             checkoutRequired: true,
           };
         });
-        const message = getErrorMessage(payload, "New cloud worker launches are not available for this account.");
+        const message = getErrorMessage(payload, "当前账号暂时不能新建远程工作区，请联系管理员。");
         setLaunchStatus(message);
         setLaunchError(message);
-        appendEvent("warning", "Worker launch unavailable", message);
+        appendEvent("warning", "暂时无法新建远程工作区", message);
         return "error" as const;
       }
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Launch failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `远程工作区创建失败（${response.status}）。`);
         setLaunchError(message);
-        setLaunchStatus("Launch failed. Fix the error and retry.");
-        appendEvent("error", "Launch failed", message);
+        setLaunchStatus("创建失败，请处理提示后重试。");
+        appendEvent("error", "远程工作区创建失败", message);
         return "error" as const;
       }
 
       const parsedWorker = getWorker(payload);
       if (!parsedWorker) {
-        setLaunchError("Launch response was missing worker details.");
-        setLaunchStatus("Launch response format was unexpected.");
-        appendEvent("error", "Launch failed", "Worker payload missing");
+        setLaunchError("公司服务没有返回远程工作区详情。");
+        setLaunchStatus("公司服务返回的数据格式异常，请重试。");
+        appendEvent("error", "远程工作区创建失败", "远程工作区信息不完整");
         return "error" as const;
       }
 
@@ -1373,11 +1376,11 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       setPendingRestoredWorkerId(null);
 
       if (resolvedWorker.status === "provisioning") {
-        setLaunchStatus("Provisioning started. We will keep checking automatically.");
-        appendEvent("info", "Provisioning started", `Worker ID ${parsedWorker.workerId}`);
+        setLaunchStatus("远程工作区正在准备中，系统会自动更新进度。");
+        appendEvent("info", "远程工作区开始准备", `工作区 ID：${parsedWorker.workerId}`);
       } else {
         setLaunchStatus(getWorkerStatusCopy(resolvedWorker.status));
-        appendEvent("success", "Worker launched", `Worker ID ${parsedWorker.workerId}`);
+        appendEvent("success", "远程工作区创建完成", `工作区 ID：${parsedWorker.workerId}`);
       }
 
       markOnboardingComplete();
@@ -1385,14 +1388,12 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const message =
         error instanceof DOMException && error.name === "AbortError"
-          ? "Launch request took longer than expected. Provisioning can continue in the background. Refresh worker status below."
-          : error instanceof Error
-            ? error.message
-            : "Unknown network error";
+          ? "创建请求耗时较长，后台可能仍在准备远程工作区，请稍后刷新状态。"
+          : getCaughtErrorMessage(error, "远程工作区创建请求失败，请稍后重试。");
 
       setLaunchError(message);
-      setLaunchStatus("Launch request failed.");
-      appendEvent("error", "Launch failed", message);
+      setLaunchStatus("远程工作区创建请求失败。");
+      appendEvent("error", "远程工作区创建失败", message);
       return "error" as const;
     } finally {
       setLaunchBusy(false);
@@ -1406,7 +1407,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
     if (!user) {
       if (!quiet) {
-        setLaunchError("Sign in before checking worker status.");
+        setLaunchError("请先登录，再查看远程工作区状态。");
       }
       return;
     }
@@ -1415,7 +1416,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     const id = options.workerId ?? fallbackId;
     if (!id) {
       if (!quiet) {
-        setLaunchError("No worker selected yet. Launch one first, then use this panel.");
+        setLaunchError("请先选择或新建一个远程工作区。");
       }
       return;
     }
@@ -1438,10 +1439,10 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Status check failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `远程工作区状态查询失败（${response.status}）。`);
         if (!quiet) {
           setLaunchError(message);
-          appendEvent("error", "Status check failed", message);
+          appendEvent("error", "状态查询失败", message);
         }
         return;
       }
@@ -1449,8 +1450,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       const summary = getWorkerSummary(payload);
       if (!summary) {
         if (!quiet) {
-          setLaunchError("Status response was missing worker details.");
-          appendEvent("error", "Status check failed", "Worker summary missing");
+          setLaunchError("公司服务没有返回远程工作区状态详情。");
+          appendEvent("error", "状态查询失败", "远程工作区状态信息不完整");
         }
         return;
       }
@@ -1491,24 +1492,24 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       }
 
       if (!quiet) {
-        setLaunchStatus(`Worker ${summary.workerName} is currently ${summary.status}.`);
-        appendEvent("info", "Status refreshed", `${summary.workerName}: ${summary.status}`);
+        setLaunchStatus(`${summary.workerName}：${getWorkerStatusCopy(summary.status)}`);
+        appendEvent("info", "状态已更新", `${summary.workerName}：${getWorkerStatusCopy(summary.status)}`);
       } else if (previousStatus && previousStatus !== summary.status) {
         setLaunchStatus(getWorkerStatusCopy(summary.status));
 
         if (summary.status === "healthy") {
-          appendEvent("success", "Provisioning complete", `${summary.workerName} is ready`);
+          appendEvent("success", "远程工作区准备完成", `${summary.workerName} 已可连接`);
           markOnboardingComplete();
         } else if (summary.status === "failed") {
-          appendEvent("error", "Provisioning failed", `${summary.workerName} failed to provision`);
+          appendEvent("error", "远程工作区准备失败", `${summary.workerName} 未能完成准备`);
         } else {
-          appendEvent("info", "Provisioning update", `${summary.workerName}: ${summary.status}`);
+          appendEvent("info", "准备进度已更新", `${summary.workerName}：${getWorkerStatusCopy(summary.status)}`);
         }
       }
 
     } catch (error) {
       if (!quiet) {
-        setLaunchError(error instanceof Error ? error.message : "Unknown network error");
+        setLaunchError(getCaughtErrorMessage(error, "无法查询远程工作区状态，请稍后重试。"));
       }
     } finally {
       if (!background) {
@@ -1519,13 +1520,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function generateWorkerToken() {
     if (!user) {
-      setLaunchError("Sign in before fetching a worker access token.");
+      setLaunchError("请先登录，再获取远程工作区连接凭据。");
       return;
     }
 
     const id = workerLookupId.trim() || worker?.workerId || workers[0]?.workerId || "";
     if (!id) {
-      setLaunchError("No worker selected yet. Launch one first, then fetch a token.");
+      setLaunchError("请先选择或新建一个远程工作区。");
       return;
     }
 
@@ -1541,16 +1542,16 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Token fetch failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `连接凭据获取失败（${response.status}）。`);
         setLaunchError(message);
-        appendEvent("error", "Token fetch failed", message);
+        appendEvent("error", "连接凭据获取失败", message);
         return;
       }
 
       const tokens = getWorkerTokens(payload);
       if (!tokens) {
-        setLaunchError("Token response returned no token values.");
-        appendEvent("error", "Token fetch failed", "Missing token payload");
+        setLaunchError("公司服务没有返回可用的连接凭据。");
+        appendEvent("error", "连接凭据获取失败", "连接凭据信息不完整");
         return;
       }
 
@@ -1566,7 +1567,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
             }
           : {
               workerId: id,
-              workerName: "Existing worker",
+              workerName: "已有远程工作区",
               status: "unknown",
               provider: null,
               instanceUrl: null,
@@ -1580,12 +1581,12 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       const resolvedWorker = await withResolvedOpenworkCredentials(nextWorker, { quiet: true });
       setWorker(resolvedWorker);
       setPendingRestoredWorkerId(null);
-      setLaunchStatus("Worker is ready to connect.");
-      appendEvent("success", "Owner token ready", `Worker ID ${id}`);
+      setLaunchStatus("远程工作区已可连接。");
+      appendEvent("success", "连接凭据已就绪", `工作区 ID：${id}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法获取连接凭据，请稍后重试。");
       setLaunchError(message);
-      appendEvent("error", "Token fetch failed", message);
+      appendEvent("error", "连接凭据获取失败", message);
     } finally {
       setActionBusy(null);
     }
@@ -1593,13 +1594,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function renameWorker(workerId: string, name: string) {
     if (!user) {
-      setLaunchError("Sign in before renaming a worker.");
+      setLaunchError("请先登录，再重命名远程工作区。");
       return false;
     }
 
     const nextName = name.trim();
     if (!nextName) {
-      setLaunchError("Enter a worker name.");
+      setLaunchError("请输入远程工作区名称。");
       return false;
     }
 
@@ -1614,21 +1615,21 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const message = getErrorMessage(payload, `Rename failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `重命名失败（${response.status}）。`);
         setLaunchError(message);
-        appendEvent("error", "Rename failed", message);
+        appendEvent("error", "重命名失败", message);
         return false;
       }
 
       setWorkers((current) => current.map((entry) => entry.workerId === workerId ? { ...entry, workerName: nextName } : entry));
       setWorker((current) => current && current.workerId === workerId ? { ...current, workerName: nextName } : current);
-      setLaunchStatus(`Renamed worker to ${nextName}.`);
-      appendEvent("success", "Worker renamed", nextName);
+      setLaunchStatus(`远程工作区已重命名为“${nextName}”。`);
+      appendEvent("success", "远程工作区已重命名", nextName);
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法重命名远程工作区，请稍后重试。");
       setLaunchError(message);
-      appendEvent("error", "Rename failed", message);
+      appendEvent("error", "重命名失败", message);
       return false;
     } finally {
       setRenameBusyWorkerId(null);
@@ -1637,7 +1638,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function deleteWorker(workerId: string) {
     if (!user) {
-      setLaunchError("Sign in before deleting a worker.");
+      setLaunchError("请先登录，再删除远程工作区。");
       return;
     }
 
@@ -1646,10 +1647,10 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     const target = workers.find((entry) => entry.workerId === workerId) ?? null;
-    const workerLabel = target?.workerName ?? "this worker";
+    const workerLabel = target?.workerName ?? "这个远程工作区";
 
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Delete \"${workerLabel}\"? This removes it from your worker list.`);
+      const confirmed = window.confirm(`确定删除“${workerLabel}”吗？删除后它将不再出现在远程工作区列表中。`);
       if (!confirmed) {
         return;
       }
@@ -1665,9 +1666,9 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.status !== 204 && !response.ok) {
-        const message = getErrorMessage(payload, `Delete failed with ${response.status}.`);
+        const message = getErrorMessage(payload, `删除失败（${response.status}）。`);
         setLaunchError(message);
-        appendEvent("error", "Delete failed", message);
+        appendEvent("error", "远程工作区删除失败", message);
         return;
       }
 
@@ -1680,13 +1681,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         window.localStorage.removeItem(LAST_WORKER_STORAGE_KEY);
       }
 
-      setLaunchStatus(`Deleted ${workerLabel}.`);
-      appendEvent("success", "Worker deleted", workerLabel);
+      setLaunchStatus(`已删除“${workerLabel}”。`);
+      appendEvent("success", "远程工作区已删除", workerLabel);
       await refreshWorkers({ keepSelection: false });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = getCaughtErrorMessage(error, "无法删除远程工作区，请稍后重试。");
       setLaunchError(message);
-      appendEvent("error", "Delete failed", message);
+      appendEvent("error", "远程工作区删除失败", message);
     } finally {
       setDeleteBusyWorkerId(null);
     }
@@ -1694,7 +1695,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function redeployWorker(workerId: string) {
     if (!user) {
-      setLaunchError("Sign in before redeploying a worker.");
+      setLaunchError("请先登录，再重新部署远程工作区。");
       return;
     }
 
@@ -1706,7 +1707,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     const workerLabel = target?.workerName?.trim() || DEFAULT_WORKER_NAME;
 
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Redeploy \"${workerLabel}\"? This removes the current worker and creates a new one with the same name.`);
+      const confirmed = window.confirm(`确定重新部署“${workerLabel}”吗？当前实例会被删除，并用相同名称重新创建。`);
       if (!confirmed) {
         return;
       }
@@ -1714,8 +1715,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
     setRedeployBusyWorkerId(workerId);
     setLaunchError(null);
-    setLaunchStatus(`Redeploying ${workerLabel}...`);
-    appendEvent("info", "Redeploy requested", workerLabel);
+    setLaunchStatus(`正在重新部署“${workerLabel}”...`);
+    appendEvent("info", "已提交重新部署请求", workerLabel);
 
     try {
       const { response: deleteResponse, payload: deletePayload } = await requestJson(`/v1/workers/${encodeURIComponent(workerId)}`, {
@@ -1724,15 +1725,15 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (deleteResponse.status !== 204 && !deleteResponse.ok) {
-        const message = getErrorMessage(deletePayload, `Redeploy failed while deleting (${deleteResponse.status}).`);
+        const message = getErrorMessage(deletePayload, `重新部署时删除旧实例失败（${deleteResponse.status}）。`);
         setLaunchError(message);
-        appendEvent("error", "Redeploy failed", message);
+        appendEvent("error", "重新部署失败", message);
         return;
       }
 
       const outcome = await launchWorker({ source: "manual", workerNameOverride: workerLabel });
       if (outcome === "success") {
-        appendEvent("success", "Worker redeployed", workerLabel);
+        appendEvent("success", "远程工作区已重新部署", workerLabel);
       }
     } finally {
       setRedeployBusyWorkerId(null);
@@ -1773,9 +1774,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
     setDesktopAuthRequested(params.get("desktopAuth") === "1");
     const requestedScheme = params.get("desktopScheme")?.trim() ?? "";
-    if (/^[a-z][a-z0-9+.-]*$/i.test(requestedScheme)) {
-      setDesktopAuthScheme(requestedScheme);
-    }
+    setDesktopAuthScheme(normalizeFoxWorkDesktopScheme(requestedScheme));
 
     const invitationId = params.get("invite")?.trim() ?? "";
     if (invitationId) {
@@ -1902,10 +1901,10 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       setWorker(restored);
       setWorkerLookupId(restored.workerId);
       setPendingRestoredWorkerId(restored.workerId);
-      setLaunchStatus(`Recovered worker ${restored.workerName}. ${getWorkerStatusCopy(restored.status)}`);
-      appendEvent("info", "Recovered worker context", `Worker ID ${restored.workerId}`);
+      setLaunchStatus(`已恢复远程工作区“${restored.workerName}”。${getWorkerStatusCopy(restored.status)}`);
+      appendEvent("info", "已恢复远程工作区记录", `工作区 ID：${restored.workerId}`);
     } catch {
-      // Ignore invalid saved worker state.
+      // 忽略无法解析的旧版远程工作区缓存。
     }
   }, []);
 
@@ -2039,12 +2038,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     onboardingAutoLaunchKeyRef.current = autoLaunchKey;
-    // Launch the first worker through the canonical POST /v1/workers path;
-    // the Den API selects the configured provisioner (render/daytona/static)
-    // server-side. PR #1181 replaced this with a bare markOnboardingComplete,
-    // which let signup finish with zero workers (#1961). launchWorker marks
-    // onboarding complete itself on success; on failure onboarding stays
-    // pending so the user sees the error and can retry.
+    // 首个远程工作区统一通过 POST /v1/workers 创建，由 Den API 在服务端选择配置好的供应器。
+    // 创建成功后由 launchWorker 标记引导完成；失败时保留待处理状态，让用户看到原因并重试。
     void launchWorker({ source: "signup_auto", workerNameOverride: onboardingIntent?.workerName ?? DEFAULT_WORKER_NAME });
   }, [billingSummary?.featureGateEnabled, billingSummary?.hasActivePlan, launchBusy, onboardingIntent?.workerName, onboardingPending, ownedWorkerCount, user?.id]);
 
@@ -2153,7 +2148,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 export function useDenFlow() {
   const value = useContext(DenFlowContext);
   if (!value) {
-    throw new Error("useDenFlow must be used within DenFlowProvider.");
+    throw new Error("useDenFlow 必须在 DenFlowProvider 中使用。");
   }
   return value;
 }

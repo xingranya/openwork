@@ -37,9 +37,9 @@ function healthyReport(): AgentContextDiagnosticsReport {
           ? "client-observed"
         : "observed",
     code: passiveEngineCheckIds.has(id) ? `${id}-not-queried` : `${id}-ok`,
-    message: passiveEngineCheckIds.has(id) ? `${id} intentionally not queried.` : `${id} verified.`,
+    message: passiveEngineCheckIds.has(id) ? `${id} 未执行实时查询。` : `${id} 已验证。`,
     owner: "openwork-server",
-    action: "No action required.",
+    action: "无需处理。",
     details: id === "cloud-tool-catalog"
       ? {
           expectedToolIds: ["search_capabilities", "execute_capability"],
@@ -166,34 +166,34 @@ describe("AgentContextDiagnosticsReportView", () => {
       <AgentContextDiagnosticsReportView report={healthyReport()} copied={false} copying={false} onCopy={() => {}} />,
     );
 
-    expect(html).toContain("Agent diagnostics report");
+    expect(html).toContain("智能体诊断报告");
     expect(html).toContain("22222222-2222-4222-8222-222222222222");
-    expect(html).toContain("Expected");
-    expect(html).toContain("Client observed");
-    expect(html).toContain("Observed");
+    expect(html).toContain("预期状态");
+    expect(html).toContain("客户端读取");
+    expect(html).toContain("已读取实际状态");
     expect(html).toContain("openwork-extensions-preview");
     expect(html).toContain("config.remote");
-    expect(html).toContain("Registration record: Connected");
-    expect(html).toContain("Configured default-agent intent");
-    expect(html).toContain("Configured OpenWork agent");
-    expect(html).toContain("Configured enabled");
-    expect(html).toContain("Configured headers present · values redacted");
-    expect(html).toContain("Live connection status not queried");
-    expect(html).toContain("No LLM turn is started");
+    expect(html).toContain("注册记录: 已连接");
+    expect(html).toContain("配置的默认智能体");
+    expect(html).toContain("配置的 FoxWork 智能体");
+    expect(html).toContain("配置为启用");
+    expect(html).toContain("已配置请求头 · 具体值已隐藏");
+    expect(html).toContain("未查询实时连接状态");
+    expect(html).toContain("本次检查不会发起模型对话");
     expect(html).toContain("/mcp/agent");
     expect(html).not.toContain("/wrong-layer/mcp/agent");
     expect(html).toContain("search_capabilities");
     expect(html).toContain("execute_capability");
     expect(html).toContain("Customer search");
-    expect(html).toContain("No action required.");
+    expect(html).toContain("无需处理。");
     expect(html).toContain('data-testid="agent-diagnostics-copy"');
     expect(html).toContain('data-testid="agent-diagnostics-report"');
     expect(html).toContain('data-testid="agent-diagnostics-completion-status"');
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
-    expect(html).toContain("Agent diagnostics complete: Warning");
-    expect(html).toContain('aria-label="search_capabilities: Yes"');
+    expect(html).toContain("智能体诊断完成：警告");
+    expect(html).toContain('aria-label="search_capabilities: 是"');
     expect(html).toContain('data-marker-value="true"');
     expect(html).toContain('data-testid="agent-diagnostics-cloud-endpoint"');
     expect(html).toContain('data-testid="agent-diagnostics-mcp-sync"');
@@ -211,16 +211,16 @@ describe("AgentContextDiagnosticsReportView", () => {
       <AgentContextDiagnosticsReportView report={report} copied={false} copying={false} onCopy={() => {}} />,
     );
     const errorHtml = renderToStaticMarkup(
-      <AgentContextDiagnosticsErrorNotice message="Agent diagnostics could not complete." />,
+      <AgentContextDiagnosticsErrorNotice message="智能体诊断未能完成。" />,
     );
 
-    expect(reportHtml).toContain('aria-label="Memory marker: No"');
+    expect(reportHtml).toContain('aria-label="记忆上下文标记: 否"');
     expect(reportHtml).toContain('data-marker-value="false"');
     expect(errorHtml).toContain('data-testid="agent-diagnostics-error"');
     expect(errorHtml).toContain('role="alert"');
     expect(errorHtml).toContain('aria-live="assertive"');
     expect(errorHtml).toContain('aria-atomic="true"');
-    expect(errorHtml).toContain("Agent diagnostics could not complete.");
+    expect(errorHtml).toContain("智能体诊断未能完成。");
   });
 
   test("labels engine-resolved evidence as effective and tool-policy-disabled MCPs as disabled", () => {
@@ -238,12 +238,12 @@ describe("AgentContextDiagnosticsReportView", () => {
       <AgentContextDiagnosticsReportView report={report} copied={false} copying={false} onCopy={() => {}} />,
     );
 
-    expect(html).toContain("Effective default agent");
-    expect(html).toContain("Effective OpenWork agent");
-    expect(html).toContain("Effective plugin labels");
-    expect(html).toContain("Effective configuration observed");
-    expect(html).toContain("Disabled by tool policy");
-    expect(html).not.toContain("Effective engine configuration (not queried)");
+    expect(html).toContain("实际使用的默认智能体");
+    expect(html).toContain("实际使用的 FoxWork 智能体");
+    expect(html).toContain("实际生效的插件名称");
+    expect(html).toContain("已读取实际配置");
+    expect(html).toContain("因工具策略而停用");
+    expect(html).not.toContain("运行环境实际配置（未查询）");
   });
 
   test("renders and serializes an effective ask rule as approval required", () => {
@@ -255,8 +255,8 @@ describe("AgentContextDiagnosticsReportView", () => {
     );
     const serialized = serializeAgentContextDiagnosticsReport(report);
 
-    expect(html).toContain("search_capabilities permission");
-    expect(html).toContain("Approval required");
+    expect(html).toContain("搜索能力权限");
+    expect(html).toContain("需要确认");
     expect(serialized).toContain('"searchCapabilities": "approval-required"');
     expect(agentContextDiagnosticsReportSchema.safeParse(JSON.parse(serialized)).success).toBe(true);
   });
@@ -270,7 +270,7 @@ describe("AgentContextDiagnosticsReportView", () => {
     expect(html).toContain('disabled=""');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('data-testid="agent-diagnostics-copy-status"');
-    expect(html).toContain("Sanitized agent diagnostics report copied.");
+    expect(html).toContain("已复制脱敏后的智能体诊断报告。");
   });
 
   test("serializes only the strict sanitized report contract", () => {
@@ -299,7 +299,7 @@ describe("AgentContextDiagnosticsReportView", () => {
     });
 
     expect(state.status).toBe("warning");
-    expect(state.label).toBe("Needs reconnect");
+    expect(state.label).toBe("需要重新连接");
   });
 
   test("rejects duplicate observed cloud tool IDs", () => {

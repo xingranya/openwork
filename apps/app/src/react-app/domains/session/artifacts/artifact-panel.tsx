@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatFileSize } from "@/lib/utils";
 import { type ArtifactPanelTab, usePanelTabStore } from "../panel/panel-tab-store";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { isCollectibleArtifactTarget, type BinaryData, type Data, type OpenTarget, type TextData } from "./open-target";
 import { HTMLPreview, ImagePreview, MarkdownPreview, PdfPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
@@ -99,10 +100,10 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
     queryKey: ["artifact-panel", workspaceId, target.id] as const,
     queryFn: async () => {
       if (target.kind === "url") {
-        throw new Error("URLs open in browser tabs.");
+        throw new Error("网页链接应在浏览器标签页中打开。");
       }
       else if (target.exists === false) {
-        throw new Error("File not found in this workspace.");
+        throw new Error("当前工作区中找不到此文件。");
       }
 
       if (isTextContent(target)) {
@@ -151,7 +152,7 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
   const { mutate, mutateAsync, isPending: isSaving } = useMutation({
     mutationFn: async (input: SaveArtifactInput) => {
       if (target.kind !== "file") {
-        throw new Error("Cannot save non-file artifact.");
+        throw new Error("只能保存工作区中的文件。");
       }
 
       if (input.kind === "text") {
@@ -200,7 +201,7 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
       try {
         await openDesktopPath(externalPath);
       } catch (cause) {
-        toast.error(cause instanceof Error ? cause.message : "Could not open this file.");
+        toast.error(toChineseUserMessage(cause, "无法打开此文件，请检查文件是否仍然存在。"));
       }
 
       return;
@@ -214,7 +215,7 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
     try {
       await revealDesktopItemInDir(externalPath);
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Could not show this file in your file manager.");
+      toast.error(toChineseUserMessage(cause, "无法在文件夹中显示此文件。"));
     }
   };
 
@@ -256,7 +257,7 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
               {target.name}
             </h3>
             <span className="shrink-0 text-xs text-muted-foreground">
-              {target.exists === false ? "missing" : target.size !== undefined ? `${formatFileSize(target.size)}` : ""}
+              {target.exists === false ? "文件不存在" : target.size !== undefined ? `${formatFileSize(target.size)}` : ""}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -277,29 +278,29 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
                         }}
                         disabled={isSaving}
                       >
-                        Discard
+                        放弃
                       </Button>
                     )}
                   />
-                  <TooltipContent>Discard changes</TooltipContent>
+                  <TooltipContent>放弃更改</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger
                     render={(
-                      <Button variant="default" size="sm" onClick={() => void save()} disabled={isSaving || draft === data.data}>{isSaving ? "Saving" : "Save"}</Button>
+                      <Button variant="default" size="sm" onClick={() => void save()} disabled={isSaving || draft === data.data}>{isSaving ? "正在保存" : "保存"}</Button>
                     )}
                   />
-                  <TooltipContent>Save changes</TooltipContent>
+                  <TooltipContent>保存更改</TooltipContent>
                 </Tooltip>
               </>
             ) : (
               <Tooltip>
                 <TooltipTrigger
                   render={(
-                    <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>编辑</Button>
                   )}
                 />
-                <TooltipContent>Edit artifact</TooltipContent>
+                <TooltipContent>编辑文件</TooltipContent>
               </Tooltip>
             )
           ) : null}
@@ -307,45 +308,45 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={() => void download()} aria-label="Download artifact">
+                  <Button variant="ghost" size="icon-sm" onClick={() => void download()} aria-label="下载文件">
                     <Download />
                   </Button>
                 )}
               />
-              <TooltipContent>Download artifact</TooltipContent>
+              <TooltipContent>下载文件</TooltipContent>
             </Tooltip>
           ) : null}
           {target.kind === "file" && !isRemoteWorkspace ? (
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" onClick={() => void revealExternal()} aria-label="Show in folder">
+                  <Button variant="ghost" size="icon-sm" onClick={() => void revealExternal()} aria-label="在文件夹中显示">
                     <FolderOpen />
                   </Button>
                 )}
               />
-              <TooltipContent>Show in folder</TooltipContent>
+              <TooltipContent>在文件夹中显示</TooltipContent>
             </Tooltip>
           ) : null}
           <Tooltip>
             <TooltipTrigger
               render={(
-                <Button variant="ghost" size="icon-sm" onClick={() => void openExternal()} aria-label={isRemoteWorkspace ? "Download artifact" : "Open externally"}>
+                <Button variant="ghost" size="icon-sm" onClick={() => void openExternal()} aria-label={isRemoteWorkspace ? "下载文件" : "使用外部应用打开"}>
                   <ExternalLink />
                 </Button>
               )}
             />
-            <TooltipContent>{isRemoteWorkspace ? "Download artifact" : "Open externally"}</TooltipContent>
+            <TooltipContent>{isRemoteWorkspace ? "下载文件" : "使用外部应用打开"}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={(
-                <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close artifact">
+                <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="关闭文件">
                   <X />
                 </Button>
               )}
             />
-            <TooltipContent>Close artifact</TooltipContent>
+            <TooltipContent>关闭文件</TooltipContent>
           </Tooltip>
           </div>
         </div>
@@ -354,7 +355,7 @@ function ArtifactPanelView({ client, workspaceId, workspaceRoot, isRemoteWorkspa
         {isLoading || (data?.kind === "binary" && !binaryObjectUrl) ? (
           <PreviewLoading />
         ) : isError ? (
-          <PreviewError message={error instanceof Error ? error.message : "Failed to load artifact" } />
+          <PreviewError message={toChineseUserMessage(error, "无法加载文件，请稍后重试。")} />
         ) : data?.kind === "text" && (editing || isDirectTextEdit) ? (
           <TextEditor value={draft} language={target.preview === "markdown" ? "markdown" : "text"} onChange={setDraft} />
         ) : target.preview === "markdown" && data?.kind === "text" ? (

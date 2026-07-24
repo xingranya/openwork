@@ -1,10 +1,8 @@
 /**
- * Guided (form-based) custom provider setup for the Den dashboard.
+ * Den 管理后台的自定义模型服务引导配置。
  *
- * Admins describe an OpenAI-compatible endpoint (Azure AI Foundry, LiteLLM,
- * vLLM, an internal gateway) with a few fields; we generate the models.dev
- * style config the API already accepts — no JSON paste required. Pasting or
- * editing raw JSON stays available as the advanced escape hatch.
+ * 管理员填写少量字段描述 OpenAI 兼容接口，系统生成 API 已支持的
+ * models.dev 风格配置；高级场景仍可直接粘贴或编辑 JSON。
  */
 
 type JsonRecord = Record<string, unknown>;
@@ -71,19 +69,19 @@ export function validateGuidedCustomProvider(input: {
     modelIds: string[];
 }): string | null {
     if (!input.providerId.trim()) {
-        return "Give this provider an ID (for example azure-foundry).";
+        return "请填写模型服务 ID，例如 azure-foundry。";
     }
     if (!isValidGuidedProviderId(input.providerId.trim())) {
-        return "Provider IDs can only contain letters, numbers, dashes, and underscores.";
+        return "模型服务 ID 只能包含英文字母、数字、短横线和下划线。";
     }
     if (!input.baseUrl.trim()) {
-        return "Add the base URL of the OpenAI-compatible endpoint.";
+        return "请填写 OpenAI 兼容接口的基础地址。";
     }
     if (!/^https?:\/\//i.test(input.baseUrl.trim())) {
-        return "The base URL must start with http:// or https://";
+        return "基础地址必须以 http:// 或 https:// 开头。";
     }
     if (input.modelIds.length === 0) {
-        return "List at least one model ID.";
+        return "请至少填写一个模型 ID。";
     }
     return null;
 }
@@ -94,7 +92,7 @@ export function buildGuidedCustomProviderConfig(input: {
     baseUrl: string;
     modelIds: string[];
     envNames?: string[] | null;
-    /** AI SDK package; verification may upgrade this to the OpenAI package. */
+    /** AI SDK 软件包；验证时可能切换为 OpenAI 软件包。 */
     npm?: string | null;
 }): JsonRecord {
     const providerId = input.providerId.trim();
@@ -112,10 +110,8 @@ export function buildGuidedCustomProviderConfig(input: {
 }
 
 /**
- * Try to read a provider config back into guided form fields. Returns null
- * when the config uses anything beyond the simple shape the form generates
- * (custom npm package, provider options, per-model metadata, ...) so the
- * editor falls back to JSON editing instead of silently dropping data.
+ * 尝试把模型服务配置还原为引导表单字段。若配置包含表单无法表示的内容，
+ * 返回 null 并改用 JSON 编辑，避免静默丢失数据。
  */
 export function readGuidedCustomProviderFields(
     config: unknown,
@@ -190,9 +186,8 @@ export function readGuidedCustomProviderFields(
 }
 
 /**
- * Leniently pull the env var names out of pasted provider JSON so the editor
- * can render one credential input per env key even for configs too rich for
- * the guided form. Returns [] when the text is unparsable or lists no env.
+ * 从粘贴的模型服务 JSON 中宽松提取环境变量名，供编辑器逐项显示凭据输入。
+ * 文本无法解析或没有环境变量时返回空数组。
  */
 export function readEnvNamesFromCustomProviderText(text: string): string[] {
     let parsed: unknown;
@@ -223,9 +218,8 @@ export function readEnvNamesFromCustomProviderText(text: string): string[] {
 }
 
 /**
- * Parse pasted JSON text into guided fields (used when switching from the
- * JSON editor back to the form). Accepts a bare provider block or an
- * opencode-style `{ "provider": { "<id>": { ... } } }` wrapper.
+ * 把粘贴的 JSON 解析为引导表单字段。支持单独的模型服务配置块，也支持
+ * opencode 风格的 `{ "provider": { "<id>": { ... } } }` 外层结构。
  */
 export function readGuidedCustomProviderFieldsFromText(
     text: string,

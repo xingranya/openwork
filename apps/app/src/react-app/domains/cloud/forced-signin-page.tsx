@@ -22,6 +22,11 @@ import { useBootState } from "../../shell/boot-state";
 import { useDenAuth } from "./den-auth-provider";
 import { useDesktopConfig } from "./desktop-config-provider";
 import { applyBrandAppName } from "../../../app/lib/desktop";
+import {
+  FOXWORK_APP_NAME,
+  isFoxWorkDesktopProtocol,
+} from "../../../app/lib/foxwork-brand";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import { DenSignInSurface } from "./den-signin-surface";
 import { tryOpenBrowserAuthUrl } from "./open-browser-auth";
 import { saveControlPlaneUrl } from "../settings/cloud/control-plane-url";
@@ -32,7 +37,7 @@ export type ForcedSigninPageProps = {
 
 /**
  * Parse a pasted manual-auth input. Accepts either a raw handoff grant
- * string (>= 12 chars) or an `openwork://den-auth?grant=…` deep link.
+ * 字符串（至少 12 个字符）或 FoxWork 登录深链。
  * Matches the Solid ForcedSigninPage exactly so flows stay fungible.
  */
 function parseManualAuthInput(value: string) {
@@ -47,7 +52,7 @@ function parseManualAuthInput(value: string) {
     const routeSegments = routePath.split("/").filter(Boolean);
     const routeTail = routeSegments[routeSegments.length - 1] ?? "";
     if (
-      (protocol === "openwork:" || protocol === "openwork-dev:") &&
+      isFoxWorkDesktopProtocol(protocol, { allowLegacy: true }) &&
       (routeHost === "den-auth" ||
         routePath === "den-auth" ||
         routeTail === "den-auth")
@@ -82,7 +87,7 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
 
   const initial = readDenSettings();
   const bootstrap = readDenBootstrapConfig();
-  const appName = bootstrap.brandAppName?.trim() || "OpenWork";
+  const appName = bootstrap.brandAppName?.trim() || FOXWORK_APP_NAME;
   const initialBaseUrl = initial.baseUrl || DEFAULT_DEN_BASE_URL;
 
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
@@ -102,19 +107,33 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
   }, [appName]);
 
   const openControlPlane = useCallback(() => {
-    platform.openLink(resolveDenBaseUrls(baseUrl).baseUrl);
+    const resolvedBaseUrl = resolveDenBaseUrls(baseUrl).baseUrl;
+    if (!resolvedBaseUrl) {
+      setBaseUrlError(t("den.error_base_url"));
+      return;
+    }
+    platform.openLink(resolvedBaseUrl);
   }, [baseUrl, platform]);
 
   const openBrowserAuth = useCallback(
     (mode: "sign-in" | "sign-up") => {
-      const url = buildDenAuthUrl(baseUrl, mode);
       setSigninFallbackUrl(null);
+      setAuthError(null);
+
+      let url: string;
+      try {
+        url = buildDenAuthUrl(baseUrl, mode);
+      } catch (error) {
+        setStatusMessage(null);
+        setAuthError(toChineseUserMessage(error, t("den.error_base_url")));
+        return;
+      }
+
       setStatusMessage(
         mode === "sign-up"
           ? t("den.status_browser_signup")
           : t("den.status_browser_signin"),
       );
-      setAuthError(null);
       void tryOpenBrowserAuthUrl(url).then((opened) => {
         if (opened) return;
         setStatusMessage(null);

@@ -158,12 +158,13 @@ export const MCP_QUICK_CONNECT: McpDirectoryInfo[] = [
       // The desktop app connects to the minimal, harness-facing surface
       // (/mcp/agent: search_capabilities + execute_capability only), not the
       // full catalog at bare /mcp. getDenMcpUrl heals stale web-app origins;
-      // never at the web app's root (see
-      // packages/docs/cloud/run-in-the-cloud/cloud-mcp.mdx).
+      // never at the web app's root. A company build without a Den address
+      // must leave this entry unavailable instead of contacting OpenWork Cloud.
       try {
-        return `${getDenMcpUrl()}/agent`;
+        const mcpUrl = getDenMcpUrl();
+        return mcpUrl ? `${mcpUrl}/agent` : "";
       } catch {
-        return "https://app.openworklabs.com/api/den/mcp/agent";
+        return "";
       }
     },
     type: "remote",

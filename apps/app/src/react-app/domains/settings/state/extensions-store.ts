@@ -2441,7 +2441,7 @@ export function createExtensionsStore(options: {
       return;
     }
     if (!isLocalWorkspace) {
-      options.setError("Local workers are required to import skills.");
+      options.setError("只有本地工作区可以导入 Skills。");
       return;
     }
     const targetDir = options.projectDir().trim();

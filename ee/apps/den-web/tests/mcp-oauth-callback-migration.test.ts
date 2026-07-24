@@ -41,7 +41,7 @@ describe("MCP OAuth callback compatibility UI contract", () => {
     const data = readFileSync(dataPath, "utf8")
 
     expect(screen).toContain("OAuth settings need review")
-    expect(screen).toContain("Review OAuth provider")
+    expect(screen).toContain("复核 OAuth 服务")
     expect(screen).toContain("Confirm issuer")
     expect(screen).toContain("clears the old OAuth client and credentials")
     expect(data).toContain("/oauth/issuer-review")

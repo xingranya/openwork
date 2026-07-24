@@ -201,8 +201,8 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       return [
         {
           id: OPENWORK_MODELS_PROVIDER_ID,
-          name: "OpenWork",
-          methods: [{ type: "cloud", label: "Subscribe" }],
+          name: "公司共享模型",
+          methods: [{ type: "cloud", label: "公司管理" }],
           connected: connectedToOpenWork,
           env: [],
         },
@@ -219,7 +219,12 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   );
 
   const resolvedView = selectedEntry ? view : "list";
-  const errorMessage = localError ?? props.error;
+  const rawErrorMessage = localError ?? props.error;
+  const errorMessage = rawErrorMessage
+    ? /[\u3400-\u9fff]/.test(rawErrorMessage)
+      ? rawErrorMessage
+      : "连接模型服务失败，请检查凭据和网络后重试。"
+    : null;
 
   const filteredEntries = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -250,8 +255,15 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     return oauthInstructions;
   }, [oauthInstructions]);
 
-  const methodLabel = (method: ProviderAuthMethod) =>
-    method.label || (method.type === "oauth" ? "OAuth" : "API key");
+  const methodLabel = (method: ProviderAuthMethod) => {
+    const label = method.label.toLowerCase();
+    if (method.type === "cloud") return "公司管理";
+    if (method.type === "oauth" && (label.includes("headless") || label.includes("device"))) {
+      return "设备代码登录";
+    }
+    if (method.type === "oauth") return "浏览器登录（OAuth）";
+    return "API 密钥";
+  };
 
   const actionDisabled = props.loading || props.submitting;
 
@@ -629,11 +641,11 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
   const submittingLabel = () => {
     if (!props.submitting) return null;
-    if (resolvedView === "api") return "Saving API key...";
-    if (resolvedView === "cloud") return "Connecting organization provider...";
-    if (resolvedView === "oauth-code") return "Verifying authorization code...";
-    if (resolvedView === "oauth-auto") return "Waiting for OAuth confirmation...";
-    return "Opening authentication...";
+    if (resolvedView === "api") return "正在保存 API 密钥…";
+    if (resolvedView === "cloud") return "正在连接公司模型服务…";
+    if (resolvedView === "oauth-code") return "正在验证授权码…";
+    if (resolvedView === "oauth-auto") return "正在等待 OAuth 确认…";
+    return "正在打开认证…";
   };
 
   const stepEntryIndex = (delta: number) => {
@@ -678,22 +690,24 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   };
 
   const methodDescription = (entry: ProviderAuthEntry, method: ProviderAuthMethod) => {
-    const label = methodLabel(method).toLowerCase();
-    if (isOpenAiProvider(entry.id, entry.name) && (label.includes("headless") || label.includes("device"))) {
+    const rawLabel = method.label.toLowerCase();
+    if (isOpenAiProvider(entry.id, entry.name) && (rawLabel.includes("headless") || rawLabel.includes("device"))) {
       return isRemoteWorker
-        ? "Use OpenAI's device flow for remote workers, where the browser callback may not resolve on your local machine."
-        : "Use OpenAI's device flow when the local browser callback is unreliable.";
+        ? "远程 Worker 使用 OpenAI 设备代码登录，避免浏览器回调落到本机。"
+        : "浏览器回调不稳定时，可使用 OpenAI 设备代码登录。";
     }
     if (method.type === "oauth") {
-      return "Continue in the browser and let OpenWork finish the connection automatically.";
+      return "在浏览器中完成登录，FoxWork 会自动完成连接。";
     }
     if (method.type === "cloud") {
-      return method.description ?? "Use the provider and credential managed by your organization.";
+      return method.description && /[\u3400-\u9fff]/.test(method.description)
+        ? method.description
+        : "使用公司统一管理的模型服务和凭据。";
     }
     if (isOpencodeZenProvider(entry.id)) {
-      return "Sign in to OpenCode Zen with an API key to unlock paid models alongside the free tier.";
+      return "使用 API 密钥登录 OpenCode Zen，可在免费模型之外使用更多模型。";
     }
-    return "Paste a secret key that OpenWork stores locally on this device.";
+    return "粘贴 API 密钥；密钥仅由本机 OpenCode 保存。";
   };
 
   return (
@@ -705,9 +719,9 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     >
       <DialogContent className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Connect providers</DialogTitle>
+          <DialogTitle>连接模型服务</DialogTitle>
           <DialogDescription>
-            Sign in to services or use providers managed by your organization.
+            登录个人模型服务，或使用公司统一管理的模型。
           </DialogDescription>
         </DialogHeader>
 
@@ -718,7 +732,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
             </div>
           ) : props.loading ? (
             <div className="rounded-xl border border-gray-6 bg-gray-1/60 px-4 py-3 text-sm text-gray-10 animate-pulse">
-              Loading providers…
+              正在加载模型服务…
             </div>
           ) : null}
 
@@ -731,7 +745,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     <input
                       ref={searchInputRef}
                       type="text"
-                      placeholder="Filter providers by name or ID"
+                      placeholder="按名称或 ID 搜索模型服务"
                       value={searchQuery}
                       onChange={(event) => {
                         setSearchQuery(event.currentTarget.value);
@@ -772,11 +786,11 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                               {entry.connected ? (
                                 <div className="flex items-center gap-1 text-[11px] font-medium text-green-11 bg-green-4/20 border border-green-5/30 px-1.5 py-0.5 rounded-md">
                                   <CheckCircle2 size={12} strokeWidth={2.5} />
-                                  Connected
+                                  已连接
                                 </div>
                               ) : (
                                 <div className="text-[12px] font-medium text-gray-9 group-hover:text-gray-12 transition-colors flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
-                                  Connect
+                                  连接
                                   <ChevronRight size={14} className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-200" />
                                 </div>
                               )}
@@ -807,11 +821,11 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     ))
                   ) : (
                     <div className="text-sm text-gray-10 pt-2">
-                      {entries.length ? "No providers match your search." : "No providers available."}
+                      {entries.length ? "没有符合搜索条件的模型服务。" : "暂无可用模型服务。"}
                     </div>
                   )}
 
-                  <div className="text-[11px] text-gray-9">Arrow keys to navigate, Enter to select.</div>
+                  <div className="text-[11px] text-gray-9">使用方向键移动，按回车键选择。</div>
                 </div>
               ) : null}
 
@@ -820,10 +834,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
-                      <div className="text-xs text-gray-10 mt-1">Choose how you'd like to connect.</div>
+                      <div className="text-xs text-gray-10 mt-1">选择连接方式。</div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   <div className="grid gap-2">
@@ -854,30 +868,30 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                       <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
                       <div className="text-xs text-gray-10 mt-1">
                         {isOpencodeZenProvider(selectedEntry.id)
-                          ? "Sign in to OpenCode Zen with an API key from opencode.ai/auth."
-                          : "Paste your API key to connect."}
+                          ? "使用从 opencode.ai/auth 获取的 API 密钥登录 OpenCode Zen。"
+                          : "粘贴 API 密钥以完成连接。"}
                       </div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   {isOpencodeZenProvider(selectedEntry.id) ? (
                     <div className="rounded-lg border border-indigo-5/30 bg-indigo-3/15 px-3 py-2.5 text-xs text-indigo-12 space-y-1.5">
                       <div>
-                        OpenCode Zen gives you access to the best coding models. Free models keep working without a key.
+                        OpenCode Zen 提供多种编程模型；不填写密钥仍可继续使用免费模型。
                       </div>
                       <button
                         type="button"
                         className="text-indigo-11 hover:text-indigo-12 underline underline-offset-2 font-medium"
                         onClick={() => void openExternalUrl(OPENCODE_ZEN_KEY_URL)}
                       >
-                        Get an API key →
+                        获取 API 密钥 →
                       </button>
                     </div>
                   ) : null}
                   <TextInput
-                    label="API key"
+                    label="API 密钥"
                     type="password"
                     placeholder={isOpencodeZenProvider(selectedEntry.id) ? "ock_..." : "sk-..."}
                     value={apiKeyInput}
@@ -892,16 +906,16 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   />
                   {selectedEntry.env.length > 0 ? (
                     <div className="text-[11px] text-gray-9">
-                      Env vars: <span className="font-mono">{selectedEntry.env.join(", ")}</span>
+                      环境变量：<span className="font-mono">{selectedEntry.env.join("、")}</span>
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] text-gray-9">Keys are stored locally by OpenCode.</div>
+                    <div className="text-[11px] text-gray-9">密钥仅由本机 OpenCode 保存。</div>
                     <Button
                       onClick={handleApiSubmit}
                       disabled={actionDisabled || !apiKeyInput.trim()}
                     >
-                      {props.submitting ? "Saving…" : "Save key"}
+                      {props.submitting ? "正在保存…" : "保存密钥"}
                     </Button>
                   </div>
                 </div>
@@ -912,31 +926,33 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
-                      <div className="text-xs text-gray-10 mt-1">Connect with the provider managed by your organization.</div>
+                      <div className="text-xs text-gray-10 mt-1">连接公司统一管理的模型服务。</div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   <div className="text-xs text-gray-9">
-                    {selectedCloudMethod.description ?? "Use the provider and credential managed by your organization."}
+                    {selectedCloudMethod.description && /[\u3400-\u9fff]/.test(selectedCloudMethod.description)
+                      ? selectedCloudMethod.description
+                      : "使用公司统一管理的模型服务和凭据。"}
                   </div>
                   {(selectedCloudMethod.modelCount ?? 0) > 0 ? (
                     <div className="rounded-lg border border-gray-6/60 bg-gray-1/60 px-3 py-2 text-[11px] text-gray-9">
-                      {(selectedCloudMethod.modelCount ?? 0)} curated model{(selectedCloudMethod.modelCount ?? 0) === 1 ? "" : "s"} will be added to this workspace.
+                      将向当前工作区添加 {selectedCloudMethod.modelCount ?? 0} 个公司精选模型。
                     </div>
                   ) : null}
                   {(selectedCloudMethod.env?.length ?? 0) > 0 ? (
                     <div className="text-[11px] text-gray-9">
-                      Env vars: <span className="font-mono">{selectedCloudMethod.env?.join(", ")}</span>
+                      环境变量：<span className="font-mono">{selectedCloudMethod.env?.join("、")}</span>
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-[11px] text-gray-9">
-                      OpenWork will install the provider config and use the credential stored for your org.
+                      FoxWork 会安装模型服务配置，并使用公司保存的凭据。
                     </div>
                     <Button onClick={handleCloudSubmit} disabled={actionDisabled}>
-                      {props.submitting ? "Connecting..." : "Connect provider"}
+                      {props.submitting ? "正在连接…" : "连接模型服务"}
                     </Button>
                   </div>
                 </div>
@@ -946,18 +962,18 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                 <div className="rounded-xl border border-blue-6/50 bg-blue-2/25 shadow-sm p-5 space-y-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-12">OpenWork Models</div>
+                      <div className="text-sm font-medium text-gray-12">公司共享模型</div>
                       <div className="text-xs text-gray-10 mt-1">
-                        Frontier intelligence, hand picked for your team&apos;s most ambitious work.
+                        使用公司为团队统一配置的 AI 模型。
                       </div>
                     </div>
                     <Button variant="ghost" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   <div className="flex items-center justify-end">
                     <Button onClick={() => void props.onSubscribeOpenWorkModels?.()} disabled={actionDisabled}>
-                      Subscribe
+                      查看公司模型
                     </Button>
                   </div>
                 </div>
@@ -968,24 +984,24 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
-                      <div className="text-xs text-gray-10 mt-1">Finish OAuth by pasting the authorization code.</div>
+                      <div className="text-xs text-gray-10 mt-1">粘贴授权码以完成 OAuth 登录。</div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   <div className="text-xs text-gray-9">
-                    Complete sign-in in your browser, then paste the code here.
+                    在浏览器中完成登录，然后将授权码粘贴到这里。
                   </div>
                   {oauthInstructions ? (
                     <div className="rounded-lg border border-gray-6/60 bg-gray-1/60 px-3 py-2 text-[11px] text-gray-9 font-mono break-all">
-                      {oauthInstructions}
+                      {/[\u3400-\u9fff]/.test(oauthInstructions) ? oauthInstructions : "请按模型服务页面中的提示完成授权。"}
                     </div>
                   ) : null}
                   <TextInput
-                    label="Authorization code"
+                    label="授权码"
                     type="text"
-                    placeholder="Paste code"
+                    placeholder="粘贴授权码"
                     value={oauthCodeInput}
                     onChange={(event) => {
                       setOauthCodeInput(event.currentTarget.value);
@@ -1008,13 +1024,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         void openOauthUrl(oauthSession.authorization.url ?? "");
                       }}
                     >
-                      Open browser again
+                      重新打开浏览器
                     </Button>
                     <Button
                       onClick={() => void handleOauthCodeSubmit()}
                       disabled={actionDisabled || !oauthCodeInput.trim()}
                     >
-                      {props.submitting ? "Verifying..." : "Complete connection"}
+                      {props.submitting ? "正在验证…" : "完成连接"}
                     </Button>
                   </div>
                 </div>
@@ -1025,43 +1041,43 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
-                      <div className="text-xs text-gray-10 mt-1">Waiting for browser confirmation.</div>
+                      <div className="text-xs text-gray-10 mt-1">正在等待浏览器确认。</div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
-                      Back
+                      返回
                     </Button>
                   </div>
                   {isOpenAiHeadlessSession ? (
                     <div className="space-y-2 text-xs text-gray-9">
-                      <div>You'll need to sign in to your OpenAI account and provide the code below.</div>
-                      <div>The first time you do this you'll need to enable Device auth in your account settings.</div>
-                      <div>ChatGPT &gt; Account Settings &gt; Security &gt; Enable device code authorization</div>
-                      <div>When you're ready, copy the code below, and click &quot;Open Browser&quot;.</div>
+                      <div>请登录 OpenAI 账号，并使用下方代码完成设备授权。</div>
+                      <div>首次使用时，需要先在账号设置中启用设备代码授权。</div>
+                      <div>ChatGPT &gt; 账号设置 &gt; 安全 &gt; 启用设备代码授权</div>
+                      <div>准备好后，复制下方代码并点击“打开浏览器”。</div>
                     </div>
                   ) : (
                     <div className="text-xs text-gray-9">
-                      Sign in in the browser tab we just opened. We will complete the connection automatically.
+                      请在刚打开的浏览器页面中登录，FoxWork 会自动完成连接。
                     </div>
                   )}
                   {oauthDisplayCode ? (
                     <div className="rounded-xl border border-gray-6/70 bg-gray-2/40 p-3 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wide text-gray-8">Confirmation code</div>
+                        <div className="text-[10px] tracking-wide text-gray-8">确认码</div>
                         <div className="text-sm text-gray-12 font-mono break-all">{oauthDisplayCode}</div>
                       </div>
                       <Button variant="outline" size="sm" className="shrink-0" onClick={() => void copyOauthDisplayCode()}>
-                        {oauthCodeCopied ? "Copied" : "Copy"}
+                        {oauthCodeCopied ? "已复制" : "复制"}
                       </Button>
                     </div>
                   ) : null}
                   {isOpenAiHeadlessSession && !oauthBrowserOpened ? (
                     <div className="flex items-center gap-2 text-xs text-gray-9">
-                      <span>Authorization checks will start after you click Open Browser.</span>
+                      <span>点击“打开浏览器”后开始检查授权状态。</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-xs text-gray-9">
                       <Loader2 size={14} className={props.submitting || pollingBusy || oauthAutoBusy ? "animate-spin" : ""} />
-                      <span>Checking connection status automatically…</span>
+                      <span>正在自动检查连接状态…</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-3">
@@ -1073,12 +1089,12 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     >
                       {isOpenAiHeadlessSession
                         ? oauthBrowserOpened
-                          ? "Reopen Browser"
-                          : "Open Browser"
-                        : "Open browser again"}
+                          ? "重新打开浏览器"
+                          : "打开浏览器"
+                        : "重新打开浏览器"}
                     </Button>
                     <div className="text-[11px] text-gray-9 text-right">
-                      This window will close once the provider is connected.
+                      模型服务连接成功后，此窗口会自动关闭。
                     </div>
                   </div>
                 </div>
@@ -1095,7 +1111,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
             disabled={actionDisabled}
             render={<Button variant="outline" disabled={actionDisabled} />}
           >
-            Close
+            关闭
           </DialogClose>
         </DialogFooter>
       </DialogContent>

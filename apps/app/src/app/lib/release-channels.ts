@@ -17,17 +17,22 @@
  */
 
 import type { ReleaseChannel } from "../types";
+import {
+  FOXWORK_ALPHA_UPDATE_BASE_URL,
+  FOXWORK_STABLE_UPDATE_BASE_URL,
+} from "./foxwork-brand";
 
-/** Stable channel's Tauri updater manifest URL. */
-export const STABLE_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/latest/download/latest.json";
+/** 公司稳定更新通道；未配置时为空字符串，表示安全禁用。 */
+export const STABLE_UPDATER_ENDPOINT = FOXWORK_STABLE_UPDATE_BASE_URL
+  ? `${FOXWORK_STABLE_UPDATE_BASE_URL.replace(/\/+$/, "")}/latest.json`
+  : "";
 
-/** Alpha channel's Tauri updater manifest URL (macOS-only, rolling). */
-export const ALPHA_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest/latest.json";
+/** 公司测试更新通道（仅 macOS）；未配置时为空字符串。 */
+export const ALPHA_UPDATER_ENDPOINT = FOXWORK_ALPHA_UPDATE_BASE_URL
+  ? `${FOXWORK_ALPHA_UPDATE_BASE_URL.replace(/\/+$/, "")}/latest.json`
+  : "";
 
-/** Rolling GitHub release tag that alpha macOS artifacts are published to. */
-export const ALPHA_MACOS_RELEASE_TAG = "alpha-macos-latest";
+export const ALPHA_MACOS_RELEASE_TAG = "foxwork-alpha-macos";
 
 export type PlatformKind = "darwin" | "linux" | "windows" | "web" | "unknown";
 

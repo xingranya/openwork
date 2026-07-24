@@ -288,7 +288,7 @@ export function SessionFindBar({
   const counterText = activeQuery.length < MIN_QUERY_LENGTH
     ? ""
     : totalMatches === 0
-      ? "No matches"
+      ? "没有匹配项"
       : `${activeIndex + 1}/${totalMatches}`;
 
   return (
@@ -316,12 +316,12 @@ export function SessionFindBar({
             }
           }}
           className="h-7 w-48 bg-transparent px-1 text-sm text-dls-text outline-none placeholder:text-dls-secondary sm:h-8 sm:w-56"
-          placeholder="Find in conversation"
-          aria-label="Find in conversation"
+          placeholder="在对话中查找"
+          aria-label="在对话中查找"
         />
         <span className={cn(
           "min-w-14 text-right text-xs tabular-nums text-muted-foreground",
-          counterText === "No matches" && "min-w-20",
+          counterText === "没有匹配项" && "min-w-20",
         )} aria-live="polite">
           {counterText}
         </span>
@@ -332,7 +332,7 @@ export function SessionFindBar({
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Previous match"
+                aria-label="上一个匹配项"
                 disabled={totalMatches === 0}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={jumpToPrevious}
@@ -341,7 +341,7 @@ export function SessionFindBar({
               </Button>
             }
           />
-          <TooltipContent>Previous match (⇧↵)</TooltipContent>
+          <TooltipContent>上一个匹配项（⇧↵）</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -350,7 +350,7 @@ export function SessionFindBar({
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Next match"
+                aria-label="下一个匹配项"
                 disabled={totalMatches === 0}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={jumpToNext}
@@ -359,7 +359,7 @@ export function SessionFindBar({
               </Button>
             }
           />
-          <TooltipContent>Next match (↵)</TooltipContent>
+          <TooltipContent>下一个匹配项（↵）</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -368,7 +368,7 @@ export function SessionFindBar({
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Close find"
+                aria-label="关闭查找"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={closeFind}
               >
@@ -376,7 +376,7 @@ export function SessionFindBar({
               </Button>
             }
           />
-          <TooltipContent>Close (Esc)</TooltipContent>
+          <TooltipContent>关闭（Esc）</TooltipContent>
         </Tooltip>
       </div>
     </div>

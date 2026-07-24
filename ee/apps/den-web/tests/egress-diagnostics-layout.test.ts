@@ -28,10 +28,10 @@ describe("Den egress diagnostic settings flow", () => {
     expect(settings).not.toContain("EgressDiagnosticsCard");
     expect(diagnostics).toContain("<EgressDiagnosticsCard canRun />");
     expect(shell).toContain('{ href: getDiagnosticsRoute(activeOrg.slug), label: "连接诊断" }');
-    expect(card).toContain("Run egress diagnostic");
-    expect(card).toContain("Open support trace");
-    expect(card).toContain("Suggested owner:");
-    expect(card).toContain("Remote diagnostic references");
+    expect(card).toContain("运行出站连接诊断");
+    expect(card).toContain("查看支持追踪");
+    expect(card).toContain("建议处理人：");
+    expect(card).toContain("远端诊断编号");
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "GET" }');
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "POST" }');
   });
@@ -43,8 +43,8 @@ describe("Den egress diagnostic settings flow", () => {
     expect(card).toContain("<DenInput");
     expect(card).toContain('type="password"');
     expect(card).toContain('requestJson("/v1/diagnostics/egress/token"');
-    expect(card).toContain("Den encrypts the token for this organization");
-    expect(card).toContain("Change token");
+    expect(card).toContain("Den 会加密保存公司的诊断令牌");
+    expect(card).toContain("更换令牌");
     expect(route).toContain("env.diagnostics.origin");
     expect(route).toContain("env.diagnostics.bearerToken");
     expect(route).toContain("OrganizationDiagnosticCredentialTable");

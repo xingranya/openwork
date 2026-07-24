@@ -9,7 +9,7 @@ import { DenButton } from "../../_components/ui/button";
 import { DenInput } from "../../_components/ui/input";
 import { DenSelect } from "../../_components/ui/select";
 import { DenTextarea } from "../../_components/ui/textarea";
-import { getRequestError, requestJson } from "../../_lib/den-flow";
+import { getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
 import { getImportPluginRoute, getPluginRoute, getPluginsRoute } from "../../_lib/den-org";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import { useMarketplaces } from "./marketplace-data";
@@ -29,25 +29,25 @@ type DraftComponent = {
   kind: ComponentKind;
   name: string;
   description: string;
-  /** Markdown body for skills/commands; remote server URL for MCP. */
+  /** 技能和命令使用 Markdown 正文，MCP 使用远程服务器地址。 */
   content: string;
 };
 
 const COMPONENT_META: Record<ComponentKind, { label: string; icon: typeof FileText; hint: string }> = {
   skill: {
-    label: "Skill",
+    label: "技能",
     icon: FileText,
-    hint: "Step-by-step instructions the agent loads when the task matches. Write it like a great runbook.",
+    hint: "任务匹配时，智能体会加载这份分步工作说明。请写清前提、步骤和完成标准。",
   },
   command: {
-    label: "Command",
+    label: "命令",
     icon: Terminal,
-    hint: "A reusable slash command. Describe exactly what the agent should do when it runs.",
+    hint: "可重复使用的斜杠命令。请明确说明运行后要完成什么。",
   },
   mcp: {
-    label: "MCP server",
+    label: "MCP 服务器",
     icon: Server,
-    hint: "Connect a remote MCP server by URL. Members get its tools when they install the plugin.",
+    hint: "通过地址连接远程 MCP 服务器。成员安装插件后即可使用其中的工具。",
   },
 };
 
@@ -113,7 +113,7 @@ async function postJson(path: string, body: unknown, failureLabel: string): Prom
     20000,
   );
   if (!response.ok) {
-    throw getRequestError(payload, response, `${failureLabel} (${response.status}).`);
+    throw getRequestError(payload, response, `${failureLabel}（${response.status}）。`);
   }
   return payload;
 }
@@ -145,8 +145,7 @@ export function PluginEditorScreen() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Publishing is the happy path for non-technical creators: pre-select the
-  // requested marketplace, or the first marketplace when opened elsewhere.
+  // 默认选择指定的应用市场；若没有指定，则选择列表中的第一个。
   useEffect(() => {
     if (marketplaceTouched || marketplaceId || marketplaces.length === 0) return;
     const requestedMarketplaceId = searchParams.get("marketplaceId");
@@ -181,7 +180,7 @@ export function PluginEditorScreen() {
 
   async function createImportedPlugin(draft: PluginImportDraft) {
     if (!shareOrgWide && !orgContext) {
-      setSaveError("Your organization membership is still loading. Try again in a moment.");
+      setSaveError("公司成员信息仍在加载，请稍后再试。");
       return;
     }
     setSaving(true);
@@ -212,20 +211,24 @@ export function PluginEditorScreen() {
           30000,
         );
         if (!result.response.ok) {
-          throw getRequestError(result.payload, result.response, "Failed to create the imported plugin.");
+          throw getRequestError(result.payload, result.response, "导入插件创建失败。");
         }
         const item = isRecord(result.payload) && isRecord(result.payload.item) ? result.payload.item : null;
         const plugin = item && isRecord(item.plugin) ? item.plugin : null;
         pluginId = plugin && typeof plugin.id === "string" ? plugin.id : null;
       });
-      if (!pluginId) throw new Error("The plugin was created, but no id was returned.");
+      if (!pluginId) throw new Error("插件已创建，但没有返回插件编号，请刷新后确认。");
 
       clearPluginImportDraft();
       await queryClient.invalidateQueries({ queryKey: pluginQueryKeys.all });
       router.push(getPluginRoute(orgSlug, pluginId));
       router.refresh();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Failed to create the imported plugin.");
+      setSaveError(
+        error instanceof Error
+          ? getErrorMessage(error.message, "导入插件创建失败，请重试。")
+          : "导入插件创建失败，请重试。",
+      );
     } finally {
       setSaving(false);
     }
@@ -233,7 +236,7 @@ export function PluginEditorScreen() {
 
   async function createPlugin() {
     if (!name.trim()) {
-      setSaveError("Give your plugin a name.");
+      setSaveError("请填写插件名称。");
       return;
     }
     if (importDraft) {
@@ -241,19 +244,19 @@ export function PluginEditorScreen() {
       return;
     }
     if (components.length === 0) {
-      setSaveError("Add at least one skill, command, or MCP server.");
+      setSaveError("请至少添加一个技能、命令或 MCP 服务器。");
       return;
     }
     for (const component of components) {
       if (!component.name.trim()) {
-        setSaveError(`Every ${COMPONENT_META[component.kind].label.toLowerCase()} needs a name.`);
+        setSaveError(`请填写${COMPONENT_META[component.kind].label}名称。`);
         return;
       }
       if (!component.content.trim()) {
         setSaveError(
           component.kind === "mcp"
-            ? `Enter the server URL for "${component.name || "your MCP server"}".`
-            : `Write the instructions for "${component.name || "your component"}".`,
+            ? `请填写“${component.name || "MCP 服务器"}”的服务地址。`
+            : `请填写“${component.name || "此组件"}”的工作说明。`,
         );
         return;
       }
@@ -273,17 +276,21 @@ export function PluginEditorScreen() {
             orgWide: shareOrgWide,
             marketplaceId: marketplaceId || undefined,
           },
-          "Failed to create the plugin",
+          "插件创建失败",
         );
       });
       const pluginId = createdItemId(pluginPayload);
-      if (!pluginId) throw new Error("The plugin was created, but no id was returned.");
+      if (!pluginId) throw new Error("插件已创建，但没有返回插件编号，请刷新后确认。");
 
       await queryClient.invalidateQueries({ queryKey: pluginQueryKeys.all });
       router.push(getPluginRoute(orgSlug, pluginId));
       router.refresh();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Failed to create the plugin.");
+      setSaveError(
+        error instanceof Error
+          ? getErrorMessage(error.message, "插件创建失败，请重试。")
+          : "插件创建失败，请重试。",
+      );
     } finally {
       setSaving(false);
     }
@@ -303,14 +310,14 @@ export function PluginEditorScreen() {
         className="mb-6 inline-flex items-center gap-2 text-[14px] text-gray-500 hover:text-gray-900"
       >
         <ArrowLeft size={15} />
-        Back to plugins
+        返回插件列表
       </Link>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-[28px] font-semibold text-gray-900">Create a plugin</h1>
+          <h1 className="text-[28px] font-semibold text-gray-900">创建插件</h1>
           <p className="mt-1 text-[15px] text-gray-500">
-            Bundle skills, commands, and MCP servers your team can install in OpenWork with one click.
+            将技能、命令和 MCP 服务器组合成插件，团队成员可在 FoxWork 中直接安装。
           </p>
         </div>
         <Link
@@ -318,26 +325,26 @@ export function PluginEditorScreen() {
           className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50"
         >
           <Download size={14} />
-          {importDraft ? "Change import" : "Import from GitHub"}
+          {importDraft ? "更换导入内容" : "从 GitHub 导入"}
         </Link>
       </div>
 
       <div className="mt-8 flex flex-col gap-5 rounded-[24px] border border-gray-200 bg-white p-6">
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Plugin name</label>
+          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">插件名称</label>
           <DenInput
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Sales call prep"
+            placeholder="例如：销售拜访准备"
             disabled={saving}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Description</label>
+          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">插件说明</label>
           <DenTextarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="What does this plugin help people do?"
+            placeholder="说明这个插件可以帮助成员完成什么"
             rows={2}
             disabled={saving}
           />
@@ -346,7 +353,7 @@ export function PluginEditorScreen() {
 
       <div className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-semibold text-gray-900">What&apos;s inside</h2>
+          <h2 className="text-[18px] font-semibold text-gray-900">插件内容</h2>
           {!importDraft ? <div className="flex gap-2">
             {(Object.keys(COMPONENT_META) as ComponentKind[]).map((kind) => {
               const meta = COMPONENT_META[kind];
@@ -370,7 +377,7 @@ export function PluginEditorScreen() {
           <div className="mt-4 overflow-hidden rounded-[24px] border border-gray-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50 px-5 py-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Imported from GitHub</p>
+                <p className="text-[11px] font-semibold text-gray-400">从 GitHub 导入</p>
                 <p className="mt-1 truncate text-[14px] font-medium text-gray-900">{pluginImportSourceLabel(importDraft.preview)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-3 text-[13px] font-medium">
@@ -382,15 +389,15 @@ export function PluginEditorScreen() {
                     setImportDraft(null);
                   }}
                 >
-                  Discard
+                  放弃导入
                 </button>
                 <Link href={getImportPluginRoute(orgSlug)} className="text-gray-600 hover:text-gray-900">
-                  Change import
+                  更换导入内容
                 </Link>
               </div>
             </div>
-            {[...importedSkills.map((skill) => ({ key: `skill:${skill.skillKey}`, label: "Skill", name: skill.name, Icon: FileText })),
-              ...importedServers.map((server) => ({ key: `mcp:${server.serverKey}`, label: "MCP server", name: server.name, Icon: Server }))]
+            {[...importedSkills.map((skill) => ({ key: `skill:${skill.skillKey}`, label: "技能", name: skill.name, Icon: FileText })),
+              ...importedServers.map((server) => ({ key: `mcp:${server.serverKey}`, label: "MCP 服务器", name: server.name, Icon: Server }))]
               .map((item) => (
                 <div key={item.key} className="flex items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-gray-500">
@@ -405,7 +412,7 @@ export function PluginEditorScreen() {
           </div>
         ) : components.length === 0 ? (
           <div className="mt-4 rounded-[24px] border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-[14px] text-gray-500">
-            Add a skill, command, or MCP server to get started. A plugin needs at least one component.
+            请添加技能、命令或 MCP 服务器。每个插件至少需要一个组件。
           </div>
         ) : null}
 
@@ -425,7 +432,7 @@ export function PluginEditorScreen() {
                     onClick={() => removeComponent(component.key)}
                     disabled={saving}
                     className="text-gray-400 hover:text-red-600"
-                    aria-label={`Remove ${meta.label.toLowerCase()}`}
+                    aria-label={`移除${meta.label}`}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -435,14 +442,14 @@ export function PluginEditorScreen() {
                   <DenInput
                     value={component.name}
                     onChange={(event) => updateComponent(component.key, { name: event.target.value })}
-                    placeholder={component.kind === "mcp" ? "Server name (e.g. Linear)" : "Name (e.g. Prep a sales call)"}
+                    placeholder={component.kind === "mcp" ? "服务器名称，例如 Linear" : "名称，例如销售拜访准备"}
                     disabled={saving}
                   />
                   {component.kind !== "mcp" ? (
                     <DenInput
                       value={component.description}
                       onChange={(event) => updateComponent(component.key, { description: event.target.value })}
-                      placeholder="One-line description — when should the agent use this?"
+                      placeholder="用一句话说明智能体应在什么情况下使用它"
                       disabled={saving}
                     />
                   ) : null}
@@ -459,8 +466,8 @@ export function PluginEditorScreen() {
                       onChange={(event) => updateComponent(component.key, { content: event.target.value })}
                       placeholder={
                         component.kind === "skill"
-                          ? "Write the instructions the agent should follow, in plain markdown..."
-                          : "Write what this command should do when someone runs it..."
+                          ? "使用 Markdown 编写智能体应遵循的工作说明…"
+                          : "说明成员运行此命令后应完成什么…"
                       }
                       rows={8}
                       disabled={saving}
@@ -474,7 +481,7 @@ export function PluginEditorScreen() {
       </div>
 
       <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-gray-200 bg-white p-6">
-        <h2 className="text-[18px] font-semibold text-gray-900">Share</h2>
+        <h2 className="text-[18px] font-semibold text-gray-900">共享范围</h2>
         <label className="flex items-start gap-3 text-[14px] text-gray-700">
           <input
             type="checkbox"
@@ -484,14 +491,14 @@ export function PluginEditorScreen() {
             className="mt-0.5"
           />
           <span>
-            Share with everyone in the organization
+            与公司所有成员共享
             <span className="block text-[13px] text-gray-500">
-              Members can see and install this plugin. Uncheck to keep it private to you while you iterate.
+              成员可以查看并安装此插件。取消勾选后，插件仅你本人可见，便于继续调整。
             </span>
           </span>
         </label>
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">Marketplace</label>
+          <label className="mb-1.5 block text-[13px] font-medium text-gray-700">应用市场</label>
           <DenSelect
             value={marketplaceId}
             onChange={(event) => {
@@ -500,7 +507,7 @@ export function PluginEditorScreen() {
             }}
             disabled={saving}
           >
-            <option value="">Don&apos;t publish yet</option>
+            <option value="">暂不发布</option>
             {marketplaces.map((marketplace) => (
               <option key={marketplace.id} value={marketplace.id}>
                 {marketplace.name}
@@ -508,7 +515,7 @@ export function PluginEditorScreen() {
             ))}
           </DenSelect>
           <p className="mt-1.5 text-[13px] text-gray-500">
-            Publishing puts the plugin in the marketplace so members find it in the OpenWork app.
+            发布后，成员可以在 FoxWork 的应用市场中找到此插件。
           </p>
         </div>
       </div>
@@ -521,14 +528,14 @@ export function PluginEditorScreen() {
 
       <div className="mt-6 flex items-center gap-3">
         <DenButton onClick={() => void createPlugin()} disabled={saving}>
-          {saving ? "Creating..." : "Create plugin"}
+          {saving ? "正在创建…" : "创建插件"}
         </DenButton>
         <Link
           href={getPluginsRoute(orgSlug)}
           onClick={() => clearPluginImportDraft()}
           className="text-[14px] text-gray-500 hover:text-gray-900"
         >
-          Cancel
+          取消
         </Link>
       </div>
     </div>

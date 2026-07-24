@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { TextInput } from "../../../design-system/text-input";
 import type { OpenworkClaudePluginPreview } from "../../../../app/lib/openwork-server";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 
 export type ClaudePluginImportModalProps = {
   open: boolean;
@@ -58,11 +59,11 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
   return { ...state, ...action };
 }
 
-const COMPONENT_LABELS: Record<string, { singular: string; plural: string }> = {
-  mcp: { singular: "MCP server", plural: "MCP servers" },
-  skill: { singular: "Skill", plural: "Skills" },
-  command: { singular: "Command", plural: "Commands" },
-  agent: { singular: "Agent", plural: "Agents" },
+const COMPONENT_LABELS: Record<string, string> = {
+  mcp: "MCP 服务",
+  skill: "技能",
+  command: "命令",
+  agent: "智能体",
 };
 
 export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
@@ -77,7 +78,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
   const handlePreview = async () => {
     const url = state.url.trim();
     if (!url) {
-      dispatch({ error: "Enter a GitHub repository URL." });
+      dispatch({ error: "请输入 GitHub 仓库地址。" });
       return;
     }
     dispatch({ previewing: true, error: null, preview: null, previewedUrl: null });
@@ -87,7 +88,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
     } catch (error) {
       dispatch({
         previewing: false,
-        error: error instanceof Error ? error.message : "Failed to load plugin preview",
+        error: toChineseUserMessage(error, "无法读取插件信息，请检查仓库地址和访问权限。"),
       });
     }
   };
@@ -100,13 +101,16 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
     try {
       const result = await props.onInstall(url);
       if (!result.ok) {
-        dispatch({ installing: false, error: result.message });
+        dispatch({
+          installing: false,
+          error: toChineseUserMessage(result.message, "插件安装失败，请检查仓库内容后重试。"),
+        });
         return;
       }
     } catch (error) {
       dispatch({
         installing: false,
-        error: error instanceof Error ? error.message : "Failed to install plugin",
+        error: toChineseUserMessage(error, "插件安装失败，请稍后重试。"),
       });
       return;
     }
@@ -134,10 +138,9 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
     >
       <DialogContent className="flex max-h-[90vh] min-h-0 w-full max-w-lg flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Install a plugin from GitHub</DialogTitle>
+          <DialogTitle>从 GitHub 安装插件</DialogTitle>
           <DialogDescription>
-            Works with Claude Code plugins: a repo with .claude-plugin/plugin.json bundling an MCP
-            server, skills, and commands.
+            支持包含 .claude-plugin/plugin.json 的 Claude Code 插件仓库，可导入 MCP 服务、技能和命令。
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +148,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <TextInput
-                label="GitHub repository"
+                label="GitHub 仓库"
                 placeholder="https://github.com/slackapi/slack-mcp-plugin"
                 value={state.url}
                 onChange={(event) =>
@@ -163,7 +166,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
               ) : (
                 <Search data-icon="inline-start" />
               )}
-              Preview
+              预览
             </Button>
           </div>
 
@@ -177,7 +180,9 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
                   ) : null}
                 </div>
                 {state.preview.description ? (
-                  <div className="mt-0.5 text-xs text-dls-secondary">{state.preview.description}</div>
+                  <div className="mt-0.5 text-xs text-dls-secondary">
+                    {toChineseUserMessage(state.preview.description, "此插件暂未提供中文说明。")}
+                  </div>
                 ) : null}
                 <div className="mt-1 text-[11px] text-dls-secondary">
                   {state.preview.source.owner}/{state.preview.source.repo} @ {state.preview.source.ref}
@@ -186,21 +191,21 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
               </div>
 
               <div>
-                <div className="mb-1.5 text-xs font-medium text-dls-text">Will install</div>
+                <div className="mb-1.5 text-xs font-medium text-dls-text">将安装以下内容</div>
                 <div className="space-y-2">
                   {groups.map((group) => (
                     <div key={group.type}>
                       <div className="text-[11px] font-medium uppercase tracking-wide text-dls-secondary">
-                        {group.items.length === 1
-                          ? `1 ${COMPONENT_LABELS[group.type]?.singular}`
-                          : `${group.items.length} ${COMPONENT_LABELS[group.type]?.plural}`}
+                        {group.items.length} 个{COMPONENT_LABELS[group.type]}
                       </div>
                       <ul className="mt-0.5 space-y-0.5">
                         {group.items.map((item) => (
                           <li key={`${group.type}:${item.name}`} className="text-xs text-dls-text">
                             <span className="font-medium">{item.name}</span>
                             {item.description ? (
-                              <span className="text-dls-secondary"> — {item.description}</span>
+                              <span className="text-dls-secondary">
+                                ：{toChineseUserMessage(item.description, "暂无中文说明")}
+                              </span>
                             ) : null}
                           </li>
                         ))}
@@ -213,7 +218,9 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
               {state.preview.warnings.length > 0 ? (
                 <div className="rounded-lg border border-amber-6 bg-amber-2 px-3 py-2 text-xs text-amber-11">
                   {state.preview.warnings.map((warning) => (
-                    <div key={warning}>{warning}</div>
+                    <div key={warning}>
+                      {toChineseUserMessage(warning, "此插件包含需要管理员确认的兼容性提示。")}
+                    </div>
                   ))}
                 </div>
               ) : null}
@@ -232,7 +239,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
             render={<Button variant="outline" disabled={state.previewing || state.installing} />}
             disabled={state.previewing || state.installing}
           >
-            Cancel
+            取消
           </DialogClose>
           <Button
             onClick={() => void handleInstall()}
@@ -243,7 +250,7 @@ export function ClaudePluginImportModal(props: ClaudePluginImportModalProps) {
             ) : (
               <Download data-icon="inline-start" />
             )}
-            Install
+            安装
           </Button>
         </DialogFooter>
       </DialogContent>

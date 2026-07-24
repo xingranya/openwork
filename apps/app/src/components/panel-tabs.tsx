@@ -82,8 +82,8 @@ function PanelTabClose({
         active && "text-foreground hover:bg-muted hover:text-foreground",
         className,
       )}
-      title="Close tab"
-      aria-label={`Close tab: ${label}`}
+      title="关闭标签页"
+      aria-label={`关闭标签页：${label}`}
       onClick={(event) => {
         event.stopPropagation();
         onClick?.(event);

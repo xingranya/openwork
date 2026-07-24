@@ -42,10 +42,10 @@ export type ExtensionCardProps = {
 
 const kindLabel: Record<ExtensionKind, string> = {
   mcp: "MCP",
-  plugin: "Plugin",
-  skill: "Skill",
-  "ui-control": "UI Control",
-  extension: "OpenWork Extension",
+  plugin: "插件",
+  skill: "Skill（技能）",
+  "ui-control": "界面控制",
+  extension: "FoxWork 扩展",
 };
 
 const kindStyle: Record<ExtensionKind, string> = {
@@ -70,7 +70,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
     url,
     kind = "mcp",
     connected: connectedProp = false,
-    connectedLabel = "Connected",
+    connectedLabel = "已连接",
     enablement,
     connecting = false,
     disabled = false,
@@ -144,7 +144,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
               </span>
             ) : someMet ? (
               <span className="shrink-0 rounded-md bg-amber-3 px-1.5 py-0.5 text-[10px] font-medium text-amber-11">
-                Partially set up
+                部分配置完成
               </span>
             ) : (
               <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${kindStyle[kind]}`}>
@@ -153,12 +153,12 @@ export function ExtensionCard(props: ExtensionCardProps) {
             )}
             {hidden ? (
               <span className="shrink-0 rounded-md bg-gray-3 px-1.5 py-0.5 text-[10px] font-medium text-gray-11">
-                Hidden
+                已隐藏
               </span>
             ) : null}
             {preview ? (
               <span className="rounded-md bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">
-                Preview
+                预览版
               </span>
             ) : null}
             {beta ? (
@@ -168,7 +168,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
             ) : null}
             {disabledReason ? (
               <span className="shrink-0 rounded-md bg-amber-3 px-1.5 py-0.5 text-[10px] font-medium text-amber-11">
-                Disabled
+                已停用
               </span>
             ) : null}
           </div>

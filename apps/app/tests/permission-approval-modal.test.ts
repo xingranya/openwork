@@ -37,11 +37,11 @@ describe("permission approval modal helpers", () => {
         output: "not shown before approval",
       }).map((row) => [row.label, row.value]),
     ).toEqual([
-      ["Command", "rm -rf dist"],
-      ["Description", "Remove build output"],
-      ["Working directory", "/workspace/project"],
-      ["File", "/workspace/project/src/app.ts"],
-      ["Diff", "-old\n+new"],
+      ["命令", "rm -rf dist"],
+      ["说明", "Remove build output"],
+      ["工作目录", "/workspace/project"],
+      ["文件", "/workspace/project/src/app.ts"],
+      ["差异", "-old\n+new"],
     ]);
   });
 
@@ -51,7 +51,7 @@ describe("permission approval modal helpers", () => {
         filepath: "/workspace/project/a.ts",
         filePath: "/workspace/project/b.ts",
       }).map((row) => [row.label, row.value]),
-    ).toEqual([["File", "/workspace/project/a.ts"]]);
+    ).toEqual([["文件", "/workspace/project/a.ts"]]);
   });
 
   test("summarizes apply-patch file metadata", () => {
@@ -64,7 +64,7 @@ describe("permission approval modal helpers", () => {
         ],
       }).map((row) => [row.label, row.value]),
     ).toEqual([
-      ["Files", "add: src/new.ts\ndelete: /workspace/project/src/old.ts\nchange: src/update.ts"],
+      ["文件", "add: src/new.ts\ndelete: /workspace/project/src/old.ts\nchange: src/update.ts"],
     ]);
   });
 
@@ -80,7 +80,7 @@ describe("permission approval modal helpers", () => {
       match[0].replace(/<[^>]*>/g, "").trim(),
     );
 
-    expect(buttonLabels).toEqual(["Deny", "Allow once", "Allow for session"]);
+    expect(buttonLabels).toEqual(["拒绝", "允许一次", "在会话期间允许"]);
   });
 
   test("uses readable labels for generic permission titles", () => {
@@ -91,7 +91,7 @@ describe("permission approval modal helpers", () => {
       }),
     );
 
-    expect(html).toContain("Approve Todo write?");
-    expect(html).not.toContain("Approve todowrite?");
+    expect(html).toContain("是否允许任务清单写入？");
+    expect(html).not.toContain("todowrite");
   });
 });

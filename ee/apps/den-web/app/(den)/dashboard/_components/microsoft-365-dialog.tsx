@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { DenButton } from "../../_components/ui/button";
 import { DenNotice } from "../../_components/ui/notice";
+import { getErrorMessage } from "../../_lib/den-flow";
 import { McpCredentialInput } from "./mcp-credential-input";
 import { useNativeProviderClient } from "./mcp-connections-data";
 import {
@@ -87,27 +88,27 @@ export function Microsoft365Dialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-          {configured ? "Update Microsoft 365" : "Set up Microsoft 365"}
+          {configured ? "更新 Microsoft 365" : "配置 Microsoft 365"}
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
-          Use one Entra web app for your organization. Each teammate then connects their own work account; OpenWork requests only the permissions your administrator enables below.
+          公司统一使用一个 Entra Web 应用。每位员工连接自己的工作账号，FoxWork 只申请管理员在下方启用的权限。
         </p>
 
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[13px] font-semibold text-gray-900">Set up the Entra app</p>
+            <p className="text-[13px] font-semibold text-gray-900">配置 Entra 应用</p>
             <ol className="mt-2 list-decimal space-y-2 pl-4 text-[12px] leading-5 text-gray-600">
               <li>
-                In Microsoft Entra admin center, create an app registration for accounts in your organization. {" "}
+                在 Microsoft Entra 管理中心创建应用注册，并限定为公司组织中的账号。{" "}
                 <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">
-                  Open app registrations
+                  打开应用注册
                 </a>
               </li>
               <li>
-                Add a Web platform and this exact redirect URI:
+                添加 Web 平台，并填写下面这个准确的回调地址：
                 <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2">
                   <p data-microsoft-redirect-uri className="min-w-0 flex-1 break-all font-mono text-[11px] leading-5 text-gray-800">
-                    {redirectUri || "Loading redirect URI…"}
+                    {redirectUri || "正在加载回调地址..."}
                   </p>
                   <DenButton
                     variant="secondary"
@@ -118,19 +119,19 @@ export function Microsoft365Dialog({
                       if (redirectUri && await copyText(redirectUri)) setCopiedRedirectUri(true);
                     }}
                   >
-                    {copiedRedirectUri ? "Copied" : "Copy"}
+                    {copiedRedirectUri ? "已复制" : "复制"}
                   </DenButton>
                 </div>
               </li>
-              <li>Add the delegated Microsoft Graph permissions shown below. Grant admin consent if your tenant policy requires it.</li>
-              <li>Copy the Directory (tenant) ID, create a client secret, then paste all three values here.</li>
+              <li>添加下方列出的 Microsoft Graph 委托权限。如果租户策略有要求，请授予管理员同意。</li>
+              <li>复制目录（租户）ID，创建客户端密钥，再把三项信息填写到这里。</li>
             </ol>
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[13px] font-semibold text-gray-900">Permissions</p>
+            <p className="text-[13px] font-semibold text-gray-900">权限</p>
             <p className="mt-1 text-[12px] leading-5 text-gray-500">
-              Pick what your team&apos;s AI can do across Outlook, Calendar, OneDrive, and Teams. Signing in always shares the member&apos;s basic profile through User.Read.
+              选择公司 AI 可以在 Outlook、日历、OneDrive 和 Teams 中执行的操作。员工登录时始终会通过 User.Read 提供基本资料。
             </p>
             <div className="mt-3 space-y-4">
               {MICROSOFT_365_PERMISSION_GROUPS.map((group) => (
@@ -161,25 +162,25 @@ export function Microsoft365Dialog({
           </div>
 
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-[12px] leading-5 text-blue-800">
-            Already using Entra OIDC SSO with a Web app registration you control? You can reuse that registration by adding this callback and the delegated Graph permissions. A SAML-only enterprise app may still need a separate app registration. SSO signs people into OpenWork; this separate consent grants only the Microsoft 365 capabilities selected above.
+            如果公司已经使用自有 Entra Web 应用提供 OIDC 单点登录，可以在原应用中添加此回调地址和 Graph 委托权限后继续使用。只配置 SAML 的企业应用可能仍需单独创建应用注册。单点登录只负责员工登录 FoxWork，这里的授权仅开放上方选中的 Microsoft 365 能力。
           </div>
 
           {loadingConfig ? (
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[13px] text-gray-500">Checking saved credentials…</div>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[13px] text-gray-500">正在检查已保存的凭据...</div>
           ) : null}
 
           {configured && !replacingCredentials ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-600" />
-                <p className="text-[13px] font-semibold text-gray-900">Credentials saved</p>
+                <p className="text-[13px] font-semibold text-gray-900">凭据已保存</p>
               </div>
-              <p className="mt-1 text-[12px] leading-5 text-gray-500">Permission changes keep your encrypted client secret. Replace it only when rotating the Entra credential.</p>
+              <p className="mt-1 text-[12px] leading-5 text-gray-500">只修改权限时会保留加密存储的客户端密钥。仅在轮换 Entra 凭据时需要替换。</p>
               <div className="mt-3 rounded-xl border border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-800">
-                Saved client ID: <span className="font-mono">{savedClientId ?? "stored in OpenWork"}</span>
+                已保存的客户端 ID：<span className="font-mono">{savedClientId ?? "已安全保存"}</span>
               </div>
               <div className="mt-2 rounded-xl border border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-800">
-                Tenant ID: <span className="font-mono">{savedTenantId ?? "stored in OpenWork"}</span>
+                租户 ID：<span className="font-mono">{savedTenantId ?? "已安全保存"}</span>
               </div>
               <DenButton
                 className="mt-3"
@@ -193,17 +194,17 @@ export function Microsoft365Dialog({
                   setReplacingCredentials(true);
                 }}
               >
-                Change tenant or credentials
+                更换租户或凭据
               </DenButton>
             </div>
           ) : null}
 
           {showCredentialFields ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-              <p className="text-[13px] font-semibold text-gray-900">Entra OAuth credentials</p>
+              <p className="text-[13px] font-semibold text-gray-900">Entra OAuth 凭据</p>
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Directory (tenant) ID</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">目录（租户）ID</label>
                   <McpCredentialInput
                     kind="identifier"
                     name="microsoft-365-tenant-id"
@@ -214,7 +215,7 @@ export function Microsoft365Dialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Application (client) ID</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">应用（客户端）ID</label>
                   <McpCredentialInput
                     kind="identifier"
                     name="microsoft-365-oauth-client-id"
@@ -224,19 +225,19 @@ export function Microsoft365Dialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Client secret value</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">客户端密钥值</label>
                   <McpCredentialInput
                     kind="secret"
                     name="microsoft-365-oauth-client-secret"
                     value={clientSecret}
                     onChange={(event) => setClientSecret(event.target.value)}
-                    placeholder="Paste the secret value, not its ID"
+                    placeholder="请粘贴密钥值，不要填写密钥 ID"
                   />
                 </div>
               </div>
               {replacingCredentials ? (
                 <DenButton className="mt-3" variant="secondary" size="sm" disabled={submitting} onClick={() => setReplacingCredentials(false)}>
-                  Keep saved credentials
+                  保留已保存的凭据
                 </DenButton>
               ) : null}
             </div>
@@ -244,11 +245,11 @@ export function Microsoft365Dialog({
         </div>
 
         {formError ? (
-          <DenNotice message={formError instanceof Error ? formError.message : "Failed to save the Microsoft 365 setup."} className="mt-3" />
+          <DenNotice message={getErrorMessage(formError, "保存 Microsoft 365 设置失败，请重试。")} className="mt-3" />
         ) : null}
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <DenButton variant="secondary" onClick={onClose} disabled={submitting}>Cancel</DenButton>
+          <DenButton variant="secondary" onClick={onClose} disabled={submitting}>取消</DenButton>
           <DenButton
             variant="primary"
             loading={submitting}
@@ -259,7 +260,7 @@ export function Microsoft365Dialog({
               features,
             })}
           >
-            {configured && !replacingCredentials ? "Save permissions" : replacingCredentials ? "Save new setup" : "Save setup"}
+            {configured && !replacingCredentials ? "保存权限" : replacingCredentials ? "保存新配置" : "保存配置"}
           </DenButton>
         </div>
       </div>

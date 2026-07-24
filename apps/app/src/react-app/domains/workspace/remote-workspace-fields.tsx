@@ -64,7 +64,7 @@ export function RemoteWorkspaceFields({
 
       <div className="mt-5 grid gap-4">
         <label className="grid gap-2">
-          <span className={inputLabelClass}>Worker URL</span>
+          <span className={inputLabelClass}>Worker 地址</span>
           <input
             ref={hostInputRef}
             type="url"
@@ -75,18 +75,18 @@ export function RemoteWorkspaceFields({
             className={inputClass}
           />
           <span className={inputHintClass}>
-            Paste the OpenWork worker URL you want to connect to.
+            粘贴要连接的 FoxWork Worker 地址。
           </span>
         </label>
 
         <label className="grid gap-2">
-          <span className={inputLabelClass}>Access token</span>
+          <span className={inputLabelClass}>访问令牌</span>
           <div className="flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface p-1.5">
             <input
               type={tokenVisible ? "text" : "password"}
               value={token}
               onChange={(event) => onTokenInput(event.currentTarget.value)}
-              placeholder="Optional"
+              placeholder="可选"
               disabled={submitting}
               className="min-w-0 flex-1 border-none bg-transparent px-2 py-1.5 text-[14px] text-dls-text outline-none placeholder:text-dls-secondary"
             />
@@ -96,41 +96,41 @@ export function RemoteWorkspaceFields({
               onClick={onToggleTokenVisible}
               disabled={submitting}
             >
-              {tokenVisible ? "Hide" : "Show"}
+              {tokenVisible ? "隐藏" : "显示"}
             </button>
           </div>
           <span className={inputHintClass}>
-            Add a token only if the worker requires one.
+            仅在 Worker 要求时填写访问令牌。
           </span>
         </label>
 
         {showDirectory ? (
           <label className="grid gap-2">
-            <span className={inputLabelClass}>Remote directory</span>
+            <span className={inputLabelClass}>远程目录</span>
             <input
               type="text"
               value={directory ?? ""}
               onChange={(event) => onDirectoryInput?.(event.currentTarget.value)}
-              placeholder="Optional"
+              placeholder="可选"
               disabled={submitting}
               className={inputClass}
             />
             <span className={inputHintClass}>
-              Optionally target a directory within that remote worker.
+              可指定远程 Worker 中的工作目录。
             </span>
           </label>
         ) : null}
 
         <label className="grid gap-2">
           <span className={inputLabelClass}>
-            Display name{" "}
-            <span className="font-normal text-dls-secondary">(optional)</span>
+            显示名称{" "}
+            <span className="font-normal text-dls-secondary">（可选）</span>
           </span>
           <input
             type="text"
             value={displayName}
             onChange={(event) => onDisplayNameInput(event.currentTarget.value)}
-            placeholder="Worker name"
+            placeholder="Worker 名称"
             disabled={submitting}
             className={inputClass}
           />

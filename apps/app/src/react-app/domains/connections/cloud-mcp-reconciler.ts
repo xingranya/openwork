@@ -66,7 +66,7 @@ export type CloudMcpMainStatus = "ready" | "connecting" | "disabled" | "degraded
 
 export type CloudMcpDisplaySummary = {
   status: CloudMcpMainStatus;
-  statusLabel: "Ready" | "Connecting" | "Disabled" | "Degraded" | "Signed out";
+  statusLabel: "已就绪" | "正在连接" | "已关闭" | "需要处理" | "未登录";
   tone: "ready" | "warning" | "neutral" | "error";
   stageLabel: string;
   recommendedAction: string;
@@ -340,21 +340,21 @@ export function cloudMcpFailureStageLabel(input: {
   userState?: CloudMcpUserState | null;
   health?: OpenworkCloudMcpHealth | null;
 }): string {
-  if (!input.signedIn) return "Sign in required";
-  if (!input.orgSelected) return "Select an organization";
-  if (input.userState) return "Agent access disabled";
+  if (!input.signedIn) return "需要登录";
+  if (!input.orgSelected) return "请选择公司";
+  if (input.userState) return "AI 服务权限已关闭";
   const code = normalizeCode(input.health?.firstFailure?.code);
-  if (!code) return input.health?.usableByCurrentModel === null ? "Current model access not checked" : "Agent access ready";
-  if (code === "cloud_mcp_disabled" || code === "cloud_disabled") return "Agent access disabled";
-  if (code === "cloud_desired_missing" || code === "cloud_mcp_missing") return "Couldn’t apply Cloud access to this workspace";
-  if (code.includes("auth") || code.includes("token") || code.includes("unauthorized")) return "Cloud authentication expired";
-  if (code === "cloud_tools_missing") return "Cloud endpoint tools are missing";
-  if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "Cloud tools weren’t registered";
-  if (code.includes("provider_projection")) return "Current model can’t use Cloud tools";
-  if (code.includes("tool_ids") || code.includes("client_registration")) return "OpenWork components need updating";
-  if (code === "extensions_plugin_missing") return "Agent instructions are out of date";
-  if (code.includes("unreachable") || code.includes("connection") || code.includes("status_missing")) return "Cloud connection unavailable";
-  return "Couldn’t apply Cloud access to this workspace";
+  if (!code) return input.health?.usableByCurrentModel === null ? "尚未检查当前模型权限" : "AI 服务权限已就绪";
+  if (code === "cloud_mcp_disabled" || code === "cloud_disabled") return "AI 服务权限已关闭";
+  if (code === "cloud_desired_missing" || code === "cloud_mcp_missing") return "无法为当前工作区启用公司服务";
+  if (code.includes("auth") || code.includes("token") || code.includes("unauthorized")) return "公司登录状态已过期";
+  if (code === "cloud_tools_missing") return "公司服务缺少所需工具";
+  if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "公司工具尚未完成注册";
+  if (code.includes("provider_projection")) return "当前模型不能使用公司工具";
+  if (code.includes("tool_ids") || code.includes("client_registration")) return "FoxWork 组件需要更新";
+  if (code === "extensions_plugin_missing") return "AI 工作说明需要更新";
+  if (code.includes("unreachable") || code.includes("connection") || code.includes("status_missing")) return "公司服务暂时无法连接";
+  return "无法为当前工作区启用公司服务";
 }
 
 export function cloudMcpRecommendedAction(input: {
@@ -363,26 +363,26 @@ export function cloudMcpRecommendedAction(input: {
   userState?: CloudMcpUserState | null;
   health?: OpenworkCloudMcpHealth | null;
 }): string {
-  if (!input.signedIn) return "Sign in to OpenWork Cloud.";
-  if (!input.orgSelected) return "Choose the organization agents should use.";
-  if (input.userState) return "Enable Agent access or use Repair and test when you want agents to use connected services.";
+  if (!input.signedIn) return "请登录 FoxWork 公司服务。";
+  if (!input.orgSelected) return "请选择 AI 要使用的公司。";
+  if (input.userState) return "如需使用已连接服务，请启用 AI 权限，或执行“修复并检查”。";
   const code = normalizeCode(input.health?.firstFailure?.code);
   if (!code) {
-    if (input.health?.usableByCurrentModel === null) return "Model access was not checked because no current model is selected.";
-    return "No action needed.";
+    if (input.health?.usableByCurrentModel === null) return "尚未选择当前模型，因此未检查模型权限。";
+    return "无需操作。";
   }
-  if (code === "cloud_mcp_disabled" || code === "cloud_disabled") return "Enable Agent access or use Repair and test when you want agents to use connected services.";
-  if (code === "cloud_desired_missing" || code === "cloud_mcp_missing") return "Use Repair and test to apply agent access for this workspace.";
-  if (code.includes("auth") || code.includes("token") || code.includes("unauthorized")) return "Use Repair and test to refresh Cloud authentication.";
-  if (code.includes("membership")) return "Ask an organization admin to grant access.";
-  if (code.includes("scope")) return "Reconnect OpenWork Cloud with the required permissions.";
-  if (code.includes("policy") || code.includes("forbidden") || code.includes("resource")) return "Check organization policy and resource access.";
-  if (code.includes("provider_projection")) return "Choose a model that can use OpenWork Cloud tools.";
-  if (code.includes("tool_ids") || code.includes("client_registration")) return "Update OpenWork, then retry.";
-  if (code === "extensions_plugin_missing") return "Reload the agent so OpenWork instructions are current.";
-  if (code === "cloud_tools_missing") return "Reconnect OpenWork Cloud so the endpoint exposes search_capabilities and execute_capability.";
-  if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "Use Repair and test to register the Cloud tools.";
-  return input.health?.firstFailure?.recommendedAction || "Use Repair and test, then check Advanced Settings if it still fails.";
+  if (code === "cloud_mcp_disabled" || code === "cloud_disabled") return "如需使用已连接服务，请启用 AI 权限，或执行“修复并检查”。";
+  if (code === "cloud_desired_missing" || code === "cloud_mcp_missing") return "请执行“修复并检查”，为当前工作区启用 AI 权限。";
+  if (code.includes("auth") || code.includes("token") || code.includes("unauthorized")) return "请执行“修复并检查”，刷新公司登录状态。";
+  if (code.includes("membership")) return "请联系公司管理员授予权限。";
+  if (code.includes("scope")) return "请重新连接公司服务并授予所需权限。";
+  if (code.includes("policy") || code.includes("forbidden") || code.includes("resource")) return "请检查公司策略和资源权限。";
+  if (code.includes("provider_projection")) return "请选择能够使用公司工具的模型。";
+  if (code.includes("tool_ids") || code.includes("client_registration")) return "请更新 FoxWork 后重试。";
+  if (code === "extensions_plugin_missing") return "请重新加载 AI，让工作说明更新到当前版本。";
+  if (code === "cloud_tools_missing") return "请重新连接公司服务，让所需工具完成注册。";
+  if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "请执行“修复并检查”，完成公司工具注册。";
+  return "请执行“修复并检查”；如果仍然失败，请在高级设置中查看诊断信息。";
 }
 
 export function cloudMcpDisplaySummary(input: {
@@ -395,16 +395,16 @@ export function cloudMcpDisplaySummary(input: {
   if (input.connecting) {
     return {
       status: "connecting",
-      statusLabel: "Connecting",
+      statusLabel: "正在连接",
       tone: "warning",
-      stageLabel: "Cloud connection unavailable",
-      recommendedAction: "Checking agent access now.",
+      stageLabel: "公司服务暂时无法连接",
+      recommendedAction: "正在检查 AI 服务权限。",
     };
   }
   if (!input.signedIn) {
     return {
       status: "signed_out",
-      statusLabel: "Signed out",
+      statusLabel: "未登录",
       tone: "neutral",
       stageLabel: cloudMcpFailureStageLabel(input),
       recommendedAction: cloudMcpRecommendedAction(input),
@@ -416,7 +416,7 @@ export function cloudMcpDisplaySummary(input: {
   if (disabled) {
     return {
       status: "disabled",
-      statusLabel: "Disabled",
+      statusLabel: "已关闭",
       tone: "neutral",
       stageLabel: cloudMcpFailureStageLabel(input),
       recommendedAction: cloudMcpRecommendedAction(input),
@@ -425,7 +425,7 @@ export function cloudMcpDisplaySummary(input: {
   if (input.health?.usable) {
     return {
       status: "ready",
-      statusLabel: "Ready",
+      statusLabel: "已就绪",
       tone: "ready",
       stageLabel: cloudMcpFailureStageLabel(input),
       recommendedAction: cloudMcpRecommendedAction(input),
@@ -433,7 +433,7 @@ export function cloudMcpDisplaySummary(input: {
   }
   return {
     status: "degraded",
-    statusLabel: "Degraded",
+    statusLabel: "需要处理",
     tone: "error",
     stageLabel: cloudMcpFailureStageLabel(input),
     recommendedAction: cloudMcpRecommendedAction(input),

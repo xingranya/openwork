@@ -101,7 +101,7 @@ export function LinkActionMenu({ target, anchorRect, onOpenTarget, onClose }: Li
         className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/10 disabled:opacity-50"
       >
         <ExternalLink className="size-4 shrink-0" />
-        Open with default app
+        使用默认应用打开
       </button>
       {canOpenInPanel ? (
         <button
@@ -110,7 +110,7 @@ export function LinkActionMenu({ target, anchorRect, onOpenTarget, onClose }: Li
           className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/10"
         >
           <Eye className="size-4 shrink-0" />
-          Open in panel
+          在侧栏中打开
         </button>
       ) : null}
       <button
@@ -120,7 +120,7 @@ export function LinkActionMenu({ target, anchorRect, onOpenTarget, onClose }: Li
         className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/10 disabled:opacity-50"
       >
         <FolderOpen className="size-4 shrink-0" />
-        Show in folder
+        在文件夹中显示
       </button>
       {canOpenExternally && apps && apps.length > 0 ? (
         <>
@@ -148,7 +148,7 @@ export function LinkActionMenu({ target, anchorRect, onOpenTarget, onClose }: Li
           <div className="my-1 h-px bg-foreground/5" />
           <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground">
             <Loader2 className="size-3.5 shrink-0 animate-spin" />
-            Loading apps…
+            正在加载应用…
           </div>
         </>
       ) : null}

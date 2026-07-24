@@ -28,10 +28,15 @@ const isPasswordField = (label: string) =>
 const isWorkerUrlField = (label: string) => /worker url/i.test(label);
 
 const displayFieldLabel = (field: ShareField) => {
-  if (isPasswordField(field.label)) return "Password";
-  if (isWorkerUrlField(field.label)) return "Worker URL";
-  return field.label;
+  if (isCollaboratorField(field.label)) return "协作者访问令牌";
+  if (isPasswordField(field.label)) return "访问密码";
+  if (isWorkerUrlField(field.label)) return "Worker 地址";
+  return /[\u3400-\u9fff]/.test(field.label) ? field.label : "连接信息";
 };
+
+function localizedShareMessage(message: string | null | undefined, fallback: string) {
+  return message && /[\u3400-\u9fff]/.test(message) ? message : fallback;
+}
 
 type CredentialFieldProps = {
   field: ShareField;
@@ -64,7 +69,7 @@ function CredentialField(props: CredentialFieldProps) {
             onClick={() => props.onToggleReveal(props.fieldKey)}
             disabled={!props.field.value}
             className={pillSecondaryClass}
-            title={revealed ? "Hide password" : "Reveal password"}
+            title={revealed ? "隐藏密码" : "显示密码"}
           >
             {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
@@ -74,7 +79,7 @@ function CredentialField(props: CredentialFieldProps) {
           onClick={() => props.onCopy(props.field.value, props.fieldKey)}
           disabled={!props.field.value}
           className={pillSecondaryClass}
-          title="Copy"
+          title="复制"
         >
           {props.copiedKey === props.fieldKey ? (
             <Check size={14} className="text-emerald-600" />
@@ -84,7 +89,9 @@ function CredentialField(props: CredentialFieldProps) {
         </button>
       </div>
       {props.field.hint?.trim() ? (
-        <p className="mt-1.5 text-[12px] text-dls-secondary">{props.field.hint}</p>
+        <p className="mt-1.5 text-[12px] text-dls-secondary">
+          {localizedShareMessage(props.field.hint, "请妥善保管此连接信息。")}
+        </p>
       ) : null}
     </div>
   );
@@ -131,20 +138,20 @@ export function ShareWorkspaceAccessPanel(
         props.remoteAccessEnabled === props.remoteAccess.enabled)
     : true;
   const remoteSaveLabel = props.remoteAccess?.busy
-    ? "Saving…"
+    ? "正在保存…"
     : remoteAccessNeedsEnable
-      ? "Enable remote access"
+      ? "启用远程访问"
       : props.remoteAccess?.enabled === false && props.remoteAccessEnabled
-        ? "Save & restart worker"
-        : "Save";
+        ? "保存并重启 Worker"
+        : "保存";
 
   return (
     <div className="space-y-5 pt-2 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className={warningBannerClass}>
         <span className="leading-relaxed">
           {props.remoteAccess
-            ? "These credentials grant live access to this workspace. Sharing this workspace remotely may allow anyone with access to your network to control your worker."
-            : "Share with trusted people only. These credentials grant live access to this workspace."}
+            ? "这些凭据可以实时访问当前工作区。启用远程共享后，能够访问所在网络的人可能控制此 Worker，请仅提供给可信人员。"
+            : "请仅与可信人员共享。这些凭据可以实时访问当前工作区。"}
         </span>
       </div>
 
@@ -153,18 +160,17 @@ export function ShareWorkspaceAccessPanel(
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-[18px] font-semibold tracking-[-0.3px] text-dls-text">
-                Remote access
+                远程访问
               </h3>
               <p className="mt-1 text-[14px] leading-relaxed text-dls-secondary">
-                Off by default. Turn this on only when you want this worker
-                reachable from another machine.
+                默认关闭。只有需要从其他电脑连接此 Worker 时才启用。
               </p>
             </div>
             <label htmlFor={remoteAccessToggleId} className="relative inline-flex shrink-0 cursor-pointer items-center">
               <input
                 id={remoteAccessToggleId}
                 type="checkbox"
-                aria-label="Remote access"
+                aria-label="远程访问"
                 className="peer sr-only"
                 checked={props.remoteAccessEnabled}
                 onChange={(event) =>
@@ -178,10 +184,10 @@ export function ShareWorkspaceAccessPanel(
 
           <div className="mt-4 flex items-center justify-between gap-3">
             <div className="text-[13px] text-dls-secondary">
-              {props.remoteAccess.status?.trim() ||
+              {localizedShareMessage(props.remoteAccess.status,
                 (props.remoteAccess.enabled
-                  ? "Remote access is currently enabled."
-                  : "Remote access is currently disabled.")}
+                  ? "远程访问当前已启用。"
+                  : "远程访问当前已关闭。"))}
             </div>
             <button
               type="button"
@@ -201,7 +207,7 @@ export function ShareWorkspaceAccessPanel(
 
           {props.remoteAccess.error?.trim() ? (
             <div className={`mt-4 ${errorBannerClass}`}>
-              {props.remoteAccess.error}
+              {localizedShareMessage(props.remoteAccess.error, "保存远程访问设置失败，请稍后重试。")}
             </div>
           ) : null}
         </div>
@@ -210,7 +216,7 @@ export function ShareWorkspaceAccessPanel(
       {primaryAccessFields.length > 0 ? (
         <div className={surfaceCardClass}>
           <div className="mb-4 text-[13px] font-medium text-dls-text">
-            Connection details
+            连接信息
           </div>
           <div className="space-y-4">
             {primaryAccessFields.map((field) => (
@@ -231,8 +237,7 @@ export function ShareWorkspaceAccessPanel(
         <div
           className={`${softCardClass} text-[13px] leading-relaxed text-dls-secondary`}
         >
-          Enable remote access and click Save to restart the worker and reveal
-          the live connection details for this workspace.
+          启用远程访问并保存后，FoxWork 会重启 Worker，并显示当前工作区的实时连接信息。
         </div>
       )}
 
@@ -244,7 +249,7 @@ export function ShareWorkspaceAccessPanel(
             onClick={props.onToggleCollaboratorExpanded}
             aria-expanded={props.collaboratorExpanded}
           >
-            <span>Optional collaborator access</span>
+            <span>协作者访问（可选）</span>
             <ChevronDown
               size={13}
               className={`shrink-0 transition-transform ${
@@ -255,7 +260,7 @@ export function ShareWorkspaceAccessPanel(
           {props.collaboratorExpanded ? (
             <div className={`${softCardClass} mt-3`}>
               <div className="mb-3 text-[12px] text-dls-secondary">
-                Routine access without permission approvals.
+                用于日常连接，不包含本机工具授权，也不代表项目审批权限。
               </div>
               <CredentialField
                 field={collaboratorField}
@@ -271,7 +276,9 @@ export function ShareWorkspaceAccessPanel(
       ) : null}
 
       {props.note?.trim() ? (
-        <div className="px-1 text-[12px] text-dls-secondary">{props.note}</div>
+        <div className="px-1 text-[12px] text-dls-secondary">
+          {localizedShareMessage(props.note, "请妥善保管工作区连接信息。")}
+        </div>
       ) : null}
     </div>
   );

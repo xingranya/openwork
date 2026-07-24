@@ -1,6 +1,6 @@
-# OpenWork Cloud App (`ee/apps/den-web`)
+# FoxWork 公司服务（`ee/apps/den-web`）
 
-Frontend for `app.openworklabs.com`.
+公司内部 Den Web 管理与员工入口。部署时必须使用公司自己的域名和服务地址。
 
 ## What it does
 
@@ -39,6 +39,8 @@ Frontend for `app.openworklabs.com`.
   - The web panel appends `/connect-remote` and injects worker URL/token params automatically.
 - `DEN_WEB_OPENWORK_AUTH_CALLBACK_URL` (runtime): Canonical URL used for GitHub auth callback redirects.
   - this host must serve `/api/auth/*`; the included proxy route does that
+- `DEN_WEB_FOXWORK_MCP_ENDPOINT` (runtime, optional): 公司 MCP 完整地址；未设置时依次使用 `DEN_MCP_PUBLIC_URL`、`DEN_MCP_RESOURCE_URL` 或 `DEN_API_PUBLIC_URL` 推导 `/mcp/agent`。
+- `DEN_WEB_FOXWORK_MCP_DOCS_URL` (runtime, optional): 公司自己的 MCP 配置指南地址；未设置时不显示外部文档链接。
 - `DEN_WEB_POSTHOG_KEY` (server/runtime): PostHog project key used for Den analytics.
 - `DEN_WEB_POSTHOG_HOST` (server/runtime): PostHog ingest host or same-origin proxy path.
   - default: `/ow`

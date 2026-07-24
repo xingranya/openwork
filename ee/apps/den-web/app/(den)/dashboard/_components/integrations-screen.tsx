@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Cable, Check, GitBranch, Loader2, Plus, Settings, Trash2 } from "lucide-react";
 import { getGithubIntegrationAccountRoute, getGithubIntegrationRoute, getGithubIntegrationSetupRoute } from "../../_lib/den-org";
+import { getErrorMessage } from "../../_lib/den-flow";
 import { DenButton } from "../../_components/ui/button";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
 import { IntegrationConnectDialog } from "./integration-connect-dialog";
@@ -56,24 +57,20 @@ export function IntegrationsScreen() {
   return (
     <DashboardPageTemplate
       icon={Cable}
-      badgeLabel="Preview"
-      title="Sources"
-      description="Connect to GitHub or Bitbucket. Once an account is linked, plugins and skills from those repositories show up on the Plugins page."
+      badgeLabel="预览版"
+      title="数据源"
+      description="连接 GitHub 或 Bitbucket 账号，把代码仓库中的插件和技能导入公司工作区。"
       colors={["#E0F2FE", "#0C4A6E", "#0284C7", "#7DD3FC"]}
     >
       {error || startGithubInstall.error ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {error instanceof Error
-            ? error.message
-            : startGithubInstall.error instanceof Error
-              ? startGithubInstall.error.message
-              : "Failed to load integrations."}
+          {getErrorMessage(error ?? startGithubInstall.error, "加载数据源失败，请重试。")}
         </div>
       ) : null}
 
       {isLoading ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading integrations…
+          正在加载数据源...
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -86,7 +83,7 @@ export function IntegrationsScreen() {
                 key={meta.provider}
                 className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
               >
-                {/* Header */}
+                {/* 数据源标题和连接状态 */}
                 <div
                   className={`flex items-start gap-4 px-6 py-5 ${isConnected ? "border-b border-gray-100" : ""}`}
                 >
@@ -96,16 +93,16 @@ export function IntegrationsScreen() {
                       <h2 className="text-[15px] font-semibold text-gray-900">{meta.name}</h2>
                       {meta.provider === "bitbucket" ? (
                         <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                          Coming soon
+                          即将开放
                         </span>
                       ) : isConnected ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                           <Check className="h-3 w-3" />
-                          Connected
+                          已连接
                         </span>
                       ) : (
                         <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                          Not connected
+                          未连接
                         </span>
                       )}
                     </div>
@@ -123,15 +120,15 @@ export function IntegrationsScreen() {
                       onClick={() => void handleConnect(meta.provider)}
                     >
                       {meta.provider === "bitbucket"
-                        ? "Coming soon"
+                        ? "即将开放"
                         : isConnected
-                          ? "Connect another"
-                          : "Connect"}
+                          ? "连接其他账号"
+                          : "连接"}
                     </DenButton>
                   </div>
                 </div>
 
-                {/* Body: connected accounts + repos */}
+                {/* 已连接账号和代码仓库 */}
                 {isConnected ? (
                   <div className="divide-y divide-gray-100">
                     {providerConnections.map((connection) => (
@@ -186,7 +183,7 @@ function ConnectionRow({
       <button
         type="button"
         onClick={() => setConfirmOpen(true)}
-        aria-label={`Disconnect ${accountLogin}`}
+        aria-label={`断开 ${accountLogin} 的连接`}
         disabled={busy}
         className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 opacity-0 transition-all duration-150 hover:bg-red-50 hover:text-red-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/30 group-hover:opacity-100 disabled:cursor-not-allowed"
       >
@@ -203,11 +200,11 @@ function ConnectionRow({
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-[14px] font-semibold text-gray-900">@{accountLogin}</p>
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-              {connection.account.kind === "user" ? "Personal" : "Organization"}
+              {connection.account.kind === "user" ? "个人账号" : "组织账号"}
             </span>
           </div>
           <p className="mt-0.5 truncate text-[12px] text-gray-500">
-            {connectedBy ? `Added by ${connectedBy}` : "Added recently"}
+            {connectedBy ? `由 ${connectedBy} 添加` : "最近添加"}
             <span className="text-gray-400"> · {formatIntegrationTimestamp(connection.connectedAt)}</span>
           </p>
         </div>
@@ -215,7 +212,7 @@ function ConnectionRow({
 
       <div className="px-6 pb-5">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-          Configured repositories
+          已配置的代码仓库
         </p>
 
         {connection.repos.length > 0 ? (
@@ -232,7 +229,7 @@ function ConnectionRow({
                 {connection.provider === "github" && repo.connectorInstanceId ? (
                   <Link
                     href={getGithubIntegrationSetupRoute(orgSlug, repo.connectorInstanceId)}
-                    aria-label={`Open setup for ${repo.fullName}`}
+                    aria-label={`打开 ${repo.fullName} 的配置`}
                     className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-200 hover:text-gray-900"
                   >
                     <Settings className="h-4 w-4" aria-hidden />
@@ -242,7 +239,7 @@ function ConnectionRow({
             ))}
           </ul>
         ) : (
-          <p className="text-[13px] text-gray-400">No repositories configured yet.</p>
+          <p className="text-[13px] text-gray-400">尚未配置代码仓库。</p>
         )}
 
         {onConfigureNewRepo ? (
@@ -252,7 +249,7 @@ function ConnectionRow({
             className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 px-3 py-2 text-[13px] font-medium text-gray-500 transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900"
           >
             <Plus className="h-4 w-4" aria-hidden />
-            Add new repo
+            添加代码仓库
           </button>
         ) : null}
       </div>
@@ -326,39 +323,39 @@ function DisconnectConfirmDialog({
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-              Remove @{accountLogin}?
+              移除 @{accountLogin}？
             </h2>
             <p className="mt-1 text-[13px] leading-6 text-gray-600">
-              This will permanently delete everything OpenWork imported from this GitHub account, including:
+              此操作会永久删除 FoxWork 从这个 GitHub 账号导入的内容，包括：
             </p>
             <ul className="mt-3 space-y-1.5 text-[13px] leading-6 text-gray-600">
               <li className="flex gap-2">
                 <span className="text-gray-400">•</span>
                 <span>
-                  <strong>{repoCount}</strong> connected {repoCount === 1 ? "repository" : "repositories"} and their connector setup
+                  <strong>{repoCount}</strong> 个已连接的代码仓库及其连接配置
                 </span>
               </li>
               <li className="flex gap-2">
                 <span className="text-gray-400">•</span>
-                <span>All plugins and marketplaces created from those repos</span>
+                <span>从这些代码仓库导入的全部插件和能力市场</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-gray-400">•</span>
-                <span>All imported config objects, versions and source bindings</span>
+                <span>全部导入配置、历史版本和数据源绑定</span>
               </li>
             </ul>
             <p className="mt-3 text-[12px] leading-5 text-gray-500">
-              The GitHub App installation itself stays on GitHub. You can remove it from your GitHub account settings if you also want to revoke access.
+              GitHub App 仍会保留在 GitHub。若要同时撤销访问权限，请前往 GitHub 账号设置中卸载。
             </p>
           </div>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            取消
           </DenButton>
           <DenButton variant="destructive" icon={Trash2} loading={busy} onClick={onConfirm}>
-            Remove integration
+            移除数据源
           </DenButton>
         </div>
       </div>

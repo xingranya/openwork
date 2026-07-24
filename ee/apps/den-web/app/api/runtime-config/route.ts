@@ -36,6 +36,31 @@ function readBaseUrlEnv(name: string) {
   return value ? normalizeBaseUrl(value) : "";
 }
 
+function readMcpEndpoint() {
+  const explicitEndpoint = readBaseUrlEnv("DEN_WEB_FOXWORK_MCP_ENDPOINT");
+  if (explicitEndpoint) return explicitEndpoint;
+
+  const configured =
+    readBaseUrlEnv("DEN_MCP_PUBLIC_URL") ||
+    readBaseUrlEnv("DEN_MCP_RESOURCE_URL") ||
+    readBaseUrlEnv("DEN_API_PUBLIC_URL");
+  if (!configured) return "";
+
+  try {
+    const url = new URL(configured);
+    const pathname = url.pathname.replace(/\/+$/, "");
+    if (pathname.endsWith("/mcp/agent")) return url.toString().replace(/\/+$/, "");
+    if (pathname.endsWith("/mcp")) {
+      url.pathname = `${pathname}/agent`;
+      return url.toString().replace(/\/+$/, "");
+    }
+    url.pathname = `${pathname}/mcp/agent`.replace(/\/+/g, "/");
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
 function readBooleanProperty(value: object, key: string) {
   return Object.getOwnPropertyDescriptor(value, key)?.value === true;
 }
@@ -78,11 +103,14 @@ export async function GET() {
     {
       openworkAppConnectUrl: readPublicRuntimeEnv("DEN_WEB_OPENWORK_APP_CONNECT_URL"),
       openworkAuthCallbackUrl: readPublicRuntimeEnv("DEN_WEB_OPENWORK_AUTH_CALLBACK_URL"),
+      foxworkMcpEndpoint: readMcpEndpoint(),
+      foxworkMcpDocsUrl: readPublicRuntimeEnv("DEN_WEB_FOXWORK_MCP_DOCS_URL"),
       orgMode,
-      singleOrgName: readPublicRuntimeEnv("DEN_SINGLE_ORG_NAME") || "OpenWork",
+      singleOrgName: readPublicRuntimeEnv("DEN_SINGLE_ORG_NAME") || "FoxWork 公司",
       singleOrgSlug: readPublicRuntimeEnv("DEN_SINGLE_ORG_SLUG") || "default",
       singleOrgAllowPublicSignup: readBooleanEnv("DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP", orgMode === "multi_org"),
-      singleOrgSsoConfigured
+      singleOrgSsoConfigured,
+      emailRecoveryEnabled: readBooleanEnv("DEN_EMAIL_RECOVERY_ENABLED", orgMode === "multi_org")
     },
     {
       headers: {

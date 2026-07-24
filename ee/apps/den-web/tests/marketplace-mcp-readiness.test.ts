@@ -362,7 +362,7 @@ describe("Your Connections focus and provenance helpers", () => {
       connection({ id: "emc_sales", name: "Sales Operations / slack" }),
     ];
 
-    expect(formatRequiredBy(sharedSlack.requiredBy)).toBe("Required by Support Operations and Support Triage");
+    expect(formatRequiredBy(sharedSlack.requiredBy)).toBe("由 Support Operations、Support Triage 使用");
     expect(new Set(incompatibleSlackRows.map((entry) => entry.id)).size).toBe(2);
     expect(incompatibleSlackRows.map((entry) => entry.name)).toEqual(["Support Operations / slack", "Sales Operations / slack"]);
   });

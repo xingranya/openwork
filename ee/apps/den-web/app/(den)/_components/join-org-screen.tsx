@@ -111,16 +111,16 @@ function InvitationDetails({
 }) {
   return (
     <dl className="divide-y divide-slate-200/80 border-y border-slate-200/80" data-testid="join-org-invitation-details">
-      <DetailRow label="Organization">{preview.organization.name}</DetailRow>
-      <DetailRow label="Invited email">{preview.invitation.email}</DetailRow>
-      <DetailRow label="Role">{roleLabel}</DetailRow>
-      <DetailRow label="Account">{account ? account.email : "Not signed in"}</DetailRow>
+      <DetailRow label="公司">{preview.organization.name}</DetailRow>
+      <DetailRow label="受邀邮箱">{preview.invitation.email}</DetailRow>
+      <DetailRow label="角色">{roleLabel}</DetailRow>
+      <DetailRow label="当前账号">{account ? account.email : "尚未登录"}</DetailRow>
     </dl>
   );
 }
 
 function InvitationHeading({
-  eyebrow = "OpenWork Cloud",
+  eyebrow = "FoxWork 公司服务",
   title,
   copy,
 }: {
@@ -152,7 +152,7 @@ function NotNowButton({ onClick }: { onClick: () => void }) {
       className="inline-flex min-h-10 items-center justify-center rounded-full px-3 text-sm font-medium text-slate-500 transition hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-950/10"
       onClick={onClick}
     >
-      Not now
+      暂不处理
     </button>
   );
 }
@@ -169,7 +169,7 @@ function LoadingState({ shaderSpeed }: { shaderSpeed: number }) {
   return (
     <JoinOrgShell shaderSpeed={shaderSpeed} state="loading">
       <div className="grid gap-5" aria-busy="true">
-        <InvitationHeading title="Loading invite." copy="Checking the invite details and your account state..." />
+        <InvitationHeading title="正在加载邀请" copy="正在核对邀请信息和账号状态..." />
         <div className="h-1.5 overflow-hidden rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)]">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-slate-900" />
         </div>
@@ -181,19 +181,19 @@ function LoadingState({ shaderSpeed }: { shaderSpeed: number }) {
 function statusMessage(preview: DenInvitationPreview | null) {
   switch (preview?.invitation.status) {
     case "accepted":
-      return "This invite has already been used.";
+      return "这份邀请已经使用。";
     case "canceled":
-      return "This invite was canceled.";
+      return "这份邀请已取消。";
     case "expired":
-      return "This invite expired.";
+      return "这份邀请已过期。";
     default:
-      return "This invite is no longer available.";
+      return "这份邀请已失效。";
   }
 }
 
 function formatAllowedDomains(allowedEmailDomains: readonly string[] | null | undefined) {
   if (!allowedEmailDomains || allowedEmailDomains.length === 0) {
-    return "any invited email address";
+    return "受邀邮箱";
   }
 
   return allowedEmailDomains.length === 1
@@ -244,7 +244,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
     async function loadPreview() {
       if (!invitationId) {
         setPreview(null);
-        setPreviewError("Missing invitation link.");
+        setPreviewError("邀请链接不完整。");
         setPreviewBusy(false);
         return;
       }
@@ -269,14 +269,14 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
           }
 
           setPreview(null);
-          setPreviewError(getErrorMessage(payload, response.status === 404 ? "This invite is no longer available." : `Could not load the invite (${response.status}).`));
+          setPreviewError(getErrorMessage(payload, response.status === 404 ? "这份邀请已失效。" : `无法加载邀请（${response.status}）。`));
           return;
         }
 
         const nextPreview = parseInvitationPreviewPayload(payload);
         if (!nextPreview) {
           setPreview(null);
-          setPreviewError("The invitation details were incomplete.");
+          setPreviewError("邀请信息不完整。");
           return;
         }
 
@@ -284,7 +284,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
       } catch (error) {
         if (!cancelled) {
           setPreview(null);
-          setPreviewError(error instanceof Error ? error.message : "Could not load the invite.");
+          setPreviewError(error instanceof Error ? error.message : "无法加载邀请。");
         }
       } finally {
         if (!cancelled) {
@@ -313,11 +313,11 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
 
   async function handleAcceptInvitation() {
     if (!invitationId) {
-      setJoinError("Missing invitation link.");
+      setJoinError("邀请链接不完整。");
       return;
     }
     if (!preview) {
-      setJoinError("The invitation details are still loading.");
+      setJoinError("邀请信息仍在加载，请稍候。");
       return;
     }
 
@@ -335,7 +335,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
       );
 
       if (!response.ok) {
-        setJoinError(getErrorMessage(payload, response.status === 404 ? "This invite could not be accepted." : `Could not join the organization (${response.status}).`));
+        setJoinError(getErrorMessage(payload, response.status === 404 ? "无法接受这份邀请。" : `无法加入公司（${response.status}）。`));
         return;
       }
 
@@ -349,7 +349,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
         slug: organizationSlug,
       });
     } catch (error) {
-      setJoinError(error instanceof Error ? error.message : "Could not join the organization.");
+      setJoinError(error instanceof Error ? error.message : "无法加入公司。");
     } finally {
       setJoinBusy(false);
     }
@@ -381,10 +381,10 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
     return (
       <JoinOrgShell shaderSpeed={shaderSpeed} state="invalid">
         <div className="grid gap-5">
-          <InvitationHeading title="This invite can't be opened." copy={previewError ?? "This invite could not be loaded."} />
+          <InvitationHeading title="无法打开邀请" copy={previewError ?? "无法加载这份邀请。"} />
           <ActionGroup>
             <button type="button" className="den-button-primary w-full focus:outline-none focus:ring-4 focus:ring-slate-950/10 sm:w-auto" onClick={handleNotNow}>
-              Back to OpenWork Cloud
+              返回公司入口
             </button>
           </ActionGroup>
         </div>
@@ -400,13 +400,13 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
       <JoinOrgShell shaderSpeed={shaderSpeed} state="domain-blocked">
         <div className="grid gap-5">
           <InvitationHeading
-            title="This invite needs a different email domain."
-            copy={`${preview.organization.name} now only accepts accounts from ${allowedDomainsLabel}. Ask a workspace owner to update the allowlist or send a new invite.`}
+            title="请使用公司允许的邮箱"
+            copy={`${preview.organization.name} 只接受 ${allowedDomainsLabel} 的账号。请联系公司所有者调整邮箱范围，或重新发送邀请。`}
           />
           <InvitationDetails preview={preview} account={account} roleLabel={roleLabel} />
           <ActionGroup>
             <button type="button" className="den-button-primary w-full focus:outline-none focus:ring-4 focus:ring-slate-950/10 sm:w-auto" onClick={handleNotNow}>
-              Back to OpenWork Cloud
+              返回公司入口
             </button>
           </ActionGroup>
         </div>
@@ -419,11 +419,11 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
       <JoinOrgShell shaderSpeed={shaderSpeed} state="signed-out">
         <div className="grid gap-4">
           <div className="grid gap-4">
-            <InvitationHeading title={`Join ${preview.organization.name}.`} copy="Your invitation is ready. Review the details, then sign in or create an account to join." />
+            <InvitationHeading title={`加入 ${preview.organization.name}`} copy="请核对邀请信息，然后登录或创建账号。" />
             <InvitationDetails preview={preview} account={account} roleLabel={roleLabel} />
             {preview.organization.allowedEmailDomains?.length ? (
               <p className="m-0 text-sm leading-6 text-slate-600">
-                This workspace only accepts {allowedDomainsLabel} accounts.
+                这家公司只接受 {allowedDomainsLabel} 的账号。
               </p>
             ) : null}
           </div>
@@ -431,7 +431,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
           <div data-testid="join-org-auth">
             <AuthPanel
               bare
-              eyebrow="Invite"
+              eyebrow="公司邀请"
               prefilledEmail={preview.invitation.email}
               prefillKey={preview.invitation.id}
               initialMode="sign-up"
@@ -440,19 +440,19 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
               hideLockedEmailSummary
               hideSocialAuth
               signUpContent={{
-                title: "Create your account.",
-                copy: "Choose a password for your invited email.",
-                submitLabel: `Join ${preview.organization.name}`,
+                title: "创建公司账号",
+                copy: "为受邀邮箱设置密码。",
+                submitLabel: `加入 ${preview.organization.name}`,
               }}
               signInContent={{
-                title: "Sign in to continue.",
-                copy: "Use the invited account to accept this invite.",
-                submitLabel: "Sign in to join",
+                title: "登录后继续",
+                copy: "请使用受邀账号接受邀请。",
+                submitLabel: "登录并加入",
               }}
               verificationContent={{
-                title: "Check your inbox.",
-                copy: `Enter the six-digit code sent to ${preview.invitation.email}.`,
-                submitLabel: "Verify and join",
+                title: "输入验证码",
+                copy: `请输入发送到 ${preview.invitation.email} 的 6 位验证码。`,
+                submitLabel: "确认并加入",
               }}
             />
           </div>
@@ -468,7 +468,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
   return (
     <JoinOrgShell shaderSpeed={shaderSpeed} state="signed-in">
       <div className="grid gap-5">
-        <InvitationHeading title={`Join ${preview.organization.name}.`} copy="Review the invitation and continue with the right account." />
+        <InvitationHeading title={`加入 ${preview.organization.name}`} copy="请核对邀请，并使用正确的账号继续。" />
         <InvitationDetails preview={preview} account={account} roleLabel={roleLabel} />
 
         {preview.invitation.status !== "pending" ? (
@@ -480,7 +480,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
                 className="den-button-primary w-full focus:outline-none focus:ring-4 focus:ring-slate-950/10 sm:w-auto"
                 onClick={clearPendingInvitation}
               >
-                {user && invitedEmailMatches ? "Open team" : "Back to OpenWork Cloud"}
+                {user && invitedEmailMatches ? "进入公司" : "返回公司入口"}
               </Link>
               <NotNowButton onClick={handleNotNow} />
             </ActionGroup>
@@ -488,10 +488,10 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
         ) : user && !signedInEmailAllowed ? (
           <div className="grid gap-4">
             <p className="m-0 text-sm leading-6 text-slate-600">
-              {preview.organization.name} only accepts accounts from <span className="font-medium text-slate-950">{allowedDomainsLabel}</span>. You are signed in as <span className="font-medium text-slate-950">{user.email}</span>, so this account cannot join.
+              {preview.organization.name} 只接受 <span className="font-medium text-slate-950">{allowedDomainsLabel}</span> 的账号。当前登录的是 <span className="font-medium text-slate-950">{user.email}</span>，无法接受这份邀请。
             </p>
             <p className="m-0 text-sm leading-6 text-slate-500">
-              Log out, then create a new account or sign in with an allowed email address.
+              请退出登录，再使用公司允许的邮箱创建账号或登录。
             </p>
             <ActionGroup>
               <button
@@ -500,7 +500,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
                 onClick={() => void handleSwitchAccount()}
                 disabled={joinBusy}
               >
-                Log out
+                退出登录
               </button>
               <NotNowButton onClick={handleNotNow} />
             </ActionGroup>
@@ -508,7 +508,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
         ) : !invitedEmailMatches ? (
           <div className="grid gap-4">
             <p className="m-0 text-sm leading-6 text-slate-600">
-              This invite is for <span className="font-medium text-slate-950">{preview.invitation.email}</span>. Switch accounts to continue.
+              这份邀请发给了 <span className="font-medium text-slate-950">{preview.invitation.email}</span>。请切换账号后继续。
             </p>
             <ActionGroup>
               <button
@@ -517,14 +517,14 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
                 onClick={() => void handleSwitchAccount()}
                 disabled={joinBusy}
               >
-                Use a different account
+                切换账号
               </button>
               <NotNowButton onClick={handleNotNow} />
             </ActionGroup>
           </div>
         ) : (
           <div className="grid gap-4">
-            <p className="m-0 text-sm leading-6 text-slate-600">You're one click away from the team workspace.</p>
+            <p className="m-0 text-sm leading-6 text-slate-600">确认后即可加入公司。</p>
             <ActionGroup>
               <button
                 type="button"
@@ -532,7 +532,7 @@ export function JoinOrgScreen({ invitationId }: { invitationId: string }) {
                 onClick={() => void handleAcceptInvitation()}
                 disabled={!showAcceptAction || joinBusy}
               >
-                {joinBusy ? "Joining..." : `Join ${preview.organization.name}`}
+                {joinBusy ? "正在加入..." : `加入 ${preview.organization.name}`}
               </button>
               <NotNowButton onClick={handleNotNow} />
             </ActionGroup>

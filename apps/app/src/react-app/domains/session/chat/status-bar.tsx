@@ -21,6 +21,8 @@ import { useControlAction, type OpenworkControlAction } from "../../../shell/con
 import { useShellConfig } from "../../../shell/shell-config";
 import type { OpenworkServerStatus } from "../../../../app/lib/openwork-server";
 import { readDenSettings } from "../../../../app/lib/den";
+import { FOXWORK_DOCS_URL, FOXWORK_FEEDBACK_URL } from "../../../../app/lib/foxwork-brand";
+import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import {
   openWorkConnectAttentionTitle,
   resolveOpenWorkConnectStatus,
@@ -40,7 +42,6 @@ import {
   shouldShowOpenWorkModelsPromo,
 } from "../../cloud/openwork-models-promo";
 
-const DOCS_URL = "https://openworklabs.com/docs";
 const STATUS_BAR_BOOT_STARTED_AT = Date.now();
 const STATUS_BAR_INITIALIZING_MS = 15_000;
 
@@ -84,7 +85,7 @@ function OpenWorkConnectIndicator(props: {
             ? "loading"
             : "disconnected"}
       />
-      <span>OpenWork Connect: {props.status.label}</span>
+      <span>公司连接：{props.status.label}</span>
     </span>
   );
 
@@ -113,10 +114,10 @@ function OpenWorkConnectIndicator(props: {
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-80 gap-3 rounded-xl">
         <PopoverHeader>
-          <PopoverTitle>OpenWork Connect needs attention</PopoverTitle>
+          <PopoverTitle>公司连接需要处理</PopoverTitle>
           <PopoverDescription>{props.status.description}</PopoverDescription>
         </PopoverHeader>
-        <Button size="sm" onClick={props.onRunDiagnostics}>Run diagnostics</Button>
+        <Button size="sm" onClick={props.onRunDiagnostics}>运行诊断</Button>
       </PopoverContent>
     </Popover>
   );
@@ -155,7 +156,7 @@ function StatusIndicator(props: StatusIndicatorProps) {
           {t("system.reload_failed")}
         </span>
         <span className="truncate text-muted-foreground text-xs">
-          {props.reloadError}
+          {toChineseUserMessage(props.reloadError, "重新加载配置失败，请运行诊断。")}
         </span>
       </div>
     );
@@ -336,19 +337,21 @@ export function StatusBar(props: StatusBarProps) {
 
   const docsControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.docs.open",
-    label: "Open OpenWork docs",
-    description: "Open the documentation from the status bar.",
+    label: "打开公司文档",
+    description: "从状态栏打开公司文档。",
     sideEffect: "external",
+    disabled: !FOXWORK_DOCS_URL,
     targetRef: docsButtonRef,
-    execute: () => platform.openLink(DOCS_URL),
+    execute: () => FOXWORK_DOCS_URL ? platform.openLink(FOXWORK_DOCS_URL) : undefined,
   }), [platform]);
   useControlAction(docsControlAction);
 
   const feedbackControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.feedback.open",
-    label: "Send feedback",
-    description: "Open the OpenWork feedback surface from the status bar.",
+    label: "发送反馈",
+    description: "从状态栏打开公司反馈入口。",
     sideEffect: "external",
+    disabled: !FOXWORK_FEEDBACK_URL,
     targetRef: feedbackButtonRef,
     execute: props.onSendFeedback,
   }), [props.onSendFeedback]);
@@ -400,9 +403,9 @@ export function StatusBar(props: StatusBarProps) {
                 onClick={openOpenWorkModels}
               >
                 <Sparkles className="size-3.5 text-blue-11" />
-                <span className="whitespace-nowrap">OpenWork Models</span>
+                <span className="whitespace-nowrap">公司共享模型</span>
                 <span className="hidden whitespace-nowrap font-normal text-blue-11/75 lg:inline">
-                  hosted frontier models
+                  由公司统一配置
                 </span>
                 <ArrowRight className="size-3.5 text-blue-11" />
               </button>
@@ -410,19 +413,22 @@ export function StatusBar(props: StatusBarProps) {
                 type="button"
                 className="flex size-6 shrink-0 items-center justify-center border-l border-blue-6/60 text-blue-11 transition-colors hover:bg-blue-3/70"
                 onClick={hideOpenWorkModels}
-                aria-label="Hide OpenWork Models hint"
+                aria-label="关闭公司共享模型提示"
               >
                 <X className="size-3" />
               </button>
             </div>
           ) : null}
-          {shellConfig.docsButton ? (
+          {shellConfig.docsButton && FOXWORK_DOCS_URL ? (
             <Button
               ref={docsButtonRef}
               className="text-muted-foreground gap-2"
               variant="ghost"
               size="xs"
-              onClick={() => platform.openLink(DOCS_URL)}
+              onClick={() => {
+                if (FOXWORK_DOCS_URL) platform.openLink(FOXWORK_DOCS_URL);
+              }}
+              disabled={!FOXWORK_DOCS_URL}
               title={t("status.open_docs")}
               aria-label={t("status.open_docs")}
             >
@@ -430,7 +436,7 @@ export function StatusBar(props: StatusBarProps) {
               <span>{t("status.docs")}</span>
             </Button>
           ) : null}
-          {shellConfig.feedbackButton ? (
+          {shellConfig.feedbackButton && FOXWORK_FEEDBACK_URL ? (
             <Button
               ref={feedbackButtonRef}
               className="text-muted-foreground gap-2"

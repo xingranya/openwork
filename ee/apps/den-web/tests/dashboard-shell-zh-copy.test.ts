@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "bun:test";
-import { formatRoleLabel } from "../app/(den)/_lib/den-org";
+import { formatPermissionLabel, formatRoleLabel } from "../app/(den)/_lib/den-org";
 
 function readComponent(name: string) {
   return readFileSync(
@@ -10,13 +10,13 @@ function readComponent(name: string) {
   );
 }
 
-describe("Den 工作区导航中文文案", () => {
-  test("工作区选择页只显示自然中文操作文案", () => {
+describe("Den 公司导航中文文案", () => {
+  test("公司选择页只显示自然中文操作文案", () => {
     const source = readComponent("org-selection-screen.tsx");
 
-    expect(source).toContain("选择公司工作区");
-    expect(source).toContain("搜索工作区");
-    expect(source).toContain("创建或加入工作区");
+    expect(source).toContain("选择公司");
+    expect(source).toContain("搜索公司");
+    expect(source).toContain("创建或加入公司");
     expect(source).toContain("退出登录");
     expect(source).not.toContain("Choose an organization");
     expect(source).not.toContain("Create or join");
@@ -56,5 +56,21 @@ describe("Den 工作区导航中文文案", () => {
     expect(formatRoleLabel("billing-admin")).toBe("账单管理员");
     expect(formatRoleLabel("custom-reviewer")).toBe("自定义角色");
     expect(formatRoleLabel("")).toBe("成员");
+  });
+
+  test("成员、团队和角色管理页不显示英文操作或权限键名", () => {
+    const source = readComponent("manage-members-screen.tsx");
+
+    expect(source).toContain('title="成员管理"');
+    expect(source).toContain('label: "添加成员"');
+    expect(source).toContain('label: "创建团队"');
+    expect(source).toContain('label: "添加角色"');
+    expect(source).not.toContain('title="Members"');
+    expect(source).not.toContain("Copy invite link");
+    expect(source).not.toContain("Read only");
+    expect(formatPermissionLabel("organization")).toBe("公司");
+    expect(formatPermissionLabel("security_configuration")).toBe("安全设置");
+    expect(formatPermissionLabel("update")).toBe("修改");
+    expect(formatPermissionLabel("unknown")).toBe("其他权限");
   });
 });

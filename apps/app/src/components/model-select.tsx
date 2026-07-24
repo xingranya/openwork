@@ -301,19 +301,19 @@ export function ModelSelect({
             <PopoverTrigger
               type="button"
               disabled={disabled}
-              aria-label="Change model"
+              aria-label="切换模型"
               aria-keyshortcuts="Meta+Alt+/"
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-10 transition-colors hover:bg-gray-3 hover:text-gray-12 disabled:pointer-events-none disabled:opacity-60"
             />
           }
         >
           <span className="max-w-48 truncate">
-            {selectedOption?.title ?? value.modelID ?? "Select model"}
+            {selectedOption?.title ?? value.modelID ?? "选择模型"}
           </span>
           <ChevronDown className="h-3 w-3" />
         </TooltipTrigger>
         <TooltipContent>
-          Change model
+          切换模型
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -325,10 +325,10 @@ export function ModelSelect({
           <CommandHeader>
             <CommandInput
               ref={searchInputRef}
-              placeholder="Search models..."
+              placeholder="搜索模型..."
             />
           </CommandHeader>
-          <CommandEmpty>No models found.</CommandEmpty>
+          <CommandEmpty>未找到模型。</CommandEmpty>
           <CommandList>
             {(group: ModelSelectGroup) => (
               <CommandGroup
@@ -360,11 +360,11 @@ export function ModelSelect({
                               {item.title}
                             </span>
                             <span className="block truncate text-xs text-muted-foreground">
-                              {item.subtitle} - {denAuth.isSignedIn ? "Subscribe to add this model" : "Sign in to unlock"}
+                              {item.subtitle} - {denAuth.isSignedIn ? "由公司管理员配置后可用" : "登录公司账号后查看"}
                             </span>
                           </span>
                           <span className="shrink-0 rounded-full border border-blue-6 bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">
-                            {denAuth.isSignedIn ? "Subscribe" : "Sign in"}
+                            {denAuth.isSignedIn ? "查看配置" : "登录"}
                           </span>
                           <ChevronRight className="size-3.5 text-blue-11" />
                         </CommandItem>
@@ -415,7 +415,7 @@ export function ModelSelect({
                 }}
               >
                 <Settings2 className="size-3.5" />
-                All models
+                全部模型
               </button>
               {showOpenWorkModelsPromo ? (
                 <button
@@ -423,7 +423,7 @@ export function ModelSelect({
                   className="shrink-0 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   onClick={handleHideOpenWorkModels}
                 >
-                  Hide
+                  隐藏
                 </button>
               ) : null}
             </div>

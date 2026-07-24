@@ -341,9 +341,9 @@ export function CloudMarketplacesView({
 
   const marketplaceOptions = React.useMemo(
     () => canShowRows ? [
-      ...(builtInRows.length > 0 ? [{ id: "openwork-builtins", name: "OpenWork Built-ins" }] : []),
+      ...(builtInRows.length > 0 ? [{ id: "openwork-builtins", name: "FoxWork 内置扩展" }] : []),
       ...(includeCloudMarketplaceRows ? marketplaces.map((marketplace) => ({ id: marketplace.marketplace.id, name: marketplace.marketplace.name })) : []),
-      ...(orgMcpRows.length > 0 ? [{ id: "org-mcp-connections", name: "Organization MCP Connections" }] : []),
+      ...(orgMcpRows.length > 0 ? [{ id: "org-mcp-connections", name: "公司 MCP 连接" }] : []),
     ] : [],
     [builtInRows.length, canShowRows, includeCloudMarketplaceRows, marketplaces, orgMcpRows.length],
   );
@@ -373,13 +373,13 @@ export function CloudMarketplacesView({
           const count = extensions.cloudOrgMarketplaces().reduce((total, marketplace) => total + marketplace.plugins.length, 0);
           toast.info(
             count > 0
-              ? `Loaded ${count} marketplace extension${count === 1 ? "" : "s"} for ${activeOrg?.name ?? t("den.active_org_title")}.`
-              : `No marketplace extensions are available for ${activeOrg?.name ?? t("den.active_org_title")}.`,
+              ? `已为${activeOrg?.name ?? t("den.active_org_title")}加载 ${count} 个能力市场扩展。`
+              : `${activeOrg?.name ?? t("den.active_org_title")}暂未提供能力市场扩展。`,
           );
         }
       } catch (error) {
         if (!quiet) {
-          setActionError(error instanceof Error ? error.message : "Failed to load marketplace extensions.");
+          setActionError(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : "加载能力市场扩展失败。");
         }
       } finally {
         setBusy(false);
@@ -414,7 +414,7 @@ export function CloudMarketplacesView({
       })
       .catch((error) => {
         if (cancelled) return;
-        setDetailError(error instanceof Error ? error.message : "Failed to load extension composition.");
+        setDetailError(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : "加载扩展详情失败。");
       })
       .finally(() => {
         if (!cancelled) setDetailLoadingId(null);
@@ -434,10 +434,10 @@ export function CloudMarketplacesView({
       try {
         const result = await extensions.removeCloudOrgPlugin(pluginId);
         if (!result.ok) throw new Error(result.message);
-        toast.success(result.message);
+        toast.success(`已从工作区移除“${pluginName}”。`);
         setDetailRow(null);
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : `Failed to remove ${pluginName}.`);
+        setActionError(error instanceof Error && /[\u3400-\u9fff]/.test(error.message) ? error.message : `无法移除“${pluginName}”。`);
       } finally {
         setActionId(null);
       }
@@ -473,7 +473,7 @@ export function CloudMarketplacesView({
       {!isSignedIn ? (
         <SettingsNotice>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>You can use OpenWork without an account. Sign in to OpenWork Cloud to load the Marketplace, including OpenWork's built-in extensions and any organization marketplaces.</span>
+            <span>不登录也可以使用 FoxWork 本机功能。登录公司账号后，可加载 FoxWork 内置扩展和公司能力市场。</span>
             <Button size="sm" onClick={onOpenAccount}>
               {t("skills.share_team_sign_in")}
             </Button>
@@ -486,7 +486,7 @@ export function CloudMarketplacesView({
       ) : null}
 
       {busy ? (
-        <SettingsNotice>Loading marketplace extensions...</SettingsNotice>
+        <SettingsNotice>正在加载能力市场扩展…</SettingsNotice>
       ) : null}
 
       {removedUpstreamPlugins.map((plugin) => (
@@ -499,7 +499,7 @@ export function CloudMarketplacesView({
               disabled={Boolean(actionId)}
               onClick={() => void removePlugin(plugin.pluginId, plugin.name)}
             >
-              {actionId === plugin.pluginId ? "Working..." : t("extensions.remove_from_workspace_button")}
+              {actionId === plugin.pluginId ? "正在处理…" : t("extensions.remove_from_workspace_button")}
             </Button>
           </div>
         </SettingsNotice>
@@ -509,7 +509,7 @@ export function CloudMarketplacesView({
         <SettingsListSearchInput
           value={search}
           onChange={(event) => setSearch(event.currentTarget.value)}
-          placeholder="Search marketplace extensions..."
+          placeholder="搜索能力市场扩展…"
         />
         <div className="flex flex-wrap items-center gap-2">
           {(["all", "available", "installed", "update_available"] as const).map((filter) => (
@@ -519,22 +519,22 @@ export function CloudMarketplacesView({
               size="xs"
               onClick={() => setStatusFilter(filter)}
             >
-              {filter === "all" ? "All" : filter === "update_available" ? "Updates" : filter === "installed" ? "Installed" : "Available"}
+              {filter === "all" ? "全部" : filter === "update_available" ? "可更新" : filter === "installed" ? "已安装" : "可用"}
             </Button>
           ))}
           <details className="group relative">
             <summary className="flex h-7 cursor-pointer list-none items-center rounded-md border border-dls-border px-2.5 text-xs font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text">
-              Filters
+              筛选
             </summary>
             <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-dls-border bg-dls-surface p-3 shadow-[var(--dls-shell-shadow)]">
               <label className="grid gap-1.5 text-xs text-dls-secondary">
-                Marketplace
+                能力市场
                 <select
                   className="rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5 text-xs text-dls-text"
                   value={marketplaceFilter}
                   onChange={(event) => setMarketplaceFilter(event.currentTarget.value)}
                 >
-                  <option value="all">All marketplaces</option>
+                  <option value="all">全部能力市场</option>
                   {marketplaceOptions.map((marketplace) => (
                     <option key={marketplace.id} value={marketplace.id}>{marketplace.name}</option>
                   ))}
@@ -547,12 +547,12 @@ export function CloudMarketplacesView({
 
       {!busy && displayRows.length === 0 ? (
         <SettingsListEmptyState>
-          {!isSignedIn ? "Sign in to view marketplace extensions." : activeOrgId ? "No marketplace extensions are available yet." : "Choose an organization to view marketplace extensions."}
+          {!isSignedIn ? "请登录后查看能力市场扩展。" : activeOrgId ? "公司尚未提供能力市场扩展。" : "请先选择公司，再查看能力市场扩展。"}
         </SettingsListEmptyState>
       ) : null}
 
       {displayRows.length > 0 && visibleRows.length === 0 ? (
-        <SettingsListEmptyState>No marketplace extensions match your search or filters.</SettingsListEmptyState>
+        <SettingsListEmptyState>没有符合搜索或筛选条件的能力市场扩展。</SettingsListEmptyState>
       ) : null}
 
       {visibleRows.length > 0 ? (
@@ -758,19 +758,19 @@ function BuiltInMarketplaceDetailModal(props: {
       url={typeof entry.url === "string" ? entry.url : undefined}
       kind={entry.kind ?? "extension"}
       connected={row.active}
-      connectedLabel={entry.defaultEnabled ? "Ready" : "Active"}
-      disconnectedLabel="Needs setup"
+      connectedLabel={entry.defaultEnabled ? "已就绪" : "已启用"}
+      disconnectedLabel="需要设置"
       connecting={connecting}
       preview={entry.preview}
-      disabledReason={disabled ? "Disabled by organization" : null}
+      disabledReason={disabled ? "已由公司停用" : null}
       setupInstructions={entry.extensionManifest?.setup?.instructions}
       resourceLabels={entry.extensionManifest?.resources.map((resource) => resource.label ?? resource.id) ?? []}
       contributionLabels={entry.extensionManifest?.contributions?.map((contribution) => contribution.label ?? contribution.ref ?? contribution.type) ?? []}
       configSlot={configSlot}
       showEnablementCard={false}
-      connectLabel="Enable"
-      connectingLabel="Enabling..."
-      uninstallLabel="Disable"
+      connectLabel="启用"
+      connectingLabel="正在启用…"
+      uninstallLabel="停用"
       onConnect={!disabled && toggleControlled && !row.active && onSetEnabled ? () => onSetEnabled(entry, true) : undefined}
       onUninstall={!disabled && toggleControlled && row.active && onSetEnabled ? () => onSetEnabled(entry, false) : undefined}
     />
@@ -793,14 +793,14 @@ function OrgMcpConnectionDetailModal(props: {
       open
       onClose={onClose}
       name={row.item.name}
-      description={row.item.description ?? "Available from your organization."}
+      description={row.item.description ?? "由公司提供。"}
       kind="mcp"
       connected={ready}
       connectedLabel={orgMcpConnectionActionLabel(row.connection)}
       beta
       connecting={connecting || props.disconnecting}
       connectLabel={orgMcpConnectionActionLabel(row.connection)}
-      connectingLabel="Waiting for browser..."
+      connectingLabel="正在等待浏览器…"
       uninstallLabel={t("mcp.org_connection_disconnect_action")}
       url={row.connection.url}
       oauth={row.connection.authType === "oauth"}
@@ -810,12 +810,12 @@ function OrgMcpConnectionDetailModal(props: {
       configSlot={(
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <SettingsPill>Shared by your organization</SettingsPill>
-            <SettingsPill>{row.connection.credentialMode === "shared" ? "Org account" : "Your account"}</SettingsPill>
+            <SettingsPill>公司共享</SettingsPill>
+            <SettingsPill>{row.connection.credentialMode === "shared" ? "公司账号" : "个人账号"}</SettingsPill>
             <SettingsPill>MCP</SettingsPill>
           </div>
           <SettingsNotice>
-            OpenWork stores this sign-in in the organization cloud. Once connected, your desktop agent can use the tools through OpenWork Cloud Control.
+            登录信息由公司服务保管。连接后，FoxWork 中的 AI 可以按公司授权使用这些工具。
           </SettingsNotice>
         </div>
       )}
@@ -866,16 +866,16 @@ function MarketplacePackageDetailModal(props: {
       open
       onClose={onClose}
       name={row.plugin.name}
-      description={row.plugin.description || "No description provided."}
+      description={row.plugin.description || "暂无说明。"}
       iconSlug={manifest?.icon?.simpleIconSlug}
       iconSrc={manifest?.icon?.src}
       kind="extension"
       connected
-      connectedLabel={cloudBuiltIn ? "Built-in" : deliveryLabel}
+      connectedLabel={cloudBuiltIn ? "内置" : deliveryLabel}
       connecting={actionBusy}
       connectLabel={t("extensions.marketplace_runs_in_cloud")}
-      connectingLabel="Working..."
-      uninstallLabel="Remove"
+      connectingLabel="正在处理…"
+      uninstallLabel="移除"
       showEnablementCard={false}
       setupInstructions={manifest?.setup?.instructions}
       resourceLabels={manifest?.resources.map((resource) => resource.label ?? resource.id) ?? []}
@@ -885,7 +885,7 @@ function MarketplacePackageDetailModal(props: {
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <SettingsPill>
-              {cloudBuiltIn ? "Built-in" : deliveryLabel}
+              {cloudBuiltIn ? "内置" : deliveryLabel}
             </SettingsPill>
             <SettingsPill>{row.marketplaceName}</SettingsPill>
             {row.counts.map((label) => <SettingsPill key={label}>{label}</SettingsPill>)}
@@ -894,7 +894,7 @@ function MarketplacePackageDetailModal(props: {
             <SettingsNotice>{t("connect.marketplace_local_copy_note")}</SettingsNotice>
           ) : null}
           <div className="rounded-xl border border-dls-border bg-dls-hover px-3 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Composition</div>
+            <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">组成内容</div>
             <div className="mt-2 grid gap-2">
               {row.composition.map((entry) => (
                 <div key={entry.type} className="flex items-center justify-between text-sm">
@@ -908,16 +908,16 @@ function MarketplacePackageDetailModal(props: {
             <SettingsNotice tone="error">{resolveError}</SettingsNotice>
           ) : null}
           {resolving ? (
-            <SettingsNotice>Loading extension contents...</SettingsNotice>
+            <SettingsNotice>正在加载扩展内容…</SettingsNotice>
           ) : null}
           {missingImportedConnectionCount > 0 ? (
             <SettingsNotice tone="error">
-              You do not have access to {missingImportedConnectionCount === 1 ? "one required MCP connection" : `${missingImportedConnectionCount} required MCP connections`}. Ask an admin to update the connection sharing settings.
+              你没有权限使用所需的 {missingImportedConnectionCount} 个 MCP 连接。请联系管理员调整连接共享范围。
             </SettingsNotice>
           ) : null}
           {importedConnections.length > 0 ? (
             <div className="rounded-xl border border-dls-border bg-dls-hover px-3 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Cloud MCP connections</div>
+              <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">公司 MCP 连接</div>
               <div className="mt-3 grid gap-2">
                 {importedConnections.map((connection) => {
                   const ready = isOrgMcpConnectionReady(connection);
@@ -930,7 +930,7 @@ function MarketplacePackageDetailModal(props: {
                         <div className="truncate text-xs text-muted-foreground">{connection.url}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <SettingsPill>{ready ? "Ready" : needsMemberConnect ? "Needs setup" : "Waiting for admin"}</SettingsPill>
+                        <SettingsPill>{ready ? "已就绪" : needsMemberConnect ? "需要设置" : "等待管理员"}</SettingsPill>
                         {needsMemberConnect && onConnectOrgMcp ? (
                           <Button
                             size="xs"
@@ -938,7 +938,7 @@ function MarketplacePackageDetailModal(props: {
                             disabled={connecting}
                             onClick={() => onConnectOrgMcp(connection.id)}
                           >
-                            {connecting ? "Waiting for browser..." : "Connect account"}
+                            {connecting ? "正在等待浏览器…" : "连接账号"}
                           </Button>
                         ) : null}
                       </div>
@@ -950,7 +950,7 @@ function MarketplacePackageDetailModal(props: {
           ) : null}
           {resolved ? (
             <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Extension contents</div>
+              <div className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">扩展内容</div>
               {resolved.memberships.length > 0 ? resolved.memberships.map((membership) => {
                 const object = membership.configObject;
                 const version = object?.latestVersion ?? null;
@@ -973,13 +973,13 @@ function MarketplacePackageDetailModal(props: {
                   </details>
                 );
               }) : (
-                <SettingsNotice>This extension does not expose detailed contents yet.</SettingsNotice>
+                <SettingsNotice>此扩展暂未提供详细内容。</SettingsNotice>
               )}
             </div>
           ) : null}
           {row.imported?.files.length ? (
             <div className="rounded-xl border border-dls-border bg-dls-hover px-3 py-2 text-xs text-muted-foreground">
-              Installed files: {row.imported.files.map((file) => `${file.title} (${file.objectType})`).join(", ")}
+              已安装文件：{row.imported.files.map((file) => `${file.title}（${file.objectType}）`).join("、")}
             </div>
           ) : null}
         </div>

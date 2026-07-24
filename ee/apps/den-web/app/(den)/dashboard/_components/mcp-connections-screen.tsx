@@ -11,7 +11,7 @@ import { DenNotice } from "../../_components/ui/notice";
 import { DenSelect } from "../../_components/ui/select";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
 import { getPluginRoute } from "../../_lib/den-org";
-import { getRequestError, requestJson } from "../../_lib/den-flow";
+import { getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
 import { IntegrationIcon } from "./integration-icon";
 import { Microsoft365Dialog } from "./microsoft-365-dialog";
 import { openMcpAuthorizationWindow, safeMcpAuthorizationUrl, showMcpAuthorizationError } from "./mcp-authorization-url";
@@ -28,6 +28,7 @@ import {
 } from "./mcp-connection-setup";
 import { McpCredentialInput } from "./mcp-credential-input";
 import { shouldShowMcpConnectionsStagingBanner } from "./mcp-connections-capability";
+import { useDenFlow } from "../../_providers/den-flow-provider";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import { marketplaceQueryKeys, useMarketplaces } from "./marketplace-data";
 import {
@@ -88,8 +89,6 @@ const MCP_REQUIREMENTS_DISCOVERY_DELAY_MS = 500;
 // single-URL requirements discovery.
 const SMART_RESOLVE_DELAY_MS = 800;
 const MCP_TOOL_PAGE_SIZE = 50;
-const MCP_OAUTH_REDIRECT_DOCS_URL = "https://openworklabs.com/docs/cloud/share-with-your-team/shared-mcp-connections#oauth-redirect-url";
-
 function isDiscoverableMcpUrl(value: string): boolean {
   try {
     const parsed = new URL(value);
@@ -103,31 +102,31 @@ const GOOGLE_WORKSPACE_DEFAULT_FEATURES = ["calendarRead", "gmailDraft", "driveF
 
 const GOOGLE_WORKSPACE_PERMISSION_GROUPS = [
   {
-    name: "Calendar",
+    name: "日历",
     permissions: [
-      { key: "calendarRead", label: "Read calendar" },
-      { key: "calendarWrite", label: "Create calendar events" },
+      { key: "calendarRead", label: "读取日历" },
+      { key: "calendarWrite", label: "创建日历事件" },
     ],
   },
   {
     name: "Gmail",
     permissions: [
-      { key: "gmailDraft", label: "Draft emails" },
-      { key: "gmailRead", label: "Read Gmail" },
+      { key: "gmailDraft", label: "起草邮件" },
+      { key: "gmailRead", label: "读取 Gmail" },
     ],
   },
   {
     name: "Drive",
     permissions: [
-      { key: "driveFile", label: "Work with selected Drive files" },
-      { key: "driveRead", label: "Read all Drive files" },
-      { key: "driveFull", label: "Full Drive access" },
+      { key: "driveFile", label: "处理选定的 Drive 文件" },
+      { key: "driveRead", label: "读取全部 Drive 文件" },
+      { key: "driveFull", label: "完整访问 Drive" },
     ],
   },
   {
     name: "Chat",
     permissions: [
-      { key: "chat", label: "Google Chat" },
+      { key: "chat", label: "Google Chat 会话" },
     ],
   },
 ];
@@ -204,7 +203,7 @@ function parseSkippedReason(value: unknown): GithubPluginImportSkippedReason | n
 
 function parseGithubPluginImportPreview(payload: unknown): GithubPluginImportPreview {
   const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
-  if (!item) throw new Error("GitHub plugin preview response was incomplete.");
+  if (!item) throw new Error("GitHub 插件预览数据不完整。");
 
   return {
     repositoryFullName: asString(item.repositoryFullName) ?? "",
@@ -243,9 +242,9 @@ function parseGithubPluginImportPreview(payload: unknown): GithubPluginImportPre
 }
 
 function importServerStatus(server: GithubPluginImportServer): string {
-  if (server.supported) return "ready";
-  if (server.skippedReason === "missing_url") return "missing URL";
-  return "unsupported";
+  if (server.supported) return "可导入";
+  if (server.skippedReason === "missing_url") return "缺少地址";
+  return "暂不支持";
 }
 
 export function McpConnectionsScreen() {
@@ -349,11 +348,11 @@ export function McpConnectionsScreen() {
         void refetch();
         return;
       }
-      if (!result.authorizeUrl) throw new Error("The MCP provider did not return an authorization URL.");
+      if (!result.authorizeUrl) throw new Error("MCP 服务未返回授权地址。");
       authorizationWindow.location.href = safeMcpAuthorizationUrl(result.authorizeUrl);
       pollUntilConnected(connectionId);
     } catch (connectError) {
-      const message = connectError instanceof Error ? connectError.message : "Failed to connect the MCP server.";
+      const message = getErrorMessage(connectError instanceof Error ? connectError.message : null, "连接 MCP 服务失败。");
       showMcpAuthorizationError(authorizationWindow, {
         message,
         ...(connectError instanceof McpOAuthStartError
@@ -392,7 +391,7 @@ export function McpConnectionsScreen() {
       }
     } catch (createError) {
       showMcpAuthorizationError(authorizationWindow ?? null, {
-        message: createError instanceof Error ? createError.message : "Failed to create the MCP connection.",
+        message: getErrorMessage(createError instanceof Error ? createError.message : null, "创建 MCP 连接失败。"),
       });
       throw createError;
     }
@@ -406,34 +405,34 @@ export function McpConnectionsScreen() {
     setEditingConnection(null);
     setConfiguringOAuthClient(false);
     setConnectionActionNotice(updated.reconnectionRequired
-      ? `${updated.name} was saved securely. Reconnect it before the new identity can be used.`
+      ? `${updated.name} 已安全保存。请重新连接后使用新的身份配置。`
       : updated.identityChanged
-        ? `${updated.name} was saved and the replacement configuration was validated.`
-        : `${updated.name} was updated without disconnecting it.`);
+        ? `${updated.name} 已保存，替换配置验证通过。`
+        : `${updated.name} 已更新，现有连接保持有效。`);
     return updated;
   }
 
   function handleRemove(connection: ExternalMcpConnection) {
     const confirmed = window.confirm(
-      `Delete ${connection.name}? This can remove access grants, per-member authorization state, and plugin or marketplace bindings.`,
+      `删除 ${connection.name}？相关访问授权、成员认证状态以及插件或能力市场绑定都会被移除。`,
     );
     if (confirmed) deleteConnection.mutate(connection.id);
   }
 
   async function handleDisconnect(connection: ExternalMcpConnection) {
     const confirmed = window.confirm(
-      `Disconnect ${connection.name}? This signs out every associated account for this connection, but keeps the MCP server setup, access rules, and plugin or marketplace bindings so you can reconnect later.`,
+      `断开 ${connection.name}？所有关联账号都会退出，但会保留 MCP 服务配置、访问规则以及插件或能力市场绑定，之后可以重新连接。`,
     );
     if (!confirmed) return;
     setConnectionActionError(null);
     setConnectionActionNotice(null);
     try {
       await disconnectConnection.mutateAsync(connection.id);
-      setConnectionActionNotice(`${connection.name} was disconnected. Its setup, access rules, and bindings were kept.`);
+      setConnectionActionNotice(`${connection.name} 已断开，配置、访问规则和绑定均已保留。`);
     } catch (disconnectError) {
       setConnectionActionError({
         connectionId: connection.id,
-        message: disconnectError instanceof Error ? disconnectError.message : "Failed to disconnect the MCP connection.",
+        message: getErrorMessage(disconnectError instanceof Error ? disconnectError.message : null, "断开 MCP 连接失败。"),
       });
     }
   }
@@ -465,30 +464,30 @@ export function McpConnectionsScreen() {
     setIssuerReviewConnection(null);
     setIssuerReviewPreview(null);
     setConnectionActionNotice(result.reconnectionRequired
-      ? `${connection.name} now trusts the confirmed issuer. Its old OAuth client and credentials were cleared; reconnect it to finish recovery.`
-      : `${connection.name}'s current issuer was confirmed from live provider metadata.`);
+      ? `${connection.name} 已信任确认后的签发方。旧 OAuth 客户端和凭据已清除，请重新连接以完成恢复。`
+      : `${connection.name} 的当前签发方已通过服务元数据确认。`);
   }
 
   return (
     <DashboardPageTemplate
       icon={Plug}
-      title="Connectors"
-      badgeLabel="Beta"
-      description="Connectors is where you can add MCP servers that your whole team can use."
+      title="公司连接"
+      badgeLabel="测试中"
+      description="添加可由全体成员或指定团队使用的 MCP 服务。"
       colors={["#E2E8F0", "#020617", "#0F172A", "#94A3B8"]}
     >
       {showStagingBanner ? (
         <div data-testid="mcp-connections-staging-banner" className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] leading-6 text-amber-800">
-          <p className="font-semibold text-amber-900">OpenWork Connect (beta) is staged for this org.</p>
+          <p className="font-semibold text-amber-900">公司连接功能尚未向成员开放。</p>
           <p className="mt-1">
-            Connectors and marketplace capabilities you set up here stay staged and invisible to members until a platform admin enables OpenWork Connect (beta) for this org. Admin management remains fully usable.
+            管理员可以继续完成连接和能力市场配置。功能开放前，普通成员不会看到这些内容。
           </p>
         </div>
       ) : null}
 
       {error ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {error instanceof Error ? error.message : "Failed to load MCP connectors."}
+          {getErrorMessage(error instanceof Error ? error.message : null, "加载 MCP 连接失败。")}
         </div>
       ) : null}
 
@@ -513,11 +512,11 @@ export function McpConnectionsScreen() {
             setFormOpen(true);
           }}
         >
-          Add MCP
+          添加 MCP
         </DenButton>
       </div>
 
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Quick add</h3>
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">快速添加</h3>
       <div className="mb-8">
         <ConnectorQuickAddGrid
           connections={connections}
@@ -527,14 +526,14 @@ export function McpConnectionsScreen() {
         />
       </div>
 
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Your connectors</h3>
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">已有连接</h3>
       {isLoading ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading MCP connectors…
+          正在加载 MCP 连接…
         </div>
       ) : connections.length === 0 ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-center text-[14px] text-gray-500">
-          No MCP connectors yet.
+          暂无 MCP 连接。
         </div>
       ) : (
         <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white">
@@ -694,7 +693,7 @@ function ImportPluginConnectionDialog({
 
   async function previewGithubPlugin() {
     if (!githubUrl.trim()) {
-      setError("Paste a GitHub plugin URL.");
+      setError("请粘贴 GitHub 插件地址。");
       return;
     }
     setBusy(true);
@@ -708,7 +707,7 @@ function ImportPluginConnectionDialog({
           20000,
         );
         if (!result.response.ok) {
-          throw getRequestError(result.payload, result.response, "Failed to preview GitHub plugin.");
+          throw getRequestError(result.payload, result.response, "无法预览 GitHub 插件。");
         }
         payload = result.payload;
       });
@@ -717,7 +716,7 @@ function ImportPluginConnectionDialog({
       setSelectedServerKeys(nextPreview.servers.filter((server) => server.supported).map((server) => server.serverKey));
       setSelectedSkillKeys(nextPreview.skills.filter((skill) => skill.supported).map((skill) => skill.skillKey));
     } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : "Failed to preview GitHub plugin.");
+      setError(getErrorMessage(previewError instanceof Error ? previewError.message : null, "无法预览 GitHub 插件。"));
     } finally {
       setBusy(false);
     }
@@ -725,15 +724,15 @@ function ImportPluginConnectionDialog({
 
   async function importGithubPlugin() {
     if (!preview) {
-      setError("Preview the GitHub plugin first.");
+      setError("请先预览 GitHub 插件。");
       return;
     }
     if (!marketplaceId) {
-      setError("Choose a marketplace.");
+      setError("请选择能力市场。");
       return;
     }
     if (selectedServerKeys.length === 0 && selectedSkillKeys.length === 0) {
-      setError("Select at least one MCP or skill.");
+      setError("请至少选择一项 MCP 或 Skill。");
       return;
     }
 
@@ -758,7 +757,7 @@ function ImportPluginConnectionDialog({
           30000,
         );
         if (!result.response.ok) {
-          throw getRequestError(result.payload, result.response, "Failed to import GitHub plugin.");
+          throw getRequestError(result.payload, result.response, "导入 GitHub 插件失败。");
         }
       });
       await queryClient.invalidateQueries({ queryKey: mcpConnectionQueryKeys.all });
@@ -767,7 +766,7 @@ function ImportPluginConnectionDialog({
       onImported();
       onClose();
     } catch (importError) {
-      setError(importError instanceof Error ? importError.message : "Failed to import GitHub plugin.");
+      setError(getErrorMessage(importError instanceof Error ? importError.message : null, "导入 GitHub 插件失败。"));
     } finally {
       setBusy(false);
     }
@@ -793,13 +792,13 @@ function ImportPluginConnectionDialog({
         className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">Add plugin connection</h2>
+        <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">添加插件连接</h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
-          Import a plugin from GitHub. Remote MCPs become Den-hosted org connections; imported skills are saved to Skill Hub storage and show up in capabilities.
+          从 GitHub 导入插件。远程 MCP 会成为公司托管连接，导入的 Skills 会保存到公司能力库并按授权下发。
         </p>
 
         <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-          <label className="mb-1.5 block text-[12px] font-medium text-gray-700">GitHub plugin URL</label>
+          <label className="mb-1.5 block text-[12px] font-medium text-gray-700">GitHub 插件地址</label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <DenInput
               value={githubUrl}
@@ -814,7 +813,7 @@ function ImportPluginConnectionDialog({
               disabled={busy}
             />
             <DenButton variant="secondary" onClick={() => void previewGithubPlugin()} disabled={busy || !githubUrl.trim()}>
-              {busy && !preview ? "Previewing..." : "Preview"}
+              {busy && !preview ? "正在预览..." : "预览"}
             </DenButton>
           </div>
         </div>
@@ -822,7 +821,7 @@ function ImportPluginConnectionDialog({
         {preview ? (
           <div className="mt-4 space-y-4">
             <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-[13px] text-gray-600">
-              Found {preview.servers.filter((server) => server.supported).length} MCPs and {preview.skills.filter((skill) => skill.supported).length} skills in{" "}
+              找到 {preview.servers.filter((server) => server.supported).length} 项 MCP 和 {preview.skills.filter((skill) => skill.supported).length} 项 Skill，来源：{" "}
               <span className="font-medium text-gray-900">{preview.repositoryFullName}{preview.rootPath ? `/${preview.rootPath}` : ""}</span>.
             </div>
 
@@ -831,10 +830,10 @@ function ImportPluginConnectionDialog({
                 <table className="w-full text-left text-[13px]">
                   <thead className="bg-gray-50 text-[11px] uppercase tracking-[0.12em] text-gray-400">
                     <tr>
-                      <th className="w-12 px-4 py-3">Use</th>
+                      <th className="w-12 px-4 py-3">选择</th>
                       <th className="px-4 py-3">MCP</th>
                       <th className="px-4 py-3">URL</th>
-                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">状态</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -863,10 +862,10 @@ function ImportPluginConnectionDialog({
                 <table className="w-full text-left text-[13px]">
                   <thead className="bg-gray-50 text-[11px] uppercase tracking-[0.12em] text-gray-400">
                     <tr>
-                      <th className="w-12 px-4 py-3">Use</th>
-                      <th className="px-4 py-3">Skill</th>
-                      <th className="px-4 py-3">Path</th>
-                      <th className="px-4 py-3">Status</th>
+                      <th className="w-12 px-4 py-3">选择</th>
+                      <th className="px-4 py-3">Skill（技能）</th>
+                      <th className="px-4 py-3">路径</th>
+                      <th className="px-4 py-3">状态</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -885,7 +884,7 @@ function ImportPluginConnectionDialog({
                           {skill.description ? <div className="mt-0.5 text-[12px] text-gray-500">{skill.description}</div> : null}
                         </td>
                         <td className="max-w-[240px] truncate px-4 py-3 font-mono text-[12px] text-gray-500">{skill.sourcePath}</td>
-                        <td className="px-4 py-3 text-gray-500">{skill.supported ? "ready" : "unsupported"}</td>
+                        <td className="px-4 py-3 text-gray-500">{skill.supported ? "可导入" : "暂不支持"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -895,25 +894,25 @@ function ImportPluginConnectionDialog({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Authentication</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">身份验证</span>
                 <DenSelect value={authType} onChange={(event) => setAuthType(event.target.value === "none" ? "none" : "oauth")} disabled={busy}>
                   <option value="oauth">OAuth</option>
-                  <option value="none">No auth</option>
+                  <option value="none">无需身份验证</option>
                 </DenSelect>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Account mode</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">账号模式</span>
                 <DenSelect
                   value={credentialMode}
                   onChange={(event) => setCredentialMode(event.target.value === "shared" ? "shared" : "per_member")}
                   disabled={busy || authType === "none"}
                 >
-                  <option value="per_member">Individual accounts</option>
-                  <option value="shared">Org account</option>
+                  <option value="per_member">成员各自连接</option>
+                  <option value="shared">公司共用账号</option>
                 </DenSelect>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Marketplace</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-gray-700">能力市场</span>
                 <DenSelect value={marketplaceId} onChange={(event) => setMarketplaceId(event.target.value)} disabled={busy}>
                   {marketplaces.map((marketplace) => (
                     <option key={marketplace.id} value={marketplace.id}>
@@ -927,12 +926,12 @@ function ImportPluginConnectionDialog({
         ) : null}
 
         <div className="mt-6">
-          <h3 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-gray-400">Plugin library</h3>
+          <h3 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-gray-400">插件库</h3>
           <div className="mt-3 rounded-2xl border border-gray-100 bg-white">
             {pluginsLoading ? (
-              <div className="px-4 py-5 text-[13px] text-gray-500">Loading plugin library...</div>
+              <div className="px-4 py-5 text-[13px] text-gray-500">正在加载插件库...</div>
             ) : libraryPlugins.length === 0 ? (
-              <div className="px-4 py-5 text-[13px] text-gray-500">No imported plugins with MCPs or skills yet.</div>
+              <div className="px-4 py-5 text-[13px] text-gray-500">暂无包含 MCP 或 Skills 的已导入插件。</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {libraryPlugins.slice(0, 6).map((plugin) => (
@@ -946,7 +945,7 @@ function ImportPluginConnectionDialog({
                       <span className="block truncate text-[13px] font-semibold text-gray-900">{plugin.name}</span>
                       <span className="mt-0.5 block truncate text-[12px] text-gray-500">{getPluginPartsSummary(plugin)}</span>
                     </span>
-                    <span className="text-[12px] font-medium text-gray-500">Open</span>
+                    <span className="text-[12px] font-medium text-gray-500">打开</span>
                   </Link>
                 ))}
               </div>
@@ -960,7 +959,7 @@ function ImportPluginConnectionDialog({
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            取消
           </DenButton>
           <DenButton
             variant="primary"
@@ -968,7 +967,7 @@ function ImportPluginConnectionDialog({
             disabled={!preview || !marketplaceId || (selectedServerKeys.length === 0 && selectedSkillKeys.length === 0)}
             onClick={() => void importGithubPlugin()}
           >
-            Import selected
+            导入所选内容
           </DenButton>
         </div>
       </div>
@@ -1049,46 +1048,46 @@ function GoogleWorkspaceDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-          {configured ? "Update Google Workspace" : "Set up Google Workspace"}
+          {configured ? "更新 Google Workspace" : "配置 Google Workspace"}
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
-          Use one Google OAuth web app for your org. Members then connect their own Google account from Your Connections — sign-ins stay in your org&apos;s cloud.
+          公司统一使用一个 Google OAuth 网页应用，每位成员再从“我的连接”中登录自己的 Google 账号。
         </p>
 
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[13px] font-semibold text-gray-900">How to set it up</p>
+            <p className="text-[13px] font-semibold text-gray-900">配置方法</p>
             <ol className="mt-2 list-decimal space-y-2 pl-4 text-[12px] leading-5 text-gray-600">
               <li>
-                In Google Cloud Console, create an OAuth client ID for a Web application.{" "}
+                在 Google Cloud Console 中为网页应用创建 OAuth 客户端 ID。{" "}
                 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">
-                  Open Google Cloud Console
+                  打开 Google Cloud Console
                 </a>
               </li>
               <li>
-                <p>Add this exact authorized redirect URI:</p>
+                <p>添加以下授权重定向地址：</p>
                 <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2">
                   <p data-google-redirect-uri className="min-w-0 flex-1 break-all font-mono text-[11px] leading-5 text-gray-800">
-                    {redirectUri || "Loading redirect URI…"}
+                    {redirectUri || "正在加载重定向地址…"}
                   </p>
                   <DenButton variant="secondary" size="sm" data-testid="copy-redirect-uri" onClick={copyRedirectUri} disabled={!redirectUri}>
-                    {copiedRedirectUri ? "Copied" : "Copy"}
+                    {copiedRedirectUri ? "已复制" : "复制"}
                   </DenButton>
                 </div>
               </li>
               <li>
-                Enable the Google APIs for the permissions you pick (Gmail, Calendar, Drive).{" "}
+                根据所选权限启用对应的 Google API（Gmail、日历、Drive）。{" "}
                 <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">
-                  Open API library
+                  打开 API 库
                 </a>
               </li>
-              <li>Paste the client ID and secret here for first-time setup, or only when you choose to replace saved credentials.</li>
+              <li>首次配置时在此粘贴客户端 ID 和密钥；之后仅在更换凭据时需要重新填写。</li>
             </ol>
           </div>
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-[13px] font-semibold text-gray-900">Permissions</p>
+            <p className="text-[13px] font-semibold text-gray-900">权限</p>
             <p className="mt-1 text-[12px] leading-5 text-gray-500">
-              Pick what your team&apos;s AI can do across Calendar, Gmail, and Drive. Signing in always shares the member&apos;s name and email.
+              选择公司助手可以在日历、Gmail 和 Drive 中执行的操作。登录时会提供成员姓名和邮箱。
             </p>
             <div className="mt-3 space-y-3">
               {GOOGLE_WORKSPACE_PERMISSION_GROUPS.map((group) => (
@@ -1115,37 +1114,37 @@ function GoogleWorkspaceDialog({
           </div>
           {loadingConfig ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[13px] text-gray-500">
-              Checking saved credentials…
+              正在检查已保存的凭据…
             </div>
           ) : null}
           {configured && !replacingCredentials ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-emerald-600" />
-                <p className="text-[13px] font-semibold text-gray-900">Credentials saved</p>
+                <p className="text-[13px] font-semibold text-gray-900">凭据已保存</p>
               </div>
               <p className="mt-1 text-[12px] leading-5 text-gray-500">
-                OpenWork keeps the saved Google client ID and secret when you save permission changes. Replace them only if you are rotating credentials.
+                保存权限更改时，FoxWork 会保留现有 Google 客户端 ID 和密钥。仅在轮换凭据时需要替换。
               </p>
               <div className="mt-3 rounded-xl border border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-800">
-                Saved client ID: <span className="font-mono">{savedClientId ?? "stored in OpenWork"}</span>
+                已保存的客户端 ID：<span className="font-mono">{savedClientId ?? "已保存在 FoxWork"}</span>
               </div>
               <DenButton className="mt-3" variant="secondary" size="sm" onClick={startReplacingCredentials} disabled={submitting}>
-                Replace credentials
+                替换凭据
               </DenButton>
             </div>
           ) : null}
           {showCredentialFields ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-              <p className="text-[13px] font-semibold text-gray-900">Google OAuth credentials</p>
+              <p className="text-[13px] font-semibold text-gray-900">Google OAuth 凭据</p>
               <p className="mt-1 text-[12px] leading-5 text-gray-500">
                 {replacingCredentials
-                  ? "Paste the new client ID and client secret. Both are required to replace the saved credentials."
-                  : "Paste the client ID and client secret from the Google OAuth app. Both are required for first-time setup."}
+                  ? "粘贴新的客户端 ID 和客户端密钥，两项都必须填写。"
+                  : "粘贴 Google OAuth 应用的客户端 ID 和客户端密钥，首次配置时两项都必须填写。"}
               </p>
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Client ID</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">客户端 ID</label>
                   <McpCredentialInput
                     kind="identifier"
                     name="google-workspace-oauth-client-id"
@@ -1155,7 +1154,7 @@ function GoogleWorkspaceDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Client secret</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">客户端密钥</label>
                   <McpCredentialInput
                     kind="secret"
                     name="google-workspace-oauth-client-secret"
@@ -1167,7 +1166,7 @@ function GoogleWorkspaceDialog({
               </div>
               {replacingCredentials ? (
                 <DenButton className="mt-3" variant="secondary" size="sm" onClick={() => setReplacingCredentials(false)} disabled={submitting}>
-                  Keep saved credentials
+                  保留现有凭据
                 </DenButton>
               ) : null}
             </div>
@@ -1175,12 +1174,12 @@ function GoogleWorkspaceDialog({
         </div>
 
         {formError ? (
-          <DenNotice message={formError instanceof Error ? formError.message : "Failed to save the OAuth client."} className="mt-3" />
+          <DenNotice message={getErrorMessage(formError instanceof Error ? formError.message : null, "保存 OAuth 客户端失败。")} className="mt-3" />
         ) : null}
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={submitting}>
-            Cancel
+            取消
           </DenButton>
           <DenButton
             variant="primary"
@@ -1191,7 +1190,7 @@ function GoogleWorkspaceDialog({
               features,
             })}
           >
-            {configured && !replacingCredentials ? "Save permissions" : replacingCredentials ? "Save new credentials" : "Save setup"}
+            {configured && !replacingCredentials ? "保存权限" : replacingCredentials ? "保存新凭据" : "保存配置"}
           </DenButton>
         </div>
       </div>
@@ -1245,9 +1244,9 @@ function IssuerReviewDialog({
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="mcp-issuer-review-title" className="text-[18px] font-semibold text-gray-950">Review OAuth provider</h2>
+            <h2 id="mcp-issuer-review-title" className="text-[18px] font-semibold text-gray-950">复核 OAuth 服务</h2>
             <p className="mt-1 text-[13px] leading-5 text-gray-600">
-              {connection.name} now advertises OAuth metadata that differs from the issuer previously approved for this connection.
+              {connection.name} 当前返回的 OAuth 信息与上次确认的签发方不同。
             </p>
           </div>
         </div>
@@ -1255,21 +1254,21 @@ function IssuerReviewDialog({
         {loading && !preview ? (
           <div className="mt-6 flex items-center gap-2 rounded-2xl bg-gray-50 px-4 py-4 text-[13px] text-gray-600">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Checking the provider&apos;s live OAuth metadata…
+            正在读取服务端最新的 OAuth 信息...
           </div>
         ) : error && !preview ? (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-[13px] text-red-700" role="alert">
             <p>{error.message}</p>
-            <DenButton className="mt-3" variant="secondary" size="sm" onClick={onRetry}>Try again</DenButton>
+            <DenButton className="mt-3" variant="secondary" size="sm" onClick={onRetry}>重试</DenButton>
           </div>
         ) : preview ? (
           <div className="mt-6 space-y-4">
             <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Previously approved</p>
-              <p className="mt-1 break-all font-mono text-[12px] text-gray-700">{preview.currentIssuer ?? "No issuer selected"}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">上次确认</p>
+              <p className="mt-1 break-all font-mono text-[12px] text-gray-700">{preview.currentIssuer ?? "尚未选择签发方"}</p>
             </div>
             <fieldset>
-              <legend className="text-[13px] font-semibold text-gray-900">Issuer advertised now</legend>
+              <legend className="text-[13px] font-semibold text-gray-900">当前签发方</legend>
               <div className="mt-2 space-y-2">
                 {preview.advertisedIssuers.map((issuer) => (
                   <label key={issuer} className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 px-4 py-3 transition has-[:checked]:border-gray-950 has-[:checked]:bg-gray-50">
@@ -1288,15 +1287,15 @@ function IssuerReviewDialog({
             </fieldset>
             <div className={`rounded-2xl px-4 py-3 text-[12px] leading-5 ${issuerWillChange ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-800"}`}>
               {issuerWillChange
-                ? "Confirming a different issuer clears the old OAuth client and credentials. Everyone will reconnect against the newly approved provider."
-                : "Confirming the same issuer clears the stale discovery cache without signing anyone out."}
+                ? "确认新的签发方后，旧 OAuth 客户端和凭据会被清除，所有成员都需要重新连接。"
+                : "继续确认会清除过期的发现缓存，不会退出任何人的账号。"}
             </div>
             {error ? <p className="text-[12px] text-red-600" role="alert">{error.message}</p> : null}
           </div>
         ) : null}
 
         <div className="mt-6 flex justify-end gap-2">
-          <DenButton variant="secondary" size="sm" disabled={loading} onClick={onClose}>Cancel</DenButton>
+          <DenButton variant="secondary" size="sm" disabled={loading} onClick={onClose}>取消</DenButton>
           <DenButton
             variant="primary"
             size="sm"
@@ -1304,7 +1303,7 @@ function IssuerReviewDialog({
             disabled={!preview || !selectedIssuer}
             onClick={() => onConfirm(selectedIssuer)}
           >
-            Confirm issuer
+            确认签发方
           </DenButton>
         </div>
       </div>
@@ -1315,11 +1314,11 @@ function IssuerReviewDialog({
 function accessSummaryLabel(connection: ExternalMcpConnection): string {
   const access = connection.access;
   if (!access) return "";
-  if (access.orgWide) return "Everyone in the org";
+  if (access.orgWide) return "全公司可用";
   const parts: string[] = [];
-  if (access.teamIds.length > 0) parts.push(`${access.teamIds.length} ${access.teamIds.length === 1 ? "team" : "teams"}`);
-  if (access.memberIds.length > 0) parts.push(`${access.memberIds.length} ${access.memberIds.length === 1 ? "person" : "people"}`);
-  return parts.length > 0 ? parts.join(", ") : "Nobody yet";
+  if (access.teamIds.length > 0) parts.push(`${access.teamIds.length} 个团队`);
+  if (access.memberIds.length > 0) parts.push(`${access.memberIds.length} 名成员`);
+  return parts.length > 0 ? parts.join("，") : "尚未授权";
 }
 
 function ConnectionRow({
@@ -1404,31 +1403,31 @@ function ConnectionRow({
               <p className="truncate text-[14px] font-semibold text-gray-900">{connection.name}</p>
               {setupRequired ? (
                 <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                  Setup required
+                  需要配置
                 </span>
               ) : connection.issuerReviewRequired ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                   <AlertTriangle className="h-3 w-3" />
-                  OAuth settings need review
+                  需要复核 OAuth 设置
                 </span>
               ) : isPerMember ? (
                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${connection.connected ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                   <Users className="h-3 w-3" />
-                  {connection.connected ? "Individual accounts connected" : "Not connected"}
+                  {connection.connected ? "已有成员账号连接" : "未连接"}
                 </span>
               ) : displayedConnected ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                   <Check className="h-3 w-3" />
-                  Connected
+                  已连接
                 </span>
               ) : polling ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for authorization…
+                  等待授权...
                 </span>
               ) : (
                 <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                  Not connected
+                  未连接
                 </span>
               )}
               {connection.access ? (
@@ -1442,8 +1441,8 @@ function ConnectionRow({
             </p>
             {connection.authType === "oauth" ? (
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-                {connection.authorizationServerIssuer ? <span className="max-w-full truncate">Issuer: {connection.authorizationServerIssuer}</span> : null}
-                {(connection.requestedScopes?.length ?? 0) > 0 ? <span>Scopes: {connection.requestedScopes?.join(", ")}</span> : null}
+                {connection.authorizationServerIssuer ? <span className="max-w-full truncate">签发方：{connection.authorizationServerIssuer}</span> : null}
+                {(connection.requestedScopes?.length ?? 0) > 0 ? <span>授权范围：{connection.requestedScopes?.join(", ")}</span> : null}
               </div>
             ) : null}
             {errorMessage ? <p className="mt-1 text-[12px] text-red-600">{errorMessage}</p> : null}
@@ -1453,17 +1452,17 @@ function ConnectionRow({
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
           {needsOAuthClientConfiguration ? (
             <DenButton variant="primary" size="sm" onClick={onConfigure}>
-              Configure
+              配置
             </DenButton>
           ) : null}
           {setupHref ? (
             <Link href={setupHref} className={buttonVariants({ variant: "primary", size: "sm" })}>
-              Set up
+              去配置
             </Link>
           ) : null}
           {connection.issuerReviewRequired ? (
             <DenButton variant="primary" size="sm" icon={AlertTriangle} onClick={onReviewIssuer}>
-              Review OAuth
+              复核 OAuth
             </DenButton>
           ) : null}
           {canConnectOAuth ? (
@@ -1473,7 +1472,7 @@ function ConnectionRow({
               loading={connecting || polling}
               onClick={onConnect}
             >
-              Connect
+              连接
             </DenButton>
           ) : null}
           {displayedConnected ? (
@@ -1482,10 +1481,10 @@ function ConnectionRow({
               size="sm"
               loading={disconnecting}
               onClick={onDisconnect}
-              aria-label={`Disconnect ${connection.name}`}
+              aria-label={`断开 ${connection.name}`}
               data-testid={`disconnect-mcp-connection-${connection.id}`}
             >
-              Disconnect
+              断开
             </DenButton>
           ) : null}
           <div ref={actionsMenuRef} className="relative">
@@ -1494,7 +1493,7 @@ function ConnectionRow({
               type="button"
               onClick={() => setActionsOpen((current) => !current)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-              aria-label={`More actions for ${connection.name}`}
+              aria-label={`${connection.name} 的更多操作`}
               aria-haspopup="menu"
               aria-expanded={actionsOpen}
               data-testid={`mcp-connection-more-${connection.id}`}
@@ -1504,7 +1503,7 @@ function ConnectionRow({
             {actionsOpen ? (
               <div
                 role="menu"
-                aria-label={`Actions for ${connection.name}`}
+                aria-label={`${connection.name} 的操作`}
                 className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-2xl border border-gray-100 bg-white p-1.5 text-[13px] shadow-xl shadow-gray-900/10"
               >
                 <button
@@ -1516,11 +1515,11 @@ function ConnectionRow({
                   }}
                   disabled={!connection.updatedAt}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={`Edit ${connection.name}`}
+                  aria-label={`编辑 ${connection.name}`}
                   data-testid={`edit-mcp-connection-${connection.id}`}
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  Edit
+                  编辑
                 </button>
                 <button
                   type="button"
@@ -1530,11 +1529,11 @@ function ConnectionRow({
                     onToggleTools();
                   }}
                   disabled={!canInspectTools}
-                  title={canInspectTools ? "Inspect the tools this MCP exposes" : "Connect this account before inspecting tools"}
+                  title={canInspectTools ? "查看此 MCP 提供的工具" : "请先连接账号，再查看工具"}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {toolsOpen ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {toolsOpen ? "Hide tools" : "View tools"}
+                  {toolsOpen ? "收起工具" : "查看工具"}
                 </button>
                 <div className="my-1 border-t border-gray-100" />
                 <button
@@ -1546,10 +1545,10 @@ function ConnectionRow({
                   }}
                   disabled={removing}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label={`Remove ${connection.name}`}
+                  aria-label={`移除 ${connection.name}`}
                 >
                   {removing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
-                  Remove
+                  移除
                 </button>
               </div>
             ) : null}
@@ -1575,10 +1574,10 @@ function toolHints(tool: ExternalMcpTool): Array<{ label: string; className: str
   const annotations = tool.annotations;
   if (!annotations) return [];
   return [
-    annotations.readOnlyHint ? { label: "Read-only hint", className: "bg-blue-50 text-blue-700" } : null,
-    annotations.destructiveHint ? { label: "Destructive hint", className: "bg-red-50 text-red-700" } : null,
-    annotations.idempotentHint ? { label: "Idempotent hint", className: "bg-emerald-50 text-emerald-700" } : null,
-    annotations.openWorldHint ? { label: "External access hint", className: "bg-amber-50 text-amber-700" } : null,
+    annotations.readOnlyHint ? { label: "服务端标记为只读", className: "bg-blue-50 text-blue-700" } : null,
+    annotations.destructiveHint ? { label: "可能修改或删除数据", className: "bg-red-50 text-red-700" } : null,
+    annotations.idempotentHint ? { label: "支持幂等重试", className: "bg-emerald-50 text-emerald-700" } : null,
+    annotations.openWorldHint ? { label: "可能访问外部系统", className: "bg-amber-50 text-amber-700" } : null,
   ].filter((hint): hint is { label: string; className: string } => hint !== null);
 }
 
@@ -1603,15 +1602,15 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
         <div>
           <div className="flex items-center gap-2">
             <Wrench className="h-4 w-4 text-gray-500" />
-            <p className="text-[13px] font-semibold text-gray-900">Tools available to your agents</p>
+            <p className="text-[13px] font-semibold text-gray-900">AI 可用工具</p>
           </div>
           <p className="mt-1 text-[12px] leading-5 text-gray-500">
-            Live from {connection.name}. Inspecting this list does not run a tool. Provider annotations are hints, not guarantees.
+            工具清单来自 {connection.name}。查看清单不会执行工具；服务端提供的标记仅供参考。
           </p>
         </div>
         <DenButton variant="secondary" size="sm" loading={catalog.isFetching} onClick={() => void catalog.refetch()}>
           <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
+          刷新
         </DenButton>
       </div>
 
@@ -1619,20 +1618,20 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="w-full sm:max-w-sm">
             <DenInput
-              aria-label="Search MCP tools"
+              aria-label="搜索 MCP 工具"
               icon={Search}
               value={toolSearch}
               onChange={(event) => {
                 setToolSearch(event.target.value);
                 setVisibleToolLimit(MCP_TOOL_PAGE_SIZE);
               }}
-              placeholder="Search tools by name or description"
+              placeholder="按名称或说明搜索工具"
             />
           </div>
           <p className="shrink-0 text-[11px] font-medium text-gray-500" role="status">
             {toolSearch.trim()
-              ? `${filteredTools.length} of ${catalog.data.length} tools`
-              : `${catalog.data.length} ${catalog.data.length === 1 ? "tool" : "tools"} exposed`}
+              ? `找到 ${filteredTools.length} 个，共 ${catalog.data.length} 个工具`
+              : `共 ${catalog.data.length} 个工具`}
           </p>
         </div>
       ) : null}
@@ -1640,19 +1639,19 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
       {catalog.isLoading ? (
         <div className="mt-4 flex items-center gap-2 text-[12px] text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Reading the MCP tool catalog…
+          正在读取 MCP 工具清单...
         </div>
       ) : catalog.error ? (
         <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[12px] leading-5 text-red-700">
-          {catalog.error instanceof Error ? catalog.error.message : "Could not read this MCP's tools."}
+          {catalog.error instanceof Error ? catalog.error.message : "无法读取此 MCP 的工具。"}
         </div>
       ) : catalog.data?.length === 0 ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-500">
-          This MCP is connected but does not currently expose any tools.
+          此 MCP 已连接，但当前没有提供工具。
         </div>
       ) : filteredTools.length === 0 ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-500">
-          No tools match “{toolSearch.trim()}”.
+          没有找到与“{toolSearch.trim()}”匹配的工具。
         </div>
       ) : (
         <>
@@ -1675,20 +1674,20 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
                           <p className="break-words font-mono text-[12px] font-semibold text-gray-900">{tool.name}</p>
                         )}
                         <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-gray-500">
-                          {tool.description || "No description provided by this MCP."}
+                          {tool.description || "此 MCP 未提供工具说明。"}
                         </p>
                       </div>
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 transition group-open:rotate-90" />
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <p className="text-[11px] font-medium text-gray-500">
-                        {inputs.length === 0 ? "No inputs" : `${inputs.length} ${inputs.length === 1 ? "input" : "inputs"}`}
+                        {inputs.length === 0 ? "无需输入" : `${inputs.length} 个输入项`}
                       </p>
                       {hints.map((hint) => (
                         <span
                           key={hint.label}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${hint.className}`}
-                          title="Provider-supplied MCP annotation; treat as a hint."
+                          title="此标记由 MCP 服务端提供，仅供参考。"
                         >
                           {hint.label}
                         </span>
@@ -1700,18 +1699,18 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
                       <div className="flex flex-wrap gap-2">
                         {inputs.map((input) => (
                           <span key={input.name} className="rounded-full bg-gray-100 px-2.5 py-1 font-mono text-[11px] text-gray-700">
-                            {input.name}{input.type ? `: ${input.type}` : ""}{input.required ? " · required" : ""}
+                            {input.name}{input.type ? `: ${input.type}` : ""}{input.required ? " · 必填" : ""}
                           </span>
                         ))}
                       </div>
                     ) : null}
                     <details className="mt-3">
-                      <summary className="cursor-pointer text-[11px] font-medium text-gray-500">View input schema</summary>
+                      <summary className="cursor-pointer text-[11px] font-medium text-gray-500">查看输入 Schema</summary>
                       <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-gray-950 p-3 text-[10px] leading-4 text-gray-100">{JSON.stringify(tool.inputSchema, null, 2)}</pre>
                     </details>
                     {tool.outputSchema ? (
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-[11px] font-medium text-gray-500">View output schema</summary>
+                        <summary className="cursor-pointer text-[11px] font-medium text-gray-500">查看输出 Schema</summary>
                         <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-gray-950 p-3 text-[10px] leading-4 text-gray-100">{JSON.stringify(tool.outputSchema, null, 2)}</pre>
                       </details>
                     ) : null}
@@ -1727,7 +1726,7 @@ function McpToolCatalog({ connection }: { connection: ExternalMcpConnection }) {
                 size="sm"
                 onClick={() => setVisibleToolLimit((current) => current + MCP_TOOL_PAGE_SIZE)}
               >
-                Show {Math.min(MCP_TOOL_PAGE_SIZE, remainingToolCount)} more
+                再显示 {Math.min(MCP_TOOL_PAGE_SIZE, remainingToolCount)} 个
               </DenButton>
             </div>
           ) : null}
@@ -1781,19 +1780,19 @@ type AddConnectionAccessMode = McpConnectionAccessMode;
 
 const AUTH_TYPE_OPTIONS: SegmentedControlOption<ExternalMcpAuthType>[] = [
   { value: "oauth", label: "OAuth" },
-  { value: "apikey", label: "API key" },
-  { value: "none", label: "None" },
+  { value: "apikey", label: "API 密钥" },
+  { value: "none", label: "无需认证" },
 ];
 
 const CREDENTIAL_MODE_OPTIONS: SegmentedControlOption<ExternalMcpCredentialMode>[] = [
-  { value: "per_member", label: "Individual accounts" },
-  { value: "shared", label: "One org account" },
+  { value: "per_member", label: "成员各自登录" },
+  { value: "shared", label: "公司共用账号" },
 ];
 
 const ACCESS_MODE_OPTIONS: SegmentedControlOption<AddConnectionAccessMode>[] = [
-  { value: "everyone", label: "Everyone" },
-  { value: "teams", label: "Specific teams" },
-  { value: "people", label: "Specific people" },
+  { value: "everyone", label: "全公司" },
+  { value: "teams", label: "指定团队" },
+  { value: "people", label: "指定成员" },
 ];
 
 function EditConnectionDialog({
@@ -1811,6 +1810,7 @@ function EditConnectionDialog({
   onClose: () => void;
   onSubmit: (input: UpdateMcpConnectionInput) => Promise<UpdatedMcpConnection>;
 }) {
+  const { runtimeConfig } = useDenFlow();
   const { orgContext } = useOrgDashboard();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -1924,28 +1924,28 @@ function EditConnectionDialog({
         data-testid="edit-mcp-connection-dialog"
       >
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-          {configureOAuthClient ? "Configure MCP connection" : "Edit MCP connection"}
+          {configureOAuthClient ? "配置 MCP 连接" : "编辑 MCP 连接"}
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
           {configureOAuthClient
-            ? "Add the OAuth app credentials this server requires before anyone connects."
-            : "Update how this server is presented and who can use it. Saved credentials are never shown here."}
+            ? "填写此服务所需的 OAuth 应用凭据，成员才能连接。"
+            : "修改连接信息和使用范围。已保存的凭据不会在此显示。"}
         </p>
 
         {marketplaceManaged ? (
           <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-[12px] leading-5 text-blue-800" data-testid="marketplace-managed-identity-note">
-            <p className="font-semibold text-blue-900">Server and authentication are managed by {marketplaceIdentityOwnerNames(marketplaceOwners)}.</p>
-            <p className="mt-1">Configure organization OAuth credentials here. Change the server URL or authentication type in the marketplace plugin definition.</p>
+            <p className="font-semibold text-blue-900">服务地址和认证方式由 {marketplaceIdentityOwnerNames(marketplaceOwners)} 管理。</p>
+            <p className="mt-1">可在此配置公司 OAuth 凭据。如需修改服务地址或认证方式，请前往能力市场的插件定义。</p>
           </div>
         ) : null}
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Name</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</label>
             <DenInput value={name} onChange={(event) => setName(event.target.value)} data-testid="edit-mcp-name" />
           </div>
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Server URL</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">服务地址</label>
             <DenInput
               value={url}
               data-testid="edit-mcp-url"
@@ -1957,7 +1957,7 @@ function EditConnectionDialog({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Authentication</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">认证方式</label>
             <SegmentedControl
               options={AUTH_TYPE_OPTIONS}
               value={authType}
@@ -1976,7 +1976,7 @@ function EditConnectionDialog({
           {!marketplaceManaged && authType === "apikey" ? (
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-gray-700">
-                {identityChanged ? "Replacement API key (required)" : "Replacement API key (optional)"}
+                {identityChanged ? "新 API 密钥（必填）" : "新 API 密钥（选填）"}
               </label>
               <McpCredentialInput
                 kind="secret"
@@ -1986,10 +1986,10 @@ function EditConnectionDialog({
                   setApiKey(event.target.value);
                   setConfirmingIdentityChange(false);
                 }}
-                placeholder={identityChanged ? "Enter a key for the new identity" : "Leave empty to keep the saved key"}
+                placeholder={identityChanged ? "填写新连接使用的密钥" : "留空则继续使用已保存的密钥"}
                 data-testid="edit-mcp-api-key"
               />
-              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">The saved key is encrypted and is never returned to this form.</p>
+              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">已保存的密钥经过加密，不会回显到此表单。</p>
             </div>
           ) : null}
 
@@ -2002,23 +2002,25 @@ function EditConnectionDialog({
               }}
               className="text-left text-[12px] font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
             >
-              {connection.oauthClientId ? "Replace the pre-registered OAuth app" : "Add the pre-registered OAuth app"}
+              {connection.oauthClientId ? "更换预注册 OAuth 应用" : "添加预注册 OAuth 应用"}
             </button>
           ) : null}
 
           {authType === "oauth" && showOAuthClient ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold text-gray-900">OAuth app</p>
-                <Link href={MCP_OAUTH_REDIRECT_DOCS_URL} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-900">
-                  OAuth setup
-                </Link>
+                <p className="text-[13px] font-semibold text-gray-900">OAuth 应用</p>
+                {runtimeConfig.foxworkMcpDocsUrl ? (
+                  <Link href={runtimeConfig.foxworkMcpDocsUrl} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-900">
+                    OAuth 配置说明
+                  </Link>
+                ) : null}
               </div>
-              <p className="mt-1 text-[12px] leading-5 text-gray-500">Add the provider credentials here. The saved client secret remains hidden.</p>
+              <p className="mt-1 text-[12px] leading-5 text-gray-500">在此填写服务商凭据。已保存的客户端密钥不会显示。</p>
               <div className="mt-3 space-y-3">
                 <div>
                   <label className="mb-1.5 block text-[12px] font-medium text-gray-700">
-                    Client ID{configureOAuthClient ? " (required)" : ""}
+                    客户端 ID{configureOAuthClient ? "（必填）" : ""}
                   </label>
                   <McpCredentialInput
                     kind="identifier"
@@ -2032,7 +2034,7 @@ function EditConnectionDialog({
                 </div>
                 <div>
                   <label className="mb-1.5 block text-[12px] font-medium text-gray-700">
-                    {connection.oauthClientId ? "Replacement client secret (optional)" : "Client secret (optional)"}
+                    {connection.oauthClientId ? "新客户端密钥（选填）" : "客户端密钥（选填）"}
                   </label>
                   <McpCredentialInput
                     kind="secret"
@@ -2042,7 +2044,7 @@ function EditConnectionDialog({
                       setOAuthClientSecret(event.target.value);
                       setConfirmingIdentityChange(false);
                     }}
-                    placeholder="Leave empty to keep it when identity and client ID are unchanged"
+                    placeholder="连接身份和客户端 ID 未变时可留空"
                     data-testid="edit-mcp-oauth-client-secret"
                   />
                 </div>
@@ -2052,7 +2054,7 @@ function EditConnectionDialog({
 
           {authType === "oauth" ? (
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Requested OAuth scopes</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">申请的 OAuth 授权范围</label>
               <DenInput
                 value={requestedScopesText}
                 disabled={marketplaceManaged}
@@ -2060,12 +2062,12 @@ function EditConnectionDialog({
                 placeholder="records.read records.write"
                 data-testid="edit-mcp-requested-scopes"
               />
-              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">Separate scopes with spaces or commas. Scope changes apply on next connect — reconnect to re-authorize.</p>
+              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">多个授权范围可用空格或逗号分隔。修改后需重新连接并授权。</p>
             </div>
           ) : null}
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Whose account does the AI use?</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">AI 使用谁的账号？</label>
             <SegmentedControl
               options={CREDENTIAL_MODE_OPTIONS}
               value={proposedCredentialMode}
@@ -2076,12 +2078,12 @@ function EditConnectionDialog({
               }}
             />
             {authType !== "oauth" ? (
-              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">API-key and no-auth connections always use one organization connection.</p>
+              <p className="mt-1.5 text-[11px] leading-5 text-gray-500">API 密钥和无需认证的连接始终由公司共用。</p>
             ) : null}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Who can use this?</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">谁可以使用？</label>
             <SegmentedControl
               options={ACCESS_MODE_OPTIONS}
               value={accessMode}
@@ -2096,7 +2098,7 @@ function EditConnectionDialog({
             {accessMode === "teams" ? (
               <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
                 {teams.length === 0 ? (
-                  <p className="px-2 py-1 text-[12px] text-gray-400">No teams in this org yet.</p>
+                  <p className="px-2 py-1 text-[12px] text-gray-400">公司还没有团队。</p>
                 ) : teams.map((team) => (
                   <button
                     key={team.id}
@@ -2113,7 +2115,7 @@ function EditConnectionDialog({
             {accessMode === "people" ? (
               <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
                 {members.length === 0 ? (
-                  <p className="px-2 py-1 text-[12px] text-gray-400">No members in this org yet.</p>
+                  <p className="px-2 py-1 text-[12px] text-gray-400">公司还没有成员。</p>
                 ) : members.map((member) => (
                   <button
                     key={member.id}
@@ -2132,22 +2134,22 @@ function EditConnectionDialog({
 
         {identityChanged && !marketplaceManaged ? (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[12px] leading-5 text-amber-900" data-testid="mcp-identity-change-warning">
-            <p className="font-semibold">This changes the connection identity.</p>
-            <p className="mt-1">OpenWork will clear shared and individual sessions, API keys, pending OAuth state, OAuth client registration, scopes, and connected timestamps before the new server can be used.</p>
-            {authType === "oauth" ? <p className="mt-1 font-medium">The connection must be authorized again after saving.</p> : null}
-            {confirmingIdentityChange ? <p className="mt-2 font-semibold">Confirm that you want to invalidate the old identity.</p> : null}
+            <p className="font-semibold">此操作会更改连接身份。</p>
+            <p className="mt-1">FoxWork 会清除原有的共用和个人会话、API 密钥、待处理的 OAuth 状态、OAuth 客户端注册、授权范围及连接时间，随后才能使用新服务。</p>
+            {authType === "oauth" ? <p className="mt-1 font-medium">保存后需要重新授权此连接。</p> : null}
+            {confirmingIdentityChange ? <p className="mt-2 font-semibold">请确认要停用原有连接身份。</p> : null}
           </div>
         ) : null}
 
         {error ? (
-          <p className="mt-3 text-[13px] text-red-600" role="alert">{error instanceof Error ? error.message : "Failed to update connection."}</p>
+          <p className="mt-3 text-[13px] text-red-600" role="alert">{error instanceof Error ? error.message : "更新连接失败。"}</p>
         ) : null}
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {confirmingIdentityChange ? (
-            <DenButton variant="secondary" onClick={() => setConfirmingIdentityChange(false)} disabled={submitting}>Back</DenButton>
+            <DenButton variant="secondary" onClick={() => setConfirmingIdentityChange(false)} disabled={submitting}>返回</DenButton>
           ) : (
-            <DenButton variant="secondary" onClick={onClose} disabled={submitting}>Cancel</DenButton>
+            <DenButton variant="secondary" onClick={onClose} disabled={submitting}>取消</DenButton>
           )}
           <DenButton
             variant="primary"
@@ -2156,7 +2158,7 @@ function EditConnectionDialog({
             onClick={() => void submit()}
             data-testid="save-mcp-connection-edit"
           >
-            {confirmingIdentityChange ? "Confirm and save" : identityChanged ? "Review identity change" : "Save changes"}
+            {confirmingIdentityChange ? "确认并保存" : identityChanged ? "复核身份变更" : "保存更改"}
           </DenButton>
         </div>
       </div>
@@ -2182,6 +2184,7 @@ function AddConnectionDialog({
     options: { startOAuth: boolean },
   ) => Promise<void>;
 }) {
+  const { runtimeConfig } = useDenFlow();
   const { orgContext } = useOrgDashboard();
   const discoverRequirements = useDiscoverMcpConnectionRequirements();
   const resolveConnection = useResolveMcpConnection();
@@ -2365,9 +2368,9 @@ function AddConnectionDialog({
     ? smartPlan.readiness !== "one_click"
       ? smartPlan.reasons
       : resolution?.preset?.requiresOAuthClient
-        ? ["This provider needs a pre-registered OAuth app."]
+        ? ["此服务需要预注册 OAuth 应用。"]
         : resolution?.preset?.authType === "apikey"
-          ? ["This provider needs your org's API key."]
+          ? ["此服务需要公司的 API 密钥。"]
           : []
     : [];
   const smartOneClick = smartPlan?.readiness === "one_click" && smartBlockers.length === 0 ? smartPlan : null;
@@ -2463,10 +2466,10 @@ function AddConnectionDialog({
           <>
             <h2 className="flex items-center gap-2 text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
               <Server className="h-4 w-4 text-gray-400" />
-              Add an MCP server
+              添加 MCP 服务
             </h2>
             <p className="mt-1.5 text-[13px] leading-5 text-gray-500">
-              Paste the MCP server URL and we&apos;ll find and check its authentication requirements.
+              粘贴 MCP 服务地址，FoxWork 会自动识别并检查认证要求。
             </p>
 
             <div className="mt-5">
@@ -2482,19 +2485,19 @@ function AddConnectionDialog({
             {smartState === "waiting" || smartState === "resolving" ? (
               <div className="mt-4 flex items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-[13px] text-gray-500" role="status">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {smartState === "resolving" ? "Checking the server…" : "Looking it up…"}
+                {smartState === "resolving" ? "正在检查服务..." : "正在查找..."}
               </div>
             ) : null}
 
             {smartState === "error" ? (
               <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3.5 text-[13px] text-red-700" role="alert">
-                {smartError instanceof Error ? smartError.message : "The lookup failed. Try again, or set the server up manually."}
+                {smartError instanceof Error ? smartError.message : "查找失败，请重试或手动配置服务。"}
               </div>
             ) : null}
 
             {smartState === "done" && resolution?.resolution === "not_found" ? (
               <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-[13px] leading-5 text-gray-600">
-                {resolution.reason ?? `We couldn't find an MCP server for "${smartQuery.trim()}". Double-check the address, or set it up manually below.`}
+                {resolution.reason ?? `没有找到“${smartQuery.trim()}”对应的 MCP 服务。请检查地址，或改用手动配置。`}
               </div>
             ) : null}
 
@@ -2506,8 +2509,8 @@ function AddConnectionDialog({
                     <DenInput
                       value={smartName}
                       onChange={(event) => setSmartName(event.target.value)}
-                      placeholder={smartMatch.suggestedName || "Connection name"}
-                      aria-label="Connection name"
+                      placeholder={smartMatch.suggestedName || "连接名称"}
+                      aria-label="连接名称"
                     />
                     <p className="mt-1.5 truncate text-[12px] text-gray-500">{smartMatch.url}</p>
                   </div>
@@ -2516,21 +2519,21 @@ function AddConnectionDialog({
                   <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">{smartAddAuthLabel(smartMatch.discovery)}</span>
                   {typeof smartMatch.discovery.tools.count === "number" && smartMatch.discovery.tools.count > 0 ? (
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-                      {smartMatch.discovery.tools.count} tool{smartMatch.discovery.tools.count === 1 ? "" : "s"}
+                      {smartMatch.discovery.tools.count} 个工具
                     </span>
                   ) : null}
                   {smartOneClick ? (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">Ready to add</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">可以添加</span>
                   ) : null}
                 </div>
                 {smartOneClick && smartOneClick.input.authType === "oauth" ? (
                   <p className="mt-3 text-[12px] leading-5 text-gray-500">
-                    Everyone in the org gets this connection, and each person signs in with their own account. Fine-tune who and how under More options.
+                    默认向全公司开放，每名成员使用自己的账号登录。可在“更多选项”中调整使用范围和账号方式。
                   </p>
                 ) : null}
                 {smartBlockers.length > 0 ? (
                   <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] leading-5 text-amber-800">
-                    Needs a little more setup: {smartBlockers.join(" · ")}
+                    还需完成以下配置：{smartBlockers.join(" · ")}
                   </div>
                 ) : null}
                 <button
@@ -2538,7 +2541,7 @@ function AddConnectionDialog({
                   onClick={transferToAdvanced}
                   className="mt-3 text-[12px] font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
                 >
-                  {smartOneClick ? "More options" : "Continue setup"}
+                  {smartOneClick ? "更多选项" : "继续配置"}
                 </button>
               </div>
             ) : null}
@@ -2558,13 +2561,13 @@ function AddConnectionDialog({
                   onClick={transferToAdvanced}
                   className="mt-3 text-[12px] font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
                 >
-                  Continue setup
+                  继续配置
                 </button>
               </div>
             ) : null}
 
             {error ? (
-              <p className="mt-3 text-[13px] text-red-600">{error instanceof Error ? error.message : "Failed to add connection."}</p>
+              <p className="mt-3 text-[13px] text-red-600">{error instanceof Error ? error.message : "添加连接失败。"}</p>
             ) : null}
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2573,11 +2576,11 @@ function AddConnectionDialog({
                 onClick={transferToAdvanced}
                 className="text-left text-[12px] font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
               >
-                Advanced setup
+                手动配置
               </button>
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <DenButton variant="secondary" onClick={onClose} disabled={submitting}>
-                  Cancel
+                  取消
                 </DenButton>
                 <DenButton
                   variant="primary"
@@ -2586,7 +2589,7 @@ function AddConnectionDialog({
                   onClick={() => void submitSmart()}
                   data-testid="smart-add-submit"
                 >
-                  Add connection
+                  添加连接
                 </DenButton>
               </div>
             </div>
@@ -2600,20 +2603,20 @@ function AddConnectionDialog({
             className="mb-2 flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-gray-900"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            MCP server
+            MCP 服务
           </button>
         ) : null}
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-          {preset ? `Add ${preset.displayName}` : "Add a custom MCP server"}
+          {preset ? `添加 ${preset.displayName}` : "添加自定义 MCP 服务"}
         </h2>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Name</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</label>
             <DenInput value={name} onChange={(event) => setName(event.target.value)} placeholder="notion" />
           </div>
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Server URL</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">服务地址</label>
             <DenInput
               value={url}
               onChange={(event) => {
@@ -2631,21 +2634,21 @@ function AddConnectionDialog({
             {discoveryState === "waiting" || discoveryState === "checking" ? (
               <p className="mt-2 flex items-center gap-2 text-[12px] text-gray-500" role="status">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Checking…
+                正在检查...
               </p>
             ) : null}
             {discoveryState === "error" ? (
               <div className="mt-2 flex items-start justify-between gap-3 text-[12px] text-red-600" role="alert">
-                <p>{discoveryError instanceof Error ? discoveryError.message : "Requirements discovery failed."}</p>
+                <p>{discoveryError instanceof Error ? discoveryError.message : "无法识别此服务的认证要求。"}</p>
                 <button type="button" className="shrink-0 font-medium underline underline-offset-2" onClick={retryDiscovery}>
-                  Retry
+                  重试
                 </button>
               </div>
             ) : null}
           </div>
           {!preset ? (
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Authentication</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">认证方式</label>
               <SegmentedControl
                 options={AUTH_TYPE_OPTIONS}
                 value={authType}
@@ -2658,7 +2661,7 @@ function AddConnectionDialog({
           ) : null}
           {authType === "apikey" ? (
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">API key</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">API 密钥</label>
               <McpCredentialInput
                 kind="secret"
                 name="mcp-api-key"
@@ -2675,24 +2678,26 @@ function AddConnectionDialog({
               onClick={() => setShowOAuthClient(true)}
               className="text-left text-[12px] font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
             >
-              Use a pre-registered OAuth app instead
+              改用预注册 OAuth 应用
             </button>
           ) : null}
 
           {showOAuthClientFields ? (
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold text-gray-900">OAuth app</p>
-                <Link href={MCP_OAUTH_REDIRECT_DOCS_URL} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-900">
-                  OAuth setup
-                </Link>
+                <p className="text-[13px] font-semibold text-gray-900">OAuth 应用</p>
+                {runtimeConfig.foxworkMcpDocsUrl ? (
+                  <Link href={runtimeConfig.foxworkMcpDocsUrl} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-900">
+                    OAuth 配置说明
+                  </Link>
+                ) : null}
               </div>
               <p className="mt-1 text-[12px] leading-5 text-gray-500">
-                Register this Den instance's redirect URL with the provider, then add its credentials here.
+                先在服务商后台登记此 Den 实例的回调地址，再在这里填写凭据。
               </p>
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Client ID (optional for now)</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">客户端 ID（暂时选填）</label>
                   <McpCredentialInput
                     kind="identifier"
                     name="mcp-oauth-client-id"
@@ -2702,13 +2707,13 @@ function AddConnectionDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Client secret (optional for now)</label>
+                  <label className="mb-1.5 block text-[12px] font-medium text-gray-700">客户端密钥（暂时选填）</label>
                   <McpCredentialInput
                     kind="secret"
                     name="mcp-oauth-client-secret"
                     value={oauthClientSecret}
                     onChange={(event) => setOAuthClientSecret(event.target.value)}
-                    placeholder="Client secret"
+                    placeholder="填写客户端密钥"
                   />
                 </div>
               </div>
@@ -2717,7 +2722,7 @@ function AddConnectionDialog({
 
           {authType === "oauth" && authorizationServers.length > 1 ? (
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Authorization server</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">授权服务器</label>
               <DenSelect
                 value={authorizationServerIssuer}
                 onChange={(event) => {
@@ -2732,7 +2737,7 @@ function AddConnectionDialog({
                   setRequestedScopes([...new Set(recommendedScopes)]);
                 }}
               >
-                <option value="" disabled>Choose an issuer</option>
+                <option value="" disabled>选择签发方</option>
                 {authorizationServers.map((server) => <option key={server.issuer} value={server.issuer}>{server.issuer}</option>)}
               </DenSelect>
             </div>
@@ -2740,7 +2745,7 @@ function AddConnectionDialog({
 
           {authType === "oauth" && requirements && (requiredScopes.length > 0 || optionalScopes.length > 0) ? (
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-gray-700">Permissions</p>
+              <p className="mb-1.5 text-[12px] font-medium text-gray-700">授权范围</p>
               <div className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50 p-3 text-[12px]">
                 {optionalScopes.length > OPTIONAL_SCOPE_BULK_TOGGLE_THRESHOLD ? (
                   <button
@@ -2762,13 +2767,13 @@ function AddConnectionDialog({
                       {optionalScopeSelectionState === "all" ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                       {optionalScopeSelectionState === "some" ? <Minus className="h-3 w-3" strokeWidth={3} /> : null}
                     </span>
-                    <span>{optionalScopeSelectionState === "all" ? "Deselect all" : "Select all"}</span>
+                    <span>{optionalScopeSelectionState === "all" ? "取消全选" : "全选"}</span>
                   </button>
                 ) : null}
                 {requiredScopes.map((scope) => (
                   <label key={scope} className="flex items-center gap-2 text-gray-700">
                     <input type="checkbox" checked disabled />
-                    <span>{scope} <span className="text-gray-400">required</span></span>
+                    <span>{scope} <span className="text-gray-400">必需</span></span>
                   </label>
                 ))}
                 {optionalScopes.map((scope) => (
@@ -2780,7 +2785,7 @@ function AddConnectionDialog({
                         ? [...new Set([...current, scope])]
                         : current.filter((entry) => entry !== scope))}
                     />
-                    <span>{scope} <span className="text-gray-400">optional</span></span>
+                    <span>{scope} <span className="text-gray-400">可选</span></span>
                   </label>
                 ))}
               </div>
@@ -2789,23 +2794,23 @@ function AddConnectionDialog({
 
           {authType === "oauth" ? (
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Whose account does the AI use?</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-gray-700">AI 使用谁的账号？</label>
               <SegmentedControl options={CREDENTIAL_MODE_OPTIONS} value={credentialMode} onChange={setCredentialMode} />
               <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
                 {credentialMode === "per_member"
-                  ? "Each person signs in with their own account from Your Connections. Their AI acts as them, with their permissions."
-                  : "You sign in once with a single account — everyone granted access acts as it. Good for bot or service accounts."}
+                  ? "每名成员在“我的连接”中登录自己的账号，AI 只能使用该成员已有的权限。"
+                  : "管理员只需登录一次，获准成员共用这个账号。适合机器人或服务账号。"}
               </p>
             </div>
           ) : null}
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">Who can use this?</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">谁可以使用？</label>
             <SegmentedControl options={ACCESS_MODE_OPTIONS} value={accessMode} onChange={setAccessMode} />
             {accessMode === "teams" ? (
               <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
                 {teams.length === 0 ? (
-                  <p className="px-2 py-1 text-[12px] text-gray-400">No teams in this org yet.</p>
+                  <p className="px-2 py-1 text-[12px] text-gray-400">公司还没有团队。</p>
                 ) : (
                   teams.map((team) => (
                     <button
@@ -2826,7 +2831,7 @@ function AddConnectionDialog({
             {accessMode === "people" ? (
               <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
                 {members.length === 0 ? (
-                  <p className="px-2 py-1 text-[12px] text-gray-400">No members in this org yet.</p>
+                  <p className="px-2 py-1 text-[12px] text-gray-400">公司还没有成员。</p>
                 ) : (
                   members.map((member) => (
                     <button
@@ -2848,12 +2853,12 @@ function AddConnectionDialog({
         </div>
 
         {error ? (
-          <p className="mt-3 text-[13px] text-red-600">{error instanceof Error ? error.message : "Failed to add connection."}</p>
+          <p className="mt-3 text-[13px] text-red-600">{error instanceof Error ? error.message : "添加连接失败。"}</p>
         ) : null}
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={submitting}>
-            Cancel
+            取消
           </DenButton>
           <DenButton
             variant="primary"
@@ -2861,7 +2866,7 @@ function AddConnectionDialog({
             disabled={!name.trim() || !url.trim() || !requirements || discoveryState !== "ready" || (authType === "oauth" && authorizationServers.length > 1 && !authorizationServerIssuer) || (authType === "apikey" && !apiKey.trim()) || accessIncomplete}
             onClick={() => void submit()}
           >
-            Add connection
+            添加连接
           </DenButton>
         </div>
           </>

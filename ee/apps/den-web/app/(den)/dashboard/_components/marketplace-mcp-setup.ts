@@ -27,7 +27,7 @@ export function findPresetForRequirement(presets: ExternalMcpPreset[], connectio
 }
 
 export function serviceNameForRequirement(connection: MarketplacePluginCloudReadinessConnection, preset: ExternalMcpPreset | null): string {
-  return preset?.displayName ?? titleCase(connection.serverName || connection.name || "MCP server");
+  return preset?.displayName ?? titleCase(connection.serverName || connection.name || "MCP 服务器");
 }
 
 export function pluginSetupAuthType(preset: ExternalMcpPreset | null): ExternalMcpAuthType {
@@ -56,9 +56,9 @@ export function pluginSetupAuthLabel(authType: ExternalMcpAuthType): string {
     case "oauth":
       return "OAuth";
     case "apikey":
-      return "API key";
+      return "API 密钥";
     case "none":
-      return "No authentication";
+      return "无需身份验证";
   }
 }
 
@@ -89,18 +89,18 @@ export function pluginSetupSuccessCopy(input: {
 }): { body: string; linkLabel: string | null } {
   if (input.authType === "oauth" && input.credentialMode === "per_member") {
     return {
-      body: `${input.serviceName} is ready for ${input.pluginName}. Use Connect to authorize an account.`,
+      body: `${input.serviceName} 已可供 ${input.pluginName} 使用，请连接你的服务账号完成授权。`,
       linkLabel: null,
     };
   }
   if (input.authType === "oauth") {
     return {
-      body: `${input.serviceName} is ready for ${input.pluginName}. Use Connect to authorize the organization account.`,
+      body: `${input.serviceName} 已可供 ${input.pluginName} 使用，请连接公司共享账号完成授权。`,
       linkLabel: null,
     };
   }
   return {
-    body: `${input.serviceName} is ready for ${input.pluginName}. No user sign-in is needed.`,
+    body: `${input.serviceName} 已可供 ${input.pluginName} 使用，无需成员另行登录。`,
     linkLabel: null,
   };
 }
@@ -119,16 +119,16 @@ export function pluginReadinessConnectionAction(
   if (connection.id && connection.credentialMode === "per_member" && connection.connectedForMe === false) {
     return {
       connectionId: connection.id,
-      label: "Connect",
-      note: "Authorize your account without leaving this page.",
+      label: "连接账号",
+      note: "在当前页面完成你的服务账号授权。",
       type: "connect_member",
     };
   }
   if (isAdmin && connection.id && connection.credentialMode === "shared" && connection.connectedForMe === false) {
     return {
       connectionId: connection.id,
-      label: "Connect",
-      note: "Authorize one organization account without leaving this page.",
+      label: "连接账号",
+      note: "在当前页面完成公司共享账号授权。",
       type: "connect_org",
     };
   }
@@ -143,5 +143,5 @@ export function pluginRequirementNeedsAdminSetup(connection: MarketplacePluginCl
 }
 
 export function pluginSetupActionLabel(preset: ExternalMcpPreset | null): string {
-  return preset ? "Quick connect" : "Configure connection";
+  return preset ? "快速连接" : "配置连接";
 }

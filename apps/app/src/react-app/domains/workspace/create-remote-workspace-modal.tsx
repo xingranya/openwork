@@ -106,8 +106,8 @@ export function CreateRemoteWorkspaceModal(
             showDirectory
             submitting={submitting}
             hostInputRef={inputRef}
-            title="Remote server details"
-            description="Use the URL your OpenWork server shared with you. Add a token only if the server needs one."
+            title="远程服务器信息"
+            description="填写公司服务器提供的 Worker 地址；仅在服务器要求时填写访问令牌。"
           />
         </div>
 

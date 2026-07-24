@@ -20,8 +20,8 @@ import {
     useOrgLlmProviders,
 } from "./llm-provider-data";
 
-function formatCountLabel(count: number, singular: string, plural: string) {
-    return `${count} ${count === 1 ? singular : plural}`;
+function formatCountLabel(count: number) {
+    return `${count} 个模型`;
 }
 
 function getLimitLabel(config: Record<string, unknown>) {
@@ -30,7 +30,7 @@ function getLimitLabel(config: Record<string, unknown>) {
             ? (config.limit as Record<string, unknown>)
             : null;
     const context = typeof limit?.context === "number" ? limit.context : null;
-    return context ? `${context.toLocaleString()} ctx` : null;
+    return context ? `${context.toLocaleString()} 上下文` : null;
 }
 
 export function LlmProviderDetailScreen({
@@ -57,7 +57,7 @@ export function LlmProviderDetailScreen({
 
         if (
             !window.confirm(
-                `Delete ${provider.name}? This will remove its saved model list and access rules.`,
+                `删除 ${provider.name}？已保存的模型列表和访问规则也会被删除。`,
             )
         ) {
             return;
@@ -74,7 +74,7 @@ export function LlmProviderDetailScreen({
                 );
 
                 if (response.status !== 204 && !response.ok) {
-                    throw getRequestError(payload, response, `Failed to delete provider (${response.status}).`);
+                    throw getRequestError(payload, response, `删除模型服务失败（${response.status}）。`);
                 }
 
                 await reloadProviders();
@@ -85,7 +85,7 @@ export function LlmProviderDetailScreen({
             setDeleteError(
                 nextError instanceof Error
                     ? nextError.message
-                    : "Could not delete the provider.",
+                    : "删除模型服务失败。",
             );
         } finally {
             setDeleteBusy(false);
@@ -96,7 +96,7 @@ export function LlmProviderDetailScreen({
         return (
             <div className="mx-auto max-w-[1180px] px-6 py-8 md:px-8">
                 <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-                    Loading provider details...
+                    正在加载模型服务详情...
                 </div>
             </div>
         );
@@ -106,7 +106,7 @@ export function LlmProviderDetailScreen({
         return (
             <div className="mx-auto max-w-[1180px] px-6 py-8 md:px-8">
                 <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-4 text-[15px] text-red-700">
-                    {error ?? "That provider could not be found."}
+                    {error ?? "找不到此模型服务。"}
                 </div>
             </div>
         );
@@ -121,7 +121,7 @@ export function LlmProviderDetailScreen({
         <div className="mx-auto max-w-[1180px] px-6 py-8 md:px-8">
             <div className="mb-8 flex flex-col gap-3">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                    LLM provider
+                    模型服务
                 </p>
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                     <div>
@@ -138,7 +138,7 @@ export function LlmProviderDetailScreen({
                     className="inline-flex items-center gap-2 text-[15px] font-medium text-gray-500 transition hover:text-gray-900"
                 >
                     <ArrowLeft className="h-5 w-5" />
-                    Back to providers
+                    返回模型服务
                 </Link>
 
                 <div className="flex flex-wrap gap-3">
@@ -151,7 +151,7 @@ export function LlmProviderDetailScreen({
                                 )}
                             >
                                 <DenButton variant="secondary">
-                                    Edit Provider
+                                    编辑模型服务
                                 </DenButton>
                             </Link>
                             <DenButton
@@ -160,7 +160,7 @@ export function LlmProviderDetailScreen({
                                 onClick={() => void deleteProvider()}
                             >
                                 <Trash2 className="h-4 w-4" />
-                                Delete
+                                删除
                             </DenButton>
                         </>
                     ) : null}
@@ -177,7 +177,7 @@ export function LlmProviderDetailScreen({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                         <h2 className="text-[24px] font-semibold tracking-[-0.05em] text-gray-950">
-                            Provider configuration
+                            服务配置
                         </h2>
                     </div>
 
@@ -186,15 +186,15 @@ export function LlmProviderDetailScreen({
                     >
                         <KeyRound className="h-4 w-4" />
                         {provider.hasApiKey
-                            ? "Credential saved"
-                            : "Credential missing"}
+                            ? "凭据已保存"
+                            : "缺少凭据"}
                     </div>
                 </div>
 
                 <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            Provider id
+                            服务商 ID
                         </p>
                         <p className="mt-3 text-[16px] font-medium text-gray-900">
                             {provider.providerId}
@@ -202,23 +202,23 @@ export function LlmProviderDetailScreen({
                     </div>
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            NPM package
+                            NPM 包
                         </p>
                         <p className="mt-3 text-[16px] font-medium text-gray-900">
-                            {npmPackage ?? "Not set"}
+                            {npmPackage ?? "未设置"}
                         </p>
                     </div>
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            API base
+                            API 地址
                         </p>
                         <p className="mt-3 break-all text-[16px] font-medium text-gray-900">
-                            {apiBase ?? "Not set"}
+                            {apiBase ?? "未设置"}
                         </p>
                     </div>
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            Updated
+                            更新时间
                         </p>
                         <p className="mt-3 text-[16px] font-medium text-gray-900">
                             {formatProviderTimestamp(provider.updatedAt)}
@@ -242,7 +242,7 @@ export function LlmProviderDetailScreen({
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-600 transition hover:bg-gray-200"
                         >
-                            Docs
+                            文档
                             <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                     ) : null}
@@ -253,15 +253,11 @@ export function LlmProviderDetailScreen({
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <h2 className="text-[24px] font-semibold tracking-[-0.05em] text-gray-950">
-                            Selected models
+                            已选模型
                         </h2>
                     </div>
                     <div className="rounded-full bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-600">
-                        {formatCountLabel(
-                            provider.models.length,
-                            "model",
-                            "models",
-                        )}
+                        {formatCountLabel(provider.models.length)}
                     </div>
                 </div>
 
@@ -298,26 +294,26 @@ export function LlmProviderDetailScreen({
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <h2 className="text-[24px] font-semibold tracking-[-0.05em] text-gray-950">
-                            Access
+                            使用范围
                         </h2>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-[13px] font-medium text-gray-600">
                         <Users className="h-4 w-4" />
                         {provider.access.members.length +
                             provider.access.teams.length}{" "}
-                        grants
+                        项授权
                     </div>
                 </div>
 
                 <div className="mt-8 grid gap-6 xl:grid-cols-2">
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            People
+                            成员
                         </p>
                         <div className="mt-4 grid gap-3">
                             {provider.access.members.length === 0 ? (
                                 <p className="text-[14px] text-gray-500">
-                                    No direct people access yet.
+                                    暂无直接授权的成员。
                                 </p>
                             ) : (
                                 provider.access.members.map((member) => (
@@ -339,12 +335,12 @@ export function LlmProviderDetailScreen({
 
                     <div className="rounded-[24px] bg-gray-50 p-5">
                         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-                            Teams
+                            团队
                         </p>
                         <div className="mt-4 grid gap-3">
                             {provider.access.teams.length === 0 ? (
                                 <p className="text-[14px] text-gray-500">
-                                    No team access yet.
+                                    暂无获授权的团队。
                                 </p>
                             ) : (
                                 provider.access.teams.map((team) => (
@@ -356,7 +352,7 @@ export function LlmProviderDetailScreen({
                                             {team.name}
                                         </p>
                                         <p className="mt-1 text-[13px] text-gray-500">
-                                            Updated{" "}
+                                            更新于{" "}
                                             {formatProviderTimestamp(
                                                 team.updatedAt,
                                             )}
@@ -372,10 +368,10 @@ export function LlmProviderDetailScreen({
             {provider.source === "custom" ? (
                 <section className="rounded-[36px] border border-gray-200 bg-white p-8 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.24)]">
                     <h2 className="text-[24px] font-semibold tracking-[-0.05em] text-gray-950">
-                        Custom provider payload
+                        自定义服务原始配置
                     </h2>
                     <p className="mt-2 text-[15px] text-gray-500">
-                        The raw provider config saved for this custom source.
+                        此处显示为自定义来源保存的原始服务配置。
                     </p>
                     <pre className="mt-6 overflow-x-auto rounded-[24px] bg-[#0f172a] p-5 text-[13px] leading-6 text-slate-100">
                         {JSON.stringify(provider.providerConfig, null, 2)}

@@ -39,7 +39,7 @@ describe("org selection paper contract", () => {
 
     expect(source).toContain('data-testid="org-chooser-root"');
     expect(source).toContain('data-testid="org-chooser-actions"');
-    expect(source).toContain("创建或加入工作区");
+    expect(source).toContain("创建或加入公司");
     expect(source).toContain("退出登录");
   });
 });

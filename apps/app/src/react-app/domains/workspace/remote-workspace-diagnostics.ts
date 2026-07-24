@@ -72,7 +72,7 @@ function stripOpenworkWorkspaceMount(baseUrl: string) {
       return url.toString().replace(/\/+$/, "");
     }
   } catch {
-    // Fall through to the already-normalized value below.
+    // 解析失败时继续使用下方已经标准化的地址。
   }
   return baseUrl.replace(/\/+$/, "");
 }
@@ -87,7 +87,7 @@ function isValidHttpEndpoint(baseUrl: string) {
 }
 
 function describeUnknownError(error: unknown) {
-  return redactRemoteDiagnosticText(error instanceof Error ? error.message : String(error || "Unknown error"));
+  return redactRemoteDiagnosticText(error instanceof Error ? error.message : String(error || "未知错误"));
 }
 
 function isServerErrorStatus(error: unknown, status: number | number[]) {
@@ -100,11 +100,11 @@ function isServerErrorStatus(error: unknown, status: number | number[]) {
 }
 
 function rejectedTokenMessage(target: RemoteWorkspaceConnectionTarget) {
-  return remoteSupportMessage(`Token was rejected by ${target.endpointLabel}. Edit connection and reconnect the worker.`);
+  return remoteSupportMessage(`服务器 ${target.endpointLabel} 拒绝了登录令牌。请编辑连接并重新连接远程工作环境。`);
 }
 
 function remoteSupportMessage(message: string) {
-  return `${message} Upgrade the OpenWork host and try again. If this continues, contact team@openworklabs.com.`;
+  return `${message} 请确认远程 FoxWork 服务已升级到公司批准版本后重试；仍失败时请联系公司管理员。`;
 }
 
 export function redactRemoteDiagnosticText(value: string): string {
@@ -154,7 +154,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
       ok: false,
       state: {
         status: "error",
-        message: "Only remote workers can be tested.",
+        message: "只有远程工作区可以进行连接测试。",
         checkedAt: Date.now(),
       },
     };
@@ -165,7 +165,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
       ok: false,
       state: {
         status: "error",
-        message: "Connection diagnostics are only available for OpenWork remote workers.",
+        message: "连接诊断仅支持 FoxWork 远程工作区。",
         checkedAt: Date.now(),
       },
     };
@@ -177,7 +177,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
       ok: false,
       state: {
         status: "error",
-        message: remoteSupportMessage("Remote worker URL is missing. Edit connection and add a server URL."),
+        message: remoteSupportMessage("缺少远程工作环境地址。请编辑连接并填写服务器地址。"),
         checkedAt: Date.now(),
       },
     };
@@ -189,7 +189,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
       ok: false,
       state: {
         status: "error",
-        message: remoteSupportMessage("Remote worker URL is invalid. Edit connection and use an http:// or https:// URL."),
+        message: remoteSupportMessage("远程工作环境地址无效。请编辑连接并填写 http:// 或 https:// 地址。"),
         checkedAt: Date.now(),
       },
     };
@@ -241,20 +241,20 @@ export async function testRemoteWorkspaceConnection(
     const health = await client.health();
     if (!health?.ok) {
       return fail(
-        remoteSupportMessage(`Cannot reach ${target.endpointLabel}. Health check returned an unhealthy response.`),
+        remoteSupportMessage(`无法连接 ${target.endpointLabel}，健康检查返回异常状态。`),
         checkedAt,
       );
     }
   } catch (error) {
     return fail(
-      remoteSupportMessage(`Cannot reach ${target.endpointLabel}. Health check failed: ${describeUnknownError(error)}`),
+      remoteSupportMessage(`无法连接 ${target.endpointLabel}，健康检查失败：${describeUnknownError(error)}`),
       checkedAt,
     );
   }
 
   if (!target.token) {
     return fail(
-      remoteSupportMessage(`Token is missing for ${target.endpointLabel}. Edit connection and paste a valid OpenWork token.`),
+      remoteSupportMessage(`${target.endpointLabel} 缺少登录令牌。请编辑连接并填写有效的 FoxWork 令牌。`),
       checkedAt,
     );
   }
@@ -266,7 +266,7 @@ export async function testRemoteWorkspaceConnection(
       return fail(rejectedTokenMessage(target), checkedAt);
     }
     return fail(
-      remoteSupportMessage(`Connected to ${target.endpointLabel}, but capabilities failed: ${describeUnknownError(error)}`),
+      remoteSupportMessage(`已连接 ${target.endpointLabel}，但读取服务能力失败：${describeUnknownError(error)}`),
       checkedAt,
     );
   }
@@ -277,7 +277,7 @@ export async function testRemoteWorkspaceConnection(
       const workspace = list.items.find((item) => item.id === target.workspaceId) ?? null;
       if (!workspace) {
         return fail(
-          remoteSupportMessage(`Workspace ${target.workspaceId} was not found on ${target.endpointLabel}. Reconnect the worker.`),
+          remoteSupportMessage(`服务器 ${target.endpointLabel} 中没有找到工作区 ${target.workspaceId}。请重新连接远程工作环境。`),
           checkedAt,
         );
       }
@@ -287,19 +287,19 @@ export async function testRemoteWorkspaceConnection(
         target,
         state: {
           status: "connected",
-          message: `Connected to ${name}.`,
+          message: `已连接到 ${name}。`,
           checkedAt,
         },
       };
     } catch (error) {
       if (isServerErrorStatus(error, 403)) {
         return fail(
-          remoteSupportMessage(`Workspace ${target.workspaceId} is not authorized on ${target.endpointLabel}. Check the token or server access rules.`),
+          remoteSupportMessage(`工作区 ${target.workspaceId} 无权访问 ${target.endpointLabel}。请检查令牌或服务器权限设置。`),
           checkedAt,
         );
       }
       return fail(
-        remoteSupportMessage(`Connected to ${target.endpointLabel}, but workspace list failed: ${describeUnknownError(error)}`),
+        remoteSupportMessage(`已连接 ${target.endpointLabel}，但读取工作区列表失败：${describeUnknownError(error)}`),
         checkedAt,
       );
     }
@@ -317,7 +317,7 @@ export async function testRemoteWorkspaceConnection(
       target,
       state: {
         status: "connected",
-        message: `Connected to ${name}.`,
+        message: `已连接到 ${name}。`,
         checkedAt,
       },
     };
@@ -326,7 +326,7 @@ export async function testRemoteWorkspaceConnection(
       return fail(rejectedTokenMessage(target), checkedAt);
     }
     return fail(
-      remoteSupportMessage(`Connected to ${target.endpointLabel}, but workspace list failed: ${describeUnknownError(error)}`),
+      remoteSupportMessage(`已连接 ${target.endpointLabel}，但读取工作区列表失败：${describeUnknownError(error)}`),
       checkedAt,
     );
   }
@@ -338,14 +338,14 @@ export async function diagnoseRemoteWorkspaceTaskLoadFailure(
   options: TestOptions = {},
 ): Promise<WorkspaceConnectionState> {
   const checkedAt = options.now?.() ?? Date.now();
-  const fallback = redactRemoteDiagnosticText(trim(taskLoadError) || "Remote worker connection failed.");
+  const fallback = redactRemoteDiagnosticText(trim(taskLoadError) || "远程工作环境连接失败。");
 
   try {
     const diagnostic = await testRemoteWorkspaceConnection(workspace, options);
     if (diagnostic.ok) {
       return {
         status: "error",
-        message: `Worker is reachable, but tasks failed to load: ${fallback}`,
+        message: `远程工作环境可以连接，但任务加载失败：${fallback}`,
         checkedAt: diagnostic.state.checkedAt ?? checkedAt,
       };
     }

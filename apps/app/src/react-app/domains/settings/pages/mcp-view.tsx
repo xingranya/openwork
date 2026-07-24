@@ -522,7 +522,7 @@ export function McpView(props: McpViewProps) {
 
       {props.builtInExtensionsDisabled ? (
         <div className="rounded-xl border border-amber-6 bg-amber-2 px-4 py-3 text-xs text-amber-11">
-          Built-in OpenWork extensions are disabled by your organization. Use Show hidden to review blocked built-ins.
+          公司已停用 FoxWork 内置扩展。可选择“显示已隐藏”查看被停用的内置扩展。
         </div>
       ) : null}
 
@@ -535,13 +535,13 @@ export function McpView(props: McpViewProps) {
         }
       />
 
-      {/* Search + filter */}
+      {/* 搜索和筛选 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-dls-secondary" />
           <input
             className="w-full rounded-lg border border-dls-border bg-dls-surface py-2 pl-9 pr-3 text-xs text-dls-text placeholder:text-dls-secondary focus:outline-none focus:ring-2 focus:ring-[rgba(var(--dls-accent-rgb),0.2)]"
-            placeholder="Search extensions..."
+            placeholder="搜索扩展…"
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
           />
@@ -554,7 +554,7 @@ export function McpView(props: McpViewProps) {
               size="xs"
               onClick={() => setFilter(f)}
             >
-              {f === "all" ? "All" : f === "mcp" ? "MCPs" : "Skills"}
+              {f === "all" ? "全部" : f === "mcp" ? "MCP" : "Skills（技能）"}
             </Button>
           ))}
           <Button
@@ -562,7 +562,7 @@ export function McpView(props: McpViewProps) {
             size="xs"
             onClick={() => setShowHidden((current) => !current)}
           >
-            {showHidden ? "Showing hidden" : hiddenOrPolicyCount > 0 ? `Show hidden (${hiddenOrPolicyCount})` : "Show hidden"}
+            {showHidden ? "正在显示已隐藏" : hiddenOrPolicyCount > 0 ? `显示已隐藏（${hiddenOrPolicyCount}）` : "显示已隐藏"}
           </Button>
         </div>
       </div>
@@ -828,7 +828,7 @@ export function McpView(props: McpViewProps) {
             open={!!detailPlugin}
             onClose={() => setDetailPlugin(null)}
             name={detailPlugin.name}
-            description={detailPlugin.description ?? "Marketplace extension installed in this workspace."}
+            description={detailPlugin.description ?? "已安装到当前工作区的能力市场扩展。"}
             kind="extension"
             connected={true}
             hidden={hidden}
@@ -862,8 +862,8 @@ export function McpView(props: McpViewProps) {
             showEnablementCard={false}
             configSlot={(
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-dls-border bg-dls-hover px-2 py-1 text-xs text-dls-secondary">Shared by your organization</span>
-                <span className="rounded-full border border-dls-border bg-dls-hover px-2 py-1 text-xs text-dls-secondary">{connection.credentialMode === "shared" ? "Org account" : "Your account"}</span>
+                <span className="rounded-full border border-dls-border bg-dls-hover px-2 py-1 text-xs text-dls-secondary">公司共享</span>
+                <span className="rounded-full border border-dls-border bg-dls-hover px-2 py-1 text-xs text-dls-secondary">{connection.credentialMode === "shared" ? "公司账号" : "个人账号"}</span>
               </div>
             )}
           />
@@ -902,7 +902,7 @@ function McpCustomAppCard(props: { onOpen: () => void; onOpenGithubImport?: () =
           {props.onOpenGithubImport ? (
             <Button variant="outline" onClick={props.onOpenGithubImport}>
               <Download size={14} />
-              From GitHub
+              从 GitHub 导入
             </Button>
           ) : null}
           <Button onClick={props.onOpen}>
@@ -1002,11 +1002,11 @@ function McpQuickConnectSection(props: {
             <ExtensionCard
               key={`plugin:${plugin.pluginId}`}
               name={plugin.name}
-              description={plugin.description ?? `Marketplace extension with ${fileCount} installed file${fileCount === 1 ? "" : "s"}.`}
+              description={plugin.description ?? `能力市场扩展，已安装 ${fileCount} 个文件。`}
               kind="extension"
               connected={true}
               hidden={hidden}
-              actionLabel="View details"
+              actionLabel="查看详情"
               onClick={() => props.onPluginDetail?.(plugin)}
             />
           );
@@ -1020,13 +1020,13 @@ function McpQuickConnectSection(props: {
             <div key={item.id} className="space-y-2">
               <ExtensionCard
                 name={item.name}
-                description={item.description ?? "Shared by your organization."}
+                description={item.description ?? "由公司共享。"}
                 kind="mcp"
                 url={connection.url}
                 connected={true}
                 connectedLabel={orgMcpConnectionActionLabel(connection)}
                 beta
-                actionLabel={disconnecting ? t("mcp.org_connection_disconnecting_action") : "View details"}
+                actionLabel={disconnecting ? t("mcp.org_connection_disconnecting_action") : "查看详情"}
                 onClick={() => props.onOrgMcpDetail?.(item)}
               />
               {canDisconnect ? (
@@ -1047,8 +1047,8 @@ function McpQuickConnectSection(props: {
         {props.entries.length === 0 && (props.installedSkills ?? []).length === 0 && (props.installedPlugins ?? []).length === 0 && (props.installedOrgMcpItems ?? []).length === 0 ? (
           <div className="col-span-full rounded-xl border border-dashed border-dls-border px-5 py-10 text-center">
             <Unplug size={24} className="mx-auto mb-3 text-dls-secondary/30" />
-            <div className="text-sm font-medium text-dls-secondary">No extensions found</div>
-            <div className="mt-1 text-xs text-dls-secondary/60">Try a different search, filter, or open Marketplace to add one.</div>
+            <div className="text-sm font-medium text-dls-secondary">没有找到扩展</div>
+            <div className="mt-1 text-xs text-dls-secondary/60">请更换搜索条件或筛选项，也可以打开能力市场添加扩展。</div>
           </div>
         ) : null}
       </div>

@@ -8,15 +8,15 @@ export function SessionDebugPanel(props: {
 }) {
   return (
     <div className="fixed bottom-20 right-4 z-30 w-[280px] rounded-2xl border border-dls-border bg-dls-surface/95 p-3 text-xs text-dls-secondary shadow-[var(--dls-card-shadow)] backdrop-blur-md">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-dls-text">React Session Debug</div>
+      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-dls-text">React 会话调试</div>
       <div className="space-y-1.5">
-        <div>intendedSessionId: <span className="text-dls-text">{props.model.intendedSessionId || "-"}</span></div>
-        <div>renderedSessionId: <span className="text-dls-text">{props.model.renderedSessionId || "-"}</span></div>
-        <div>transitionState: <span className="text-dls-text">{props.model.transitionState}</span></div>
-        <div>renderSource: <span className="text-dls-text">{props.model.renderSource}</span></div>
-        <div>status: <span className="text-dls-text">{props.snapshot?.status.type ?? "-"}</span></div>
-        <div>messages: <span className="text-dls-text">{props.snapshot?.messages.length ?? 0}</span></div>
-        <div>todos: <span className="text-dls-text">{props.snapshot?.todos.length ?? 0}</span></div>
+        <div>目标会话 ID：<span className="text-dls-text">{props.model.intendedSessionId || "-"}</span></div>
+        <div>已渲染会话 ID：<span className="text-dls-text">{props.model.renderedSessionId || "-"}</span></div>
+        <div>切换状态：<span className="text-dls-text">{props.model.transitionState}</span></div>
+        <div>渲染来源：<span className="text-dls-text">{props.model.renderSource}</span></div>
+        <div>运行状态：<span className="text-dls-text">{props.snapshot?.status.type ?? "-"}</span></div>
+        <div>消息数：<span className="text-dls-text">{props.snapshot?.messages.length ?? 0}</span></div>
+        <div>待办数：<span className="text-dls-text">{props.snapshot?.todos.length ?? 0}</span></div>
       </div>
     </div>
   );

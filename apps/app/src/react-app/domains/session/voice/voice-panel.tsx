@@ -11,6 +11,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } fro
 import { ScrollArea, ScrollAreaViewport } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { publishInspectorSlice, recordInspectorEvent } from "@/app/lib/app-inspector";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 
 type VoiceStatus = "idle" | "connecting" | "listening" | "muted" | "speaking" | "error";
@@ -42,25 +43,25 @@ type VoicePanelProps = {
   onClose: () => void;
 };
 
-const DEFAULT_TEXT_COMMAND = "Summarize the current OpenWork session and put the next step in the composer.";
+const DEFAULT_TEXT_COMMAND = "总结当前 FoxWork 会话，并把下一步写入输入框。";
 const VOICE_SUGGESTIONS = [
-  "Read the latest message in this session",
-  "Put a concise next step in the composer",
-  "Open extension settings",
-  "Send the current composer prompt",
+  "朗读当前会话的最新消息",
+  "把简短的下一步写入输入框",
+  "打开扩展设置",
+  "发送输入框中的内容",
 ];
 const TOOL_LABELS: Record<string, string> = {
-  openwork_snapshot: "Checking OpenWork",
-  openwork_list_actions: "Listing controls",
-  openwork_execute_action: "Running UI action",
+  openwork_snapshot: "正在检查 FoxWork",
+  openwork_list_actions: "正在读取可用操作",
+  openwork_execute_action: "正在执行界面操作",
 };
 
 const initialVoiceRuntimeSnapshot: VoiceRuntimeSnapshot = {
   status: "idle",
-  statusText: "Ready for voice control.",
+  statusText: "语音控制已就绪。",
   micMuted: false,
-  micDiagnostics: "Microphone has not started yet.",
-  realtimeDiagnostics: "Realtime is not connected.",
+  micDiagnostics: "麦克风尚未启动。",
+  realtimeDiagnostics: "实时语音尚未连接。",
   entries: [],
   latestUserTranscript: "",
   assistantPreview: "",
@@ -134,16 +135,16 @@ function safeJson(value: unknown) {
 }
 
 function humanToolLabel(toolName?: string) {
-  if (!toolName) return "OpenWork action";
-  return TOOL_LABELS[toolName] ?? toolName.replace(/_/g, " ");
+  if (!toolName) return "FoxWork 操作";
+  return TOOL_LABELS[toolName] ?? "自定义操作";
 }
 
 function relativeTime(at: number) {
   const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
-  if (seconds < 5) return "now";
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 5) return "刚刚";
+  if (seconds < 60) return `${seconds} 秒前`;
   const minutes = Math.round(seconds / 60);
-  return `${minutes}m`;
+  return `${minutes} 分钟前`;
 }
 
 function isMeaningfulTranscript(value: string) {
@@ -221,11 +222,11 @@ function waitForDataChannelOpen(channel: RTCDataChannel) {
     };
     const timeout = window.setTimeout(() => {
       cleanup();
-      reject(new Error("Realtime data channel did not open in time."));
+      reject(new Error("实时语音通道未能及时打开。"));
     }, 10_000);
     const handleOpen = () => { cleanup(); resolve(); };
-    const handleClose = () => { cleanup(); reject(new Error("Realtime data channel closed before opening.")); };
-    const handleError = () => { cleanup(); reject(new Error("Realtime data channel failed.")); };
+    const handleClose = () => { cleanup(); reject(new Error("实时语音通道在打开前已关闭。")); };
+    const handleError = () => { cleanup(); reject(new Error("实时语音通道连接失败。")); };
     channel.addEventListener("open", handleOpen);
     channel.addEventListener("close", handleClose);
     channel.addEventListener("error", handleError);
@@ -233,10 +234,11 @@ function waitForDataChannelOpen(channel: RTCDataChannel) {
 }
 
 function describeAudioTrack(track: MediaStreamTrack | undefined) {
-  if (!track) return "No microphone track is attached.";
-  const muted = track.muted ? "muted by the system" : "not muted by the system";
-  const enabled = track.enabled ? "enabled" : "disabled";
-  return `Microphone track is ${track.readyState}, ${enabled}, and ${muted}.`;
+  if (!track) return "当前未连接麦克风音轨。";
+  const muted = track.muted ? "系统已静音" : "系统未静音";
+  const enabled = track.enabled ? "已启用" : "已停用";
+  const state = track.readyState === "live" ? "工作中" : "已结束";
+  return `麦克风音轨${state}，${enabled}，${muted}。`;
 }
 
 function setMicDiagnostics(stream: MediaStream | null) {
@@ -253,25 +255,27 @@ async function requestMacMicrophoneAccess() {
   if (!ask) return true;
   const result = await ask();
   if (result.platform !== "darwin") return true;
-  const status = result.after ?? result.before ?? result.status ?? "unknown";
-  setVoiceRuntimeSnapshot((current) => ({ ...current, micDiagnostics: `macOS microphone permission is ${status}.` }));
+  setVoiceRuntimeSnapshot((current) => ({
+    ...current,
+    micDiagnostics: result.granted ? "macOS 已允许使用麦克风。" : "macOS 未允许使用麦克风。",
+  }));
   return result.granted;
 }
 
 async function executeOpenWorkTool(name: string, args: Record<string, unknown>) {
   const control = window.__openworkControl;
-  if (!control) return { ok: false, error: "OpenWork control surface is not available." };
+  if (!control) return { ok: false, error: "FoxWork 控制功能当前不可用。" };
 
   if (name === "openwork_snapshot") return { ok: true, snapshot: control.snapshot() };
   if (name === "openwork_list_actions") return { ok: true, actions: control.listActions() };
   if (name === "openwork_execute_action") {
     const actionId = typeof args.actionId === "string" ? args.actionId.trim() : "";
-    if (!actionId) return { ok: false, error: "Missing actionId." };
+    if (!actionId) return { ok: false, error: "缺少操作标识。" };
     const actionArgs = isRecord(args.args) ? args.args : {};
     return control.execute(actionId, actionArgs);
   }
 
-  return { ok: false, error: `Unknown OpenWork voice tool: ${name}` };
+  return { ok: false, error: `无法识别语音工具：${name}` };
 }
 
 function VoiceOrb(props: { status: VoiceStatus; muted: boolean }) {
@@ -301,7 +305,7 @@ function VoiceOrb(props: { status: VoiceStatus; muted: boolean }) {
         "absolute -bottom-2 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm",
         active && "text-foreground",
       )}>
-        {props.status === "speaking" ? "Speaking" : props.muted ? "Muted" : active ? "Listening" : "Ready"}
+        {props.status === "speaking" ? "正在说话" : props.muted ? "已静音" : active ? "正在聆听" : "已就绪"}
       </div>
     </div>
   );
@@ -328,7 +332,7 @@ function VoiceTimelineRow(props: {
   if (entry.role === "assistant") {
     return (
       <article className="mr-8 rounded-2xl border border-border bg-card px-3 py-2 text-sm leading-relaxed text-card-foreground shadow-sm">
-        {entry.error ? <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-destructive">Error</div> : null}
+        {entry.error ? <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-destructive">错误</div> : null}
         <div className="whitespace-pre-wrap break-words">{entry.text}</div>
       </article>
     );
@@ -350,7 +354,7 @@ function VoiceTimelineRow(props: {
       )}
       <span className="min-w-0 flex-1">
         <span className="font-medium text-foreground/80">
-          {entry.toolName ? humanToolLabel(entry.toolName) : entry.error ? "Voice error" : "Voice note"}
+          {entry.toolName ? humanToolLabel(entry.toolName) : entry.error ? "语音错误" : "语音记录"}
         </span>
         <span className="ml-2 text-[10px] opacity-70">{relativeTime(entry.at)}</span>
         {copy ? <span className="mt-1 block whitespace-pre-wrap break-words">{copy}</span> : null}
@@ -377,7 +381,7 @@ export function VoicePanel(props: VoicePanelProps) {
         {
           id: `voice-${Date.now()}-${current.entries.length}`,
           role,
-          text: trimmed || options.toolName || "Tool call",
+          text: trimmed || options.toolName || "工具调用",
           toolName: options.toolName,
           error: options.error,
           at: Date.now(),
@@ -391,12 +395,12 @@ export function VoicePanel(props: VoicePanelProps) {
       ...current,
       status: nextStatus,
       statusText: text ?? (
-        nextStatus === "connecting" ? "Connecting to OpenAI Realtime..." :
-          nextStatus === "listening" ? "Listening. Ask OpenWork to act." :
-            nextStatus === "speaking" ? "OpenWork is speaking..." :
-              nextStatus === "muted" ? "Connected, microphone muted." :
-                nextStatus === "error" ? "Voice Mode needs attention." :
-                  "Ready for voice control."
+        nextStatus === "connecting" ? "正在连接 OpenAI 实时语音..." :
+          nextStatus === "listening" ? "正在聆听，请说出要 FoxWork 完成的操作。" :
+            nextStatus === "speaking" ? "FoxWork 正在说话..." :
+              nextStatus === "muted" ? "已连接，麦克风已静音。" :
+                nextStatus === "error" ? "语音模式需要处理。" :
+                  "语音控制已就绪。"
       ),
     }));
   }, []);
@@ -417,12 +421,12 @@ export function VoicePanel(props: VoicePanelProps) {
     setVoiceRuntimeSnapshot((current) => ({
       ...current,
       micMuted: false,
-      micDiagnostics: "Microphone has not started yet.",
-      realtimeDiagnostics: "Realtime is not connected.",
+      micDiagnostics: "麦克风尚未启动。",
+      realtimeDiagnostics: "实时语音尚未连接。",
       assistantPreview: "",
     }));
     setRuntimeStatus("idle");
-    if (!silent) addEntry("system", "Voice session stopped.");
+    if (!silent) addEntry("system", "语音会话已停止。");
     recordInspectorEvent("voice.disconnected", { sessionId: props.sessionId });
   }, [addEntry, props.sessionId, setRuntimeStatus]);
 
@@ -459,7 +463,7 @@ export function VoicePanel(props: VoicePanelProps) {
     const type = readString(event, "type");
 
     if (type === "input_audio_buffer.speech_started") {
-      setRuntimeStatus("listening", "Hearing you...");
+      setRuntimeStatus("listening", "正在听你说...");
       return;
     }
     if (type === "response.created") {
@@ -490,7 +494,7 @@ export function VoicePanel(props: VoicePanelProps) {
       addEntry("tool", toolName, { toolName });
       const output = await executeOpenWorkTool(toolName, args);
       if (isRecord(output) && output.ok === false) {
-        const error = typeof output.error === "string" ? output.error : "Tool failed.";
+        const error = toChineseUserMessage(output.error, "工具执行失败。");
         addEntry("tool", error, { toolName, error: true });
       }
       const channel = voiceRealtime.channel;
@@ -520,7 +524,7 @@ export function VoicePanel(props: VoicePanelProps) {
     if (type === "error") {
       voiceRealtime.responseInProgress = false;
       const error = readRecord(event, "error");
-      const message = typeof error.message === "string" ? error.message : "Realtime returned an error.";
+      const message = toChineseUserMessage(error.message, "实时语音服务返回错误。");
       addEntry("system", message, { error: true });
       setRuntimeStatus("error", message);
     }
@@ -528,20 +532,20 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const connectRealtime = useCallback(async (audioInput = true) => {
     const client = props.client;
-    if (!client) throw new Error("OpenWork host connection is not ready.");
-    if (audioInput && !navigator.mediaDevices?.getUserMedia) throw new Error("Microphone capture is unavailable in this runtime.");
+    if (!client) throw new Error("FoxWork 本地服务尚未连接。");
+    if (audioInput && !navigator.mediaDevices?.getUserMedia) throw new Error("当前环境无法使用麦克风。");
 
     disconnectRealtime(true);
-    setRuntimeStatus("connecting", "Minting Realtime session...");
+    setRuntimeStatus("connecting", "正在创建实时语音会话...");
     const sessionContext = await loadVoiceSessionContext(client, props.workspaceId, props.sessionId);
     const realtimeSession = await client.createVoiceRealtimeSession({ sessionContext });
 
     const peer = new RTCPeerConnection();
     voiceRealtime.peer = peer;
     if (audioInput) {
-      setRuntimeStatus("connecting", "Requesting microphone...");
+      setRuntimeStatus("connecting", "正在申请麦克风权限...");
       const macPermissionGranted = await requestMacMicrophoneAccess();
-      if (!macPermissionGranted) throw new Error("macOS denied microphone access. Enable OpenWork in System Settings > Privacy & Security > Microphone, then restart OpenWork.");
+      if (!macPermissionGranted) throw new Error("macOS 未允许使用麦克风。请在“系统设置 > 隐私与安全性 > 麦克风”中允许 FoxWork，然后重启 FoxWork。");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
@@ -554,7 +558,7 @@ export function VoicePanel(props: VoicePanelProps) {
         peer.addTrack(track, stream);
       }
     } else {
-      setVoiceRuntimeSnapshot((current) => ({ ...current, micDiagnostics: "Voice command is using typed or injected audio, not the microphone." }));
+      setVoiceRuntimeSnapshot((current) => ({ ...current, micDiagnostics: "当前使用输入文字或注入音频，不使用麦克风。" }));
       peer.addTransceiver("audio", { direction: "recvonly" });
     }
 
@@ -576,23 +580,22 @@ export function VoicePanel(props: VoicePanelProps) {
 
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-    if (!offer.sdp) throw new Error("Realtime offer did not include SDP.");
+    if (!offer.sdp) throw new Error("实时语音协商信息不完整。");
 
-    setRuntimeStatus("connecting", "Opening voice channel...");
+    setRuntimeStatus("connecting", "正在打开语音通道...");
     const sdpResponse = await desktopFetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
       headers: { Authorization: `Bearer ${realtimeSession.clientSecret}`, "Content-Type": "application/sdp" },
       body: offer.sdp,
     });
     if (!sdpResponse.ok) {
-      const detail = await sdpResponse.text().catch(() => "");
-      throw new Error(`OpenAI Realtime SDP failed: ${sdpResponse.status} ${detail}`.trim());
+      throw new Error(`OpenAI 实时语音连接失败，状态码 ${sdpResponse.status}。`);
     }
     await peer.setRemoteDescription({ type: "answer", sdp: await sdpResponse.text() });
     await waitForDataChannelOpen(channel);
-    setRealtimeDiagnostics("Realtime data channel is open.");
-    setRuntimeStatus("listening", audioInput ? undefined : "Connected. Send a typed voice command.");
-    addEntry("system", `Realtime connected with ${realtimeSession.model} and ${realtimeSession.tools.length} OpenWork tools.`);
+    setRealtimeDiagnostics("实时语音通道已打开。");
+    setRuntimeStatus("listening", audioInput ? undefined : "已连接，请输入语音命令。");
+    addEntry("system", `实时语音已连接模型 ${realtimeSession.model}，可使用 ${realtimeSession.tools.length} 个 FoxWork 工具。`);
     recordInspectorEvent("voice.connected", { sessionId: props.sessionId, model: realtimeSession.model });
   }, [addEntry, disconnectRealtime, handleRealtimeMessage, props.client, props.sessionId, props.workspaceId, setRuntimeStatus]);
 
@@ -602,7 +605,7 @@ export function VoicePanel(props: VoicePanelProps) {
       return true;
     } catch (error) {
       disconnectRealtime(true);
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toChineseUserMessage(error, "无法启动语音模式，请检查网络和麦克风权限。");
       setRealtimeDiagnostics(message);
       setRuntimeStatus("error", message);
       addEntry("system", message, { error: true });
@@ -628,19 +631,19 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const sendTextCommand = useCallback(async (text: string) => {
     const value = text.trim();
-    if (!value) return { ok: false, error: "Text command required." };
+    if (!value) return { ok: false, error: "请输入文字命令。" };
     if (!voiceRealtime.channel || voiceRealtime.channel.readyState !== "open") {
       try {
         await connectRealtime(false);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = toChineseUserMessage(error, "无法连接实时语音服务。");
         setRuntimeStatus("error", message);
         addEntry("system", message, { error: true });
         return { ok: false, error: message };
       }
     }
     const channel = voiceRealtime.channel;
-    if (!channel || channel.readyState !== "open") return { ok: false, error: "Realtime channel is not open." };
+    if (!channel || channel.readyState !== "open") return { ok: false, error: "实时语音通道尚未打开。" };
     addEntry("user", value);
     channel.send(JSON.stringify({
       type: "conversation.item.create",
@@ -652,14 +655,14 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const injectAudio = useCallback(async (args: unknown) => {
     const audio = voiceAudioArgument(args);
-    if (!audio) return { ok: false, error: "pcm16Base64 audio is required." };
+    if (!audio) return { ok: false, error: "缺少 PCM16 音频数据。" };
     if (!voiceRealtime.channel || voiceRealtime.channel.readyState !== "open") {
       const started = await startVoice();
       if (isRecord(started) && started.ok === false) return started;
     }
     const channel = voiceRealtime.channel;
-    if (!channel || channel.readyState !== "open") return { ok: false, error: "Realtime channel is not open." };
-    addEntry("system", "Injected deterministic audio into the Realtime input buffer.");
+    if (!channel || channel.readyState !== "open") return { ok: false, error: "实时语音通道尚未打开。" };
+    addEntry("system", "已将测试音频送入实时语音缓冲区。");
     channel.send(JSON.stringify({ type: "input_audio_buffer.append", audio }));
     channel.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
     requestRealtimeResponse(channel);
@@ -698,8 +701,8 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const startAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.start",
-    label: "Start Voice Mode",
-    description: "Connect the Voice Mode panel to OpenAI Realtime and start listening.",
+    label: "启动语音模式",
+    description: "连接 OpenAI 实时语音并开始聆听。",
     sideEffect: "external",
     disabled: !props.client || connected || status === "connecting",
     targetRef: panelRef,
@@ -709,8 +712,8 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const stopAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.stop",
-    label: "Stop Voice Mode",
-    description: "Disconnect the active Voice Mode Realtime session.",
+    label: "停止语音模式",
+    description: "断开当前实时语音会话。",
     sideEffect: "external",
     disabled: !connected,
     targetRef: panelRef,
@@ -720,8 +723,8 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const muteAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.toggle_mute",
-    label: micMuted ? "Unmute Voice Mode" : "Mute Voice Mode",
-    description: "Toggle the microphone track without closing the Realtime session.",
+    label: micMuted ? "取消语音静音" : "将语音静音",
+    description: "切换麦克风状态，不关闭实时语音会话。",
     sideEffect: "none",
     disabled: !connected,
     targetRef: panelRef,
@@ -731,11 +734,11 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const injectTranscriptAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.inject_transcript",
-    label: "Inject a voice transcript",
-    description: "Deterministic eval hook: add a transcript to Voice Mode and place it in the composer.",
+    label: "注入语音转写",
+    description: "测试用操作：添加语音转写并放入输入框。",
     sideEffect: "mutation",
     requiresArgs: true,
-    args: [{ name: "text", type: "string", required: true, description: "Transcript text to inject." }],
+    args: [{ name: "text", type: "string", required: true, description: "要注入的转写文字。" }],
     previewArgs: { text: DEFAULT_TEXT_COMMAND },
     targetRef: panelRef,
     execute: injectTranscript,
@@ -744,11 +747,11 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const sendTextAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.send_text",
-    label: "Send text through Voice Mode",
-    description: "Send a deterministic text command through the active OpenAI Realtime voice session.",
+    label: "通过语音模式发送文字",
+    description: "通过当前 OpenAI 实时语音会话发送文字命令。",
     sideEffect: "external",
     requiresArgs: true,
-    args: [{ name: "text", type: "string", required: true, description: "Text command to send through the Realtime model." }],
+    args: [{ name: "text", type: "string", required: true, description: "要发送给实时语音模型的文字命令。" }],
     previewArgs: { text: DEFAULT_TEXT_COMMAND },
     targetRef: panelRef,
     execute: (args) => sendTextCommand(voiceTextArgument(args)),
@@ -757,11 +760,11 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const injectAudioAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.inject_audio",
-    label: "Inject voice audio",
-    description: "Deterministic eval hook: send PCM16 audio through the active OpenAI Realtime input buffer.",
+    label: "注入语音音频",
+    description: "测试用操作：向 OpenAI 实时语音缓冲区发送 PCM16 音频。",
     sideEffect: "external",
     requiresArgs: true,
-    args: [{ name: "pcm16Base64", type: "string", required: true, description: "Base64 encoded PCM16 mono audio." }],
+    args: [{ name: "pcm16Base64", type: "string", required: true, description: "Base64 编码的 PCM16 单声道音频。" }],
     targetRef: panelRef,
     execute: injectAudio,
   }), [injectAudio]);
@@ -769,8 +772,8 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const statusAction = useMemo<OpenworkControlAction>(() => ({
     id: "voice.status",
-    label: "Read Voice Mode status",
-    description: "Return the Voice Mode runtime state for tests and agents.",
+    label: "读取语音模式状态",
+    description: "返回语音模式运行状态，供测试和智能体使用。",
     sideEffect: "none",
     execute: () => ({ status, statusText, connected, micMuted, micDiagnostics, realtimeDiagnostics, latestUserTranscript, assistantPreview }),
   }), [assistantPreview, connected, latestUserTranscript, micDiagnostics, micMuted, realtimeDiagnostics, status, statusText]);
@@ -790,11 +793,11 @@ export function VoicePanel(props: VoicePanelProps) {
               )}
             />
             <Radio className="text-primary" />
-            Voice Mode
+            语音模式
           </div>
-          <div className="truncate text-xs text-muted-foreground">Realtime voice over OpenWork UI MCP controls</div>
+          <div className="truncate text-xs text-muted-foreground">通过 FoxWork 界面控制实时语音</div>
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={props.onClose} aria-label="Close Voice Mode">
+        <Button variant="ghost" size="icon-sm" onClick={props.onClose} aria-label="关闭语音模式">
           <X />
         </Button>
       </div>
@@ -807,7 +810,7 @@ export function VoicePanel(props: VoicePanelProps) {
           <div className="text-center">
             <div className="text-sm font-medium text-foreground">{statusText}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Say things like "type a follow-up", "send it", or "read the latest session message".
+              可以说“输入下一步”“发送内容”或“朗读最新消息”。
             </div>
           </div>
 
@@ -830,25 +833,25 @@ export function VoicePanel(props: VoicePanelProps) {
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={() => void startVoice()} disabled={!props.client || connected || status === "connecting"}>
               {status === "connecting" ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Mic2 data-icon="inline-start" />}
-              Start voice
+              开始语音
             </Button>
             <Button variant="outline" onClick={stopVoice} disabled={!connected}>
               <Square data-icon="inline-start" />
-              Stop
+              停止
             </Button>
             <Button variant="outline" onClick={toggleMic} disabled={!connected} className="col-span-2">
               {micMuted ? <Mic2 data-icon="inline-start" /> : <MicOff data-icon="inline-start" />}
-              {micMuted ? "Unmute microphone" : "Mute microphone"}
+              {micMuted ? "取消麦克风静音" : "将麦克风静音"}
             </Button>
           </div>
 
           {!props.client ? (
             <Card variant="outline" size="sm">
               <CardHeader>
-                <CardTitle>Host connection required</CardTitle>
+                <CardTitle>需要连接本地服务</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Voice Mode needs the local OpenWork server so it can mint short-lived Realtime client secrets without exposing your API key to the renderer.
+                语音模式需要连接 FoxWork 本地服务，由服务生成短期实时语音凭据，避免在界面进程中暴露 API 密钥。
               </CardContent>
             </Card>
           ) : null}
@@ -869,7 +872,7 @@ export function VoicePanel(props: VoicePanelProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-2 px-3 pb-3 pt-4">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Rendering response</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">正在生成回答</div>
                   <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground" aria-live="polite">
                     {assistantPreview}
                   </div>
@@ -882,15 +885,15 @@ export function VoicePanel(props: VoicePanelProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Radio className="text-primary" />
-                Voice diagnostics
+                语音诊断
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs text-muted-foreground">
               <div>
-                <span className="font-medium text-foreground">Connection:</span> {realtimeDiagnostics}
+                <span className="font-medium text-foreground">连接：</span> {realtimeDiagnostics}
               </div>
               <div>
-                <span className="font-medium text-foreground">Microphone:</span> {micDiagnostics}
+                <span className="font-medium text-foreground">麦克风：</span> {micDiagnostics}
               </div>
               {status === "error" ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-destructive">
@@ -904,7 +907,7 @@ export function VoicePanel(props: VoicePanelProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Sparkles className="text-primary" />
-                Typed voice command
+                文字语音命令
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -923,7 +926,7 @@ export function VoicePanel(props: VoicePanelProps) {
                   rows={3}
                 />
                 <InputGroupAddon align="block-end" className="justify-between border-t border-border">
-                  <span className="text-xs text-muted-foreground">Enter to send, Shift+Enter for newline</span>
+                  <span className="text-xs text-muted-foreground">按回车发送，Shift+回车换行</span>
                   <InputGroupButton
                     variant="outline"
                     onClick={() => {
@@ -934,7 +937,7 @@ export function VoicePanel(props: VoicePanelProps) {
                     disabled={!textCommand.trim() || status === "connecting"}
                   >
                     <SendHorizontal data-icon="inline-start" />
-                    Send
+                    发送
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
@@ -942,7 +945,7 @@ export function VoicePanel(props: VoicePanelProps) {
           </Card>
 
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">Timeline</div>
+            <div className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">时间线</div>
             {entries.length ? entries.map((entry) => (
               <VoiceTimelineRow
                 key={entry.id}
@@ -952,7 +955,7 @@ export function VoicePanel(props: VoicePanelProps) {
               />
             )) : (
               <div className="rounded-2xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
-                Start voice or inject a transcript from UI MCP to see the voice timeline.
+                启动语音，或通过界面 MCP 注入转写后，可在这里查看时间线。
               </div>
             )}
             <div ref={timelineEndRef} />

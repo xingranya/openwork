@@ -28,6 +28,7 @@ import {
   type DenOrgSummary,
 } from "@/app/lib/den";
 import { applyBrandAppName, applyBrandIcon, relaunchDesktopApp } from "@/app/lib/desktop";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   isAlphaChannelAllowedByDesktopConfig,
   isAlphaUpdateAllowed,
@@ -207,7 +208,7 @@ function usePreparedBootstrap() {
   return useMemo<PreparedBootstrapSummary | null>(() => {
     if (!bootstrap.prepared?.skillTitle) return null;
     return {
-      orgName: bootstrap.prepared.orgName || "Your workspace",
+      orgName: bootstrap.prepared.orgName || "当前工作区",
       claimLinks: bootstrap.claimLinks ?? [],
     };
   }, [bootstrap]);
@@ -224,7 +225,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
   const submitSignInCode = useCallback(async () => {
     const grant = signInCode.trim();
     if (grant.length < 12 || signInBusy) {
-      if (grant.length < 12) setSignInError("Paste a valid one-time sign-in code.");
+      if (grant.length < 12) setSignInError("请粘贴有效的一次性登录码。");
       return;
     }
 
@@ -237,7 +238,9 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
         baseUrl: settings.baseUrl,
         client: createDenClient({ baseUrl: settings.baseUrl }),
       });
-      if (!result.ok) setSignInError(result.error);
+      if (!result.ok) {
+        setSignInError(toChineseUserMessage(result.error, "登录码无效或已过期，请重新获取。"));
+      }
     } finally {
       setSignInBusy(false);
     }
@@ -255,7 +258,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
             className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
           >
             <CheckCircle2 className="size-3.5" />
-            Setup complete — OpenWork is ready
+            准备完成，FoxWork 已可使用
           </div>
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
             <BuildingOffice2Icon className="size-7 text-foreground" />
@@ -271,7 +274,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                 onClick={() => platform.openLink(ownerClaim.url)}
                 className="w-full sm:w-auto"
               >
-                Claim workspace and continue
+                领取工作区并继续
                 <ArrowUpRightIcon data-icon="inline-end" />
               </Button>
 
@@ -283,16 +286,16 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                   setSignInError(null);
                 }}
               >
-                {showSignInCode ? "Hide sign-in code" : "Paste sign-in code"}
+                {showSignInCode ? "收起登录码" : "粘贴登录码"}
               </Button>
 
               {showSignInCode ? (
                 <div className="grid gap-3 rounded-2xl border border-dls-border bg-dls-surface p-4">
                   <Input
-                    aria-label="One-time sign-in code"
+                    aria-label="一次性登录码"
                     value={signInCode}
                     onChange={(event) => setSignInCode(event.currentTarget.value)}
-                    placeholder="Paste the code from your browser"
+                    placeholder="粘贴浏览器中显示的登录码"
                     disabled={signInBusy}
                   />
                   <Button
@@ -300,7 +303,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                     onClick={() => void submitSignInCode()}
                     disabled={signInBusy || !signInCode.trim()}
                   >
-                    {signInBusy ? "Signing in..." : "Sign in to this workspace"}
+                    {signInBusy ? "正在登录..." : "登录当前工作区"}
                   </Button>
                 </div>
               ) : null}
@@ -395,12 +398,12 @@ export function OrgOnboardingPage() {
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
               <BuildingOffice2Icon className="size-7 text-foreground" />
             </div>
-            <PageTitle>Your organization</PageTitle>
+            <PageTitle>你的公司</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading organizations...</PageLoadingDescription>
+              <PageLoadingDescription>正在加载公司信息...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -418,11 +421,11 @@ export function OrgOnboardingPage() {
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
               <BuildingOffice2Icon className="size-7 text-foreground" />
             </div>
-            <PageTitle>Choose your organization</PageTitle>
+            <PageTitle>选择公司</PageTitle>
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error ? error.message : "Unable to load organizations."}
+                {toChineseUserMessage(error, "无法加载公司信息，请检查网络后重试。")}
               </AlertDescription>
             </Alert>
           </PageHeader>
@@ -549,19 +552,19 @@ export function ResourceSelectionPage() {
 
       let updateReady = false;
       let warning = desktopConfig.brandIconUrl && !iconResult.ok
-        ? "The workspace app icon could not be prepared."
+        ? "无法准备公司应用图标。"
         : null;
       try {
         updateReady = await stageOnboardingUpdate(desktopConfig);
       } catch (error) {
-        warning ??= error instanceof Error ? error.message : "The application update could not be prepared.";
+        warning ??= toChineseUserMessage(error, "无法准备应用更新。");
       }
       setBrandingRestart({ fingerprint, updateReady, warning });
     } catch (error) {
       setBrandingRestart({
         fingerprint: workspaceBrandingFingerprint(orgId, {}),
         updateReady: false,
-        warning: error instanceof Error ? error.message : "Workspace branding could not be prepared.",
+        warning: toChineseUserMessage(error, "无法准备公司品牌配置。"),
       });
     } finally {
       setPreparingBranding(false);
@@ -599,15 +602,15 @@ export function ResourceSelectionPage() {
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
               <BuildingOffice2Icon className="size-7 text-foreground" />
             </div>
-            <PageTitle>Preparing workspace identity</PageTitle>
+            <PageTitle>正在准备工作区</PageTitle>
             <PageDescription>
-              Applying {orgName || "your workspace"}&apos;s branding and checking for an application update.
+              正在应用{orgName || "当前工作区"}的公司名称和图标，并检查应用更新。
             </PageDescription>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Preparing workspace...</PageLoadingDescription>
+              <PageLoadingDescription>正在准备工作区...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -625,39 +628,39 @@ export function ResourceSelectionPage() {
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
               <BuildingOffice2Icon className="size-7 text-foreground" />
             </div>
-            <PageTitle>Workspace identity is ready</PageTitle>
+            <PageTitle>工作区已准备完成</PageTitle>
             <PageDescription>
-              Restart OpenWork once to finish applying {orgName || "your workspace"}&apos;s name and app icon everywhere.
+              重启一次 FoxWork，即可在系统各处应用{orgName || "当前工作区"}的名称和图标。
             </PageDescription>
             {brandingRestart.updateReady ? (
               <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11">
                 <CheckCircle2 className="size-3.5" />
-                Application update downloaded
+                应用更新已下载
               </div>
             ) : null}
             {brandingRestart.warning ? (
               <Alert>
                 <CircleAlert />
                 <AlertDescription>
-                  {brandingRestart.warning} You can still continue to the workspace.
+                  {brandingRestart.warning} 你仍可继续进入工作区。
                 </AlertDescription>
               </Alert>
             ) : null}
           </PageHeader>
           <PageContent>
             <details className="mx-auto w-full max-w-md rounded-xl border border-dls-border bg-dls-surface px-4 py-3 text-sm">
-              <summary className="cursor-pointer font-medium">Why restart?</summary>
+              <summary className="cursor-pointer font-medium">为什么需要重启？</summary>
               <p className="mt-2 text-muted-foreground">
-                Restarting refreshes the workspace name and icon across your operating system and installs the prepared application update.
+                重启会刷新系统中的工作区名称和图标，并安装已准备好的应用更新。
               </p>
             </details>
           </PageContent>
           <PageFooter>
             <Button type="button" variant="outline" onClick={continueWithoutRestart}>
-              Continue without restarting
+              暂不重启
             </Button>
             <Button type="button" size="lg" onClick={() => void restartWithBranding()}>
-              Restart OpenWork
+              重启 FoxWork
               <ArrowRight data-icon="inline-end" />
             </Button>
           </PageFooter>
@@ -680,25 +683,27 @@ export function ResourceSelectionPage() {
               className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
             >
               <CheckCircle2 className="size-3.5" />
-              Setup complete — OpenWork prepared this workspace
+              准备完成，FoxWork 已配置此工作区
             </div>
           ) : null}
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
             <BuildingOffice2Icon className="size-7 text-foreground" />
           </div>
           <PageTitle>
-            {orgName || "Your organization"}
+            {orgName || "你的公司"}
           </PageTitle>
           {loading ? (
             null
           ) : error ? (
             <Alert variant="destructive">
               <CircleAlert />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                {toChineseUserMessage(error, "无法加载公司资源，请稍后重试。")}
+              </AlertDescription>
             </Alert>
           ) : hasResources ? (
             <PageDescription>
-              You have access to the following resources.
+              你可以使用以下公司资源。
             </PageDescription>
           ) : null}
         </PageHeader>
@@ -707,16 +712,16 @@ export function ResourceSelectionPage() {
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading available resources...</PageLoadingDescription>
+              <PageLoadingDescription>正在加载可用资源...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         ) : !hasResources ? (
           <PageContent>
             <Empty className="h-fit flex-none">
               <EmptyHeader>
-                <EmptyTitle>No resources have been configured for this organization yet.</EmptyTitle>
+                <EmptyTitle>公司暂未配置可用资源。</EmptyTitle>
                 <EmptyDescription>
-                  Add AI providers or marketplaces from the OpenWork Cloud dashboard.
+                  请联系管理员在公司后台添加模型服务或能力市场。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -724,7 +729,7 @@ export function ResourceSelectionPage() {
                   variant="outline"
                   onClick={() => platform.openLink(resolveDenBaseUrls(settings.baseUrl).baseUrl)}
                 >
-                  Open OpenWork Cloud
+                  打开公司管理后台
                   <ArrowUpRightIcon data-icon="inline-end" />
                 </Button>
               </EmptyContent>
@@ -742,9 +747,9 @@ export function ResourceSelectionPage() {
                   {providers.length > 0 ? (
                     <Section
                       icon={<CloudIcon className="size-5 text-foreground/60" />}
-                      title="AI Providers"
-                      description="Models you can use in your workspace."
-                      count={`${totalModels} model${totalModels === 1 ? "" : "s"}`}
+                      title="公司模型"
+                      description="当前工作区可以使用的模型。"
+                      count={`${totalModels} 个模型`}
                     >
                       {providers.map((provider) => (
                         <ProviderCard
@@ -761,9 +766,9 @@ export function ResourceSelectionPage() {
                   {marketplaces.length > 0 ? (
                     <Section
                       icon={<Square3Stack3DIcon className="size-5 text-foreground/60" />}
-                      title="Marketplaces"
-                      description="App stores with extensions and plugins for your workspace."
-                      count={`${marketplaces.length} marketplace${marketplaces.length === 1 ? "" : "s"}`}
+                      title="能力市场"
+                      description="公司为当前工作区提供的扩展和插件。"
+                      count={`${marketplaces.length} 个市场`}
                     >
                       {marketplaces.map((mp) => (
                         <MarketplaceCard key={mp.id} marketplace={mp} />
@@ -778,7 +783,7 @@ export function ResourceSelectionPage() {
             {selectedDefault ? (
               <div className="rounded-xl border border-green-6/30 bg-green-2/30 px-4 py-3 text-center text-sm text-green-11">
                 <Check size={14} className="mr-1 inline" />
-                {selectedDefault.label} will be set as your default model.
+                将把 {selectedDefault.label} 设为默认模型。
               </div>
             ) : null}
           </PageContent>
@@ -788,7 +793,7 @@ export function ResourceSelectionPage() {
           {/* Footer hint */}
           {!loading && hasResources ? (
             <p className="text-center text-xs text-muted-foreground text-balance leading-relaxed tracking-wide">
-              Providers are added to your workspace automatically. Marketplaces are available from Cloud settings.
+              公司模型会自动加入当前工作区，其他能力可在设置中查看。
             </p>
           ) : null}
           <Button
@@ -799,10 +804,10 @@ export function ResourceSelectionPage() {
             disabled={loading || preparingBranding}
           >
             {preparingBranding
-              ? "Preparing workspace..."
+              ? "正在准备工作区..."
               : hasResources
-                ? "Continue to workspace"
-                : "Continue"}
+                ? "进入工作区"
+                : "继续"}
             <ArrowRight data-icon="inline-end" />
           </Button>
         </PageFooter>
@@ -822,12 +827,12 @@ function MarketplaceCard({ marketplace }: MarketplaceCardProps) {
         <div className="text-sm font-medium text-foreground">{marketplace.name}</div>
         {marketplace.description ? (
           <div className="mt-0.5 truncate text-xs text-muted-foreground">
-            {marketplace.description}
+            {toChineseUserMessage(marketplace.description, "此能力市场暂未提供中文说明。")}
           </div>
         ) : null}
       </div>
         <span className="shrink-0 text-xs text-muted-foreground">
-        {marketplace.pluginCount} plugin{marketplace.pluginCount === 1 ? "" : "s"}
+        {marketplace.pluginCount} 个插件
       </span>
     </div>
   );
@@ -921,8 +926,8 @@ function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCa
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
             {provider.models.length === 1
-              ? "1 model"
-              : `${provider.models.length} models`}
+              ? "1 个模型"
+              : `${provider.models.length} 个模型`}
           </div>
         </div>
         {firstModel ? (
@@ -936,7 +941,7 @@ function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCa
             )}
             onClick={handleUseAsDefault}
           >
-            {isSelected ? "Default" : "Use as default"}
+            {isSelected ? "默认模型" : "设为默认"}
           </button>
         ) : (
           <Check size={16} className="shrink-0 text-green-11" />
@@ -954,7 +959,7 @@ function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCa
           ))}
           {provider.models.length > 5 ? (
             <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs text-muted-foreground">
-              +{provider.models.length - 5} more
+              另有 {provider.models.length - 5} 个
             </span>
           ) : null}
         </div>
@@ -1003,17 +1008,17 @@ function OrganizationSelectionPage({
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-dls-border bg-dls-hover">
             <BuildingOffice2Icon className="size-7 text-foreground" />
           </div>
-          <PageTitle>Choose your organization</PageTitle>
+          <PageTitle>选择公司</PageTitle>
           {error ? (
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error ? error.message : "Unable to select organization."}
+                {toChineseUserMessage(error, "无法选择公司，请稍后重试。")}
               </AlertDescription>
             </Alert>
           ) : (
             <PageDescription>
-              Select the organization whose cloud resources should be connected to this workspace.
+              选择要连接到当前工作区的公司。
             </PageDescription>
           )}
         </PageHeader>
@@ -1034,7 +1039,7 @@ function OrganizationSelectionPage({
             onClick={() => mutate(selected)}
             disabled={isPending}
           >
-            {isPending ? "Connecting..." : "Continue with organization"}
+            {isPending ? "正在连接..." : "连接并继续"}
             <ArrowRight data-icon="inline-end" />
           </Button>
         </PageFooter>
@@ -1057,8 +1062,8 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
     <div className="flex flex-col gap-3">
       {orgs.length > 10 ? (
         <Input
-          aria-label="Search organizations"
-          placeholder="Search organizations..."
+          aria-label="搜索公司"
+          placeholder="搜索公司..."
           value={query}
           onChange={(event) => updateQuery(event.target.value)}
         />
@@ -1070,7 +1075,7 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
           const nextOrg = orgs.find((org) => org.id === nextOrgId);
           if (nextOrg) onValueChange(nextOrg);
         }}
-        aria-label="Organizations"
+        aria-label="公司列表"
       >
         {visible.map((org) => {
           const fieldId = `organization-${org.id}`;
@@ -1106,17 +1111,17 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
 
       {filtered.length === 0 && query.trim() ? (
         <div className="text-sm text-muted-foreground">
-          No organizations match your search.
+          没有符合搜索条件的公司。
         </div>
       ) : null}
 
       {hasMore ? (
         <div className="flex flex-col items-start gap-2">
           <Button type="button" variant="outline" size="sm" onClick={showMore}>
-            Show more
+            显示更多
           </Button>
           <div className="text-xs text-muted-foreground">
-            Showing {visible.length} of {filtered.length} organizations
+            当前显示 {visible.length} 家，共 {filtered.length} 家公司
           </div>
         </div>
       ) : null}

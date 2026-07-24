@@ -32,9 +32,9 @@ type InferenceStatus = {
 };
 
 const WINDOW_LABEL: Record<InferenceWindowType, string> = {
-  five_hour: "5 hour usage limit",
-  weekly: "Weekly usage limit",
-  monthly: "Monthly usage limit",
+  five_hour: "5 小时用量",
+  weekly: "每周用量",
+  monthly: "每月用量",
 };
 
 const WINDOW_ORDER: InferenceWindowType[] = ["five_hour", "weekly", "monthly"];
@@ -96,9 +96,9 @@ function formatResetLabel(bucket: InferenceUsageBucket): string {
   const reset = new Date(bucket.windowEndAt);
   if (Number.isNaN(reset.getTime())) return "—";
   if (bucket.windowType === "five_hour") {
-    return `Resets ${reset.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+    return `${reset.toLocaleTimeString("zh-CN", { hour: "numeric", minute: "2-digit" })} 重置`;
   }
-  return `Resets ${reset.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  return `${reset.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })}重置`;
 }
 
 function computeRemainingPercent(bucket: InferenceUsageBucket): number {
@@ -119,7 +119,7 @@ function UsageLimitsCard({ buckets }: { buckets: InferenceUsageBucket[] }) {
     <section className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_18px_45px_-35px_rgba(15,23,42,0.35)]">
       <div className="border-b border-gray-100 px-6 py-4">
         <p className="text-[13px] leading-5 text-gray-500">
-          Usage limits are shared across your organization and scale with the number of active members.
+          用量由全公司共享，并会随活跃成员数量调整。
         </p>
       </div>
       <ul className="divide-y divide-gray-100">
@@ -139,7 +139,7 @@ function UsageLimitsCard({ buckets }: { buckets: InferenceUsageBucket[] }) {
                   />
                 </div>
                 <span className="min-w-[80px] text-right text-[13px] font-medium text-gray-700">
-                  {remaining.toFixed(1)}% left
+                  剩余 {remaining.toFixed(1)}%
                 </span>
               </div>
             </li>
@@ -158,9 +158,9 @@ const MODEL_LINEUP = Object.entries(INFERENCE_MODEL_ALIASES)
   }));
 
 const VALUE_POINTS = [
-  "Open-source frontier models, hosted and kept up to date by OpenWork",
-  "No API keys to manage — every member is provisioned automatically",
-  "One subscription covers your whole workspace, with usage limits that scale with your team",
+  "精选开源模型由 FoxWork 统一托管并持续更新",
+  "无需成员分别管理 API 密钥，登录后即可使用",
+  "一份订阅覆盖整个公司，用量随活跃成员数量调整",
 ];
 
 function ModelsValueProp(props: {
@@ -174,11 +174,10 @@ function ModelsValueProp(props: {
       <div className="grid gap-8 p-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           <h2 className="text-[24px] font-medium leading-8 tracking-[-0.4px] text-gray-950">
-            The best open-source models, ready for your whole team.
+            为整个团队准备的精选开源模型
           </h2>
           <p className="mt-3 max-w-[560px] text-[14px] leading-6 text-gray-500">
-            OpenWork Models gives every member of your workspace instant access to a hand-picked
-            lineup of OSS frontier models — no provider accounts, no key juggling.
+            FoxWork 模型服务为公司成员统一提供精选开源模型，无需分别注册服务方账号或管理密钥。
           </p>
           <ul className="mt-6 grid gap-3">
             {VALUE_POINTS.map((point) => (
@@ -195,21 +194,21 @@ function ModelsValueProp(props: {
               loading={props.subscribeBusy}
               onClick={props.onSubscribe}
             >
-              Subscribe with Stripe
+              通过 Stripe 订阅
             </DenButton>
             <p className="text-[13px] leading-5 text-gray-500">
-              $10/user/month · {props.memberCount > 0 ? `${props.memberCount} active member${props.memberCount === 1 ? "" : "s"}` : "billed per active member"} · cancel anytime
+              每位成员每月 10 美元 · {props.memberCount > 0 ? `${props.memberCount} 位活跃成员` : "按活跃成员计费"} · 可随时取消
             </p>
           </div>
           {props.isOwner ? null : (
             <p className="mt-3 text-[13px] leading-5 text-amber-700">
-              Only workspace owners can subscribe. Ask an owner to enable OpenWork Models for your team.
+              只有公司所有者可以订阅，请联系所有者为团队启用模型服务。
             </p>
           )}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
           <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-            Included models
+            包含的模型
           </p>
           <ul className="mt-3 divide-y divide-gray-100">
             {MODEL_LINEUP.map((model) => (
@@ -236,8 +235,7 @@ export function InferenceScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isOwner = orgContext?.currentMember.isOwner === true;
-  // OpenWork Models are a hosted OpenWork Cloud offering; self-hosted
-  // (single-org) deployments manage their own LLM providers instead.
+  // 托管模型属于云服务；单公司自托管部署统一使用公司配置的模型服务。
   const isSelfHosted = runtimeConfigLoaded && runtimeConfig.orgMode === "single_org";
   const activeOrgSlug = activeOrg?.slug ?? null;
 
@@ -252,15 +250,19 @@ export function InferenceScreen() {
     try {
       const { response, payload } = await requestJson("/v1/inference", { method: "GET" }, 12000);
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load inference settings (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `模型服务设置加载失败（${response.status}）。`));
       }
       const parsed = parseInferencePayload(payload);
       if (!parsed) {
-        throw new Error("Inference settings response was incomplete.");
+        throw new Error("模型服务设置返回不完整，请刷新后重试。");
       }
       setStatus(parsed);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load inference settings.");
+      setError(
+        loadError instanceof Error
+          ? getErrorMessage(loadError.message, "模型服务设置加载失败，请重试。")
+          : "模型服务设置加载失败，请重试。",
+      );
     } finally {
       setLoading(false);
     }
@@ -270,9 +272,7 @@ export function InferenceScreen() {
     void loadStatus();
   }, [orgContext?.organization.id]);
 
-  // Subscribe at the point of value: start the Stripe checkout right here
-  // instead of bouncing the user to the billing page. Billing stays the
-  // status/portal view.
+  // 在当前页面直接进入 Stripe 结算；账单页只负责查看订阅状态和管理入口。
   async function startSubscribeCheckout() {
     setError(null);
     try {
@@ -284,16 +284,20 @@ export function InferenceScreen() {
           12000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Checkout failed (${response.status}).`);
+          throw getRequestError(payload, response, `订阅结算创建失败（${response.status}）。`);
         }
         const url = payload && typeof payload === "object" && "url" in payload && typeof payload.url === "string" ? payload.url : null;
         if (!url) {
-          throw new Error("Checkout response did not include a URL.");
+          throw new Error("订阅结算返回中缺少跳转地址，请重试。");
         }
         window.location.href = url;
       });
     } catch (checkoutError) {
-      setError(checkoutError instanceof Error ? checkoutError.message : "Could not start Stripe checkout.");
+      setError(
+        checkoutError instanceof Error
+          ? getErrorMessage(checkoutError.message, "无法打开 Stripe 结算，请重试。")
+          : "无法打开 Stripe 结算，请重试。",
+      );
       setSubscribeBusy(false);
     }
   }
@@ -318,11 +322,11 @@ export function InferenceScreen() {
             20000,
           );
           if (!response.ok) {
-            throw getRequestError(payload, response, `Failed to update inference settings (${response.status}).`);
+            throw getRequestError(payload, response, `模型服务设置更新失败（${response.status}）。`);
           }
           const parsed = parseInferencePayload(payload);
           if (!parsed) {
-            throw new Error("Inference settings response was incomplete.");
+            throw new Error("模型服务设置返回不完整，请刷新后确认。");
           }
           setStatus(parsed);
           await refreshOrgData();
@@ -331,7 +335,11 @@ export function InferenceScreen() {
         }
       });
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to update inference settings.");
+      setError(
+        saveError instanceof Error
+          ? getErrorMessage(saveError.message, "模型服务设置更新失败，请重试。")
+          : "模型服务设置更新失败，请重试。",
+      );
     }
   }
 
@@ -342,15 +350,15 @@ export function InferenceScreen() {
   const enabled = status?.enabled === true;
   const subscribed = status?.subscribed === true;
   const showValueProp = !loading && status !== null && !subscribed;
-  const cardTitle = enabled ? "OpenWork Models enabled" : "Enable OpenWork Models";
-  const actionLabel = enabled ? "Manage subscription" : "Enable";
+  const cardTitle = enabled ? "FoxWork 模型服务已启用" : "启用 FoxWork 模型服务";
+  const actionLabel = enabled ? "管理订阅" : "启用";
 
   return (
     <DashboardPageTemplate
       icon={Sparkles}
-      badgeLabel="Beta"
-      title="OpenWork Models"
-      description="Frontier intelligence, hand picked for your team's most ambitious work."
+      badgeLabel="测试版"
+      title="FoxWork 模型服务"
+      description="为公司成员统一提供经过筛选的模型能力。"
       colors={["#0f172a", "#3155ff", "#22d3ee", "#f8fafc"]}
     >
       <div className="grid gap-4">
@@ -372,7 +380,7 @@ export function InferenceScreen() {
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div className="max-w-[560px]">
                 <div className="mb-3 inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-blue-700">
-                  {loading ? "Checking" : enabled ? "Enabled" : "Disabled"}
+                  {loading ? "正在检查" : enabled ? "已启用" : "未启用"}
                 </div>
                 <h2 className="text-[20px] font-medium tracking-[-0.3px] text-gray-950">
                   {cardTitle}

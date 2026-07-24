@@ -13,7 +13,7 @@ describe("model picker subtitle", () => {
 
   test("supports the unavailable-model recovery subtitle", () => {
     expect(resolveModelPickerSubtitle(MODEL_PICKER_UNAVAILABLE_SUBTITLE)).toBe(
-      "The model you were using is no longer available, please select a different model for this session.",
+      "原模型已不可用，请为当前会话选择其他模型。",
     );
   });
 });

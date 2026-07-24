@@ -415,11 +415,30 @@ const ORGANIZATION_ROLE_LABELS: Record<string, string> = {
   "billing-admin": "账单管理员",
 };
 
+const ORGANIZATION_PERMISSION_LABELS: Record<string, string> = {
+  organization: "公司",
+  member: "成员",
+  invitation: "邀请",
+  team: "团队",
+  ac: "访问控制",
+  security_configuration: "安全设置",
+  create: "创建",
+  read: "查看",
+  update: "修改",
+  delete: "删除",
+  cancel: "取消",
+  manage: "管理",
+};
+
 export function formatRoleLabel(role: string): string {
   const labels = splitRoleString(role).map(
     (roleName) => ORGANIZATION_ROLE_LABELS[roleName] ?? "自定义角色",
   );
   return [...new Set(labels)].join("、") || "成员";
+}
+
+export function formatPermissionLabel(value: string): string {
+  return ORGANIZATION_PERMISSION_LABELS[value] ?? "其他权限";
 }
 
 export function getOrgDashboardRoute(_orgSlug?: string | null): string {

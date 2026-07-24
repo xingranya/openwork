@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { registerExtensionConfig } from "./extension-registry";
 
 // ---------------------------------------------------------------------------
-// Types
+// 类型
 // ---------------------------------------------------------------------------
 
 type PermissionResult = {
@@ -39,7 +39,7 @@ type ComputerUseConfigProps = {
 };
 
 // ---------------------------------------------------------------------------
-// Registration
+// 注册
 // ---------------------------------------------------------------------------
 
 registerExtensionConfig("computer-use", (ctx) => (
@@ -53,7 +53,7 @@ registerExtensionConfig("computer-use", (ctx) => (
 ));
 
 // ---------------------------------------------------------------------------
-// Helpers
+// 辅助函数
 // ---------------------------------------------------------------------------
 
 function hasDesktopBridge() {
@@ -62,7 +62,7 @@ function hasDesktopBridge() {
 
 function parsePermissionResult(value: unknown): PermissionResult {
   if (typeof value !== "object" || value === null) {
-    throw new Error("Unreadable response.");
+    throw new Error("无法读取权限检查结果。");
   }
   return {
     ok: "ok" in value && value.ok === true,
@@ -75,7 +75,7 @@ function parsePermissionResult(value: unknown): PermissionResult {
 const PERMISSIONS_QUERY_KEY = ["computer-use", "permissions"] as const;
 
 // ---------------------------------------------------------------------------
-// Component
+// 组件
 // ---------------------------------------------------------------------------
 
 export function ComputerUseConfig({
@@ -87,7 +87,7 @@ export function ComputerUseConfig({
 }: ComputerUseConfigProps) {
   const queryClient = useQueryClient();
 
-  // Fresh TCC read via --check; works whether or not the setup GUI is open.
+  // 直接读取最新的系统权限状态，不依赖设置窗口是否打开。
   const {
     data: result = null,
     isFetching,
@@ -101,7 +101,7 @@ export function ComputerUseConfig({
     refetchOnWindowFocus: false,
   });
 
-  // Opens the setup GUI; it returns a fresh read that becomes the cached state.
+  // 打开权限设置程序，并用返回结果更新缓存状态。
   const {
     mutate: grant,
     isPending: isGrantPending,
@@ -110,7 +110,7 @@ export function ComputerUseConfig({
   } = useMutation({
     mutationFn: async () => {
       if (!hasDesktopBridge()) {
-        throw new Error("Computer Use is Mac only and requires the OpenWork desktop app on macOS.");
+        throw new Error("电脑控制仅支持 Mac，并且需要使用 FoxWork 桌面应用。");
       }
 
       return parsePermissionResult(await desktopBridge.openComputerUsePermissionSetup());
@@ -121,16 +121,17 @@ export function ComputerUseConfig({
   });
 
   const isBusy = isFetching || isGrantPending;
-  const error = (grantError ?? checkError)?.message ?? result?.error ?? null;
+  const rawError = (grantError ?? checkError)?.message ?? result?.error ?? null;
+  const error = rawError ? localizeComputerUseError(rawError) : null;
 
-  // Bubble the latest read up to the parent.
+  // 将最新权限状态同步给上层。
   useEffect(() => {
     if (result) {
       onPermissionsChange?.({ accessibility: result.accessibility, screenRecording: result.screenRecording });
     }
   }, [result, onPermissionsChange]);
 
-  // Clear a stale setup error, then re-read permissions.
+  // 清除上次错误后重新读取权限。
   const verify = () => {
     if (!hasDesktopBridge()) {
       return;
@@ -145,9 +146,9 @@ export function ComputerUseConfig({
   return (
     <Card variant="outline" size="sm">
       <CardHeader>
-        <CardTitle>Computer Use setup (Mac only)</CardTitle>
+        <CardTitle>电脑控制设置（仅支持 Mac）</CardTitle>
         <CardDescription>
-          Computer Use only works on Mac. Connect the local MCP server and grant the macOS permissions it needs to control apps.
+          连接本机 MCP 服务，并授予控制应用所需的 macOS 权限。
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="icon-sm" onClick={() => void verify()} disabled={isBusy}>
@@ -164,10 +165,10 @@ export function ComputerUseConfig({
           </Alert>
         ) : null}
 
-        {/* Step 1 — MCP */}
+        {/* 第一步：连接 MCP */}
         <SetupRow
-          title="1. Connect Computer Use MCP"
-          description="Adds the local Computer Use server to this workspace so Composer can use the computer-control tools."
+          title="1. 连接电脑控制 MCP"
+          description="将本机电脑控制服务加入当前工作区，供 AI 在你授权后操作应用。"
           complete={connected}
         >
           <Button
@@ -177,21 +178,21 @@ export function ComputerUseConfig({
           >
             {connecting ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
             <span className="min-w-0 break-words">
-              {connected ? "Configured" : connecting ? "Connecting…" : "Connect MCP"}
+              {connected ? "已配置" : connecting ? "正在连接…" : "连接 MCP"}
             </span>
           </Button>
         </SetupRow>
 
-        {/* Step 2 — Permissions */}
+        {/* 第二步：授予系统权限 */}
         <SetupRow
-          title="2. Grant macOS permissions"
-          description="Opens the OpenWork Computer Use helper. Grant both permissions there, then click Verify below."
+          title="2. 授予 macOS 权限"
+          description="打开 FoxWork 权限设置程序。授予两项权限后，在下方重新检查。"
           complete={allGranted}
         >
           <div className="flex w-full min-w-0 flex-col gap-3">
             <div className="grid gap-2">
-              <Pill label="Accessibility" granted={result?.accessibility === true} checked={result !== null} />
-              <Pill label="Screen Recording" granted={result?.screenRecording === true} checked={result !== null} />
+              <Pill label="辅助功能" granted={result?.accessibility === true} checked={result !== null} />
+              <Pill label="屏幕录制" granted={result?.screenRecording === true} checked={result !== null} />
             </div>
 
             <Button
@@ -205,7 +206,7 @@ export function ComputerUseConfig({
                 <Settings2 className="size-4 shrink-0" />
               )}
               <span className="min-w-0 wrap-break-word">
-                {isBusy ? "Opening…" : allGranted ? "Reopen helper" : "Grant permissions"}
+                {isBusy ? "正在打开…" : allGranted ? "重新打开设置程序" : "授予权限"}
               </span>
             </Button>
           </div>
@@ -216,8 +217,8 @@ export function ComputerUseConfig({
         <div className="flex w-full flex-col gap-3">
           <p className="text-xs text-muted-foreground">
             {allGranted
-              ? "Permissions verified. Try a Composer prompt that uses Computer Use."
-              : "After granting permissions in the helper, click Verify."}
+              ? "权限已通过检查，现在可以让 AI 执行电脑控制任务。"
+              : "在设置程序中授予权限后，请点击“检查权限”。"}
           </p>
           <div className="flex w-full justify-end gap-2">
             {onRefresh ? (
@@ -225,7 +226,7 @@ export function ComputerUseConfig({
                 variant="outline"
                 onClick={() => void onRefresh?.()}
               >
-                Refresh
+                刷新连接
               </Button>
             ) : null}
             <Button
@@ -233,7 +234,7 @@ export function ComputerUseConfig({
               disabled={isBusy}
             >
               {isBusy ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
-              Verify permissions
+              检查权限
             </Button>
           </div>
         </div>
@@ -243,7 +244,7 @@ export function ComputerUseConfig({
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// 子组件
 // ---------------------------------------------------------------------------
 
 interface SetupRowProps {
@@ -291,10 +292,15 @@ function Pill({ label, granted, checked }: PillProps) {
           checked && !granted && "text-amber-11",
         )}
       >
-        {!checked ? "…" : granted ? "Granted" : "Needed"}
+        {!checked ? "…" : granted ? "已授权" : "需要授权"}
       </span>
     </div>
   );
+}
+
+function localizeComputerUseError(message: string) {
+  if (/[\u3400-\u9fff]/.test(message)) return message;
+  return "无法检查电脑控制权限，请确认正在使用 FoxWork 桌面应用后重试。";
 }
 
 interface StatusIconProps {

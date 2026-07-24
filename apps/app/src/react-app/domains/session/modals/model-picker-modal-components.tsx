@@ -301,12 +301,12 @@ function ModelOptionRow(props: {
             <span className="flex shrink-0 items-center gap-1.5">
               {opt.source === "cloud" ? (
                 <span className="rounded-md bg-blue-3 px-1.5 py-0.5 text-[10px] font-medium text-blue-11">
-                  Cloud
+                  公司
                 </span>
               ) : null}
               {active ? (
                 <span className="rounded-md bg-green-3 px-1.5 py-0.5 text-[10px] font-medium text-green-11">
-                  Current
+                  当前
                 </span>
               ) : null}
             </span>

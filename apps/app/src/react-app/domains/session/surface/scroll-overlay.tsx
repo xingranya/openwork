@@ -30,7 +30,7 @@ const JumpToStartButton = memo(function JumpToStartButton({
       className="rounded-full px-3 py-1.5 text-xs text-dls-text transition-colors hover:bg-dls-hover"
       onClick={handleClick}
     >
-      Jump to start
+      跳到开头
     </button>
   );
 });
@@ -52,7 +52,7 @@ const JumpToLatestButton = memo(function JumpToLatestButton({
       className="rounded-full px-3 py-1.5 text-xs text-dls-text transition-colors hover:bg-dls-hover"
       onClick={handleClick}
     >
-      Jump to latest
+      跳到最新消息
     </button>
   );
 });

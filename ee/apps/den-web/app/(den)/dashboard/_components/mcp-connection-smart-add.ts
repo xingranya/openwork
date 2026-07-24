@@ -1,9 +1,7 @@
 /**
- * Pure projection logic for the smart add-connection flow: classify what the
- * admin typed, surface instant preset suggestions, and turn a server-side
- * resolution into either a one-click add or a guided handoff to the full
- * form. Everything here is deterministic so it stays unit-testable without
- * rendering the dialog.
+ * 智能添加连接的纯投影逻辑：识别管理员输入、生成本地预设建议，
+ * 再把服务端解析结果转换为一键添加方案或完整表单。
+ * 此处逻辑保持确定性，无需渲染弹窗即可做单元测试。
  */
 import type {
   CreateMcpConnectionInput,
@@ -54,9 +52,8 @@ function hostnameOf(value: string): string | null {
 }
 
 /**
- * Instant, local suggestions while the admin types — prefix matches on the
- * display name rank first, then substring and host matches. The server-side
- * resolve stays the authority for anything beyond the curated presets.
+ * 管理员输入时即时生成本地建议。显示名称前缀匹配优先，
+ * 其次是名称片段和主机名匹配；预设范围外的结果以服务端解析为准。
  */
 export function filterPresetSuggestions(
   presets: readonly ExternalMcpPreset[],
@@ -94,16 +91,15 @@ export type SmartAddPlan =
 const EVERYONE_ACCESS = { orgWide: true, memberIds: [], teamIds: [] } as const;
 
 /**
- * Decide whether a resolved server can be added in one click with safe
- * defaults (everyone in the org; each member signs in with their own account
- * for OAuth), or whether the admin has to finish setup in the full form.
+ * 判断解析后的服务能否按安全默认值一键添加：默认全公司可用，
+ * OAuth 由每名成员登录自己的账号；其余情况交给管理员在完整表单中配置。
  */
 export function planSmartAdd(
   discovery: McpRequirementsDiscovery,
   target: { name: string; url: string },
 ): SmartAddPlan {
   if (discovery.status === "unreachable") {
-    return { readiness: "unsupported", reasons: ["We couldn't reach an MCP server at this address."] };
+    return { readiness: "unsupported", reasons: ["无法连接此地址上的 MCP 服务。"] };
   }
 
   if (discovery.status === "ready") {
@@ -143,24 +139,24 @@ export function planSmartAdd(
     .filter((requirement) => requirement.required)
     .map((requirement) => requirement.label);
   if (discovery.authentication.kind === "manual_bearer" && !reasons.includes("API key")) {
-    reasons.push("This server expects an API key or bearer token.");
+    reasons.push("此服务需要 API 密钥或 Bearer Token。");
   }
   if (reasons.length === 0) {
-    reasons.push("This server needs a closer look before it can be added.");
+    reasons.push("添加前需要补充检查此服务。");
   }
   return { readiness: "needs_details", reasons };
 }
 
-/** Human labels for the detected sign-in requirement, shown on the result card. */
+/** 返回智能添加结果卡中显示的认证方式。 */
 export function smartAddAuthLabel(discovery: McpRequirementsDiscovery): string {
   switch (discovery.authentication.kind) {
     case "none":
-      return "No sign-in needed";
+      return "无需登录";
     case "oauth":
-      return "OAuth sign-in";
+      return "OAuth 登录";
     case "manual_bearer":
-      return "API key";
+      return "API 密钥";
     default:
-      return "Sign-in unclear";
+      return "认证方式待确认";
   }
 }

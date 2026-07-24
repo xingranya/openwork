@@ -116,6 +116,21 @@ type PullProgressState = PullProgressUpdate & {
   modelName: string;
 };
 
+function localizedOllamaProgress(status: string) {
+  if (/[\u3400-\u9fff]/.test(status)) return status;
+  if (status === "pulling manifest") return "正在获取模型清单…";
+  if (status === "verifying sha256 digest") return "正在校验模型文件…";
+  if (status === "writing manifest") return "正在写入模型清单…";
+  if (status === "removing any unused layers") return "正在清理未使用的模型文件…";
+  if (status === "success") return "模型下载完成。";
+  if (status.startsWith("pulling ")) return "正在下载模型文件…";
+  return "正在下载模型…";
+}
+
+function localizedOllamaMessage(message: string | null, fallback: string) {
+  return message && /[\u3400-\u9fff]/.test(message) ? message : fallback;
+}
+
 async function pullOllamaModel(
   modelName: string,
   onProgress: (update: PullProgressUpdate) => void,
@@ -142,23 +157,23 @@ async function pullOllamaModel(
           const parsed = JSON.parse(line);
           if (parsed.status) {
             onProgress({
-              status: parsed.status,
+              status: localizedOllamaProgress(parsed.status),
               completed: typeof parsed.completed === "number" ? parsed.completed : undefined,
               total: typeof parsed.total === "number" ? parsed.total : undefined,
             });
           }
           if (parsed.error) {
-            onProgress({ status: `Error: ${parsed.error}` });
+            onProgress({ status: "下载失败，请检查模型名称和网络连接。" });
             return false;
           }
         } catch {
-          // ignore malformed lines
+          // 忽略无法解析的进度行。
         }
       }
     }
     return true;
-  } catch (error) {
-    onProgress({ status: `Pull failed: ${error instanceof Error ? error.message : String(error)}` });
+  } catch {
+    onProgress({ status: "下载失败，请检查 Ollama 和网络连接。" });
     return false;
   }
 }
@@ -172,10 +187,10 @@ function usePullOllamaModel(options: { onSuccess?: (model: string) => void } = {
       const model = modelName.trim();
       
       if (!model) {
-        throw new Error("Model name is required.");
+        throw new Error("请输入模型名称。");
       }
 
-      let latestProgress: PullProgressUpdate = { status: "Starting pull..." };
+      let latestProgress: PullProgressUpdate = { status: "正在准备下载…" };
       const updateProgress = (update: PullProgressUpdate) => {
         latestProgress = update;
         setProgress((current) => ({
@@ -190,10 +205,10 @@ function usePullOllamaModel(options: { onSuccess?: (model: string) => void } = {
       const ok = await pullOllamaModel(model, updateProgress);
 
       if (!ok) {
-        if (latestProgress.status === "Starting pull...") {
-          setProgress({ modelName: model, status: `Failed to pull ${model}.` });
+        if (latestProgress.status === "正在准备下载…") {
+          setProgress({ modelName: model, status: `无法下载“${model}”。` });
         }
-        throw new Error(`Failed to pull ${model}.`);
+        throw new Error(`无法下载“${model}”。`);
       }
 
       return model;
@@ -248,7 +263,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
     try {
       await pullModel(model);
     } catch {
-      // The mutation hook owns error progress display.
+      // 下载进度由 mutation 状态统一显示。
     }
   };
 
@@ -280,8 +295,8 @@ export function OllamaConfig(props: OllamaConfigProps) {
     return (
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-          <CardDescription>Connect to a local Ollama instance and choose a model.</CardDescription>
+          <CardTitle>本地模型配置</CardTitle>
+          <CardDescription>连接本机 Ollama 服务并选择模型。</CardDescription>
           <CardAction>
             <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching}>
               <RefreshCw className={isFetching ? "animate-spin" : ""} />
@@ -292,7 +307,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
           {props.error ? (
             <Alert variant="destructive">
               <XCircle />
-              <AlertDescription>{props.error}</AlertDescription>
+              <AlertDescription>{localizedOllamaMessage(props.error, "无法连接 Ollama，请检查本机服务。")}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -301,9 +316,9 @@ export function OllamaConfig(props: OllamaConfigProps) {
               <EmptyMedia variant="icon">
                 <Download />
               </EmptyMedia>
-              <EmptyTitle>Ollama isn't installed or running</EmptyTitle>
+              <EmptyTitle>Ollama 尚未安装或运行</EmptyTitle>
               <EmptyDescription>
-                Download and start Ollama to use open-source models in your workspace.
+                下载并启动 Ollama，即可在当前工作区使用开源模型。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -312,7 +327,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
                   <a href="https://ollama.com/download" target="_blank" rel="noopener noreferrer" />
                 }
               >
-                Download Ollama
+                下载 Ollama
               </Button>
             </EmptyContent>
           </Empty>
@@ -324,8 +339,8 @@ export function OllamaConfig(props: OllamaConfigProps) {
   return (
     <Card variant="outline" size="sm">
       <CardHeader>
-        <CardTitle>Configuration</CardTitle>
-        <CardDescription>Connect to a local Ollama instance and choose a model.</CardDescription>
+        <CardTitle>本地模型配置</CardTitle>
+        <CardDescription>连接本机 Ollama 服务并选择模型。</CardDescription>
         <CardAction>
           <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching}>
             <RefreshCw className={isFetching ? "animate-spin" : ""} />
@@ -336,7 +351,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
         {props.error ? (
           <Alert variant="destructive">
             <XCircle />
-            <AlertDescription>{props.error}</AlertDescription>
+            <AlertDescription>{localizedOllamaMessage(props.error, "Ollama 操作失败，请稍后重试。")}</AlertDescription>
           </Alert>
         ) : null}
 
@@ -350,20 +365,20 @@ export function OllamaConfig(props: OllamaConfigProps) {
           )}
           <AlertDescription>
             {status === "checking"
-              ? "Checking Ollama..."
+              ? "正在检查 Ollama…"
               : status === "running"
-                ? `Ollama running (${data?.models?.length ?? 0} model${(data?.models?.length ?? 0) === 1 ? "" : "s"})`
-                : "Ollama not reachable"}
+                ? `Ollama 正在运行（${data?.models?.length ?? 0} 个模型）`
+                : "无法连接 Ollama"}
           </AlertDescription>
         </Alert>
 
-        {/* Model selection */}
+        {/* 模型选择 */}
         {status === "running" && (data?.models?.length ?? 0) > 0 ? (
           <div className="flex flex-col gap-2">
             <FieldSet className="gap-3">
-              <FieldLegend variant="label">Available models</FieldLegend>
+              <FieldLegend variant="label">可用模型</FieldLegend>
               <FieldDescription>
-                Select from models already loaded in Ollama.
+                从 Ollama 已加载的模型中选择。
               </FieldDescription>
               <ModelList value={selectedModel} onValueChange={setSelectedModel}>
                 {(data?.models ?? []).map((model) => (
@@ -380,26 +395,26 @@ export function OllamaConfig(props: OllamaConfigProps) {
               className="self-center"
               onClick={() => setPullDialogOpen(true)}
             >
-              Add a custom model
+              添加其他模型
             </Button>
           </div>
         ) : null}
 
-        {/* No models */}
+        {/* 暂无模型 */}
         {status === "running" && (data?.models?.length ?? 0) === 0 && !isPulling && !progress ? (
           <Empty className="flex-none p-6" variant="ghost">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Download />
               </EmptyMedia>
-              <EmptyTitle>No models loaded</EmptyTitle>
+              <EmptyTitle>尚未加载模型</EmptyTitle>
               <EmptyDescription>
-                Pull a model from ollama.com/library to get started.
+                从 ollama.com/library 下载模型后即可开始使用。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={() => setPullDialogOpen(true)}>
-                Pull a model
+                下载模型
               </Button>
             </EmptyContent>
           </Empty>
@@ -418,7 +433,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
         {props.status ? (
           <Alert>
             <CheckCircle2 />
-            <AlertDescription>{props.status}</AlertDescription>
+            <AlertDescription>{localizedOllamaMessage(props.status, "模型已添加到当前工作区。")}</AlertDescription>
           </Alert>
         ) : null}
       </CardContent>
@@ -433,7 +448,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
               nativeButton
               render={<button type="button" />}
             />
-            <FieldLabel htmlFor="ollama-set-default">Use as default model in workspace</FieldLabel>
+            <FieldLabel htmlFor="ollama-set-default">设为当前工作区的默认模型</FieldLabel>
           </Field>
         </FieldGroup>
         <Button
@@ -441,7 +456,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
           disabled={props.busy || isPulling || checkingCapabilities || !activeModelId || status !== "running"}
         >
           {(props.busy || checkingCapabilities) && <Loader2 className="size-4 animate-spin" />}
-          Add to workspace
+          添加到工作区
         </Button>
       </CardFooter>
     </Card>
@@ -520,15 +535,15 @@ function PullModelDialog(props: PullModelDialogProps) {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="w-full max-w-md sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Pull model</DialogTitle>
+          <DialogTitle>下载模型</DialogTitle>
           <DialogDescription>
-            Download a model from ollama.com/library to your local Ollama instance.
+            从 ollama.com/library 下载模型到本机 Ollama。
           </DialogDescription>
         </DialogHeader>
         <FieldSet className="w-full">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="ollama-model-pull">Model to pull</FieldLabel>
+              <FieldLabel htmlFor="ollama-model-pull">模型名称</FieldLabel>
               <Input
                 id="ollama-model-pull"
                 type="text"
@@ -537,18 +552,18 @@ function PullModelDialog(props: PullModelDialogProps) {
                 placeholder={OLLAMA_PROVIDER_CONFIG.defaultModelId}
               />
               <FieldDescription>
-                Enter a model name from ollama.com/library
+                输入 ollama.com/library 中的模型名称。
               </FieldDescription>
             </Field>
           </FieldGroup>
         </FieldSet>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>
-            Cancel
+            取消
           </DialogClose>
           <Button onClick={props.onPull} disabled={!props.model.trim()}>
             <Download className="size-4" />
-            Pull {props.model.trim() || "model"}
+            下载 {props.model.trim() || "模型"}
           </Button>
         </DialogFooter>
       </DialogContent>

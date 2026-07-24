@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveFoxWorkBrandConfig } from "./foxwork-brand.mjs";
 
 const ELECTRON_UPDATER_CHANNEL_FILENAME = "electron-updater-channel.v1.json";
 
@@ -29,9 +30,10 @@ function resolveAppVersion(app) {
   }
   return _cachedAppVersion;
 }
+const FOXWORK_BRAND_CONFIG = resolveFoxWorkBrandConfig();
 const ELECTRON_UPDATER_FEEDS = Object.freeze({
-  stable: "https://github.com/different-ai/openwork/releases/latest/download",
-  alpha: "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest",
+  stable: FOXWORK_BRAND_CONFIG.updateBaseUrl,
+  alpha: FOXWORK_BRAND_CONFIG.alphaUpdateBaseUrl,
 });
 
 function normalizeElectronUpdaterChannel(value) {
@@ -147,7 +149,10 @@ function isVersionNewer(candidate, current) {
   return comparison === null ? candidate !== current : comparison > 0;
 }
 
-export function targetedStableUpdaterFeed(currentVersion, targetVersion) {
+export function targetedStableUpdaterFeed(currentVersion, targetVersion, baseUrl = ELECTRON_UPDATER_FEEDS.stable) {
+  if (!baseUrl) {
+    throw new Error("FoxWork 公司更新源尚未配置。");
+  }
   const normalizedTarget = normalizeStableTargetVersion(targetVersion);
   if (!normalizedTarget) {
     throw new Error("Target update version must use the stable x.y.z format.");
@@ -159,17 +164,20 @@ export function targetedStableUpdaterFeed(currentVersion, targetVersion) {
   if (comparison <= 0) {
     throw new Error("Target update version must be newer than the installed version.");
   }
-  return `https://github.com/different-ai/openwork/releases/download/v${normalizedTarget}`;
+  return `${String(baseUrl).replace(/\/+$/, "")}/v${normalizedTarget}`;
 }
 
 function updaterChannelState(app, channel, targetVersion = null) {
   const normalized = normalizeElectronUpdaterChannel(channel);
   const currentVersion = resolveAppVersion(app);
+  const feedUrl = targetVersion
+    ? (ELECTRON_UPDATER_FEEDS.stable
+      ? targetedStableUpdaterFeed(currentVersion, targetVersion, ELECTRON_UPDATER_FEEDS.stable)
+      : null)
+    : electronUpdaterFeedUrl(normalized);
   return {
     channel: normalized,
-    feedUrl: targetVersion
-      ? targetedStableUpdaterFeed(currentVersion, targetVersion)
-      : electronUpdaterFeedUrl(normalized),
+    feedUrl,
     currentVersion,
   };
 }
@@ -180,6 +188,9 @@ async function applyElectronUpdaterFeed(app, updater, targetVersion = null) {
     throw new Error("Version-specific update feeds are supported only on the stable channel.");
   }
   const state = updaterChannelState(app, channel, targetVersion);
+  if (!state.feedUrl) {
+    throw new Error("FoxWork 公司更新源尚未配置。");
+  }
   updater.allowPrerelease = state.channel === "alpha";
   // Moving from alpha back to stable can be a semver downgrade; still show
   // the latest stable so users can return to the stable channel deliberately.
@@ -203,7 +214,7 @@ function runDefaults(args) {
 
 // Squirrel.Mac's `ShipIt` helper (which swaps the .app on macOS) reads its
 // options from this NSUserDefaults domain.
-const SHIP_IT_DEFAULTS_DOMAIN = "com.differentai.openwork.ShipIt";
+const SHIP_IT_DEFAULTS_DOMAIN = `${FOXWORK_BRAND_CONFIG.appIdentifier}.ShipIt`;
 
 // Squirrel.Mac defaults to moving the *entire* app bundle through a temp
 // directory. On repeat installs that move can leave the staged bundle missing,
@@ -266,6 +277,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
 
   async function ensureAutoUpdater() {
     if (!app.isPackaged) return null;
+    if (!ELECTRON_UPDATER_FEEDS.stable && !ELECTRON_UPDATER_FEEDS.alpha) return null;
     if (autoUpdaterLoaded) return autoUpdaterInstance;
     autoUpdaterLoaded = true;
     try {

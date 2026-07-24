@@ -36,32 +36,32 @@ type AttributionOption = {
 const options: AttributionOption[] = [
   {
     source: "ai_assistant",
-    label: "An AI assistant",
-    description: "ChatGPT, Claude, Gemini, Perplexity...",
+    label: "AI 助手",
+    description: "ChatGPT、Claude、Gemini、Perplexity 等",
     icon: BotIcon,
   },
   {
     source: "search",
-    label: "Search",
-    description: "Google, Bing, DuckDuckGo...",
+    label: "搜索引擎",
+    description: "Google、Bing、DuckDuckGo 等",
     icon: SearchIcon,
   },
   {
     source: "social",
-    label: "Social media",
-    description: "X, LinkedIn, YouTube, Reddit...",
+    label: "社交媒体",
+    description: "X、LinkedIn、YouTube、Reddit 等",
     icon: MessageCircleIcon,
   },
   {
     source: "github",
-    label: "GitHub or open source community",
-    description: "Repos, stars, awesome lists...",
+    label: "GitHub 或开源社区",
+    description: "仓库、收藏或项目清单",
     icon: GithubIcon,
   },
   {
     source: "friend_or_colleague",
-    label: "A friend or colleague",
-    description: "Someone recommended it directly.",
+    label: "朋友或同事",
+    description: "由身边的人直接推荐",
     icon: UsersIcon,
   },
 ];
@@ -87,22 +87,22 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
 
       <div className="relative z-10 w-full max-w-md px-6">
         <PageHeader className="mb-8 text-center">
-          <PageTitle>How did you hear about OpenWork?</PageTitle>
+          <PageTitle>你是从哪里了解到 FoxWork 的？</PageTitle>
           <PageDescription>
-            One quick question — it helps us know where to show up.
+            这个答案会帮助我们改进内部推广方式。
           </PageDescription>
         </PageHeader>
 
         {aiSelected ? (
           <div className="space-y-3">
             <div className="text-sm font-medium text-foreground">
-              What did you ask the AI?
+              你当时向 AI 问了什么？
             </div>
             <Textarea
               autoFocus
               value={aiPrompt}
               onChange={(event) => setAiPrompt(event.target.value)}
-              placeholder={'e.g. "best open source alternative to Claude Cowork"'}
+              placeholder="例如：适合团队使用的 AI 工作软件"
               rows={3}
             />
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -111,10 +111,10 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
                 size="sm"
                 onClick={() => onSubmit("ai_assistant")}
               >
-                Skip this part
+                跳过此项
               </Button>
               <Button size="sm" onClick={() => onSubmit("ai_assistant", aiPrompt)}>
-                Continue
+                继续
               </Button>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
             <div className="pt-1 text-center">
               <Button variant="ghost" size="sm" onClick={onSkip}>
                 <SkipForwardIcon className="mr-1.5 size-3.5" />
-                Skip
+                跳过
               </Button>
             </div>
           </div>

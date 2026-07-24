@@ -22,6 +22,7 @@ import {
   type DesktopBootstrapConfig as ShellDesktopBootstrapConfig,
 } from "./desktop";
 import { isDesktopRuntime } from "./runtime-env";
+import { FOXWORK_APP_NAME, FOXWORK_DEN_BASE_URL } from "./foxwork-brand";
 import type { DenOrgSkillCard, ReloadReason } from "../types";
 import type {
   OpenWorkExtensionContribution,
@@ -45,11 +46,9 @@ export const CLOUD_MCP_SYNC_MARKER_STORAGE_KEY = "openwork.den.mcp.sync";
 const ORG_PROXY_HEADER = "x-openwork-legacy-org-id";
 const DEFAULT_DEN_TIMEOUT_MS = 12_000;
 
-export const DEFAULT_DEN_AUTH_NAME = "OpenWork User";
+export const DEFAULT_DEN_AUTH_NAME = "FoxWork 用户";
 const BUILD_DEN_BASE_URL =
-  (typeof import.meta !== "undefined" && typeof import.meta.env?.VITE_DEN_BASE_URL === "string"
-    ? import.meta.env.VITE_DEN_BASE_URL
-    : "").trim() || "https://app.openworklabs.com";
+  FOXWORK_DEN_BASE_URL;
 const BUILD_DEN_REQUIRE_SIGNIN =
   (typeof import.meta !== "undefined" && typeof import.meta.env?.VITE_DEN_REQUIRE_SIGNIN === "string"
     ? /^(1|true|yes|on)$/i.test(import.meta.env.VITE_DEN_REQUIRE_SIGNIN.trim())
@@ -494,8 +493,8 @@ export function isSelfHostedControlPlane(): boolean {
 }
 
 export function getDenInferenceUrl(baseUrl?: string | null): string {
-  const normalized = normalizeDenBaseUrl(baseUrl ?? readDenSettings().baseUrl) ?? DEFAULT_DEN_BASE_URL;
-  return `${normalized}${DEN_INFERENCE_PATH}`;
+  const normalized = normalizeDenBaseUrl(baseUrl ?? readDenSettings().baseUrl);
+  return normalized ? `${normalized}${DEN_INFERENCE_PATH}` : "";
 }
 
 function isHostedWebAppHost(hostname: string): boolean {
@@ -544,18 +543,18 @@ export function resolveDenBaseUrls(input: { baseUrl?: string | null; apiBaseUrl?
   const normalizedBaseUrl = normalizeDenBaseUrl(rawBaseUrl);
   const legacyApiBaseUrl = typeof input === "string" ? null : normalizeDenBaseUrl(input?.apiBaseUrl);
   const seedUrl = stripDenApiBasePath(normalizedBaseUrl ?? legacyApiBaseUrl) ?? DEFAULT_DEN_BASE_URL;
-  const baseUrl = stripDenApiBasePath(seedUrl) ?? DEFAULT_DEN_BASE_URL;
+  const baseUrl = stripDenApiBasePath(seedUrl) ?? "";
 
   return {
     baseUrl,
-    apiBaseUrl: ensureDenApiBasePath(baseUrl) ?? baseUrl,
+    apiBaseUrl: ensureDenApiBasePath(baseUrl) ?? "",
   };
 }
 
 /** The MCP endpoint served through the Den web proxy from the single base URL. */
 export function getDenMcpUrl(): string {
   const { apiBaseUrl } = resolveDenBaseUrls(readDenBootstrapConfig());
-  return `${apiBaseUrl.replace(/\/+$/, "")}/mcp`;
+  return apiBaseUrl ? `${apiBaseUrl.replace(/\/+$/, "")}/mcp` : "";
 }
 
 /**
@@ -680,7 +679,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
   // silently reverted custom/self-hosted control planes to the production
   // URL until a manual reload.
   desktopBootstrapConfig = resolveDenBootstrapConfig({
-    baseUrl: HOSTED_DEFAULT_DEN_BASE_URL,
+    baseUrl: BUILD_DEN_BASE_URL,
     requireSignin: BUILD_DEN_REQUIRE_SIGNIN,
   });
 
@@ -751,11 +750,15 @@ export async function setDenBootstrapConfig(
 }
 
 export function buildDenAuthUrl(baseUrl: string, mode: "sign-in" | "sign-up"): string {
-  const target = new URL(resolveDenBaseUrls(baseUrl).baseUrl);
+  const resolvedBaseUrl = resolveDenBaseUrls(baseUrl).baseUrl;
+  if (!resolvedBaseUrl) {
+    throw new Error(`${FOXWORK_APP_NAME} 公司登录地址尚未配置，请联系管理员。`);
+  }
+  const target = new URL(resolvedBaseUrl);
   target.searchParams.set("mode", mode);
   if (isDesktopDeployment()) {
     target.searchParams.set("desktopAuth", "1");
-    target.searchParams.set("desktopScheme", "openwork");
+    target.searchParams.set("desktopScheme", "foxwork");
   }
   return target.toString();
 }

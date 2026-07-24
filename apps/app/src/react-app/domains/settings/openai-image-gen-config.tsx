@@ -45,7 +45,7 @@ registerExtensionConfig("openwork.imageGen.settings", openAiImageGenConfigFactor
 registerExtensionConfig("openai-image-gen", openAiImageGenConfigFactory);
 
 const DEFAULT_PROMPT =
-  "A friendly robot owl holding a paintbrush, teal neon UI frame, high contrast";
+  "一台友好的机器人拿着画笔，青绿色霓虹界面边框，高对比度";
 
 export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
   const [apiKey, setApiKey] = useState("");
@@ -54,23 +54,23 @@ export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
   return (
     <Card variant="outline" size="sm">
       <CardHeader>
-        <CardTitle>Configuration</CardTitle>
-        <CardDescription>Connect OpenAI image generation with an OpenAI API key.</CardDescription>
+        <CardTitle>图片生成配置</CardTitle>
+        <CardDescription>使用 OpenAI API 密钥启用图片生成功能。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {props.envKeyDetected ? (
           <Alert variant="warning">
             <Image />
-            <AlertTitle>API key found in environment</AlertTitle>
+            <AlertTitle>已从环境变量检测到 API 密钥</AlertTitle>
             <AlertDescription>
-              An existing OPENAI_API_KEY was detected. The key you save here will take precedence.
+              已检测到 OPENAI_API_KEY。你在此保存的密钥将优先使用。
             </AlertDescription>
           </Alert>
         ) : null}
 
         <FieldGroup className="gap-4">
           <Field>
-            <FieldLabel htmlFor="openai-image-api-key">OpenAI API key</FieldLabel>
+            <FieldLabel htmlFor="openai-image-api-key">OpenAI API 密钥</FieldLabel>
             <Input
               id="openai-image-api-key"
               type="password"
@@ -80,7 +80,7 @@ export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
             />
             {props.envKeyDetected ? (
               <FieldDescription>
-                Overrides the OPENAI_API_KEY environment variable if set.
+                保存后将覆盖 OPENAI_API_KEY 环境变量中的配置。
               </FieldDescription>
             ) : null}
           </Field>
@@ -105,14 +105,14 @@ export function OpenAiImageGenConfig(props: OpenAiImageGenConfigProps) {
           disabled={props.busy || !canSubmit}
         >
           {props.busy && <Loader2 className="size-4 animate-spin" />}
-          Enable
+          启用
         </Button>
         <Button
           variant="outline"
           onClick={() => void props.onTestGenerate({ apiKey, prompt: DEFAULT_PROMPT })}
           disabled={props.busy || !canSubmit}
         >
-          Generate test image
+          生成测试图片
         </Button>
       </CardFooter>
     </Card>

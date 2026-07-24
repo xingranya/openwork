@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { TextInput } from "../../design-system/text-input";
 import { OrganizationServerAffordance } from "../settings/cloud/organization-server-affordance";
 import { SignInFallbackNotice } from "./signin-fallback-notice";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 
 export type DenSignInSurfaceVariant = "panel" | "fullscreen";
 
@@ -79,12 +80,12 @@ function BrandIcon({ slug, size = 18 }: { slug: string; size?: number }) {
 /* ------------------------------------------------------------------ */
 
 const capabilities = [
-  { slug: "googlesheets", title: "Edit spreadsheets", desc: "Create, clean, and transform CSV and Excel files." },
-  { slug: "semanticweb", title: "Control your browser", desc: "Automate the built-in browser for repetitive web tasks." },
-  { slug: "apple", title: "Organize files", desc: "Read, write, and manage files and folders." },
-  { slug: "zapier", title: "Automate tasks", desc: "Build reusable workflows with skills and commands." },
-  { slug: "medium", title: "Generate content", desc: "Draft documents, emails, and reports." },
-  { slug: "stripe", title: "Connect to APIs", desc: "Plug into external services and tools via MCP." },
+  { slug: "googlesheets", title: "处理表格", desc: "创建、清理和转换 CSV、Excel 文件。" },
+  { slug: "semanticweb", title: "操作浏览器", desc: "自动完成重复的网页操作。" },
+  { slug: "apple", title: "整理文件", desc: "读取、写入和管理文件与文件夹。" },
+  { slug: "zapier", title: "自动执行任务", desc: "通过技能和命令复用工作流程。" },
+  { slug: "medium", title: "生成内容", desc: "起草文档、邮件和报告。" },
+  { slug: "stripe", title: "连接业务系统", desc: "通过 MCP 使用公司服务和工具。" },
 ];
 
 function ShowcasePanel() {
@@ -93,9 +94,9 @@ function ShowcasePanel() {
       {/* Hero */}
       <div>
         <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-dls-text">
-          Your computer,
+          你的电脑，
           <br />
-          but it works for you.
+          交给 AI 协助
         </h2>
       </div>
 
@@ -123,10 +124,10 @@ function ShowcasePanel() {
           <Share2 size={16} className="mt-0.5 shrink-0 text-dls-secondary" strokeWidth={1.5} />
           <div>
             <div className="text-[12px] font-medium text-dls-text">
-              Shared extensions
+              公司能力
             </div>
             <div className="mt-0.5 text-[11px] leading-snug text-dls-secondary">
-              Share approved skills, MCPs, and plugins with your organization.
+              使用公司批准的技能、MCP 和插件。
             </div>
           </div>
         </div>
@@ -134,10 +135,10 @@ function ShowcasePanel() {
           <Users size={16} className="mt-0.5 shrink-0 text-dls-secondary" strokeWidth={1.5} />
           <div>
             <div className="text-[12px] font-medium text-dls-text">
-              Provision your team
+              团队协作
             </div>
             <div className="mt-0.5 text-[11px] leading-snug text-dls-secondary">
-              Manage workspaces, models, and permissions.
+              统一管理工作区、模型和权限。
             </div>
           </div>
         </div>
@@ -161,7 +162,7 @@ function ShowcasePanel() {
  */
 export function DenSignInSurface(props: DenSignInSurfaceProps) {
   const variant: DenSignInSurfaceVariant = props.variant ?? "panel";
-  const appName = props.appName?.trim() || "OpenWork";
+  const appName = props.appName?.trim() || "FoxWork";
 
   /* -- Panel content (reused by both variants) -- */
   const panelContent = (
@@ -221,11 +222,15 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
       ) : null}
 
       {props.baseUrlError ? (
-        <div className={errorBannerClass}>{props.baseUrlError}</div>
+        <div className={errorBannerClass}>
+          {toChineseUserMessage(props.baseUrlError, "公司服务器地址无效，请检查后重试。")}
+        </div>
       ) : null}
 
       {props.statusMessage && !props.authError ? (
-        <div className={softNoticeClass}>{props.statusMessage}</div>
+        <div className={softNoticeClass}>
+          {toChineseUserMessage(props.statusMessage, "公司连接状态已更新。")}
+        </div>
       ) : null}
 
       {props.signinFallbackUrl ? (
@@ -295,7 +300,9 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
       ) : null}
 
       {props.authError ? (
-        <div className={errorBannerClass}>{props.authError}</div>
+        <div className={errorBannerClass}>
+          {toChineseUserMessage(props.authError, "登录失败，请重新尝试。")}
+        </div>
       ) : null}
     </div>
   );
@@ -323,13 +330,13 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
             <div className="w-full max-w-md space-y-8">
               <div className="space-y-2">
                 {props.logoUrl ? (
-                  <img src={props.logoUrl} alt={`${appName} logo`} className="mb-6 max-h-16 max-w-64 object-contain object-left" />
+                  <img src={props.logoUrl} alt={`${appName} 图标`} className="mb-6 max-h-16 max-w-64 object-contain object-left" />
                 ) : null}
                 <h1 className="text-2xl font-semibold tracking-tight text-dls-text">
-                  Welcome to {appName}
+                  欢迎使用 {appName}
                 </h1>
                 <p className="text-sm text-dls-secondary">
-                  Sign in to get started with your workspace.
+                  登录公司账号后即可进入工作区。
                 </p>
               </div>
 
@@ -342,21 +349,25 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                 onClick={() => props.onOpenBrowserAuth("sign-up")}
                 disabled={props.authBusy || props.sessionBusy}
               >
-                Sign in to {appName}
+                登录 {appName}
                 <ArrowUpRight size={15} />
               </button>
 
               {props.onOrganizationServerSave ? (
                 <OrganizationServerAffordance
                   busy={props.organizationServerBusy === true}
-                  error={props.organizationServerError ?? null}
+                  error={props.organizationServerError
+                    ? toChineseUserMessage(props.organizationServerError, "无法连接公司服务器，请检查地址后重试。")
+                    : null}
                   onSave={props.onOrganizationServerSave}
                   url={props.organizationServerUrl ?? props.baseUrl}
                 />
               ) : null}
 
               {props.statusMessage && !props.authError ? (
-                <div className={softNoticeClass}>{props.statusMessage}</div>
+                <div className={softNoticeClass}>
+                  {toChineseUserMessage(props.statusMessage, "公司连接状态已更新。")}
+                </div>
               ) : null}
 
               {props.signinFallbackUrl ? (
@@ -364,7 +375,9 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
               ) : null}
 
               {props.authError ? (
-                <div className={errorBannerClass}>{props.authError}</div>
+                <div className={errorBannerClass}>
+                  {toChineseUserMessage(props.authError, "登录失败，请重新尝试。")}
+                </div>
               ) : null}
 
               {/* Paste code disclosure */}
@@ -431,7 +444,9 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                     }
                   />
                   {props.baseUrlError ? (
-                    <div className={errorBannerClass}>{props.baseUrlError}</div>
+                    <div className={errorBannerClass}>
+                      {toChineseUserMessage(props.baseUrlError, "公司服务器地址无效，请检查后重试。")}
+                    </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <button

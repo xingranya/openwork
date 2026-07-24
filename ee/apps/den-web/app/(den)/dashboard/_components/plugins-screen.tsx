@@ -31,12 +31,12 @@ import {
 type PluginView = "plugins" | "skills" | "agents" | "commands" | "hooks" | "mcps";
 
 const PLUGIN_TABS = [
-  { value: "plugins" as const, label: "Plugins", icon: Puzzle },
-  { value: "skills" as const, label: "Skills", icon: FileText },
-  { value: "agents" as const, label: "Agents", icon: Users },
-  { value: "commands" as const, label: "Commands", icon: Terminal },
-  { value: "hooks" as const, label: "Hooks", icon: Webhook },
-  { value: "mcps" as const, label: "MCPs", icon: Server },
+  { value: "plugins" as const, label: "插件", icon: Puzzle },
+  { value: "skills" as const, label: "技能", icon: FileText },
+  { value: "agents" as const, label: "智能体", icon: Users },
+  { value: "commands" as const, label: "命令", icon: Terminal },
+  { value: "hooks" as const, label: "自动触发", icon: Webhook },
+  { value: "mcps" as const, label: "MCP", icon: Server },
 ];
 
 export function PluginsScreen() {
@@ -155,23 +155,23 @@ export function PluginsScreen() {
 
   const searchPlaceholder =
     activeView === "plugins"
-      ? "Search plugins..."
+      ? "搜索插件..."
       : activeView === "skills"
-        ? "Search skills..."
+        ? "搜索技能..."
         : activeView === "agents"
-          ? "Search agents..."
+          ? "搜索智能体..."
           : activeView === "commands"
-            ? "Search commands..."
+            ? "搜索命令..."
             : activeView === "hooks"
-              ? "Search hooks..."
-              : "Search MCPs...";
+              ? "搜索自动触发规则..."
+              : "搜索 MCP 服务...";
 
   return (
     <DashboardPageTemplate
       icon={Puzzle}
-      badgeLabel="Preview"
-      title="Plugins"
-      description="Discover and manage plugins — bundles of skills, hooks, MCP servers, agents, and commands that extend your workers."
+      badgeLabel="预览版"
+      title="插件"
+      description="查看和管理公司插件。插件可以包含技能、自动触发规则、MCP 服务、智能体和命令。"
       colors={["#EDE9FE", "#4C1D95", "#7C3AED", "#C4B5FD"]}
     >
       <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -189,30 +189,30 @@ export function PluginsScreen() {
         </div>
         <Link href={getNewPluginRoute(orgSlug)} className={buttonVariants({ variant: "primary" })}>
           <Plus size={15} />
-          Create plugin
+          创建插件
         </Link>
       </div>
 
       {error ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {error instanceof Error ? error.message : "Failed to load plugins."}
+          {error instanceof Error ? error.message : "加载插件失败。"}
         </div>
       ) : null}
 
       {isLoading || integrationsLoading ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-[15px] text-gray-500">
-          Loading plugin catalog...
+          正在加载插件目录...
         </div>
       ) : !hasAnyIntegration && plugins.length === 0 ? (
         <ConnectIntegrationEmptyState integrationsHref={getIntegrationsRoute(orgSlug)} />
       ) : activeView === "plugins" ? (
         filteredPlugins.length === 0 ? (
           <EmptyState
-            title={plugins.length === 0 ? "No plugins available yet." : "No plugins match that search."}
+            title={plugins.length === 0 ? "暂时没有可用插件" : "没有找到匹配的插件"}
             description={
               plugins.length === 0
-                ? "Imported plugins and connected integration plugins will show up here when they are available."
-                : "Try a different search term or browse the skills, hooks, or MCPs tabs."
+                ? "从仓库导入或由集成服务提供的插件会显示在这里。"
+                : "换个关键词，或到技能、自动触发、MCP 标签页中查找。"
             }
           />
         ) : (
@@ -271,9 +271,9 @@ export function PluginsScreen() {
       ) : activeView === "skills" ? (
         <PrimitiveList
           icon={FileText}
-          emptyLabel="No skills in this catalog yet."
-          emptyDescriptionEmpty="Once plugins contribute skills, they will show up here."
-          emptyDescriptionFiltered="No skills match that search."
+          emptyLabel="插件目录中还没有技能"
+          emptyDescriptionEmpty="插件提供的技能会显示在这里。"
+          emptyDescriptionFiltered="没有找到匹配的技能。"
           unfilteredCount={allSkills.length}
           rows={filteredSkills.map((skill) => ({
             id: skill.id,
@@ -286,9 +286,9 @@ export function PluginsScreen() {
       ) : activeView === "agents" ? (
         <PrimitiveList
           icon={Users}
-          emptyLabel="No agents in this catalog yet."
-          emptyDescriptionEmpty="Agents declared by plugins will show up here."
-          emptyDescriptionFiltered="No agents match that search."
+          emptyLabel="插件目录中还没有智能体"
+          emptyDescriptionEmpty="插件提供的智能体会显示在这里。"
+          emptyDescriptionFiltered="没有找到匹配的智能体。"
           unfilteredCount={allAgents.length}
           rows={filteredAgents.map((agent) => ({
             id: agent.id,
@@ -301,9 +301,9 @@ export function PluginsScreen() {
       ) : activeView === "commands" ? (
         <PrimitiveList
           icon={Terminal}
-          emptyLabel="No commands in this catalog yet."
-          emptyDescriptionEmpty="Slash-commands declared by plugins will show up here."
-          emptyDescriptionFiltered="No commands match that search."
+          emptyLabel="插件目录中还没有命令"
+          emptyDescriptionEmpty="插件提供的斜杠命令会显示在这里。"
+          emptyDescriptionFiltered="没有找到匹配的命令。"
           unfilteredCount={allCommands.length}
           rows={filteredCommands.map((command) => ({
             id: command.id,
@@ -317,9 +317,9 @@ export function PluginsScreen() {
       ) : activeView === "hooks" ? (
         <PrimitiveList
           icon={Webhook}
-          emptyLabel="No hooks in this catalog yet."
-          emptyDescriptionEmpty="Hooks declared by plugins will show up here."
-          emptyDescriptionFiltered="No hooks match that search."
+          emptyLabel="插件目录中还没有自动触发规则"
+          emptyDescriptionEmpty="插件提供的自动触发规则会显示在这里。"
+          emptyDescriptionFiltered="没有找到匹配的自动触发规则。"
           unfilteredCount={allHooks.length}
           rows={filteredHooks.map((hook) => ({
             id: hook.id,
@@ -327,23 +327,23 @@ export function PluginsScreen() {
             description: hook.description,
             pluginName: hook.pluginName,
             monospacedTitle: true,
-            meta: hook.matcher ? `matcher: ${hook.matcher}` : undefined,
+            meta: hook.matcher ? `匹配规则：${hook.matcher}` : undefined,
             href: getPluginRoute(orgSlug, hook.pluginId),
           }))}
         />
       ) : (
         <PrimitiveList
           icon={Server}
-          emptyLabel="No MCP servers in this catalog yet."
-          emptyDescriptionEmpty="MCP servers exposed by plugins will show up here."
-          emptyDescriptionFiltered="No MCPs match that search."
+          emptyLabel="插件目录中还没有 MCP 服务"
+          emptyDescriptionEmpty="插件提供的 MCP 服务会显示在这里。"
+          emptyDescriptionFiltered="没有找到匹配的 MCP 服务。"
           unfilteredCount={allMcps.length}
           rows={filteredMcps.map((mcp) => ({
             id: mcp.id,
             title: mcp.name,
             description: mcp.description,
             pluginName: mcp.pluginName,
-            meta: `${mcp.transport} · ${mcp.toolCount} tool${mcp.toolCount === 1 ? "" : "s"}`,
+            meta: `${mcp.transport} · ${mcp.toolCount} 个工具`,
             href: getPluginRoute(orgSlug, mcp.pluginId),
           }))}
         />
@@ -368,11 +368,10 @@ function ConnectIntegrationEmptyState({ integrationsHref }: { integrationsHref: 
         <Cable className="h-6 w-6" />
       </div>
       <p className="text-[16px] font-medium tracking-[-0.03em] text-gray-900">
-        Connect an integration to discover plugins
+        连接集成服务后查看插件
       </p>
       <p className="mx-auto mt-3 max-w-[520px] text-[15px] leading-8 text-gray-500">
-        Plugins, skills, hooks, and MCP servers are sourced from the repositories you connect on the
-        Integrations page. Connect GitHub or Bitbucket to see your catalog populate.
+        插件、技能、自动触发规则和 MCP 服务来自已连接的代码仓库。请先连接 GitHub 或 Bitbucket。
       </p>
       <div className="mt-6 flex justify-center">
         <Link
@@ -380,7 +379,7 @@ function ConnectIntegrationEmptyState({ integrationsHref }: { integrationsHref: 
           className={buttonVariants({ variant: "primary" })}
         >
           <Cable className="h-4 w-4" aria-hidden="true" />
-          Open Integrations
+          打开集成服务
         </Link>
       </div>
     </div>
@@ -415,7 +414,7 @@ function PrimitiveList({
   if (rows.length === 0) {
     return (
       <EmptyState
-        title={unfilteredCount === 0 ? emptyLabel : "Nothing matches that search."}
+        title={unfilteredCount === 0 ? emptyLabel : "没有找到匹配内容"}
         description={unfilteredCount === 0 ? emptyDescriptionEmpty : emptyDescriptionFiltered}
       />
     );

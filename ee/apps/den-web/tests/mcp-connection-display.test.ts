@@ -4,8 +4,8 @@ import { formatConnectionCreatorAttribution } from "../app/(den)/dashboard/_comp
 
 describe("MCP connection display helpers", () => {
   test("formats safe creator attribution when an admin manages connections", () => {
-    expect(formatConnectionCreatorAttribution("Alex Admin")).toBe("Added by Alex Admin");
-    expect(formatConnectionCreatorAttribution("  Alex Admin  ")).toBe("Added by Alex Admin");
+    expect(formatConnectionCreatorAttribution("Alex Admin")).toBe("由 Alex Admin 添加");
+    expect(formatConnectionCreatorAttribution("  Alex Admin  ")).toBe("由 Alex Admin 添加");
   });
 
   test("omits creator attribution when the API has no safe display name", () => {

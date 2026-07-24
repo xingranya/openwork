@@ -25,7 +25,7 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
     return (
       <div className="mx-auto max-w-[860px] px-6 py-8 md:px-8">
         <div className="rounded-2xl border border-gray-100 bg-white px-5 py-8 text-[13px] text-gray-400">
-          Loading plugin details…
+          正在加载插件详情...
         </div>
       </div>
     );
@@ -35,7 +35,7 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
     return (
       <div className="mx-auto max-w-[860px] px-6 py-8 md:px-8">
         <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-3.5 text-[13px] text-red-600">
-          {error instanceof Error ? error.message : "That plugin could not be found."}
+          {error instanceof Error ? error.message : "找不到此插件。"}
         </div>
       </div>
     );
@@ -43,11 +43,11 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
 
   const marketplaces = plugin.marketplaces ?? [];
   const missingLabels: string[] = [];
-  if (plugin.skills.length === 0) missingLabels.push("skills");
-  if (plugin.agents.length === 0) missingLabels.push("agents");
-  if (plugin.commands.length === 0) missingLabels.push("commands");
-  if (plugin.hooks.length === 0) missingLabels.push("hooks");
-  if (plugin.mcps.length === 0) missingLabels.push("MCP servers");
+  if (plugin.skills.length === 0) missingLabels.push("技能");
+  if (plugin.agents.length === 0) missingLabels.push("智能体");
+  if (plugin.commands.length === 0) missingLabels.push("命令");
+  if (plugin.hooks.length === 0) missingLabels.push("自动触发规则");
+  if (plugin.mcps.length === 0) missingLabels.push("MCP 服务");
 
   return (
     <div className="mx-auto max-w-[860px] px-6 py-8 md:px-8">
@@ -57,7 +57,7 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
           className="inline-flex items-center gap-1.5 text-[13px] text-gray-400 transition hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back
+          返回
         </Link>
       </div>
 
@@ -104,23 +104,23 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
             ) : null}
 
             <p className="mt-3 text-[11.5px] text-gray-400">
-              Updated {formatPluginTimestamp(plugin.updatedAt)}
+              更新于 {formatPluginTimestamp(plugin.updatedAt)}
             </p>
           </div>
         </div>
       </article>
 
       <div className="mt-6 space-y-6">
-        <PrimitiveSection icon={FileText} label="Skills" items={plugin.skills} render={renderSkillRow} />
-        <PrimitiveSection icon={Users} label="Agents" items={plugin.agents} render={renderAgentRow} />
-        <PrimitiveSection icon={Terminal} label="Commands" items={plugin.commands} render={renderCommandRow} />
-        <PrimitiveSection icon={Webhook} label="Hooks" items={plugin.hooks} render={renderHookRow} />
-        <PrimitiveSection icon={Server} label="MCP Servers" items={plugin.mcps} render={renderMcpRow} />
+        <PrimitiveSection icon={FileText} label="技能" items={plugin.skills} render={renderSkillRow} />
+        <PrimitiveSection icon={Users} label="智能体" items={plugin.agents} render={renderAgentRow} />
+        <PrimitiveSection icon={Terminal} label="命令" items={plugin.commands} render={renderCommandRow} />
+        <PrimitiveSection icon={Webhook} label="自动触发" items={plugin.hooks} render={renderHookRow} />
+        <PrimitiveSection icon={Server} label="MCP 服务" items={plugin.mcps} render={renderMcpRow} />
       </div>
 
       {missingLabels.length > 0 ? (
         <p className="mt-6 text-center text-[12px] text-gray-400">
-          No {formatMissingList(missingLabels)} detected in this plugin.
+          此插件未提供{formatMissingList(missingLabels)}。
         </p>
       ) : null}
     </div>
@@ -129,10 +129,7 @@ export function PluginDetailScreen({ pluginId }: { pluginId: string }) {
 
 function formatMissingList(labels: string[]) {
   if (labels.length === 0) return "";
-  const lowered = labels.map((label) => label.toLowerCase());
-  if (lowered.length === 1) return lowered[0];
-  if (lowered.length === 2) return `${lowered[0]} or ${lowered[1]}`;
-  return `${lowered.slice(0, -1).join(", ")}, or ${lowered[lowered.length - 1]}`;
+  return labels.join("、");
 }
 
 function PrimitiveSection<T>({
@@ -158,7 +155,7 @@ function PrimitiveSection<T>({
           {label}
         </h2>
         <p className="text-[11px] text-gray-400">
-          {items.length} {items.length === 1 ? "item" : "items"}
+          {items.length} 项
         </p>
       </div>
       <div className="grid gap-2">{items.map((item) => render(item))}</div>
@@ -194,7 +191,7 @@ function renderHookRow(hook: PluginHook) {
       </div>
       {hook.matcher ? (
         <span className="shrink-0 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500">
-          matcher: {hook.matcher}
+          匹配规则：{hook.matcher}
         </span>
       ) : null}
     </div>
@@ -214,7 +211,7 @@ function renderMcpRow(mcp: PluginMcp) {
         ) : null}
       </div>
       <span className="shrink-0 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500">
-        {mcp.transport === "stdio" ? "Desktop only" : "Remote"} · {mcp.toolCount} tool{mcp.toolCount === 1 ? "" : "s"}
+        {mcp.transport === "stdio" ? "仅桌面端" : "远程"} · {mcp.toolCount} 个工具
       </span>
     </div>
   );

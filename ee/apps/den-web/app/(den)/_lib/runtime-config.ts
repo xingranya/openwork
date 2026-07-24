@@ -3,21 +3,27 @@ export type DenOrgMode = "single_org" | "multi_org";
 export type DenWebRuntimeConfig = {
   openworkAppConnectUrl: string;
   openworkAuthCallbackUrl: string;
+  foxworkMcpEndpoint: string;
+  foxworkMcpDocsUrl: string;
   orgMode: DenOrgMode;
   singleOrgName: string;
   singleOrgSlug: string;
   singleOrgAllowPublicSignup: boolean;
   singleOrgSsoConfigured: boolean;
+  emailRecoveryEnabled: boolean;
 };
 
 export const EMPTY_RUNTIME_CONFIG: DenWebRuntimeConfig = {
   openworkAppConnectUrl: "",
   openworkAuthCallbackUrl: "",
+  foxworkMcpEndpoint: "",
+  foxworkMcpDocsUrl: "",
   orgMode: "single_org",
-  singleOrgName: "OpenWork",
+  singleOrgName: "FoxWork 公司",
   singleOrgSlug: "default",
   singleOrgAllowPublicSignup: false,
-  singleOrgSsoConfigured: false
+  singleOrgSsoConfigured: false,
+  emailRecoveryEnabled: false
 };
 
 let runtimeConfigPromise: Promise<DenWebRuntimeConfig> | null = null;
@@ -45,11 +51,14 @@ function normalizeRuntimeConfig(value: unknown): DenWebRuntimeConfig {
   return {
     openworkAppConnectUrl: readStringProperty(value, "openworkAppConnectUrl"),
     openworkAuthCallbackUrl: readStringProperty(value, "openworkAuthCallbackUrl"),
+    foxworkMcpEndpoint: readStringProperty(value, "foxworkMcpEndpoint"),
+    foxworkMcpDocsUrl: readStringProperty(value, "foxworkMcpDocsUrl"),
     orgMode: normalizeOrgMode(readStringProperty(value, "orgMode")),
-    singleOrgName: singleOrgName || "OpenWork",
+    singleOrgName: singleOrgName || "FoxWork 公司",
     singleOrgSlug: singleOrgSlug || "default",
     singleOrgAllowPublicSignup: readBooleanProperty(value, "singleOrgAllowPublicSignup"),
-    singleOrgSsoConfigured: readBooleanProperty(value, "singleOrgSsoConfigured")
+    singleOrgSsoConfigured: readBooleanProperty(value, "singleOrgSsoConfigured"),
+    emailRecoveryEnabled: readBooleanProperty(value, "emailRecoveryEnabled")
   };
 }
 

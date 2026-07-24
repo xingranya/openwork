@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto"
 import { and, eq, gt, isNull } from "@openwork-ee/den-db/drizzle"
 import { AuthSessionTable, AuthUserTable, DesktopHandoffGrantTable } from "@openwork-ee/den-db/schema"
 import { normalizeDenTypeId } from "@openwork-ee/utils/typeid"
+import {
+  FOXWORK_DESKTOP_SCHEME,
+  normalizeDesktopScheme,
+} from "@openwork/connect-link"
 import type { Hono } from "hono"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
@@ -134,15 +138,12 @@ function resolveDesktopDenBaseUrl(request: Request) {
   return origin
 }
 
-function buildOpenworkDeepLink(input: {
+function buildFoxWorkDeepLink(input: {
   scheme?: string | null
   grant: string
   denBaseUrl: string
 }) {
-  const requestedScheme = input.scheme?.trim() || "openwork"
-  const scheme = /^[a-z][a-z0-9+.-]*$/i.test(requestedScheme)
-    ? requestedScheme
-    : "openwork"
+  const scheme = normalizeDesktopScheme(input.scheme)
   const url = new URL(`${scheme}://den-auth`)
   url.searchParams.set("grant", input.grant)
   url.searchParams.set("denBaseUrl", input.denBaseUrl)
@@ -189,8 +190,8 @@ export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVari
     return c.json({
       grant,
       expiresAt: expiresAt.toISOString(),
-      openworkUrl: buildOpenworkDeepLink({
-        scheme: input.desktopScheme || "openwork",
+      openworkUrl: buildFoxWorkDeepLink({
+        scheme: input.desktopScheme || FOXWORK_DESKTOP_SCHEME,
         grant,
         denBaseUrl,
       }),

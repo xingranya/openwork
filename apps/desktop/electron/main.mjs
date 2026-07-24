@@ -54,6 +54,12 @@ import {
   writeWindowsBrandShortcut,
   windowsIconFromNativeImage,
 } from "./brand-icon-windows.mjs";
+import {
+  resolveFoxWorkBrandConfig,
+  FOXWORK_PROTOCOL_SCHEME,
+  FOXWORK_DEV_PROTOCOL_SCHEME,
+  FOXWORK_LEGACY_PROTOCOL_SCHEMES,
+} from "./foxwork-brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -75,17 +81,18 @@ const {
 } = require("electron");
 const pty = require(["node", "pty"].join("-"));
 const NATIVE_DEEP_LINK_EVENT = "openwork:deep-link-native";
-const TAURI_APP_IDENTIFIER = "com.differentai.openwork";
-const DEV_APP_IDENTIFIER = "com.differentai.openwork.dev";
-const DESKTOP_PROTOCOL_SCHEME = "openwork";
+const brandConfig = resolveFoxWorkBrandConfig();
 const isDevMode = process.env.OPENWORK_DEV_MODE === "1";
+const DESKTOP_PROTOCOL_SCHEME = isDevMode
+  ? FOXWORK_DEV_PROTOCOL_SCHEME
+  : FOXWORK_PROTOCOL_SCHEME;
 const APP_NAME =
   process.env.OPENWORK_ELECTRON_APP_NAME?.trim() ||
-  (isDevMode ? "OpenWork - Dev" : "OpenWork");
+  (isDevMode ? brandConfig.devAppName : brandConfig.appName);
 let currentDisplayAppName = APP_NAME;
 const APP_IDENTIFIER =
   process.env.OPENWORK_ELECTRON_APP_IDENTIFIER?.trim() ||
-  (isDevMode ? DEV_APP_IDENTIFIER : TAURI_APP_IDENTIFIER);
+  (isDevMode ? brandConfig.devAppIdentifier : brandConfig.appIdentifier);
 if (process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN === "1") {
   // Fresh, isolated development profiles otherwise trigger macOS's native
   // "Login" keychain prompt as soon as Chromium persists an authenticated
@@ -94,9 +101,9 @@ if (process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN === "1") {
   // system keychain normally.
   app.commandLine.appendSwitch("use-mock-keychain");
 }
-const RELEASE_DOWNLOAD_BASE_URL = "https://github.com/different-ai/openwork/releases/latest/download";
-const RELEASE_PAGE_URL = "https://github.com/different-ai/openwork/releases/latest";
-const DOCS_PAGE_URL = "https://openworklabs.com/docs";
+const RELEASE_DOWNLOAD_BASE_URL = brandConfig.updateBaseUrl;
+const RELEASE_PAGE_URL = brandConfig.releasePageUrl;
+const DOCS_PAGE_URL = brandConfig.docsUrl;
 const applicationMenu = createApplicationMenu({
   appName: APP_NAME,
   docsUrl: DOCS_PAGE_URL,
@@ -281,6 +288,7 @@ function selectDownloadFile(files, arch) {
 }
 
 async function resolveCorrectArchitectureDownloadUrl(arch) {
+  if (!RELEASE_DOWNLOAD_BASE_URL) return null;
   const manifestUrl = `${RELEASE_DOWNLOAD_BASE_URL}/${updaterManifestName(arch)}`;
   try {
     const response = await fetch(manifestUrl, {
@@ -303,7 +311,7 @@ async function resolveArchitectureInfo() {
   const systemArch = resolveSystemArch();
   const version = app.getVersion();
   const targetArch = systemArch === "arm64" || systemArch === "x64" ? systemArch : appArch;
-  const assetName = `openwork-${platformDownloadSlug()}-${downloadAssetArch(targetArch)}-${version}.${downloadAssetExtension()}`;
+  const assetName = `foxwork-${platformDownloadSlug()}-${downloadAssetArch(targetArch)}-${version}.${downloadAssetExtension()}`;
   const latestDownloadUrl = await resolveCorrectArchitectureDownloadUrl(targetArch);
   const hasCorrectArchitectureDownload = Boolean(latestDownloadUrl);
   return {
@@ -314,7 +322,9 @@ async function resolveArchitectureInfo() {
     mismatch: appArch !== systemArch && hasCorrectArchitectureDownload,
     platform: process.platform === "win32" ? "windows" : process.platform,
     version,
-    downloadUrl: latestDownloadUrl || `${RELEASE_DOWNLOAD_BASE_URL}/${assetName}`,
+    downloadUrl: latestDownloadUrl || (RELEASE_DOWNLOAD_BASE_URL
+      ? `${RELEASE_DOWNLOAD_BASE_URL}/${assetName}`
+      : null),
     releaseUrl: RELEASE_PAGE_URL,
   };
 }
@@ -342,7 +352,7 @@ function brandIconWindowsPath() {
 }
 
 function defaultAppWindowsIconPath() {
-  return path.join(app.getPath("userData"), "openwork-stock.ico");
+  return path.join(app.getPath("userData"), "foxwork-stock.ico");
 }
 
 let cachedWindowsProgramsPath = null;
@@ -858,7 +868,7 @@ if (extraLaunchArgs) {
   }
 }
 configureFakeMediaForTests(app, envFlagEnabled("OPENWORK_ELECTRON_FAKE_MEDIA"));
-const DEFAULT_DEN_BASE_URL = "https://app.openworklabs.com";
+const DEFAULT_DEN_BASE_URL = brandConfig.denBaseUrl || "";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("OPENWORK_FORCE_SIGNIN");
 const DEFAULT_DESKTOP_REQUIRE_SIGNIN = FORCE_DESKTOP_REQUIRE_SIGNIN;
@@ -983,13 +993,17 @@ function normalizePlatform(value) {
 }
 
 function forwardedDeepLinks(argv) {
+  const acceptedSchemes = [
+    `${FOXWORK_PROTOCOL_SCHEME}://`,
+    `${FOXWORK_DEV_PROTOCOL_SCHEME}://`,
+    ...FOXWORK_LEGACY_PROTOCOL_SCHEMES.map((scheme) => `${scheme}://`),
+  ];
   return argv
     .slice(1)
     .map((entry) => entry.trim())
     .filter(
       (entry) =>
-        entry.startsWith("openwork://") ||
-        entry.startsWith("openwork-dev://") ||
+        acceptedSchemes.some((scheme) => entry.startsWith(scheme)) ||
         entry.startsWith("https://") ||
         entry.startsWith("http://"),
     );
@@ -1121,8 +1135,8 @@ function showShutdownScreen() {
   <body>
     <main>
       <div class="spinner" aria-hidden="true"></div>
-      <div class="title">Stopping OpenWork services</div>
-      <div class="body">Closing local workers and background services...</div>
+      <div class="title">正在关闭 FoxWork 服务</div>
+      <div class="body">正在安全退出本地工作区和后台服务...</div>
     </main>
   </body>
 </html>`)}`);

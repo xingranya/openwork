@@ -8,87 +8,84 @@ type DesktopPolicyDefinitionEntry = {
   defaultValue: boolean;
 };
 
-// Canonical desktop policy catalog.
+// 桌面策略的权威目录。
 //
-// To add a new desktop policy item:
-// 1. Add a matching entry to `desktopPolicyDefinitions` below.
-// 2. Choose a safe `defaultValue` for orgs with missing/older policy data.
-// 3. Wire desktop app behavior to read the key through the desktop config hooks.
-// 4. If the key affects Den web editing copy, update the `name`, `description`,
-//    and `userNotice` here rather than duplicating that copy elsewhere.
-// 5. Do not manually edit `desktopPolicyValueSchema`; it is generated from the
-//    IDs in this definition list.
+// 新增策略项时：
+// 1. 在 `desktopPolicyDefinitions` 中增加对应条目。
+// 2. 为缺失或旧版策略数据选择安全的 `defaultValue`。
+// 3. 通过桌面配置钩子接入客户端行为。
+// 4. 若策略会显示在 Den 管理页，直接更新这里的 `name`、`description`
+//    和 `userNotice`，不要在其他位置重复维护文案。
+// 5. 不要手动修改 `desktopPolicyValueSchema`，它由此目录中的 ID 生成。
 //
-// Policy booleans usually use allow-style names. For every policy item,
-// `false` means the feature is restricted/disabled; `true` or an omitted value
-// means the app should not block the feature locally unless a default/effective
-// policy calculation supplies `false`.
+// 布尔策略通常采用 allow 风格命名。`false` 表示限制或禁用功能；
+// `true` 或缺省值表示客户端不主动阻止，除非生效策略明确给出 `false`。
 export const desktopPolicyDefinitions = [
   {
     id: "allowCustomProviders",
-    name: "Custom providers",
+    name: "自定义模型服务",
     description:
-      "Allow users to add and use models that are not deployed through OpenWork Cloud.",
+      "允许员工添加和使用未由公司统一下发的模型服务。",
     userNotice:
-      "Your organization administrator has disabled adding custom providers.",
+      "公司管理员已禁止添加自定义模型服务。",
     defaultValue: true,
   },
   {
     id: "allowZenModel",
-    name: "Enable OpenCode Zen Models",
-    description: "Allow users to use the built in models provided by OpenCode.",
-    userNotice: "Your administrator has disabled access to OpenCode Models.",
+    name: "启用 OpenCode Zen 模型",
+    description: "允许员工使用 OpenCode 内置模型。",
+    userNotice: "公司管理员已禁止使用 OpenCode 模型。",
     defaultValue: true,
   },
   {
     id: "allowMultipleWorkspaces",
-    name: "Multiple workspaces",
+    name: "多个工作区",
     description:
-      "Allow users to create or configure more than one workspace on their machine.",
+      "允许员工在 FoxWork 中创建和配置任意数量的本地或远程工作区。",
     userNotice:
-      "Your organization administrator has restricted access to adding additional workspaces.",
+      "公司管理员已限制添加其他工作区。",
     defaultValue: true,
   },
   {
     id: "allowControlSettings",
-    name: "Control Settings",
-    description: "Allow users to access and change the desktop app settings.",
+    name: "客户端设置",
+    description: "允许员工查看和修改 FoxWork 设置。",
     userNotice:
-      "Your organization administrator has disabled changing desktop app settings.",
+      "公司管理员已禁止修改 FoxWork 设置。",
     defaultValue: true,
   },
   {
     id: "allowManageExtensions",
-    name: "Manage Extensions",
-    description: "Allow users to install and manage extensions locally.",
+    name: "管理扩展",
+    description: "允许员工在本机安装和管理扩展。",
     userNotice:
-      "Your organization administrator has disabled local extension management.",
+      "公司管理员已禁止在本机管理扩展。",
     defaultValue: true,
   },
   {
     id: "allowBuiltInExtensions",
-    name: "Built-in Extensions",
+    name: "内置扩展",
     description:
-      "Allow users to see and use OpenWork's built-in extensions, including browser, image, and local-provider extensions.",
+      "允许员工查看和使用 FoxWork 内置的浏览器、图像及本地模型服务扩展。",
     userNotice:
-      "Your organization administrator has disabled built-in OpenWork extensions.",
+      "公司管理员已禁止使用 FoxWork 内置扩展。",
     defaultValue: true,
   },
   {
     id: "allowAlphaUpdates",
-    name: "Alpha updates",
+    name: "Alpha 测试版更新",
     description:
-      "Allow users to opt into experimental Alpha desktop updates.",
+      "允许员工选择接收实验性的 Alpha 客户端更新。",
     userNotice:
-      "Your organization administrator has disabled Alpha desktop updates.",
+      "公司管理员已禁止接收 Alpha 客户端更新。",
     defaultValue: true,
   },
   {
     id: "showWelcomePage",
-    name: "Welcome Page",
-    description: "Show the Getting Started page to new users.",
+    name: "欢迎页",
+    description: "向新员工显示开始使用页面。",
     userNotice:
-      "Your organization administrator has disabled the Getting Started page.",
+      "公司管理员已关闭开始使用页面。",
     defaultValue: true,
   },
 ] as const satisfies readonly DesktopPolicyDefinitionEntry[];

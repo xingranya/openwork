@@ -139,18 +139,22 @@ function providerRequestIdFromInspection(inspection: InspectionEvidence | null):
 
 function unknownOutcomeGuidance(mayHaveSideEffects: boolean): string {
   return mayHaveSideEffects
-    ? "Do not retry immediately. This tool may have changed external data; verify provider state before trying again."
-    : "The first call may still finish. Check recent provider activity before retrying.";
+    ? "不要立即重试。此工具可能已经修改外部数据，请先到服务方确认实际结果。"
+    : "首次调用仍可能完成，请先检查服务方的近期记录再重试。";
 }
 
 function lastBoundaryFromDiagnostic(diagnostic: ExternalMcpDiagnostic | null): string | undefined {
-  if (diagnostic?.highestPassed === "operation_ready") return "OpenWork started remote tool execution";
-  if (diagnostic?.highestPassed === "catalog_ready") return "OpenWork loaded the remote MCP tool catalog";
-  if (diagnostic?.highestPassed === "protocol_ready") return "OpenWork initialized the remote MCP session";
-  if (diagnostic?.highestPassed === "authorized") return "Remote MCP accepted the connection credential";
-  if (diagnostic?.highestPassed === "reachable") return "OpenWork reached the remote MCP endpoint";
-  if (diagnostic?.highestPassed === "configured") return "OpenWork loaded the MCP connection configuration";
+  if (diagnostic?.highestPassed === "operation_ready") return "FoxWork 已开始执行远程工具";
+  if (diagnostic?.highestPassed === "catalog_ready") return "FoxWork 已读取远程 MCP 工具目录";
+  if (diagnostic?.highestPassed === "protocol_ready") return "FoxWork 已建立远程 MCP 会话";
+  if (diagnostic?.highestPassed === "authorized") return "远程 MCP 已接受连接凭据";
+  if (diagnostic?.highestPassed === "reachable") return "FoxWork 已连接远程 MCP 地址";
+  if (diagnostic?.highestPassed === "configured") return "FoxWork 已读取 MCP 连接配置";
   return undefined;
+}
+
+function chineseDiagnosticText(value: string | undefined, fallback: string): string {
+  return value && /[\u3400-\u9fff]/u.test(value) ? value : fallback;
 }
 
 function diagnosticDetails(diagnostic: ExternalMcpDiagnostic | null, inspection: InspectionEvidence | null) {
@@ -177,9 +181,9 @@ export function attributeExternalMcpToolFailure(input: {
     const seconds = browserTimeout.timeoutMs / 1000;
     const duration = Number.isInteger(seconds) ? `${seconds}` : seconds.toFixed(1);
     return {
-      summary: `OpenWork stopped waiting after ${duration} seconds. The operation’s outcome is unknown.`,
-      lastConfirmedBoundary: "OpenWork dashboard sent the request",
-      likelySource: "Source unclear after OpenWork timeout",
+      summary: `FoxWork 等待 ${duration} 秒后停止，本次操作结果尚未确认。`,
+      lastConfirmedBoundary: "FoxWork 管理后台已发出请求",
+      likelySource: "超时后的具体原因尚不明确",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
       outcome: "unknown",
@@ -192,11 +196,14 @@ export function attributeExternalMcpToolFailure(input: {
     || diagnostic?.code === "MCP_FETCH_FORBIDDEN_PORT";
   if (blockedBeforeSend) {
     return {
-      summary: "OpenWork blocked the request before it was sent.",
-      lastConfirmedBoundary: "OpenWork evaluated the outbound request",
-      likelySource: "OpenWork",
+      summary: "FoxWork 在请求发出前将其拦截。",
+      lastConfirmedBoundary: "FoxWork 已完成外发安全检查",
+      likelySource: "FoxWork 安全策略",
       confidence: "Confirmed",
-      retryGuidance: diagnostic?.operatorAction ?? "Resolve the OpenWork policy or connection configuration, then run the tool again.",
+      retryGuidance: chineseDiagnosticText(
+        diagnostic?.operatorAction,
+        "请先修正 FoxWork 安全策略或连接配置，再重新运行工具。",
+      ),
       outcome: "failed",
       ...details,
     };
@@ -207,16 +214,18 @@ export function attributeExternalMcpToolFailure(input: {
     const retryableStatus = responseStatus === 408 || responseStatus === 429 || responseStatus === 502
       || responseStatus === 503 || responseStatus === 504;
     return {
-      summary: `The remote MCP returned HTTP ${responseStatus}.`,
-      lastConfirmedBoundary: `Remote MCP returned HTTP ${responseStatus}`,
-      likelySource: "Remote MCP",
+      summary: `远程 MCP 返回 HTTP ${responseStatus}。`,
+      lastConfirmedBoundary: `远程 MCP 已返回 HTTP ${responseStatus}`,
+      likelySource: "远程 MCP",
       confidence: "Confirmed",
       retryGuidance: mayHaveSideEffects && (responseStatus === 408 || responseStatus === 504)
-        ? "Check the remote MCP or provider for a completed operation before retrying this tool."
-        : diagnostic?.operatorAction
-          ?? (diagnostic?.retryable || retryableStatus
-            ? "Retry with bounded backoff after confirming the operation is safe to repeat."
-            : "Inspect the remote MCP response and configuration before retrying."),
+        ? "重试前请先到远程 MCP 或服务方确认操作是否已经完成。"
+        : chineseDiagnosticText(
+          diagnostic?.operatorAction,
+          diagnostic?.retryable || retryableStatus
+            ? "确认操作可以安全重复后，请稍候再试。"
+            : "请检查远程 MCP 的响应和连接配置后再试。",
+        ),
       outcome: "failed",
       ...details,
     };
@@ -227,29 +236,34 @@ export function attributeExternalMcpToolFailure(input: {
     || diagnostic?.providerCode !== undefined;
   if (diagnostic?.code === "MCP_PROVIDER_AUTH_REQUIRED") {
     return {
-      summary: "The remote MCP responded and requires user authorization for the downstream provider.",
+      summary: "远程 MCP 已响应，但还需要登录下游服务账号。",
       lastConfirmedBoundary: responseStatus !== undefined
-        ? `Remote MCP returned HTTP ${responseStatus} with an authorization request`
-        : "Remote MCP returned an authorization request",
-      likelySource: "Downstream provider authorization",
+        ? `远程 MCP 返回 HTTP ${responseStatus}，并要求完成账号授权`
+        : "远程 MCP 已返回账号授权要求",
+      likelySource: "下游服务账号尚未授权",
       confidence: "Confirmed",
-      retryGuidance: diagnostic.operatorAction ?? "Connect the provider account, then retry.",
+      retryGuidance: chineseDiagnosticText(
+        diagnostic.operatorAction,
+        "请先连接对应的服务账号，再重新运行工具。",
+      ),
       outcome: "failed",
       ...details,
     };
   }
   if (providerFailure) {
     return {
-      summary: "The remote MCP responded, but the downstream provider rejected the operation.",
+      summary: "远程 MCP 已响应，但下游服务拒绝了本次操作。",
       lastConfirmedBoundary: responseStatus !== undefined
-        ? `Remote MCP returned HTTP ${responseStatus} with a tool error`
-        : "Remote MCP returned a tool error",
-      likelySource: "Downstream provider",
+        ? `远程 MCP 返回 HTTP ${responseStatus} 和工具错误`
+        : "远程 MCP 已返回工具错误",
+      likelySource: "下游服务",
       confidence: "Confirmed",
-      retryGuidance: diagnostic?.operatorAction
-        ?? (diagnostic?.retryable
-          ? "Retry with bounded backoff after checking the provider status."
-          : "Resolve the provider error before retrying."),
+      retryGuidance: chineseDiagnosticText(
+        diagnostic?.operatorAction,
+        diagnostic?.retryable
+          ? "请确认服务方状态正常后稍候再试。"
+          : "请先处理服务方返回的错误，再重新运行工具。",
+      ),
       outcome: "failed",
       ...details,
     };
@@ -260,9 +274,9 @@ export function attributeExternalMcpToolFailure(input: {
     && (diagnostic?.code === "MCP_LIFECYCLE_DEADLINE" || diagnostic?.code === "MCP_REQUEST_TIMEOUT");
   if (deadlineAfterSend) {
     return {
-      summary: "OpenWork sent the request, but the remote MCP did not respond before OpenWork’s deadline.",
-      lastConfirmedBoundary: "OpenWork started the outbound tools/call",
-      likelySource: "Network or remote MCP",
+      summary: "FoxWork 已发出请求，但远程 MCP 未在规定时间内响应。",
+      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      likelySource: "网络或远程 MCP",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
       outcome: "unknown",
@@ -272,9 +286,9 @@ export function attributeExternalMcpToolFailure(input: {
 
   if (inspection?.request && !inspection.response) {
     return {
-      summary: "OpenWork started the outbound request, but no HTTP response was captured. This does not prove the remote MCP caused the failure.",
-      lastConfirmedBoundary: "OpenWork started the outbound tools/call",
-      likelySource: "Source unclear after send",
+      summary: "FoxWork 已发出请求，但没有捕获到 HTTP 响应，暂时无法确认具体故障方。",
+      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      likelySource: "请求发出后的具体原因尚不明确",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
       outcome: "unknown",
@@ -284,11 +298,17 @@ export function attributeExternalMcpToolFailure(input: {
 
   if (inspection?.response) {
     return {
-      summary: inspection.diagnosis?.summary ?? "The remote MCP responded, but the tool result was not successful.",
-      lastConfirmedBoundary: `Remote MCP returned HTTP ${inspection.response.status}`,
-      likelySource: "MCP tool result",
+      summary: chineseDiagnosticText(
+        inspection.diagnosis?.summary,
+        "远程 MCP 已响应，但工具没有成功完成。",
+      ),
+      lastConfirmedBoundary: `远程 MCP 已返回 HTTP ${inspection.response.status}`,
+      likelySource: "MCP 工具结果",
       confidence: "Inferred",
-      retryGuidance: diagnostic?.operatorAction ?? "Inspect the MCP tool result and diagnostic reference before retrying.",
+      retryGuidance: chineseDiagnosticText(
+        diagnostic?.operatorAction,
+        "请先检查 MCP 工具结果和诊断编号，再重新运行。",
+      ),
       outcome: "failed",
       ...details,
     };
@@ -296,14 +316,18 @@ export function attributeExternalMcpToolFailure(input: {
 
   const networkSetup = diagnostic?.phase?.startsWith("NETWORK_") || inspection?.diagnosis?.layer === "network";
   return {
-    summary: inspection?.diagnosis?.summary
-      ?? diagnostic?.message
-      ?? "The request failed before OpenWork received a tool result.",
+    summary: chineseDiagnosticText(
+      inspection?.diagnosis?.summary ?? diagnostic?.message,
+      "FoxWork 在收到工具结果前遇到错误。",
+    ),
     lastConfirmedBoundary: lastBoundaryFromDiagnostic(diagnostic)
-      ?? (diagnostic ? "OpenWork returned a structured diagnostic" : "OpenWork dashboard sent the request"),
-    likelySource: networkSetup ? "Connection path or remote MCP" : "OpenWork or MCP setup",
+      ?? (diagnostic ? "FoxWork 已返回结构化诊断信息" : "FoxWork 管理后台已发出请求"),
+    likelySource: networkSetup ? "连接链路或远程 MCP" : "FoxWork 或 MCP 配置",
     confidence: "Inferred",
-    retryGuidance: diagnostic?.operatorAction ?? "Use the diagnostic reference to inspect OpenWork and MCP connection health before retrying.",
+    retryGuidance: chineseDiagnosticText(
+      diagnostic?.operatorAction,
+      "请根据诊断编号检查 FoxWork 和 MCP 连接状态，再重新运行。",
+    ),
     outcome: "failed",
     ...details,
   };

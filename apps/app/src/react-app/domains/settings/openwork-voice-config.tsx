@@ -51,25 +51,25 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
   return (
     <Card variant="outline" size="sm">
       <CardHeader>
-        <CardTitle>Realtime voice</CardTitle>
+        <CardTitle>实时语音</CardTitle>
         <CardDescription>
-          Voice Mode uses OpenAI Realtime and the same OpenWork UI control surface exposed through OpenWork UI MCP.
+          语音模式使用 OpenAI Realtime，并通过 FoxWork 界面控制 MCP 操作当前应用。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {props.envKeyDetected ? (
           <Alert>
             <Mic2 />
-            <AlertTitle>OpenAI key detected</AlertTitle>
+            <AlertTitle>已找到 OpenAI 密钥</AlertTitle>
             <AlertDescription>
-              Voice Mode will use OPENAI_REALTIME_API_KEY when present, otherwise OPENAI_API_KEY from OpenWork environment variables.
+              优先使用 OPENAI_REALTIME_API_KEY，未配置时使用 FoxWork 环境变量中的 OPENAI_API_KEY。
             </AlertDescription>
           </Alert>
         ) : null}
 
         <FieldGroup className="gap-4">
           <Field>
-            <FieldLabel htmlFor="openwork-voice-api-key">OpenAI API key</FieldLabel>
+            <FieldLabel htmlFor="openwork-voice-api-key">OpenAI API 密钥</FieldLabel>
             <Input
               id="openwork-voice-api-key"
               type="password"
@@ -78,7 +78,7 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
               placeholder="sk-..."
             />
             <FieldDescription>
-              Saved as OPENAI_API_KEY in OpenWork's local env store. The renderer only receives short-lived Realtime client secrets.
+              密钥以 OPENAI_API_KEY 保存在 FoxWork 本机环境设置中，界面进程只会收到短期 Realtime 客户端密钥。
             </FieldDescription>
           </Field>
         </FieldGroup>
@@ -99,10 +99,10 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
       <CardFooter className="flex-wrap gap-2 border-t border-border justify-between">
         <Button onClick={() => void props.onSaveApiKey(apiKey)} disabled={props.busy || !canSave}>
           {props.busy ? <Loader2 data-icon="inline-start" className="animate-spin" /> : null}
-          Save key
+          保存密钥
         </Button>
         <Button variant="outline" onClick={() => void props.onTestSession()} disabled={props.busy || !props.envKeyDetected}>
-          Test Realtime
+          测试实时语音
         </Button>
       </CardFooter>
     </Card>

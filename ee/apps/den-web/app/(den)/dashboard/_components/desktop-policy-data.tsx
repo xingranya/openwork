@@ -144,13 +144,13 @@ export function useOrgDesktopPolicies(orgId: string | null) {
     try {
       const { response, payload } = await requestJson("/v1/desktop-policies", { method: "GET" }, 12000);
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load desktop policies (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `加载桌面策略失败（${response.status}）。`));
       }
       const parsed = parseDesktopPolicyList(payload);
       setDefinitions(parsed.definitions);
       setDesktopPolicies(parsed.desktopPolicies);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to load desktop policies.");
+      setError(error instanceof Error ? error.message : "加载桌面策略失败。");
     } finally {
       setBusy(false);
     }
@@ -170,7 +170,7 @@ export async function createDesktopPolicy(input: DesktopPolicyPayload) {
     body: JSON.stringify(input),
   }, 12000);
   if (!response.ok) {
-    throw getRequestError(payload, response, `Failed to create desktop policy (${response.status}).`);
+    throw getRequestError(payload, response, `创建桌面策略失败（${response.status}）。`);
   }
 }
 
@@ -181,7 +181,7 @@ export async function updateDesktopPolicy(policyId: string, input: DesktopPolicy
     body: JSON.stringify(input),
   }, 12000);
   if (!response.ok) {
-    throw getRequestError(payload, response, `Failed to update desktop policy (${response.status}).`);
+    throw getRequestError(payload, response, `更新桌面策略失败（${response.status}）。`);
   }
 }
 
@@ -190,6 +190,6 @@ export async function deleteDesktopPolicy(policyId: string) {
     method: "DELETE",
   }, 12000);
   if (!response.ok) {
-    throw getRequestError(payload, response, `Failed to delete desktop policy (${response.status}).`);
+    throw getRequestError(payload, response, `删除桌面策略失败（${response.status}）。`);
   }
 }

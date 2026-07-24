@@ -5,6 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { app, WebContentsView, clipboard, session, shell } from "electron";
+import {
+  FOXWORK_DEV_PROTOCOL_SCHEME,
+  FOXWORK_PROTOCOL_SCHEME,
+  FOXWORK_LEGACY_PROTOCOL_SCHEMES,
+} from "./foxwork-brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_SESSION_PARTITION = "persist:openwork-browser";
@@ -18,6 +23,11 @@ const MENU_OVERLAY_HTML = "overlay.html";
 const MENU_OVERLAY_WIDTH = 196;
 const MENU_OVERLAY_HEIGHT = 176;
 const MENU_OVERLAY_READY_TIMEOUT_MS = 2000;
+const DESKTOP_DEEP_LINK_PREFIXES = [
+  `${FOXWORK_PROTOCOL_SCHEME}://`,
+  `${FOXWORK_DEV_PROTOCOL_SCHEME}://`,
+  ...FOXWORK_LEGACY_PROTOCOL_SCHEMES.map((scheme) => `${scheme}://`),
+];
 
 export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
   const browserTabs = new Map();
@@ -353,10 +363,10 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
       url,
       bounds: menuOverlayBounds(normalizeMenuOverlayPoint(point)),
       items: [
-        { id: "copy-url", label: "Copy URL", iconName: "copy", disabled: !url },
-        { id: "open-external", label: "Open in Browser", iconName: "external", disabled: !(url && isHttpUrl(url)) },
-        { id: "close-tab", label: "Close Tab", iconName: "close", separatorBefore: true },
-        { id: "close-all-tabs", label: "Close All Tabs", iconName: "close" },
+        { id: "copy-url", label: "复制网址", iconName: "copy", disabled: !url },
+        { id: "open-external", label: "在浏览器中打开", iconName: "external", disabled: !(url && isHttpUrl(url)) },
+        { id: "close-tab", label: "关闭标签页", iconName: "close", separatorBefore: true },
+        { id: "close-all-tabs", label: "关闭全部标签页", iconName: "close" },
       ],
     };
   }
@@ -496,9 +506,8 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
       // data: loads are internal plumbing (CDP target-marker pages), not
       // user-visible navigations — don't surface the panel for them.
       if (target === "about:blank" || target.startsWith("data:")) return;
-      // Intercept openwork:// deep links (e.g. den-auth handoff grants) so
-      // in-app browser auth works without the system protocol handler.
-      if (target.startsWith("openwork://") || target.startsWith("openwork-dev://")) {
+      // 拦截 FoxWork 深链，让内置浏览器中的登录交接不依赖系统协议处理器。
+      if (DESKTOP_DEEP_LINK_PREFIXES.some((prefix) => target.startsWith(prefix))) {
         if (typeof onDeepLink === "function") {
           onDeepLink([target]);
         }

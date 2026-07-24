@@ -36,6 +36,7 @@ import {
   SettingsListSearchInput,
 } from "../settings-list";
 import { t } from "@/i18n";
+import { formatPluginComponentMeta } from "../connect-cloud-readiness";
 import { useCloudSession } from "./cloud-session-provider";
 
 type ResourceActionKind = "import" | "remove" | "sync";
@@ -213,9 +214,7 @@ function MarketplacePluginListItem({
   onImportPlugin,
 }: MarketplacePluginListItemProps) {
   const actionBusy = actionId === row.plugin.id;
-  const counts = Object.entries(row.plugin.componentCounts).flatMap(([type, count]) =>
-    count > 0 ? [`${count} ${type}${count === 1 ? "" : "s"}`] : [],
-  );
+  const componentSummary = formatPluginComponentMeta(row.plugin.componentCounts);
 
   return (
     <SettingsListItem>
@@ -227,16 +226,14 @@ function MarketplacePluginListItem({
               {row.status === "imported" ? t("den.imported_badge") : t("den.out_of_sync_badge")}
             </SettingsPill>
           ) : null}
-          {counts.map((label) => (
-            <SettingsPill key={label}>{label}</SettingsPill>
-          ))}
+          <SettingsPill>{componentSummary}</SettingsPill>
         </SettingsListTitle>
         <SettingsListItemDescription>
-          {row.plugin.description || "No description provided."}
+          {row.plugin.description || "暂无说明。"}
         </SettingsListItemDescription>
         {row.imported?.files.length ? (
           <div className="mt-1 truncate text-xs text-muted-foreground">
-            Installed files: {row.imported.files.map((file) => file.path).join(", ")}
+            已安装文件：{row.imported.files.map((file) => file.path).join("、")}
           </div>
         ) : null}
       </SettingsListItemContent>
@@ -270,13 +267,13 @@ function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, 
       : actionKind === "sync"
         ? t("den.syncing")
         : t("den.removing");
-  const source = row.provider?.source === "custom" ? "custom" : "managed";
+  const source = row.provider?.source === "custom" ? "自定义" : "公司托管";
   const modelCount = row.provider?.models.length ?? 0;
   const cloudProviderDetail = modelCount === 0
-    ? `All Models · ${source} provider`
+    ? `全部模型 · ${source}服务`
     : t("den.cloud_provider_detail", { count: modelCount, source });
   const cloudProviderSyncDetail = modelCount === 0
-    ? `Cloud provider changed. Sync the All Models ${source} config into this workspace.`
+    ? `公司模型服务已更新，请将“全部模型”的${source}配置同步到当前工作区。`
     : t("den.cloud_provider_sync_detail", { count: modelCount, source });
 
   return (
@@ -373,7 +370,7 @@ export function CloudSkillsSection({
   const [searchQuery, setSearchQuery] = React.useState("");
   const visibleRows = useSearch({ items: rows, keys: skillSearchKeys, query: searchQuery });
   const skillGroups = [
-    { value: "available", label: "Available", rows: visibleRows.filter((row) => row.status === "available") },
+    { value: "available", label: "可用", rows: visibleRows.filter((row) => row.status === "available") },
     { value: "out_of_sync", label: t("den.out_of_sync_badge"), rows: visibleRows.filter((row) => row.status === "out_of_sync") },
     { value: "installed", label: t("skills.cloud_status_installed"), rows: visibleRows.filter((row) => row.status === "installed") },
     { value: "removed_from_cloud", label: t("den.removed_from_cloud_badge"), rows: visibleRows.filter((row) => row.status === "removed_from_cloud") },
@@ -413,14 +410,14 @@ export function CloudSkillsSection({
         <>
           <Field>
             <FieldLabel className="sr-only" htmlFor="cloud-skill-search">
-              Search
+              搜索
             </FieldLabel>
             <SettingsListSearchInput
               id="cloud-skill-search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.currentTarget.value)}
             />
-            <FieldDescription className="sr-only">Search for a skill.</FieldDescription>
+            <FieldDescription className="sr-only">搜索 Skill。</FieldDescription>
           </Field>
 
           {visibleRows.length > 0 ? (
@@ -450,7 +447,7 @@ export function CloudSkillsSection({
               ))}
             </Accordion>
           ) : (
-            <SettingsListEmptyState>No skills match your search.</SettingsListEmptyState>
+            <SettingsListEmptyState>没有符合搜索条件的 Skill。</SettingsListEmptyState>
           )}
         </>
       ) : null}
@@ -490,7 +487,7 @@ export function MarketplacePluginsSection({
   const selectedRows = selectedMarketplace ? rowsByMarketplace[selectedMarketplace.marketplace.id] ?? [] : [];
   const visibleRows = useSearch({ items: selectedRows, keys: pluginSearchKeys, query: searchQuery });
   const pluginGroups = [
-    { value: "available", label: "Available", rows: visibleRows.filter((row) => row.status === "available") },
+    { value: "available", label: "可用", rows: visibleRows.filter((row) => row.status === "available") },
     { value: "out_of_sync", label: t("den.out_of_sync_badge"), rows: visibleRows.filter((row) => row.status === "out_of_sync") },
     { value: "imported", label: t("den.imported_badge"), rows: visibleRows.filter((row) => row.status === "imported") },
   ].filter((group) => group.rows.length > 0);
@@ -500,10 +497,10 @@ export function MarketplacePluginsSection({
       <SettingsSectionHeader>
         <SettingsSectionHeaderContent>
           <SettingsSectionHeaderTitle>
-            Marketplaces & Plugins
+            能力市场与插件
           </SettingsSectionHeaderTitle>
           <SettingsSectionHeaderDescription>
-            Browse organization marketplaces and import plugin files into this workspace.
+            浏览公司提供的能力市场，并将插件安装到当前工作区。
           </SettingsSectionHeaderDescription>
         </SettingsSectionHeaderContent>
         <SettingsSectionHeaderActions>
@@ -523,7 +520,7 @@ export function MarketplacePluginsSection({
 
       {!busy && marketplaces.length === 0 ? (
         <SettingsListEmptyState>
-          {hasActiveOrg ? "No marketplaces are available yet." : "Choose an organization to view marketplaces."}
+          {hasActiveOrg ? "公司尚未发布能力市场。" : "请先选择公司，再查看能力市场。"}
         </SettingsListEmptyState>
       ) : null}
 
@@ -547,14 +544,14 @@ export function MarketplacePluginsSection({
 
           <Field>
             <FieldLabel className="sr-only" htmlFor="marketplace-plugin-search">
-              Search
+              搜索
             </FieldLabel>
             <SettingsListSearchInput
               id="marketplace-plugin-search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.currentTarget.value)}
             />
-            <FieldDescription className="sr-only">Search for a plugin.</FieldDescription>
+            <FieldDescription className="sr-only">搜索插件。</FieldDescription>
           </Field>
 
           <TabsContent value={selectedMarketplace?.marketplace.id}>
@@ -584,11 +581,11 @@ export function MarketplacePluginsSection({
             ) : null}
 
             {selectedRows.length > 0 && visibleRows.length === 0 ? (
-              <SettingsListEmptyState>No plugins match your search.</SettingsListEmptyState>
+              <SettingsListEmptyState>没有符合搜索条件的插件。</SettingsListEmptyState>
             ) : null}
 
             {selectedMarketplace && selectedRows.length === 0 ? (
-              <SettingsListEmptyState>This marketplace does not have plugins yet.</SettingsListEmptyState>
+              <SettingsListEmptyState>这个能力市场尚未发布插件。</SettingsListEmptyState>
             ) : null}
           </TabsContent>
         </Tabs>
@@ -624,7 +621,7 @@ export function CloudProvidersSection({
   const [searchQuery, setSearchQuery] = React.useState("");
   const visibleRows = useSearch({ items: rows, keys: nameSearchKeys, query: searchQuery });
   const providerGroups = [
-    { value: "available", label: "Available", rows: visibleRows.filter((row) => row.status === "available") },
+    { value: "available", label: "可用", rows: visibleRows.filter((row) => row.status === "available") },
     { value: "out_of_sync", label: t("den.out_of_sync_badge"), rows: visibleRows.filter((row) => row.status === "out_of_sync") },
     { value: "imported", label: t("den.imported_badge"), rows: visibleRows.filter((row) => row.status === "imported") },
     { value: "removed_from_cloud", label: t("den.removed_from_cloud_badge"), rows: visibleRows.filter((row) => row.status === "removed_from_cloud") },
@@ -662,14 +659,14 @@ export function CloudProvidersSection({
         <>
           <Field>
             <FieldLabel className="sr-only" htmlFor="cloud-provider-search">
-              Search
+              搜索
             </FieldLabel>
             <SettingsListSearchInput
               id="cloud-provider-search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.currentTarget.value)}
             />
-            <FieldDescription className="sr-only">Search for a provider.</FieldDescription>
+            <FieldDescription className="sr-only">搜索模型服务。</FieldDescription>
           </Field>
 
           {visibleRows.length > 0 ? (
@@ -699,7 +696,7 @@ export function CloudProvidersSection({
               ))}
             </Accordion>
           ) : (
-            <SettingsListEmptyState>No providers match your search.</SettingsListEmptyState>
+            <SettingsListEmptyState>没有符合搜索条件的模型服务。</SettingsListEmptyState>
           )}
         </>
       ) : null}

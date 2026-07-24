@@ -17,6 +17,7 @@ import {
   type WorkspaceList,
 } from "../../app/lib/desktop";
 import { ingestMigrationSnapshotOnElectronBoot } from "../../app/lib/migration";
+import { toChineseUserMessage } from "../../app/lib/user-facing-error";
 import {
   hydrateOpenworkServerSettingsFromEnv,
   readOpenworkServerSettings,
@@ -115,13 +116,13 @@ export function useDesktopRuntimeBoot() {
         };
 
         const startServerWithoutDesktopWorkspace = async () => {
-          setPhase("starting-engine", "Starting OpenWork server");
+          setPhase("starting-engine", "正在启动 FoxWork 服务");
           const serverInfo = await openworkServerRestart({ remoteAccessEnabled: preferredRemoteAccess }).catch((error) => {
             console.warn("[desktop-boot] openworkServerRestart failed:", error);
             return null;
           });
           if (!isOpenworkServerInfoLike(serverInfo) || !isOpenworkServerReady(serverInfo)) {
-            setError("OpenWork server did not finish starting. Please restart OpenWork.");
+            setError("FoxWork 服务未能完成启动，请重启 FoxWork。");
             return;
           }
           publishOpenworkServerInfo(serverInfo);
@@ -151,7 +152,7 @@ export function useDesktopRuntimeBoot() {
         }
 
         if (isElectronRuntime()) {
-          setPhase("starting-engine", "Starting your workspace");
+          setPhase("starting-engine", "正在启动工作区");
           const boot = (await runtimeBootstrap().catch((error) => ({
             ok: false,
             error: error instanceof Error ? error.message : safeStringify(error),
@@ -164,12 +165,12 @@ export function useDesktopRuntimeBoot() {
           };
 
           if (boot.ok === false) {
-            setError(boot.error || "Failed to start OpenWork runtime");
+            setError(toChineseUserMessage(boot.error, "FoxWork 运行环境启动失败。"));
             return;
           }
 
           if (!boot.skipped && !isOpenworkServerReady(boot.openworkServer)) {
-            setError("OpenWork server did not finish starting. Please restart OpenWork.");
+            setError("FoxWork 服务未能完成启动，请重启 FoxWork。");
             return;
           }
 
@@ -243,7 +244,7 @@ export function useDesktopRuntimeBoot() {
           return paths;
         };
 
-        setPhase("starting-engine", "Starting your workspace");
+        setPhase("starting-engine", "正在启动工作区");
         let engineStartResult = await engineStart(workspaceRoot, {
           runtime: "direct",
           workspacePaths: workspacePathsFor(workspaceRoot),
@@ -264,14 +265,14 @@ export function useDesktopRuntimeBoot() {
               selectedWorkspaceId: workspace.id,
               fallbackWorkspaceId: fallback.id,
             });
-            setPhase("starting-engine", "Starting another workspace");
+            setPhase("starting-engine", "正在尝试其他工作区");
             engineStartResult = await engineStart(fallbackRoot, {
               runtime: "direct",
               workspacePaths: workspacePathsFor(fallbackRoot).filter((path) => path !== workspaceRoot),
               openworkRemoteAccess: readOpenworkServerSettings().remoteAccessEnabled === true,
             }).catch((error) => {
               console.warn("[desktop-boot] fallback engineStart failed:", error);
-              setError(error instanceof Error ? error.message : safeStringify(error));
+              setError(toChineseUserMessage(error, "备用工作区启动失败。"));
               return null;
             }) as EngineInfo | null;
             if (engineStartResult) {
@@ -279,7 +280,7 @@ export function useDesktopRuntimeBoot() {
               void workspaceSetRuntimeActive(fallback.id).catch(() => undefined);
             }
           } else {
-            setError("Failed to start the selected workspace.");
+            setError("所选工作区启动失败。");
           }
         }
 
@@ -314,7 +315,7 @@ export function useDesktopRuntimeBoot() {
         markReady();
       } catch (error) {
         console.warn("[desktop-boot] fatal:", error);
-        setError(error instanceof Error ? error.message : safeStringify(error));
+        setError(toChineseUserMessage(error, "FoxWork 启动失败，请重试。"));
       }
     })();
   }, [markReady, setActive, setError, setPhase]);

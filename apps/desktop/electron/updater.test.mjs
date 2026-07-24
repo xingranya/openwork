@@ -13,7 +13,7 @@ const fakeApp = { getPath: (key) => (key === "home" ? "/Users/test" : `/Users/te
 describe("staleUpdaterStatePaths", () => {
   it("targets the ShipIt cache on macOS", { skip: process.platform !== "darwin" }, () => {
     assert.deepEqual(staleUpdaterStatePaths(fakeApp), [
-      "/Users/test/Library/Caches/com.differentai.openwork.ShipIt",
+      "/Users/test/Library/Caches/com.foxwork.desktop.ShipIt",
     ]);
   });
 
@@ -23,39 +23,46 @@ describe("staleUpdaterStatePaths", () => {
 });
 
 describe("targetedStableUpdaterFeed", () => {
-  it("builds a fixed GitHub release feed from a strict stable version", () => {
+  it("builds a fixed company release feed from a strict stable version", () => {
     assert.equal(
-      targetedStableUpdaterFeed("0.17.22", "0.17.23"),
-      "https://github.com/different-ai/openwork/releases/download/v0.17.23",
+      targetedStableUpdaterFeed("0.17.22", "0.17.23", "https://updates.example.test/foxwork"),
+      "https://updates.example.test/foxwork/v0.17.23",
     );
   });
 
   it("rejects arbitrary URLs and prerelease targets", () => {
     assert.throws(
-      () => targetedStableUpdaterFeed("0.17.22", "https://example.test/latest.yml"),
+      () => targetedStableUpdaterFeed("0.17.22", "https://example.test/latest.yml", "https://updates.example.test/foxwork"),
       /stable x\.y\.z format/,
     );
     assert.throws(
-      () => targetedStableUpdaterFeed("0.17.22", "0.17.23-alpha.1"),
+      () => targetedStableUpdaterFeed("0.17.22", "0.17.23-alpha.1", "https://updates.example.test/foxwork"),
       /stable x\.y\.z format/,
     );
   });
 
   it("rejects equal and older targets", () => {
     assert.throws(
-      () => targetedStableUpdaterFeed("0.17.23", "0.17.23"),
+      () => targetedStableUpdaterFeed("0.17.23", "0.17.23", "https://updates.example.test/foxwork"),
       /newer than the installed version/,
     );
     assert.throws(
-      () => targetedStableUpdaterFeed("0.17.23", "0.17.22"),
+      () => targetedStableUpdaterFeed("0.17.23", "0.17.22", "https://updates.example.test/foxwork"),
       /newer than the installed version/,
     );
   });
 
   it("fails closed when the installed version cannot be compared", () => {
     assert.throws(
-      () => targetedStableUpdaterFeed("unknown", "0.17.23"),
+      () => targetedStableUpdaterFeed("unknown", "0.17.23", "https://updates.example.test/foxwork"),
       /could not be validated/,
+    );
+  });
+
+  it("拒绝在没有公司更新源时构造更新地址", () => {
+    assert.throws(
+      () => targetedStableUpdaterFeed("0.17.22", "0.17.23", ""),
+      /公司更新源尚未配置/,
     );
   });
 });
