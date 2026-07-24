@@ -11,18 +11,18 @@ import { AuthPanel } from "./auth-panel";
 function SessionStatusPanel({ mode }: { mode: "checking" | "redirecting" }) {
   const status = mode === "checking"
     ? {
-        title: "Checking account",
-        body: "If you are already signed in, we will open your workspace. Otherwise you can continue here.",
+        title: "正在检查登录状态",
+        body: "如果你已经登录，将直接进入工作区；如果还没有，可以在这里继续登录。",
       }
     : {
-        title: "Opening workspace",
-        body: "You are signed in. We are taking you to the right Cloud destination.",
+        title: "正在打开工作区",
+        body: "登录成功，正在进入你的公司工作区。",
       };
 
   return (
     <div className="grid gap-6" role="status" aria-live="polite">
       <div className="grid gap-3">
-        <p className="den-eyebrow">Account</p>
+        <p className="den-eyebrow">公司账号</p>
         <div className="rounded-[1.5rem] border border-[var(--dls-border)] bg-[var(--dls-hover)]/60 p-4">
           <div className="flex items-start gap-3">
             <span className="relative mt-1 flex h-2.5 w-2.5 shrink-0">
@@ -37,7 +37,7 @@ function SessionStatusPanel({ mode }: { mode: "checking" | "redirecting" }) {
         </div>
       </div>
       <p className="m-0 text-xs leading-5 text-[var(--dls-text-secondary)]">
-        No action needed.
+        无需操作，请稍候。
       </p>
     </div>
   );
@@ -95,9 +95,9 @@ export function AuthScreen() {
 
           <div className="flex flex-col justify-center border-[var(--dls-border)] px-5 py-6 sm:px-7 sm:py-8 md:px-9 md:py-10 lg:border-l" data-testid="auth-landing-form">
             <div className="mb-6 flex items-center gap-2 lg:hidden" data-testid="auth-landing-mobile-brand">
-              <img src="/openwork-mark.svg" alt="OpenWork" className="h-7 w-auto" />
+              <img src="/openwork-mark.svg" alt="FoxWork" className="h-7 w-auto" />
               <span className="text-[1.15rem] font-semibold tracking-tight text-[var(--dls-text-primary)]">
-                OpenWork
+                FoxWork
               </span>
             </div>
             {!sessionHydrated ? (

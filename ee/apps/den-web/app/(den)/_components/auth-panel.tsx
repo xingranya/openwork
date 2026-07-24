@@ -97,7 +97,7 @@ export function AuthPanel({
   hideEmailField = false,
   hideLockedEmailSummary = false,
   emailFirstFlow = false,
-  eyebrow = "Account",
+  eyebrow = "公司账号",
   bare = false,
   signUpContent,
   signInContent,
@@ -163,7 +163,7 @@ export function AuthPanel({
   const isSingleOrgSsoMode = isSingleOrgMode && runtimeConfig.singleOrgSsoConfigured;
   const isSingleOrgPrivateSignup = isSingleOrgSignupDisabled(runtimeConfig, runtimeConfigLoaded);
   const visibleAuthMode = resolveVisibleAuthMode({ authMode, runtimeConfig, runtimeConfigLoaded });
-  const singleOrgName = runtimeConfig.singleOrgName || "OpenWork";
+  const singleOrgName = runtimeConfig.singleOrgName || "FoxWork";
   const singleOrgSlug = runtimeConfig.singleOrgSlug.trim();
 
   useEffect(() => {
@@ -181,40 +181,40 @@ export function AuthPanel({
   }, [isSingleOrgSsoMode, pathname, router]);
 
   const resolvedSignUpContent: PanelContent = {
-    title: isSingleOrgMode ? "Create your account." : "Get started.",
+    title: isSingleOrgMode ? "创建公司账号" : "创建账号",
     copy: isSingleOrgMode
-      ? `Join ${singleOrgName}. The organization is managed by this deployment.`
-      : "Free to try. Team plans from $50/mo.",
-    submitLabel: "Create account",
+      ? `注册后，你会加入 ${singleOrgName}。`
+      : "填写账号信息后即可开始使用。",
+    submitLabel: "创建账号",
     ...signUpContent,
   };
 
   const resolvedSignInContent: PanelContent = {
-    title: isSingleOrgMode ? `Sign in to ${singleOrgName}.` : "Welcome back.",
+    title: isSingleOrgMode ? `登录 ${singleOrgName}` : "欢迎回来",
     copy: isSingleOrgMode
-      ? "Use your organization account to continue."
-      : "Sign in to open your team workspace.",
-    submitLabel: "Sign in",
+      ? "使用公司账号继续。"
+      : "登录后进入团队工作区。",
+    submitLabel: "登录",
     ...signInContent,
   };
 
   const singleOrgSsoContent: PanelContent = {
-    title: `Sign in to ${singleOrgName}.`,
-    copy: "Use your organization's SSO to continue.",
-    submitLabel: "Continue with SSO",
+    title: `登录 ${singleOrgName}`,
+    copy: "使用公司的单点登录继续。",
+    submitLabel: "使用单点登录",
   };
 
   const resolvedVerificationContent: PanelContent = {
-    title: "Verify your email.",
-    copy: "Enter the six-digit code from your inbox.",
-    submitLabel: "Verify email",
+    title: "验证邮箱",
+    copy: "请输入邮件中的 6 位验证码。",
+    submitLabel: "确认验证码",
     ...verificationContent,
   };
 
   const passwordResetContent: PanelContent = {
-    title: "Reset your password.",
-    copy: "Enter your email and we'll send you a secure reset link.",
-    submitLabel: "Send reset link",
+    title: "重置密码",
+    copy: "输入注册邮箱，我们会向你发送密码重置链接。",
+    submitLabel: "发送重置链接",
   };
 
   const requestedEmailFirstStep = loginOption?.nextStep ?? "email";
@@ -223,38 +223,38 @@ export function AuthPanel({
   const emailFirstContent: PanelContent =
     emailFirstStep === "email"
       ? {
-          title: "Start using OpenWork",
-          copy: "Enter your email and we'll send you to the right sign-in step.",
-          submitLabel: "Next",
+          title: "登录公司工作区",
+          copy: "先输入邮箱，我们会为你找到对应的登录方式。",
+          submitLabel: "下一步",
         }
       : emailFirstStep === "sso"
       ? {
-          title: "Sign in with SSO.",
-          copy: emailFirstEmail ? `${emailFirstEmail} is managed by your organization.` : "Your organization manages this account.",
-          submitLabel: "Sign in with SSO",
+          title: "使用单点登录",
+          copy: emailFirstEmail ? `${emailFirstEmail} 由公司统一管理。` : "这个账号由公司统一管理。",
+          submitLabel: "使用单点登录",
         }
       : emailFirstStep === "google"
       ? {
-          title: "Welcome back.",
-          copy: "Use Google to continue with this account.",
-          submitLabel: "Sign in with Google",
+          title: "欢迎回来",
+          copy: "使用 Google 账号继续登录。",
+          submitLabel: "使用 Google 登录",
         }
       : emailFirstStep === "github"
       ? {
-          title: "Welcome back.",
-          copy: "Use GitHub to continue with this account.",
-          submitLabel: "Sign in with GitHub",
+          title: "欢迎回来",
+          copy: "使用 GitHub 账号继续登录。",
+          submitLabel: "使用 GitHub 登录",
         }
       : emailFirstStep === "password"
       ? {
-          title: "Enter your password.",
-          copy: emailFirstEmail ? `Sign in as ${emailFirstEmail}.` : "Sign in with your password.",
-          submitLabel: "Sign in",
+          title: "输入密码",
+          copy: emailFirstEmail ? `使用 ${emailFirstEmail} 登录。` : "输入密码继续登录。",
+          submitLabel: "登录",
         }
       : {
-          title: "Create your account.",
-          copy: "Set up your OpenWork Cloud account.",
-          submitLabel: "Sign up",
+          title: "创建公司账号",
+          copy: "填写姓名和密码即可完成注册。",
+          submitLabel: "注册",
         };
 
   const desktopGrant = getDesktopGrant(desktopRedirectUrl);
@@ -330,7 +330,7 @@ export function AuthPanel({
   const startEmailFirstSso = () => {
     const target = loginOption?.signInPath ?? loginOption?.signInUrl;
     if (!target) {
-      setLoginOptionError("Could not find your organization SSO sign-in link. Try again.");
+      setLoginOptionError("没有找到公司的单点登录地址，请重试。");
       return;
     }
 
@@ -347,7 +347,7 @@ export function AuthPanel({
     event.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setLoginOptionError("Enter your email to continue.");
+      setLoginOptionError("请输入邮箱。");
       return;
     }
 
@@ -360,13 +360,13 @@ export function AuthPanel({
     try {
       const { response, payload } = await requestJson(`/v1/auth/login-options?email=${encodeURIComponent(trimmedEmail)}`, { method: "GET" }, 12000);
       if (!response.ok) {
-        setLoginOptionError(getErrorMessage(payload, `Could not check sign-in options (${response.status}).`));
+        setLoginOptionError(getErrorMessage(payload, `无法查询登录方式（${response.status}）。`));
         return;
       }
 
       const nextOption = readLoginOption(payload);
       if (!nextOption) {
-        setLoginOptionError("The sign-in options response was incomplete. Try again.");
+        setLoginOptionError("登录信息不完整，请重试。");
         return;
       }
 
@@ -374,7 +374,7 @@ export function AuthPanel({
       setAuthMode(nextOption.nextStep === "new_account" ? "sign-up" : "sign-in");
       setLoginOption(nextOption);
     } catch (error) {
-      setLoginOptionError(error instanceof Error ? error.message : "Could not check sign-in options.");
+      setLoginOptionError(error instanceof Error ? error.message : "无法查询登录方式，请稍后再试。");
     } finally {
       setLoginOptionBusy(false);
     }
@@ -398,7 +398,7 @@ export function AuthPanel({
     event.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setPasswordResetError("Enter your email to receive a reset link.");
+      setPasswordResetError("请输入接收重置链接的邮箱。");
       return;
     }
 
@@ -415,13 +415,13 @@ export function AuthPanel({
       });
 
       if (!response.ok) {
-        setPasswordResetError(getErrorMessage(payload, `Could not send reset link (${response.status}).`));
+        setPasswordResetError(getErrorMessage(payload, `重置链接发送失败（${response.status}）。`));
         return;
       }
 
-      setPasswordResetInfo(`If an account exists for ${trimmedEmail}, we sent a reset link.`);
+      setPasswordResetInfo(`如果 ${trimmedEmail} 已注册，重置链接会发送到这个邮箱。`);
     } catch (error) {
-      setPasswordResetError(error instanceof Error ? error.message : "Could not send reset link.");
+      setPasswordResetError(error instanceof Error ? error.message : "重置链接发送失败，请稍后再试。");
     } finally {
       setPasswordResetBusy(false);
     }
@@ -440,8 +440,8 @@ export function AuthPanel({
         <div className="grid gap-3">
           <p className="den-eyebrow">{eyebrow}</p>
           <div className="grid gap-2">
-            <h2 className="den-title-lg">You&apos;re signed in.</h2>
-            <p className="den-copy">Open the desktop app to continue.</p>
+            <h2 className="den-title-lg">登录成功</h2>
+            <p className="den-copy">请打开 FoxWork 继续。</p>
           </div>
         </div>
 
@@ -450,13 +450,13 @@ export function AuthPanel({
           className="den-button-primary w-full"
           onClick={() => window.location.assign(desktopRedirectUrl)}
         >
-          Open OpenWork
+          打开 FoxWork
           <ArrowRight className="h-4 w-4" />
         </button>
 
         <div className="grid gap-2 text-center">
           <p className="m-0 text-xs text-[var(--dls-text-secondary)]">
-            App didn&apos;t open?
+            FoxWork 没有自动打开？
           </p>
           <div className="flex justify-center gap-3">
             <button
@@ -464,7 +464,7 @@ export function AuthPanel({
               className="den-button-secondary"
               onClick={() => void copyDesktopValue("link", desktopRedirectUrl)}
             >
-              {copiedDesktopField === "link" ? "Copied!" : "Copy sign-in link"}
+              {copiedDesktopField === "link" ? "已复制" : "复制登录链接"}
             </button>
             {desktopGrant ? (
               <button
@@ -472,7 +472,7 @@ export function AuthPanel({
                 className="den-button-secondary"
                 onClick={() => void copyDesktopValue("code", desktopGrant)}
               >
-                {copiedDesktopField === "code" ? "Copied!" : "Copy code"}
+                {copiedDesktopField === "code" ? "已复制" : "复制登录码"}
               </button>
             ) : null}
           </div>
@@ -487,7 +487,7 @@ export function AuthPanel({
               if (target) router.replace(target);
             }}
           >
-            Go to dashboard &rarr;
+            进入管理页面 &rarr;
           </button>
         </div>
       </div>
@@ -512,11 +512,11 @@ export function AuthPanel({
               className="den-button-primary w-full"
               onClick={() => window.location.assign(desktopRedirectUrl)}
             >
-              Open OpenWork
+              打开 FoxWork
               <ArrowRight className="h-4 w-4" />
             </button>
             <p className="m-0 text-center text-xs text-[var(--dls-text-secondary)]">
-              Sign in below, then click above to return to the app.
+              请先在下方登录，再返回 FoxWork。
             </p>
           </div>
         ) : null}
@@ -524,7 +524,7 @@ export function AuthPanel({
         {emailFirstStep === "email" ? (
           <form className="grid gap-4" onSubmit={resolveEmailFirstStep}>
             <label className="grid gap-2">
-              <span className="den-label">Email</span>
+              <span className="den-label">邮箱</span>
               <input
                 className="den-input"
                 type="email"
@@ -539,7 +539,7 @@ export function AuthPanel({
               className="den-button-primary w-full"
               disabled={emailFirstFormBusy}
             >
-              {loginOptionBusy ? "Checking..." : "Next"}
+              {loginOptionBusy ? "正在查询..." : "下一步"}
               {!loginOptionBusy ? <ArrowRight className="h-4 w-4" /> : null}
             </button>
           </form>
@@ -552,7 +552,7 @@ export function AuthPanel({
             onClick={startEmailFirstSso}
             disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
           >
-            Sign in with SSO
+            使用单点登录
             <ArrowRight className="h-4 w-4" />
           </button>
         ) : null}
@@ -563,7 +563,7 @@ export function AuthPanel({
             disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
           >
             <GoogleLogo />
-            <span>Sign in with Google</span>
+            <span>使用 Google 登录</span>
           </SocialButton>
         ) : null}
 
@@ -573,7 +573,7 @@ export function AuthPanel({
             disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
           >
             <GitHubLogo />
-            <span>Sign in with GitHub</span>
+            <span>使用 GitHub 登录</span>
           </SocialButton>
         ) : null}
 
@@ -586,7 +586,7 @@ export function AuthPanel({
             }}
           >
             <label className="grid gap-2">
-              <span className="den-label">Password</span>
+              <span className="den-label">密码</span>
               <input
                 className="den-input"
                 type="password"
@@ -607,11 +607,11 @@ export function AuthPanel({
                   setPasswordResetError(null);
                 }}
               >
-                Forgot password?
+                忘记密码？
               </button>
             </div>
             <button type="submit" className="den-button-primary w-full" disabled={formBusy}>
-              {formBusy ? "Working..." : "Sign in"}
+              {formBusy ? "请稍候..." : "登录"}
               {!formBusy ? <ArrowRight className="h-4 w-4" /> : null}
             </button>
           </form>
@@ -626,7 +626,7 @@ export function AuthPanel({
             }}
           >
             <label className="grid gap-2">
-              <span className="den-label">Email</span>
+              <span className="den-label">邮箱</span>
               <input
                 className="den-input"
                 type="email"
@@ -637,7 +637,7 @@ export function AuthPanel({
               />
             </label>
             <label className="grid gap-2">
-              <span className="den-label">Name</span>
+              <span className="den-label">姓名</span>
               <input
                 className="den-input"
                 type="text"
@@ -648,17 +648,17 @@ export function AuthPanel({
               />
             </label>
             <div className="den-divider" aria-hidden="true">
-              <span>or</span>
+              <span>或</span>
             </div>
             <SocialButton
               onClick={() => void beginSocialAuth("google")}
               disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
             >
               <GoogleLogo />
-              <span>Sign up with Google</span>
+              <span>使用 Google 注册</span>
             </SocialButton>
             <label className="grid gap-2">
-              <span className="den-label">Password</span>
+              <span className="den-label">密码</span>
               <input
                 className="den-input"
                 type="password"
@@ -669,7 +669,7 @@ export function AuthPanel({
               />
             </label>
             <button type="submit" className="den-button-primary w-full" disabled={formBusy}>
-              {formBusy ? "Working..." : "Sign up"}
+              {formBusy ? "请稍候..." : "注册"}
               {!formBusy ? <ArrowRight className="h-4 w-4" /> : null}
             </button>
           </form>
@@ -702,7 +702,7 @@ export function AuthPanel({
         <div
           className="grid grid-cols-2 gap-1 rounded-full border border-[var(--dls-border)] bg-[var(--dls-hover)] p-1"
           role="group"
-          aria-label="Choose sign in or create account"
+          aria-label="选择登录或创建账号"
         >
           <button
             type="button"
@@ -714,7 +714,7 @@ export function AuthPanel({
                 : "text-[var(--dls-text-secondary)] hover:text-[var(--dls-text-primary)]"
             }`}
           >
-            Sign in
+            登录
           </button>
           <button
             type="button"
@@ -726,7 +726,7 @@ export function AuthPanel({
                 : "text-[var(--dls-text-secondary)] hover:text-[var(--dls-text-primary)]"
             }`}
           >
-            Create account
+            创建账号
           </button>
         </div>
       ) : null}
@@ -738,11 +738,11 @@ export function AuthPanel({
             className="den-button-primary w-full"
             onClick={() => window.location.assign(desktopRedirectUrl)}
           >
-            Open OpenWork
+            打开 FoxWork
             <ArrowRight className="h-4 w-4" />
           </button>
           <p className="m-0 text-center text-xs text-[var(--dls-text-secondary)]">
-            Sign in below, then click above to return to the app.
+            请先在下方登录，再返回 FoxWork。
           </p>
         </div>
       ) : null}
@@ -769,13 +769,13 @@ export function AuthPanel({
               onClick={startSingleOrgSso}
               disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
             >
-              Continue with SSO
+              使用单点登录
               <ArrowRight className="h-4 w-4" />
             </button>
 
             {showSingleOrgSsoDivider ? (
               <div className="den-divider" aria-hidden="true">
-                <span>or</span>
+                <span>或</span>
               </div>
             ) : null}
           </>
@@ -788,7 +788,7 @@ export function AuthPanel({
               disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
             >
               <GitHubLogo />
-              <span>Continue with GitHub</span>
+              <span>使用 GitHub 继续</span>
             </SocialButton>
 
             <SocialButton
@@ -796,25 +796,25 @@ export function AuthPanel({
               disabled={!runtimeConfigLoaded || authBusy || desktopRedirectBusy}
             >
               <GoogleLogo />
-              <span>Continue with Google</span>
+              <span>使用 Google 继续</span>
             </SocialButton>
 
             <div className="den-divider" aria-hidden="true">
-              <span>or</span>
+              <span>或</span>
             </div>
           </>
         ) : null}
 
         {showLockedEmailSummary ? (
           <div className="den-frame-inset grid gap-1 rounded-[1.5rem] px-4 py-3">
-            <p className="den-label">Invited email</p>
+            <p className="den-label">受邀邮箱</p>
             <p className="m-0 text-sm font-medium text-[var(--dls-text-primary)]">{prefilledEmail}</p>
           </div>
         ) : null}
 
         {showEmailPasswordAuth && !hideEmailField ? (
           <label className="grid gap-2">
-            <span className="den-label">Email</span>
+            <span className="den-label">邮箱</span>
             <input
               className="den-input disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
               type="email"
@@ -830,7 +830,7 @@ export function AuthPanel({
 
         {showEmailPasswordAuth && !verificationRequired && !isPasswordResetRequest ? (
           <label className="grid gap-2">
-            <span className="den-label">Password</span>
+            <span className="den-label">密码</span>
             <input
               className="den-input"
               type="password"
@@ -842,7 +842,7 @@ export function AuthPanel({
           </label>
         ) : verificationRequired ? (
           <label className="grid gap-2">
-            <span className="den-label">Verification code</span>
+            <span className="den-label">验证码</span>
             <input
               className="den-input text-center text-[18px] font-semibold tracking-[0.35em]"
               type="text"
@@ -874,7 +874,7 @@ export function AuthPanel({
                 setPasswordResetError(null);
               }}
             >
-              Forgot password?
+              忘记密码？
             </button>
           </div>
         ) : null}
@@ -885,7 +885,7 @@ export function AuthPanel({
             className="den-button-primary w-full"
             disabled={formBusy}
           >
-            {formBusy ? "Working..." : activeContent.submitLabel}
+            {formBusy ? "请稍候..." : activeContent.submitLabel}
             {!formBusy ? <ArrowRight className="h-4 w-4" /> : null}
           </button>
         ) : null}
@@ -898,7 +898,7 @@ export function AuthPanel({
               onClick={() => void resendVerificationCode()}
               disabled={authBusy || desktopRedirectBusy}
             >
-              Resend code
+              重新发送
             </button>
             <button
               type="button"
@@ -908,7 +908,7 @@ export function AuthPanel({
               }}
               disabled={authBusy || desktopRedirectBusy}
             >
-              Change email
+              更换邮箱
             </button>
           </div>
         ) : null}
@@ -916,7 +916,7 @@ export function AuthPanel({
 
       {isPasswordResetRequest ? (
         <div className="flex flex-col gap-2 border-t border-[var(--dls-border)] pt-4 text-sm text-[var(--dls-text-secondary)] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <p className="m-0">Remembered your password?</p>
+          <p className="m-0">想起密码了？</p>
           <button
             type="button"
             className="font-medium text-[var(--dls-text-primary)] transition hover:opacity-70"
@@ -927,7 +927,7 @@ export function AuthPanel({
               setAuthMode("sign-in");
             }}
           >
-            Back to sign in
+            返回登录
           </button>
         </div>
       ) : null}
@@ -952,7 +952,7 @@ export function AuthPanel({
           {!authError && verificationRequired && !isSingleOrgMode ? (
             <div className="mt-1 inline-flex items-center justify-center gap-1 text-emerald-600">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Waiting for your verification code</span>
+              <span>等待输入验证码</span>
             </div>
           ) : null}
           {authError && visibleAuthMode === "sign-in" && !isSingleOrgPrivateSignup && !verificationRequired && showEmailPasswordAuth ? (
@@ -961,7 +961,7 @@ export function AuthPanel({
               className="mt-1 inline-flex items-center justify-center gap-1 font-medium text-[var(--dls-text-primary)] transition hover:opacity-70"
               onClick={() => switchMode("sign-up")}
             >
-              New here? Create an account
+              还没有账号？立即注册
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           ) : null}

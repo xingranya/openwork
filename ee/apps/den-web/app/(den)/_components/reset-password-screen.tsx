@@ -7,14 +7,14 @@ import { getErrorMessage, requestJson } from "../_lib/den-flow";
 
 function getResetLinkError(error: string | null) {
   if (!error) {
-    return "This reset link is missing a token. Request a new link from the sign-in page.";
+    return "重置链接缺少必要信息，请回到登录页重新申请。";
   }
 
   if (error === "INVALID_TOKEN") {
-    return "This reset link is invalid or expired. Request a new link from the sign-in page.";
+    return "重置链接无效或已经过期，请回到登录页重新申请。";
   }
 
-  return "We could not verify this reset link. Request a new link from the sign-in page.";
+  return "无法验证这个重置链接，请回到登录页重新申请。";
 }
 
 export function ResetPasswordScreen() {
@@ -35,11 +35,11 @@ export function ResetPasswordScreen() {
       return;
     }
     if (password.length < 8) {
-      setError("Use at least 8 characters for your new password.");
+      setError("新密码至少需要 8 个字符。");
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError("两次输入的密码不一致。");
       return;
     }
 
@@ -55,7 +55,7 @@ export function ResetPasswordScreen() {
       });
 
       if (!response.ok) {
-        setError(getErrorMessage(payload, `Could not reset password (${response.status}).`));
+        setError(getErrorMessage(payload, `密码重置失败（${response.status}）。`));
         return;
       }
 
@@ -63,7 +63,7 @@ export function ResetPasswordScreen() {
       setPassword("");
       setConfirmPassword("");
     } catch (resetError) {
-      setError(resetError instanceof Error ? resetError.message : "Could not reset password.");
+      setError(resetError instanceof Error ? resetError.message : "密码重置失败，请稍后再试。");
     } finally {
       setBusy(false);
     }
@@ -73,10 +73,10 @@ export function ResetPasswordScreen() {
     <section className="den-page flex min-h-[calc(100vh-2.5rem)] w-full items-center justify-center py-6">
       <div className="den-frame grid w-full max-w-[520px] gap-6 p-6 md:p-8">
         <div className="grid gap-3">
-          <p className="den-eyebrow">Account</p>
+          <p className="den-eyebrow">公司账号</p>
           <div className="grid gap-2">
-            <h1 className="den-title-lg">Choose a new password.</h1>
-            <p className="den-copy">Use the reset link from your email to secure your OpenWork account.</p>
+            <h1 className="den-title-lg">设置新密码</h1>
+            <p className="den-copy">请为公司账号设置一个新密码。</p>
           </div>
         </div>
 
@@ -84,18 +84,18 @@ export function ResetPasswordScreen() {
           <div className="den-frame-inset grid gap-3 rounded-[1.5rem] px-4 py-4 text-center text-[13px] text-[var(--dls-text-secondary)]" aria-live="polite">
             <div className="inline-flex items-center justify-center gap-2 text-emerald-600">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="font-medium">Your password has been reset.</span>
+              <span className="font-medium">密码已经重置。</span>
             </div>
-            <p className="m-0">Sign in with your new password to continue.</p>
+            <p className="m-0">请使用新密码重新登录。</p>
             <a href="/?mode=sign-in" className="den-button-primary mt-1 w-full">
-              Back to sign in
+              返回登录
               <ArrowRight className="h-4 w-4" />
             </a>
           </div>
         ) : (
           <form className="grid gap-4" onSubmit={submitReset}>
             <label className="grid gap-2">
-              <span className="den-label">New password</span>
+              <span className="den-label">新密码</span>
               <input
                 className="den-input"
                 type="password"
@@ -108,7 +108,7 @@ export function ResetPasswordScreen() {
             </label>
 
             <label className="grid gap-2">
-              <span className="den-label">Confirm password</span>
+              <span className="den-label">再次输入新密码</span>
               <input
                 className="den-input"
                 type="password"
@@ -121,7 +121,7 @@ export function ResetPasswordScreen() {
             </label>
 
             <button type="submit" className="den-button-primary w-full" disabled={!token || busy}>
-              {busy ? "Resetting..." : "Reset password"}
+              {busy ? "正在重置..." : "重置密码"}
               {!busy ? <ArrowRight className="h-4 w-4" /> : null}
             </button>
           </form>
@@ -136,7 +136,7 @@ export function ResetPasswordScreen() {
         {!success ? (
           <div className="border-t border-[var(--dls-border)] pt-4 text-center text-sm text-[var(--dls-text-secondary)]">
             <a href="/?mode=sign-in" className="font-medium text-[var(--dls-text-primary)] transition hover:opacity-70">
-              Back to sign in
+              返回登录
             </a>
           </div>
         ) : null}

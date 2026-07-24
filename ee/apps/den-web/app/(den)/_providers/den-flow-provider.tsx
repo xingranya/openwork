@@ -369,7 +369,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
   function openVerificationStep(targetEmail: string, message?: string) {
     setVerificationRequired(true);
     setVerificationCode("");
-    setAuthInfo(message ?? `Enter the 6-digit code we sent to ${targetEmail}.`);
+    setAuthInfo(message ?? `请输入发送到 ${targetEmail} 的 6 位验证码。`);
     setAuthError(null);
   }
 
@@ -388,7 +388,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Could not resolve workspace SSO (${response.status}).`));
+      throw new Error(getErrorMessage(payload, `无法查询公司的单点登录信息（${response.status}）。`));
     }
 
     const signInUrl = typeof (payload as { signInUrl?: unknown } | null)?.signInUrl === "string"
@@ -424,7 +424,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!signInResult.response.ok) {
-        setAuthError(getErrorMessage(signInResult.payload, `Authentication failed with ${signInResult.response.status}.`));
+        setAuthError(getErrorMessage(signInResult.payload, `登录失败（${signInResult.response.status}）。`));
         trackPosthogEvent("den_auth_failed", {
           mode: nextMode,
           method: "email",
@@ -446,15 +446,15 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     if (payloadUser) {
       authenticatedUser = payloadUser;
       setUser(payloadUser);
-      setAuthInfo(`Signed in as ${payloadUser.email}.`);
-      appendEvent("success", nextMode === "sign-up" ? "Account created" : "Signed in", payloadUser.email);
+      setAuthInfo(`已使用 ${payloadUser.email} 登录。`);
+      appendEvent("success", nextMode === "sign-up" ? "账号已创建" : "登录成功", payloadUser.email);
     } else {
       const refreshed = await refreshSession(true);
       if (refreshed) {
         authenticatedUser = refreshed;
-        appendEvent("success", nextMode === "sign-up" ? "Account created" : "Signed in", refreshed.email);
+        appendEvent("success", nextMode === "sign-up" ? "账号已创建" : "登录成功", refreshed.email);
       } else {
-        setAuthInfo("Authentication succeeded, but session details are still syncing.");
+        setAuthInfo("登录成功，正在同步账号信息。");
       }
     }
 
@@ -474,7 +474,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     if (desktopAuthRequested) {
-      setAuthInfo("Signed in. Returning to OpenWork...");
+      setAuthInfo("登录成功，正在返回 FoxWork...");
       return null;
     }
 
@@ -491,13 +491,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
   async function resendVerificationCode() {
     if (isSingleOrgMode) {
-      setAuthError("Email verification codes are not used for this single-organization deployment.");
+      setAuthError("公司账号当前不需要邮箱验证码。");
       return;
     }
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError("Enter your email before requesting a verification code.");
+      setAuthError("请先输入邮箱。");
       return;
     }
 
@@ -513,18 +513,18 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        setAuthError(getErrorMessage(payload, `Could not resend the code (${response.status}).`));
+        setAuthError(getErrorMessage(payload, `验证码发送失败（${response.status}）。`));
         return;
       }
 
-      setAuthInfo(`We sent a fresh verification code to ${trimmedEmail}.`);
-      appendEvent("info", "Verification code resent", trimmedEmail);
+      setAuthInfo(`新的验证码已经发送到 ${trimmedEmail}。`);
+      appendEvent("info", "验证码已重新发送", trimmedEmail);
       trackPosthogEvent("den_signup_verification_sent", {
         method: "email",
         email_domain: getEmailDomain(trimmedEmail),
       });
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not resend the verification code.");
+      setAuthError(error instanceof Error ? error.message : "验证码发送失败，请稍后再试。");
     } finally {
       setAuthBusy(false);
     }
@@ -534,14 +534,14 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     event.preventDefault();
     if (isSingleOrgMode) {
       setVerificationRequired(false);
-      setAuthError("Email verification codes are not used for this single-organization deployment.");
+      setAuthError("公司账号当前不需要邮箱验证码。");
       return null;
     }
 
     const trimmedEmail = email.trim();
     const otp = verificationCode.trim();
     if (!trimmedEmail || !otp) {
-      setAuthError("Enter the verification code from your email.");
+      setAuthError("请输入邮件中的验证码。");
       return null;
     }
 
@@ -557,7 +557,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        setAuthError(getErrorMessage(payload, `Verification failed with ${response.status}.`));
+        setAuthError(getErrorMessage(payload, `验证码校验失败（${response.status}）。`));
         trackPosthogEvent("den_auth_failed", {
           mode: authMode,
           method: "email",
@@ -569,8 +569,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       setVerificationRequired(false);
       setVerificationCode("");
-      setAuthInfo(`Email verified for ${trimmedEmail}. Finishing sign-in...`);
-      appendEvent("success", "Email verified", trimmedEmail);
+      setAuthInfo(`${trimmedEmail} 已通过验证，正在完成登录。`);
+      appendEvent("success", "邮箱验证成功", trimmedEmail);
       trackPosthogEvent("den_email_verified", {
         method: "email",
         email_domain: getEmailDomain(trimmedEmail),
@@ -578,7 +578,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       return await finalizeEmailPasswordSignIn(authMode, trimmedEmail, payload);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Verification failed.");
+      setAuthError(error instanceof Error ? error.message : "验证码校验失败，请重试。");
       return null;
     } finally {
       setAuthBusy(false);
@@ -929,7 +929,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         setAuthToken(null);
       }
       if (!quiet) {
-        setAuthError("No active session found. Sign in first.");
+        setAuthError("登录状态已经失效，请重新登录。");
       }
       return null;
     }
@@ -937,13 +937,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     const sessionUser = getUser(payload);
     if (!sessionUser) {
       if (!quiet) {
-        setAuthError("Session response did not include a user.");
+        setAuthError("没有读取到账号信息，请重新登录。");
       }
       return null;
     }
 
     setUser(sessionUser);
-    setAuthInfo(`Signed in as ${sessionUser.email}.`);
+    setAuthInfo(`已使用 ${sessionUser.email} 登录。`);
     return sessionUser;
   }
 
@@ -997,21 +997,21 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        setAuthError(getErrorMessage(payload, `Desktop handoff failed with ${response.status}.`));
+        setAuthError(getErrorMessage(payload, `FoxWork 登录交接失败（${response.status}）。`));
         return;
       }
 
       const openworkPayload = payload as { openworkUrl?: unknown } | null;
       const openworkUrl = typeof openworkPayload?.openworkUrl === "string" ? openworkPayload.openworkUrl.trim() : "";
       if (!openworkUrl) {
-        setAuthError("Desktop handoff succeeded, but no OpenWork redirect URL was returned.");
+        setAuthError("登录已经完成，但没有收到 FoxWork 打开地址。");
         return;
       }
 
       setDesktopRedirectUrl(openworkUrl);
       window.location.assign(openworkUrl);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Failed to open OpenWork.");
+      setAuthError(error instanceof Error ? error.message : "无法打开 FoxWork。");
     } finally {
       setDesktopRedirectBusy(false);
     }
@@ -1095,9 +1095,9 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (response.status === 403 && !isSingleOrgMode) {
-          openVerificationStep(trimmedEmail, `Enter the 6-digit code we sent to ${trimmedEmail} to finish verifying your email.`);
+          openVerificationStep(trimmedEmail, `请输入发送到 ${trimmedEmail} 的 6 位验证码。`);
         }
-        setAuthError(getErrorMessage(payload, `Authentication failed with ${response.status}.`));
+        setAuthError(getErrorMessage(payload, `登录失败（${response.status}）。`));
         trackPosthogEvent("den_auth_failed", {
           mode: submitMode,
           method: "email",
@@ -1110,8 +1110,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
       if (submitMode === "sign-up" && !token) {
         setUser(null);
-        openVerificationStep(trimmedEmail, `We emailed a 6-digit verification code to ${trimmedEmail}. Enter it below to finish creating your account.`);
-        appendEvent("info", "Verification code sent", trimmedEmail);
+        openVerificationStep(trimmedEmail, `6 位验证码已经发送到 ${trimmedEmail}，输入验证码即可完成注册。`);
+        appendEvent("info", "验证码已发送", trimmedEmail);
         trackPosthogEvent("den_signup_verification_sent", {
           method: "email",
           email_domain: getEmailDomain(trimmedEmail),
@@ -1120,7 +1120,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       }
       return await finalizeEmailPasswordSignIn(submitMode, trimmedEmail);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown network error";
+      const message = error instanceof Error ? error.message : "网络连接失败，请稍后再试。";
       setAuthError(message);
       trackPosthogEvent("den_auth_failed", {
         mode: submitMode,
@@ -1145,7 +1145,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
     setAuthBusy(true);
     setAuthError(null);
-    setAuthInfo(`Redirecting to ${getSocialProviderLabel(provider)}...`);
+    setAuthInfo(`正在前往 ${getSocialProviderLabel(provider)}...`);
     trackPosthogEvent("den_auth_submitted", {
       mode: authMode,
       method: provider
@@ -1176,7 +1176,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
           window.sessionStorage.removeItem(PENDING_SOCIAL_SIGNUP_STORAGE_KEY);
         }
         setAuthInfo(getAuthInfoForMode(authMode));
-        setAuthError(getErrorMessage(payload, `${getSocialProviderLabel(provider)} sign-in failed with ${response.status}.`));
+        setAuthError(getErrorMessage(payload, `${getSocialProviderLabel(provider)} 登录失败（${response.status}）。`));
         setAuthBusy(false);
         return;
       }
@@ -1191,7 +1191,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
           window.sessionStorage.removeItem(PENDING_SOCIAL_SIGNUP_STORAGE_KEY);
         }
         setAuthInfo(getAuthInfoForMode(authMode));
-        setAuthError(`${getSocialProviderLabel(provider)} sign-in did not return a redirect URL.`);
+        setAuthError(`${getSocialProviderLabel(provider)} 没有返回登录地址。`);
         setAuthBusy(false);
         return;
       }
@@ -1202,7 +1202,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
         window.sessionStorage.removeItem(PENDING_SOCIAL_SIGNUP_STORAGE_KEY);
       }
       setAuthInfo(getAuthInfoForMode(authMode));
-      setAuthError(error instanceof Error ? error.message : "Unknown network error");
+      setAuthError(error instanceof Error ? error.message : "网络连接失败，请稍后再试。");
       setAuthBusy(false);
     }
   }

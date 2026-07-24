@@ -211,9 +211,9 @@ export const AUTH_TOKEN_STORAGE_KEY = "openwork:web:auth-token";
 export const ONBOARDING_INTENT_STORAGE_KEY = "openwork:web:onboarding-intent";
 export const PENDING_AUTH_INTENT_STORAGE_KEY = "openwork:web:pending-auth-intent";
 export const WORKER_STATUS_POLL_MS = DEN_WORKER_POLL_INTERVAL_MS;
-export const DEFAULT_AUTH_NAME = "OpenWork User";
-export const DEFAULT_WORKER_NAME = "My Worker";
-export const WORKSPACE_REAUTH_SECURITY_MESSAGE = "For security, confirm it's you before changing workspace settings.";
+export const DEFAULT_AUTH_NAME = "FoxWork 用户";
+export const DEFAULT_WORKER_NAME = "我的工作区";
+export const WORKSPACE_REAUTH_SECURITY_MESSAGE = "修改工作区设置前，请先确认是你本人操作。";
 
 export type AuthIntent = "models";
 
@@ -223,8 +223,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function getAuthInfoForMode(mode: AuthMode): string {
   return mode === "sign-up"
-    ? "Create an account to launch and manage cloud workers."
-    : "Sign in to launch and manage cloud workers.";
+    ? "创建账号后即可使用公司工作区。"
+    : "登录后进入公司工作区。";
 }
 
 export function getEmailDomain(email: string): string {

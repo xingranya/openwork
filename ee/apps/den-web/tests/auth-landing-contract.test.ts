@@ -21,6 +21,7 @@ describe("Den auth landing contract", () => {
     expect(source).toContain('data-testid="auth-landing-mobile-brand"');
     expect(source).toContain("lg:hidden");
     expect(source).toContain('src="/openwork-mark.svg"');
+    expect(source).toContain('alt="FoxWork"');
   });
 
   test("removes the old marketing panel content from the shader side", () => {
@@ -44,11 +45,11 @@ describe("Den auth landing contract", () => {
     expect(source).toContain('data-testid="auth-landing-visual"');
   });
 
-  test("starts the email-first panel with the approved heading", () => {
+  test("登录入口使用已确认的中文标题", () => {
     const source = readFileSync(authPanelPath, "utf8");
 
-    expect(source).toContain('title: "Start using OpenWork"');
-    expect(source).toContain("Enter your email and we'll send you to the right sign-in step.");
-    expect(source).not.toContain("Continue to OpenWork.");
+    expect(source).toContain('title: "登录公司工作区"');
+    expect(source).toContain("先输入邮箱，我们会为你找到对应的登录方式。");
+    expect(source).not.toContain('title: "Start using OpenWork"');
   });
 });
