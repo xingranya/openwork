@@ -163,7 +163,7 @@ export function getMockReposFor(provider: IntegrationProvider, accountId: string
       id: `${tag}:openwork`,
       name: "openwork",
       fullName: `${accountToLabel(accountId)}/openwork`,
-      description: "OpenWork 主仓库，包含桌面端、服务端和编排器。",
+      description: "FoxWork 主仓库，包含桌面端、服务端和编排器。",
       hasPlugins: true,
     },
     {
@@ -274,10 +274,10 @@ async function fetchGithubConnections() {
   ]);
 
   if (!accountsResult.response.ok) {
-    throw new Error(getErrorMessage(accountsResult.payload, `Failed to load GitHub integrations (${accountsResult.response.status}).`));
+    throw new Error(getErrorMessage(accountsResult.payload, `加载 GitHub 连接失败（${accountsResult.response.status}）。`));
   }
   if (!instancesResult.response.ok) {
-    throw new Error(getErrorMessage(instancesResult.payload, `Failed to load GitHub connector instances (${instancesResult.response.status}).`));
+    throw new Error(getErrorMessage(instancesResult.payload, `加载 GitHub 连接实例失败（${instancesResult.response.status}）。`));
   }
 
   const accounts = parseGithubConnectorAccounts(accountsResult.payload);
@@ -418,20 +418,20 @@ export function useStartGithubInstall() {
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to start GitHub install (${response.status}).`);
+        throw getRequestError(payload, response, `启动 GitHub 安装失败（${response.status}）。`);
       }
 
       const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
       const redirectUrl = item ? asString(item.redirectUrl) : null;
       const state = item ? asString(item.state) : null;
       if (!redirectUrl || !state) {
-        throw new Error("GitHub install start response was incomplete.");
+        throw new Error("GitHub 安装返回的数据不完整。");
       }
 
         result = { redirectUrl, state };
       });
       if (!result) {
-        throw new Error("GitHub install start response was incomplete.");
+        throw new Error("GitHub 安装返回的数据不完整。");
       }
       return result;
     },
@@ -461,7 +461,7 @@ export function useGithubInstallCompletion(input: { installationId: number | nul
         );
 
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to complete GitHub installation (${response.status}).`);
+          throw getRequestError(payload, response, `完成 GitHub 安装失败（${response.status}）。`);
         }
 
         const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
@@ -504,7 +504,7 @@ export function useGithubInstallCompletion(input: { installationId: number | nul
         const connectorAccountId = connectorAccount ? asString(connectorAccount.id) : null;
         const connectorAccountName = connectorAccount ? asString(connectorAccount.displayName) : null;
         if (!connectorAccount || !connectorAccountId || !connectorAccountName) {
-          throw new Error("GitHub install completion response was incomplete.");
+          throw new Error("GitHub 安装完成后返回的数据不完整。");
         }
 
         result = {
@@ -517,7 +517,7 @@ export function useGithubInstallCompletion(input: { installationId: number | nul
         };
       });
       if (!result) {
-        throw new Error("GitHub install completion response was incomplete.");
+        throw new Error("GitHub 安装完成后返回的数据不完整。");
       }
       return result;
     },
@@ -536,7 +536,7 @@ export function useGithubAccountRepositories(connectorAccountId: string | null) 
       );
 
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load GitHub repositories (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `加载 GitHub 代码仓库失败（${response.status}）。`));
       }
 
       return isRecord(payload) && Array.isArray(payload.items)
@@ -611,7 +611,7 @@ export function useCreateGithubConnectorInstance() {
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to connect GitHub repository (${response.status}).`);
+        throw getRequestError(payload, response, `连接 GitHub 代码仓库失败（${response.status}）。`);
       }
 
       const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
@@ -624,7 +624,7 @@ export function useCreateGithubConnectorInstance() {
         : null;
 
       if (!connectorInstanceId || !connectorTargetId || !repositoryFullName) {
-        throw new Error("GitHub setup response was incomplete.");
+        throw new Error("GitHub 代码仓库连接返回的数据不完整。");
       }
 
         result = {
@@ -634,7 +634,7 @@ export function useCreateGithubConnectorInstance() {
       };
       });
       if (!result) {
-        throw new Error("GitHub setup response was incomplete.");
+        throw new Error("GitHub 代码仓库连接返回的数据不完整。");
       }
       return result;
     },
@@ -657,7 +657,7 @@ export function useGithubConnectorDiscovery(connectorInstanceId: string | null) 
       );
 
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to inspect GitHub repository (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `检查 GitHub 代码仓库失败（${response.status}）。`));
       }
 
       const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
@@ -755,7 +755,7 @@ export function useGithubConnectorDiscovery(connectorInstanceId: string | null) 
       const autoImportNewPlugins = item ? Boolean(item.autoImportNewPlugins) : false;
 
       if (!connectorInstanceIdValue || !connectorTargetId || !repositoryFullName || !sourceRevisionRef || !classification) {
-        throw new Error("GitHub discovery response was incomplete.");
+        throw new Error("GitHub 代码仓库检查返回的数据不完整。");
       }
 
       return {
@@ -792,7 +792,7 @@ export function useApplyGithubDiscovery() {
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to apply GitHub discovery (${response.status}).`);
+        throw getRequestError(payload, response, `应用 GitHub 检查结果失败（${response.status}）。`);
       }
 
       const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
@@ -814,7 +814,7 @@ export function useApplyGithubDiscovery() {
       };
       });
       if (!result) {
-        throw new Error("GitHub discovery response was incomplete.");
+        throw new Error("GitHub 检查结果返回的数据不完整。");
       }
       return result;
     },
@@ -882,7 +882,7 @@ export function useDisconnectIntegration() {
           20000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to disconnect integration (${response.status}).`);
+          throw getRequestError(payload, response, `断开集成服务失败（${response.status}）。`);
         }
         result = connectionId;
         return;
@@ -893,7 +893,7 @@ export function useDisconnectIntegration() {
         result = connectionId;
       });
       if (!result) {
-        throw new Error("Disconnect response was incomplete.");
+        throw new Error("断开连接后返回的数据不完整。");
       }
       return result;
     },
@@ -916,7 +916,7 @@ export function useConnectorInstanceConfiguration(connectorInstanceId: string | 
       );
 
       if (!response.ok) {
-        throw new Error(getErrorMessage(payload, `Failed to load connector instance (${response.status}).`));
+        throw new Error(getErrorMessage(payload, `加载连接实例失败（${response.status}）。`));
       }
 
       const item = isRecord(payload) && isRecord(payload.item) ? payload.item : null;
@@ -925,7 +925,7 @@ export function useConnectorInstanceConfiguration(connectorInstanceId: string | 
       const connectorInstanceName = connectorInstance ? asString(connectorInstance.name) : null;
       const remoteId = connectorInstance ? asString(connectorInstance.remoteId) : null;
       if (!item || !connectorInstanceIdValue || !connectorInstanceName) {
-        throw new Error("Connector instance configuration response was incomplete.");
+        throw new Error("连接实例配置返回的数据不完整。");
       }
 
       const configuredPlugins = Array.isArray(item.configuredPlugins)
@@ -985,7 +985,7 @@ export function useSetConnectorInstanceAutoImport() {
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to update auto-import (${response.status}).`);
+        throw getRequestError(payload, response, `更新自动导入设置失败（${response.status}）。`);
       }
 
       });
@@ -1013,7 +1013,7 @@ export function useRemoveConnectorInstance() {
       );
 
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to remove connector instance (${response.status}).`);
+        throw getRequestError(payload, response, `移除连接实例失败（${response.status}）。`);
       }
 
       });

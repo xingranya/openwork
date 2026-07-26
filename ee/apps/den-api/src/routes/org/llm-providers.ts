@@ -14,7 +14,7 @@ import { describeRoute } from "hono-openapi"
 import { z } from "zod"
 import { db } from "../../db.js"
 import { CustomProviderConfigError, normalizeCustomProviderConfig } from "../../llm/custom-provider.js"
-import { probeEndpoint, verifyModels } from "../../llm/endpoint-probe.js"
+import { probeEndpoint, verifyModels, type ProbeProtocol } from "../../llm/endpoint-probe.js"
 import {
   ProviderCredentialError,
   decodeProviderCredential,
@@ -79,7 +79,7 @@ const llmProviderWriteSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["providerId"],
-        message: "Select a provider.",
+        message: "请选择模型服务。",
       })
     }
 
@@ -87,7 +87,7 @@ const llmProviderWriteSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["modelIds"],
-        message: "Select at least one model.",
+        message: "请至少选择或填写一个模型 ID。",
       })
     }
   }
@@ -96,7 +96,7 @@ const llmProviderWriteSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["customConfigText"],
-      message: "Paste a custom provider config.",
+      message: "请填写自定义模型服务配置。",
     })
   }
 })
@@ -104,13 +104,14 @@ const llmProviderWriteSchema = z.object({
 const endpointProbeRequestSchema = z.object({
   api: z.string().trim().min(1).max(2048),
   apiKey: z.string().trim().max(65535).optional(),
+  protocol: z.enum(["openai", "anthropic"]).optional().default("openai"),
   modelIds: z.array(z.string().trim().min(1).max(255)).max(8).optional(),
 })
 
 const endpointProbeResponseSchema = z.object({
   result: z.object({
     ok: z.boolean(),
-    vendor: z.enum(["azure", "openai-compatible"]),
+    vendor: z.enum(["azure", "openai-compatible", "anthropic"]),
     normalizedApi: z.string().nullable(),
     attempted: z.array(z.string()),
     models: z.array(z.object({ id: z.string() })),
@@ -325,7 +326,7 @@ async function normalizeLlmProviderInput(
   if (input.source === "models_dev") {
     const provider = await getModelsDevProvider(input.providerId ?? "")
     if (!provider) {
-      throw createFailure(404, "provider_not_found", "The selected provider was not found in models.dev.")
+      throw createFailure(404, "provider_not_found", "所选模型服务不在公司目录中。")
     }
 
     const requestedModelIds = [...new Set(input.modelIds ?? [])]
@@ -333,14 +334,14 @@ async function normalizeLlmProviderInput(
     // Azure model lists come from the resource's *deployments*, which admins
     // can name anything — accept ids outside the models.dev catalog for
     // Azure providers instead of rejecting the save.
-    const allowDeploymentIds = provider.npm === "@ai-sdk/azure"
+    const allowDeploymentIds = provider.npm === "@ai-sdk/azure" || provider.allowCustomModelIds
     const models = requestedModelIds.map((modelId) => {
       const model = modelsById.get(modelId)
       if (!model) {
         if (allowDeploymentIds) {
           return { id: modelId, name: modelId, config: { id: modelId, name: modelId } }
         }
-        throw createFailure(404, "model_not_found", `Model ${modelId} is not available for ${provider.name}.`)
+        throw createFailure(404, "model_not_found", `${provider.name} 中没有模型 ${modelId}。`)
       }
       return model
     })
@@ -562,7 +563,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
     describeRoute({
       tags: ["LLM Providers"],
       summary: "Test a custom LLM provider endpoint",
-      description: "Probes an OpenAI-compatible endpoint (Azure AI Foundry, LiteLLM, vLLM, gateways) with the given credential: normalizes common base-URL mistakes, calls GET /models, and returns the model ids the endpoint actually serves — on Azure these are the deployment names. Nothing is stored.",
+      description: "探测 OpenAI 或 Anthropic 兼容接口，读取服务实际提供的模型 ID 供管理员选择；不会保存探测结果。",
       responses: {
         200: jsonResponse("Probe completed (ok=false carries a human hint).", endpointProbeResponseSchema),
         400: jsonResponse("The probe request was invalid.", invalidRequestSchema),
@@ -573,8 +574,12 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
     jsonValidator(endpointProbeRequestSchema),
     async (c) => {
       const input = c.req.valid("json")
-      const result = await probeEndpoint({ api: input.api, apiKey: input.apiKey ?? "" })
-      if (result.ok && result.normalizedApi && input.modelIds?.length) {
+      const result = await probeEndpoint({
+        api: input.api,
+        apiKey: input.apiKey ?? "",
+        protocol: input.protocol as ProbeProtocol,
+      })
+      if (input.protocol === "openai" && result.ok && result.normalizedApi && input.modelIds?.length) {
         const verifications = await verifyModels({
           api: result.normalizedApi,
           apiKey: input.apiKey ?? "",
@@ -591,12 +596,12 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
     describeRoute({
       tags: ["LLM Providers"],
       summary: "List LLM provider catalog",
-      description: "Lists the provider catalog from models.dev so an organization can choose which LLM providers to configure.",
+      description: "列出公司配置的模型服务目录，供管理员选择并配置共享模型。",
       responses: {
         200: jsonResponse("Provider catalog returned successfully.", providerCatalogListResponseSchema),
         400: jsonResponse("The provider catalog path parameters were invalid.", invalidRequestSchema),
         401: jsonResponse("The caller must be signed in to browse the provider catalog.", unauthorizedSchema),
-        502: jsonResponse("The external provider catalog was unavailable.", providerCatalogUnavailableSchema),
+        502: jsonResponse("公司模型目录当前不可用。", providerCatalogUnavailableSchema),
       },
     }),
     orgMemberRoute(),
@@ -607,7 +612,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       } catch (error) {
         return c.json({
           error: "provider_catalog_unavailable",
-          message: error instanceof Error ? error.message : "Could not load the models.dev catalog.",
+          message: error instanceof Error ? error.message : "公司模型目录当前不可用。",
         }, 502)
       }
     },
@@ -618,13 +623,13 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
     describeRoute({
       tags: ["LLM Providers"],
       summary: "Get LLM provider catalog entry",
-      description: "Returns the full models.dev catalog record for one provider, including its config template and model list.",
+      description: "返回公司模型目录中某个服务的配置模板和模型列表。",
       responses: {
         200: jsonResponse("Provider catalog entry returned successfully.", providerCatalogResponseSchema),
         400: jsonResponse("The provider catalog path parameters were invalid.", invalidRequestSchema),
         401: jsonResponse("The caller must be signed in to inspect provider catalog entries.", unauthorizedSchema),
         404: jsonResponse("The requested provider catalog entry could not be found.", notFoundSchema),
-        502: jsonResponse("The external provider catalog was unavailable.", providerCatalogUnavailableSchema),
+        502: jsonResponse("公司模型目录当前不可用。", providerCatalogUnavailableSchema),
       },
     }),
     orgMemberRoute(),
@@ -653,7 +658,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       } catch (error) {
         return c.json({
           error: "provider_catalog_unavailable",
-          message: error instanceof Error ? error.message : "Could not load the provider details.",
+          message: error instanceof Error ? error.message : "无法加载模型服务详情。",
         }, 502)
       }
     },
@@ -746,7 +751,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       if (!accessible) {
         return c.json({
           error: "forbidden",
-          message: "You do not have access to this provider.",
+          message: "你的账号没有使用此模型服务的权限。",
         }, 403)
       }
 
@@ -933,12 +938,12 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       if (!canManageLlmProvider(payload, provider)) {
         return c.json({
           error: "forbidden",
-          message: "Only the provider creator or a workspace admin can update providers.",
+          message: "只有模型服务创建者或公司管理员可以修改模型服务。",
         }, 403)
       }
 
       if (isOrganizationAdmin(payload)) {
-        const permission = ensureOrganizationAdmin(c, "Only the provider creator or a workspace admin can update providers.")
+        const permission = ensureOrganizationAdmin(c, "只有模型服务创建者或公司管理员可以修改模型服务。")
         if (!permission.ok) {
           return c.json(permission.response, orgAccessFailureStatus(permission.response))
         }
@@ -1075,12 +1080,12 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       if (!canManageLlmProvider(payload, provider)) {
         return c.json({
           error: "forbidden",
-          message: "Only the provider creator or a workspace admin can delete providers.",
+          message: "只有模型服务创建者或公司管理员可以删除模型服务。",
         }, 403)
       }
 
       if (isOrganizationAdmin(payload)) {
-        const permission = ensureOrganizationAdmin(c, "Only the provider creator or a workspace admin can delete providers.")
+        const permission = ensureOrganizationAdmin(c, "只有模型服务创建者或公司管理员可以删除模型服务。")
         if (!permission.ok) {
           return c.json(permission.response, orgAccessFailureStatus(permission.response))
         }
@@ -1138,11 +1143,11 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       }
 
       if (!canManageLlmProvider(payload, provider)) {
-        return c.json({ error: "forbidden", message: "Only the provider creator or a workspace admin can manage access." }, 403)
+        return c.json({ error: "forbidden", message: "只有模型服务创建者或公司管理员可以管理使用权限。" }, 403)
       }
 
       if (isOrganizationAdmin(payload)) {
-        const permission = ensureOrganizationAdmin(c, "Only the provider creator or a workspace admin can manage access.")
+        const permission = ensureOrganizationAdmin(c, "只有模型服务创建者或公司管理员可以管理使用权限。")
         if (!permission.ok) {
           return c.json(permission.response, orgAccessFailureStatus(permission.response))
         }
@@ -1162,7 +1167,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       if (access.orgMembershipId === provider.createdByOrgMembershipId) {
         return c.json({
           error: "protected_access",
-          message: "The provider creator always keeps direct access.",
+          message: "模型服务创建者始终保留直接使用权限。",
         }, 409)
       }
 

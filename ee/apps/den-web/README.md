@@ -65,7 +65,7 @@ Runtime logs and telemetry scrubbing avoid request bodies, cookies, authorizatio
 
 - `DEN_ORG_MODE`: `single_org` or `multi_org`. Blank/unset resolves to `single_org` in the implemented target state; hosted/cloud deployments should set `multi_org` explicitly.
 - `DEN_SINGLE_ORG_NAME` / `DEN_SINGLE_ORG_SLUG`: singleton organization display name and stable slug for private single-org deployments.
-- `DEN_SINGLE_ORG_OWNER_EMAILS`: comma-separated emails allowed to claim singleton organization ownership.
+- `DEN_SINGLE_ORG_OWNER_EMAILS`: comma-separated emails allowed to claim singleton organization ownership. An empty value blocks first-owner bootstrap.
 - `DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP`: whether unauthenticated users can self-serve signup into the singleton organization.
 - When SSO is configured on the singleton organization, auth becomes SSO-only.
 - `DEN_REQUIRE_EMAIL_VERIFICATION`: set `false` for the single-org default to avoid signup verification-code flows; hosted multi-org should set `true`.

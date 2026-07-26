@@ -75,7 +75,7 @@ test("checkEntitlement returns a 402 payload with a human-readable message", () 
     expect(result.status).toBe(402)
     expect(result.response.error).toBe("enterprise_plan_required")
     expect(result.response.feature).toBe("sso")
-    expect(result.response.message).toContain("Enterprise plan")
+    expect(result.response.message).toBe("单点登录需要公司管理员启用。")
   }
 })
 
@@ -90,7 +90,7 @@ test("usage analytics follows the same enterprise gate", () => {
   if (!denied.ok) {
     expect(denied.status).toBe(402)
     expect(denied.response.feature).toBe("analytics")
-    expect(denied.response.message).toContain("Usage analytics")
+    expect(denied.response.message).toBe("使用情况分析需要公司管理员启用。")
   }
   expect(entitlements.checkEntitlement({ plan: { tier: "enterprise" } }, "analytics", { gatingEnabled: true })).toEqual({ ok: true })
   expect(entitlements.checkEntitlement(null, "analytics", { gatingEnabled: false })).toEqual({ ok: true })

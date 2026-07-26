@@ -3,7 +3,8 @@ export function isSingleOrgOwnerEmailEligible(input: {
   ownerEmails: readonly string[]
 }) {
   if (input.ownerEmails.length === 0) {
-    return true
+    // 单组织部署必须显式配置首位管理员邮箱；空白白名单不能把任意首个注册者变成所有者。
+    return false
   }
   const normalizedEmail = input.email?.trim().toLowerCase()
   return !!normalizedEmail && input.ownerEmails.includes(normalizedEmail)

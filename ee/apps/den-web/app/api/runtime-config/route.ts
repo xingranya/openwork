@@ -108,7 +108,7 @@ export async function GET() {
       orgMode,
       singleOrgName: readPublicRuntimeEnv("DEN_SINGLE_ORG_NAME") || "FoxWork 公司",
       singleOrgSlug: readPublicRuntimeEnv("DEN_SINGLE_ORG_SLUG") || "default",
-      singleOrgAllowPublicSignup: readBooleanEnv("DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP", orgMode === "multi_org"),
+      singleOrgAllowPublicSignup: readBooleanEnv("DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP", true),
       singleOrgSsoConfigured,
       emailRecoveryEnabled: readBooleanEnv("DEN_EMAIL_RECOVERY_ENABLED", orgMode === "multi_org")
     },

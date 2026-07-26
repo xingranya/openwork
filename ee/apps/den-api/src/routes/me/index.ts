@@ -5,7 +5,6 @@ import { desktopConfigSchema } from "@openwork/types/den/desktop-policies"
 import type { Hono } from "hono"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
-import { OPENWORK_DOWNLOAD_URL } from "../../CONSTS.js"
 import { db } from "../../db.js"
 import { env } from "../../env.js"
 import { authenticatedRoute, jsonValidator, orgMemberRoute, type OrganizationContextVariables, type UserOrganizationsContext } from "../../middleware/index.js"
@@ -239,7 +238,7 @@ export function registerMeRoutes<T extends { Variables: AuthContextVariables & P
           to: email,
           template: "downloadLink",
           props: {
-            downloadUrl: OPENWORK_DOWNLOAD_URL,
+            downloadUrl: env.marketingUrl ?? env.betterAuthUrl,
           },
         })
       } catch (error) {

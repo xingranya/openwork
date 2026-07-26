@@ -129,16 +129,16 @@ const externalMcpUrlSchema = z.string().trim().url().max(2048).superRefine((valu
     return
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    context.addIssue({ code: "custom", message: "MCP URLs must use HTTP or HTTPS." })
+    context.addIssue({ code: "custom", message: "MCP 地址必须使用 HTTP 或 HTTPS。" })
   }
   if (url.protocol === "http:" && !env.allowPrivateMcpUrls) {
-    context.addIssue({ code: "custom", message: "Hosted MCP connections must use HTTPS." })
+    context.addIssue({ code: "custom", message: "托管环境中的 MCP 连接必须使用 HTTPS。" })
   }
   if (url.hash) {
-    context.addIssue({ code: "custom", message: "MCP URLs must not contain a fragment." })
+    context.addIssue({ code: "custom", message: "MCP 地址不能包含井号片段。" })
   }
   if (url.username || url.password) {
-    context.addIssue({ code: "custom", message: "MCP URLs must not contain embedded credentials." })
+    context.addIssue({ code: "custom", message: "MCP 地址不能包含账号或密钥。" })
   }
   const sensitiveParameters = new Set([
     "access_token",
@@ -151,7 +151,7 @@ const externalMcpUrlSchema = z.string().trim().url().max(2048).superRefine((valu
   ])
   for (const parameter of url.searchParams.keys()) {
     if (sensitiveParameters.has(parameter.toLowerCase())) {
-      context.addIssue({ code: "custom", message: `MCP URL query parameter "${parameter}" must not contain credentials.` })
+      context.addIssue({ code: "custom", message: `MCP 地址的查询参数“${parameter}”不能包含账号或密钥。` })
     }
   }
 })
@@ -640,7 +640,7 @@ async function resolveExternalMcpToolCredential(
   if (connection.oauthIssuerReviewRequiredAt) {
     return {
       ok: false,
-      message: "A workspace admin must review this MCP connection's changed OAuth issuer before its tools can be used.",
+      message: "此 MCP 连接的 OAuth 授权服务已变化，需要公司管理员确认后才能继续使用工具。",
     }
   }
   if (connection.credentialMode === "per_member") {
@@ -651,12 +651,12 @@ async function resolveExternalMcpToolCredential(
     })
     return account?.accessToken
       ? { ok: true, member: { orgMembershipId } }
-      : { ok: false, message: "Connect your account before using this MCP's tools." }
+      : { ok: false, message: "请先连接你的账号，再使用此 MCP 工具。" }
   }
 
   return isConnectionConnected(connection)
     ? { ok: true }
-    : { ok: false, message: "Connect this MCP before using its tools." }
+    : { ok: false, message: "请先完成此 MCP 连接，再使用它的工具。" }
 }
 
 type ConnectionRequiredBy = {
@@ -1028,12 +1028,12 @@ async function handleExternalMcpOAuthCallback(input: {
   const url = new URL(input.request.url)
   const state = url.searchParams.get("state")
   if (!state) {
-    return invalidMcpOAuthCallback("Missing state.")
+    return invalidMcpOAuthCallback("授权回调缺少状态参数。")
   }
 
   const statePayload = verifyOAuthStateToken({ token: state, secret: env.betterAuthSecret })
   if (!statePayload) {
-    return invalidMcpOAuthCallback("Invalid or expired state.")
+    return invalidMcpOAuthCallback("授权状态无效或已过期。")
   }
 
   const isScopedRoute = input.scopedConnectionId !== undefined
@@ -1042,20 +1042,20 @@ async function handleExternalMcpOAuthCallback(input: {
   // signed callback mode must agree. Version-one transactions remain bound to
   // the legacy runtime and per-connection compatibility route.
   if (!isScopedRoute && (statePayload.version !== 2 || callbackMode !== "shared-v1")) {
-    return invalidMcpOAuthCallback("This authorization callback must use the shared callback selected when authorization started.")
+    return invalidMcpOAuthCallback("此授权回调必须使用授权开始时选定的公司共享回调地址。")
   }
   if (isScopedRoute && (
     statePayload.providerId !== input.scopedConnectionId
     || (statePayload.version === 2 && callbackMode !== "isolated-v1" && callbackMode !== "legacy-v1")
   )) {
-    return invalidMcpOAuthCallback("Invalid or expired state.")
+    return invalidMcpOAuthCallback("授权状态无效或已过期。")
   }
 
   let connectionId: DenTypeId<"externalMcpConnection">
   try {
     connectionId = normalizeDenTypeId("externalMcpConnection", statePayload.providerId)
   } catch {
-    return invalidMcpOAuthCallback("Invalid or expired state.")
+    return invalidMcpOAuthCallback("授权状态无效或已过期。")
   }
   const [connection, members] = await Promise.all([
     getExternalMcpConnection({
@@ -1072,7 +1072,7 @@ async function handleExternalMcpOAuthCallback(input: {
       .limit(1),
   ])
   if (!connection || !members[0]) {
-    return invalidMcpOAuthCallback("Unknown authorization transaction.")
+    return invalidMcpOAuthCallback("找不到这次授权操作。")
   }
   const configuredIssuer = connection.oauthConfiguration?.authorizationServerIssuer ?? null
   const discovery = connection.oauthConfiguration?.discovery
@@ -1096,7 +1096,7 @@ async function handleExternalMcpOAuthCallback(input: {
       && statePayload.authorizationResponseIssuerRequired !== undefined
       && statePayload.authorizationResponseIssuerRequired !== currentResponseIssuerRequired)
   ) {
-    return invalidMcpOAuthCallback("This connection changed after authorization started. Start the connection flow again.")
+    return invalidMcpOAuthCallback("授权开始后连接配置已发生变化，请重新开始连接。")
   }
 
   const member = connection.credentialMode === "per_member"
@@ -1194,7 +1194,7 @@ async function handleExternalMcpOAuthCallback(input: {
         ...externalMcpDiagnosticForLog(error, input.requestId, "AUTH_USER_OR_WORKLOAD"),
       })
     }
-    return invalidMcpOAuthCallback("Missing authorization code.")
+    return invalidMcpOAuthCallback("授权回调缺少授权码。")
   }
   try {
     await completeAuthorization(
@@ -1290,7 +1290,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     orgMemberRoute(),
     jsonValidator(discoverConnectionBodySchema),
     async (c) => {
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can discover MCP requirements.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以读取 MCP 接入要求。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
       const { url } = c.req.valid("json")
       try {
@@ -1329,7 +1329,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     jsonValidator(issuerReviewBodySchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can review OAuth issuers.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以确认 OAuth 授权服务。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
       const { connectionId } = c.req.valid("param")
       const externalMcpConnectionId = normalizeDenTypeId("externalMcpConnection", connectionId)
@@ -1338,10 +1338,10 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         connectionId: externalMcpConnectionId,
       })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       if (connection.authType !== "oauth") {
-        return c.json({ error: "invalid_request", message: "Issuer review is only available for OAuth MCP connections." }, 400)
+        return c.json({ error: "invalid_request", message: "只有 OAuth 类型的 MCP 连接需要确认授权服务。" }, 400)
       }
 
       let advertisedIssuers: string[]
@@ -1362,7 +1362,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       if (advertisedIssuers.length === 0) {
         return c.json({
           error: "connection_conflict" as const,
-          message: "The MCP resource does not currently advertise an OAuth authorization server.",
+          message: "此 MCP 服务当前没有提供 OAuth 授权服务信息。",
         }, 409)
       }
 
@@ -1378,7 +1378,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       if (!advertisedIssuers.includes(body.authorizationServerIssuer)) {
         return c.json({
           error: "connection_conflict" as const,
-          message: "The selected issuer is not currently advertised by this MCP resource. Refresh the review before confirming.",
+          message: "此 MCP 服务当前没有提供所选授权服务，请刷新信息后重新确认。",
         }, 409)
       }
 
@@ -1389,12 +1389,12 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         authorizationServerIssuer: body.authorizationServerIssuer,
       })
       if (result.status === "not_found") {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       if (result.status === "conflict") {
         return c.json({
           error: "connection_conflict" as const,
-          message: "This connection changed while the issuer was being reviewed. Reload and review the current provider metadata again.",
+          message: "确认期间连接配置已发生变化，请重新加载并检查最新服务信息。",
         }, 409)
       }
       return c.json({
@@ -1441,7 +1441,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     orgMemberRoute(),
     jsonValidator(resolveConnectionBodySchema),
     async (c) => {
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can resolve MCP servers.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以查找 MCP 服务。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
       const { query } = c.req.valid("json")
 
@@ -1511,7 +1511,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
 
       if (scope === "manageable") {
         if (!verifyOrgRole({ roles: ["admin"], userContext: payload.currentMember })) {
-          return c.json({ error: "forbidden", message: "Only workspace owners and admins can list all MCP connections." }, 403)
+          return c.json({ error: "forbidden", message: "只有公司所有者和管理员可以查看全部 MCP 连接。" }, 403)
         }
         const rows = await listExternalMcpConnections(payload.organization.id)
         const provenance = await requiredByForConnections({ context, includeAllPluginNames: true, rows })
@@ -1587,7 +1587,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         connectionId: externalMcpConnectionId,
       })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
 
       const isAdmin = verifyOrgRole({ roles: ["admin"], userContext: payload.currentMember })
@@ -1600,7 +1600,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
             teamIds: memberTeams.map((team) => team.id),
           })
         if (!canUse) {
-          return c.json({ error: "forbidden", message: `You have not been granted access to "${connection.name}".` }, 403)
+          return c.json({ error: "forbidden", message: `你的账号尚未获得“${connection.name}”的使用权限。` }, 403)
         }
       }
 
@@ -1647,7 +1647,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         })
         return c.json({
           error: "tool_catalog_failed",
-          message: `Could not inspect "${connection.name}": ${diagnostic.message} Reference: ${diagnostic.referenceId}.`,
+          message: `无法读取“${connection.name}”的工具：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
           diagnostic,
         }, 502)
       }
@@ -1677,7 +1677,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       maxSize: MANUAL_MCP_TOOL_REQUEST_MAX_BYTES,
       onError: (c) => c.json({
         error: "payload_too_large",
-        message: "Tool arguments must fit within 1 MB.",
+        message: "工具参数不能超过 1 MB。",
       }, 413),
     }),
     paramValidator(connectionParamsSchema),
@@ -1692,7 +1692,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         connectionId: externalMcpConnectionId,
       })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
 
       const memberTeams: MemberTeamSummary[] = c.get("memberTeams") ?? []
@@ -1703,7 +1703,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           teamIds: memberTeams.map((team) => team.id),
         })
       if (!canUse) {
-        return c.json({ error: "forbidden", message: `You have not been granted access to "${connection.name}".` }, 403)
+          return c.json({ error: "forbidden", message: `你的账号尚未获得“${connection.name}”的使用权限。` }, 403)
       }
 
       const credential = await resolveExternalMcpToolCredential(connection, payload.currentMember.id)
@@ -1753,7 +1753,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         })
         return c.json({
           error: "tool_execution_failed",
-          message: `Could not run "${toolName}" on "${connection.name}": ${diagnostic.message} Reference: ${diagnostic.referenceId}.`,
+          message: `无法在“${connection.name}”上运行“${toolName}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
           diagnostic,
           inspection: {
             ...wireInspection,
@@ -1786,7 +1786,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     jsonValidator(createConnectionBodySchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can add MCP connections.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以添加 MCP 连接。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
 
       const body = c.req.valid("json")
@@ -1794,22 +1794,22 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       // Secrets must not travel through chat transcripts: when the caller is
       // the agent (internal MCP principal), refuse API-key connections.
       if (isAgentOAuthClientConnection({ oauthClient: body.oauthClient, sessionId })) {
-        return c.json({ error: "invalid_request", message: "OAuth client credentials cannot be set from the agent. Add them in the OpenWork Cloud dashboard under Extensions." }, 400)
+        return c.json({ error: "invalid_request", message: "不能由 AI 设置 OAuth 客户端凭据，请在 FoxWork 公司后台的扩展页面添加。" }, 400)
       }
       if (isAgentApiKeyConnection({ authType: body.authType, sessionId })) {
-        return c.json({ error: "invalid_request", message: "API-key connections cannot be created from the agent. Add them in the OpenWork Cloud dashboard under Extensions." }, 400)
+        return c.json({ error: "invalid_request", message: "不能由 AI 创建密钥连接，请在 FoxWork 公司后台的扩展页面添加。" }, 400)
       }
       if (body.oauthClient && body.authType !== "oauth") {
-        return c.json({ error: "invalid_request", message: "oauthClient is only allowed when authType is oauth." }, 400)
+        return c.json({ error: "invalid_request", message: "只有 OAuth 类型的连接可以设置 OAuth 客户端。" }, 400)
       }
       if (body.authType !== "oauth" && (body.authorizationServerIssuer !== undefined || body.requestedScopes.length > 0)) {
-        return c.json({ error: "invalid_request", message: "OAuth issuer and scopes are only allowed when authType is oauth." }, 400)
+        return c.json({ error: "invalid_request", message: "只有 OAuth 类型的连接可以设置授权服务和权限范围。" }, 400)
       }
       if (body.authType === "apikey" && !body.apiKey) {
-        return c.json({ error: "invalid_request", message: "apiKey is required when authType is apikey." }, 400)
+        return c.json({ error: "invalid_request", message: "密钥类型的连接必须填写 API 密钥。" }, 400)
       }
       if (body.credentialMode === "per_member" && body.authType !== "oauth") {
-        return c.json({ error: "invalid_request", message: "credentialMode per_member requires authType oauth — API keys and no-auth servers have no per-person identity to connect." }, 400)
+        return c.json({ error: "invalid_request", message: "成员独立账号模式必须使用 OAuth；API 密钥和免认证服务没有可供成员单独连接的身份。" }, 400)
       }
       if (!env.allowPrivateMcpUrls) {
         // Fail fast with a clear message; the guarded fetch inside the MCP
@@ -1817,7 +1817,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         try {
           await assertPublicUrl(body.url)
         } catch (error) {
-          return c.json({ error: "invalid_request", message: error instanceof Error ? error.message : "URL not allowed." }, 400)
+          return c.json({ error: "invalid_request", message: error instanceof Error ? error.message : "此地址不允许访问。" }, 400)
         }
       }
 
@@ -1879,7 +1879,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           })
           return c.json({
             error: "connection_validation_failed",
-            message: `Could not validate "${created.name}": ${diagnostic.message} Reference: ${diagnostic.referenceId}.`,
+            message: `无法验证“${created.name}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
             diagnostic,
           }, 502)
         }
@@ -1921,7 +1921,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     jsonValidator(updateConnectionBodySchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can edit MCP connections.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以编辑 MCP 连接。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
 
       const { connectionId } = c.req.valid("param")
@@ -1931,7 +1931,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         connectionId: externalMcpConnectionId,
       })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
 
       const body = c.req.valid("json")
@@ -1975,7 +1975,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         const owners = [...new Set(activeBindings.map((binding) => binding.pluginName))].join(", ")
         return c.json({
           error: "marketplace_managed",
-          message: `${owners || "A marketplace plugin"} owns this connection's server and authentication settings. Edit those values in the marketplace definition.`,
+          message: `${owners || "应用市场扩展"}正在管理此连接的服务地址和认证设置，请在扩展配置中修改。`,
         }, 409)
       }
 
@@ -1983,14 +1983,14 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       if (sessionId === "mcp_internal" && (body.apiKey !== undefined || body.oauthClient !== undefined)) {
         return c.json({
           error: "invalid_request",
-          message: "Connection credentials cannot be edited from the agent. Use the OpenWork Cloud dashboard under Connections.",
+          message: "不能由 AI 修改连接凭据，请在 FoxWork 公司后台的连接页面操作。",
         }, 400)
       }
       if (body.apiKey !== undefined && body.authType !== "apikey") {
-        return c.json({ error: "invalid_request", message: "apiKey is only allowed when authType is apikey." }, 400)
+        return c.json({ error: "invalid_request", message: "只有密钥类型的连接可以设置 API 密钥。" }, 400)
       }
       if (body.oauthClient && body.authType !== "oauth") {
-        return c.json({ error: "invalid_request", message: "oauthClient is only allowed when authType is oauth." }, 400)
+        return c.json({ error: "invalid_request", message: "只有 OAuth 类型的连接可以设置 OAuth 客户端。" }, 400)
       }
       const existingOAuthClient = body.oauthClient
         ? await getOrgOAuthClient(payload.organization.id, externalMcpConnectionId)
@@ -2003,10 +2003,10 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         body.authorizationServerIssuer !== undefined
         || body.requestedScopes !== undefined
       )) {
-        return c.json({ error: "invalid_request", message: "OAuth issuer and scopes are only allowed when authType is oauth." }, 400)
+        return c.json({ error: "invalid_request", message: "只有 OAuth 类型的连接可以设置授权服务和权限范围。" }, 400)
       }
       if (body.credentialMode === "per_member" && body.authType !== "oauth") {
-        return c.json({ error: "invalid_request", message: "credentialMode per_member requires authType oauth — API keys and no-auth servers have no per-person identity to connect." }, 400)
+        return c.json({ error: "invalid_request", message: "成员独立账号模式必须使用 OAuth；API 密钥和免认证服务没有可供成员单独连接的身份。" }, 400)
       }
 
       const apiKey = body.authType === "apikey"
@@ -2016,8 +2016,8 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         return c.json({
           error: "invalid_request",
           message: identityChanged
-            ? "A replacement apiKey is required when changing an API-key connection's identity."
-            : "This API-key connection has no saved key; provide a replacement apiKey.",
+            ? "更换密钥连接的身份时必须提供新的 API 密钥。"
+            : "此密钥连接没有已保存的密钥，请提供新的 API 密钥。",
         }, 400)
       }
 
@@ -2025,7 +2025,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         try {
           await assertPublicUrl(body.url)
         } catch (error) {
-          return c.json({ error: "invalid_request", message: error instanceof Error ? error.message : "URL not allowed." }, 400)
+          return c.json({ error: "invalid_request", message: error instanceof Error ? error.message : "此地址不允许访问。" }, 400)
         }
       }
 
@@ -2068,7 +2068,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           })
           return c.json({
             error: "connection_validation_failed",
-            message: `Could not validate "${body.name}": ${diagnostic.message} Reference: ${diagnostic.referenceId}.`,
+            message: `无法验证“${body.name}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
             diagnostic,
           }, 502)
         }
@@ -2110,18 +2110,18 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         ...(validatedAt ? { validatedAt } : {}),
       })
       if (result.status === "not_found") {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       if (result.status === "conflict") {
         return c.json({
           error: "connection_conflict",
-          message: "This connection changed after you opened it. Close the dialog, review the latest settings, and try again.",
+          message: "打开页面后连接配置已发生变化，请关闭窗口、检查最新设置后重试。",
         }, 409)
       }
       if (result.status === "marketplace_managed") {
         return c.json({
           error: "marketplace_managed",
-          message: "A marketplace plugin now owns this connection's server and authentication settings. Reload before editing.",
+          message: "此连接现由扩展统一管理服务地址和认证设置，请重新加载后再编辑。",
         }, 409)
       }
 
@@ -2168,14 +2168,14 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     jsonValidator(replaceAccessBodySchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can change connection access.")
+      const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以修改连接使用权限。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
 
       const { connectionId } = c.req.valid("param")
       const externalMcpConnectionId = normalizeDenTypeId("externalMcpConnection", connectionId)
       const connection = await getExternalMcpConnection({ organizationId: payload.organization.id, connectionId: externalMcpConnectionId })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
 
       const body = c.req.valid("json")
@@ -2221,14 +2221,14 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     paramValidator(connectionParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdmin(c, "Only workspace owners and admins can remove MCP connections.")
+      const admin = ensureOrganizationAdmin(c, "只有公司所有者和管理员可以删除 MCP 连接。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
 
       const { connectionId } = c.req.valid("param")
       const externalMcpConnectionId = normalizeDenTypeId("externalMcpConnection", connectionId)
       const removed = await deleteExternalMcpConnection({ organizationId: payload.organization.id, connectionId: externalMcpConnectionId })
       if (!removed) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       return c.json({ ok: true })
     },
@@ -2251,14 +2251,14 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     paramValidator(connectionParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")
-      const admin = ensureOrganizationAdmin(c, "Only workspace owners and admins can disconnect MCP connections.")
+      const admin = ensureOrganizationAdmin(c, "只有公司所有者和管理员可以断开 MCP 连接。")
       if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
 
       const { connectionId } = c.req.valid("param")
       const externalMcpConnectionId = normalizeDenTypeId("externalMcpConnection", connectionId)
       const removed = await disconnectExternalMcpConnection({ organizationId: payload.organization.id, connectionId: externalMcpConnectionId })
       if (!removed) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       return c.json({ ok: true })
     },
@@ -2289,13 +2289,13 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         orgMembershipId: payload.currentMember.id,
       })
       if (result.status === "not_found") {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
       if (result.status === "not_per_member") {
-        return c.json({ error: "invalid_request", message: "Only per-member MCP connections can be disconnected from Your Connections." }, 400)
+        return c.json({ error: "invalid_request", message: "只有成员独立登录的 MCP 连接可以在“我的连接”中断开。" }, 400)
       }
       if (result.status === "not_connected") {
-        return c.json({ error: "connection_not_found", message: "Nothing was connected." }, 404)
+        return c.json({ error: "connection_not_found", message: "当前没有已连接的账号。" }, 404)
       }
       return c.json({ ok: true })
     },
@@ -2324,14 +2324,14 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       const externalMcpConnectionId = normalizeDenTypeId("externalMcpConnection", connectionId)
       let connection = await getExternalMcpConnection({ organizationId: payload.organization.id, connectionId: externalMcpConnectionId })
       if (!connection) {
-        return c.json({ error: "connection_not_found", message: "Unknown connection." }, 404)
+        return c.json({ error: "connection_not_found", message: "找不到此连接。" }, 404)
       }
 
       const callerIsAdmin = verifyOrgRole({ roles: ["admin"], userContext: payload.currentMember })
       if (connection.credentialMode === "shared") {
         // Connecting a shared credential IS the org-level integration setup —
         // admin-only, like creating the connection itself.
-        const admin = ensureOrganizationAdminRole(c, "Only workspace owners and admins can connect an org-account connection.")
+        const admin = ensureOrganizationAdminRole(c, "只有公司所有者和管理员可以连接公司共享账号。")
         if (!admin.ok) return c.json(admin.response, orgAccessFailureStatus(admin.response))
       } else {
         // Per-member: any member GRANTED the connection may connect their own
@@ -2343,7 +2343,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           teamIds: memberTeams.map((team) => team.id),
         })
         if (!canUse && !callerIsAdmin) {
-          return c.json({ error: "forbidden", message: "You have not been granted access to this connection." }, 403)
+          return c.json({ error: "forbidden", message: "你的账号尚未获得此连接的使用权限。" }, 403)
         }
       }
 
@@ -2495,13 +2495,13 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         if (diagnostic.code === "MCP_OAUTH_CONFIGURATION_REQUIRED") {
           return c.json({
             error: "mcp_oauth_configuration_required",
-            message: "This authorization server requires a pre-registered OAuth client before OpenWork can connect.",
+            message: "此授权服务要求预先登记 OAuth 客户端，请先由公司管理员完成配置。",
             callbackUrl: callbackRedirectUri(connection),
             clientMetadataUrl: externalMcpClientMetadataUrl(),
             manualRequirements: [
-              "Create an OAuth application in the external provider.",
-              "Allowlist the callback URL shown by OpenWork.",
-              "Save the client ID and optional client secret in OpenWork.",
+              "请在外部服务中创建 OAuth 应用。",
+              "将页面显示的回调地址加入外部服务的允许列表。",
+              "在 FoxWork 中保存客户端 ID 和可选的客户端密钥。",
             ],
           }, 409)
         }
@@ -2509,13 +2509,13 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           return c.json({
             error: "mcp_oauth_issuer_mismatch",
             message: issuerRepairRequiresAdmin
-              ? "This connection's OAuth issuer changed and existing credentials must be cleared. Ask a workspace admin to reconnect it."
-              : "OpenWork could not safely verify the authorization server selected for this MCP connection. Ask a workspace admin to review its OAuth setup.",
+              ? "此连接的 OAuth 授权服务已变化，需要清除旧凭据，请联系公司管理员重新连接。"
+              : "FoxWork 无法安全确认此 MCP 连接选择的授权服务，请联系公司管理员检查 OAuth 配置。",
           }, 409)
         }
         return c.json({
           error: "oauth_handshake_failed",
-          message: `Could not connect "${connection.name}": ${diagnostic.message} Reference: ${diagnostic.referenceId}.`,
+          message: `无法连接“${connection.name}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
           diagnostic,
         }, 502)
       }

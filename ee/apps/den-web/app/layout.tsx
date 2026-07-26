@@ -82,7 +82,7 @@ export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${ibmPlexMono.variable}`}>
+    <html lang="zh-CN" className={`${inter.variable} ${ibmPlexMono.variable}`}>
       <head>
         {posthogBootstrap ? (
           <Script id="posthog" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: posthogBootstrap }} />

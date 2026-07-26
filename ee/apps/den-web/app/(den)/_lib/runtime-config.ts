@@ -21,7 +21,7 @@ export const EMPTY_RUNTIME_CONFIG: DenWebRuntimeConfig = {
   orgMode: "single_org",
   singleOrgName: "FoxWork 公司",
   singleOrgSlug: "default",
-  singleOrgAllowPublicSignup: false,
+  singleOrgAllowPublicSignup: true,
   singleOrgSsoConfigured: false,
   emailRecoveryEnabled: false
 };

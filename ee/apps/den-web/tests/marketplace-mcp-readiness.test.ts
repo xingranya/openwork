@@ -201,13 +201,13 @@ describe("marketplace MCP readiness parsing", () => {
     const apiKey = pluginSetupSuccessCopy({ authType: "apikey", credentialMode: "shared", pluginName: "Search Ops", serviceName: "Exa" });
     const noAuth = pluginSetupSuccessCopy({ authType: "none", credentialMode: "shared", pluginName: "Docs Ops", serviceName: "Context7" });
 
-    expect(perMember.body).toContain("Use Connect to authorize an account");
+    expect(perMember.body).toContain("请连接你的服务账号完成授权");
     expect(perMember.linkLabel).toBeNull();
-    expect(shared.body).toContain("Use Connect to authorize the organization account");
+    expect(shared.body).toContain("请连接公司共享账号完成授权");
     expect(shared.linkLabel).toBeNull();
-    expect(apiKey.body).toContain("ready");
+    expect(apiKey.body).toContain("无需成员另行登录");
     expect(apiKey.linkLabel).toBeNull();
-    expect(noAuth.body).toContain("No user sign-in is needed");
+    expect(noAuth.body).toContain("无需成员另行登录");
     expect(noAuth.linkLabel).toBeNull();
   });
 
@@ -224,8 +224,8 @@ describe("marketplace MCP readiness parsing", () => {
 
     expect(pluginReadinessConnectionAction(requirement, true)).toEqual({
       connectionId: "emc_shared_slack",
-      label: "Connect",
-      note: "Authorize one organization account without leaving this page.",
+      label: "连接账号",
+      note: "在当前页面完成公司共享账号授权。",
       type: "connect_org",
     });
     expect(pluginReadinessConnectionAction(requirement, false)).toBeNull();
@@ -269,14 +269,14 @@ describe("marketplace MCP readiness parsing", () => {
 
     expect(pluginReadinessConnectionAction(requirement, true)).toEqual({
       connectionId: "emc_member_slack",
-      label: "Connect",
-      note: "Authorize your account without leaving this page.",
+      label: "连接账号",
+      note: "在当前页面完成你的服务账号授权。",
       type: "connect_member",
     });
     expect(pluginReadinessConnectionAction(requirement, false)).toEqual({
       connectionId: "emc_member_slack",
-      label: "Connect",
-      note: "Authorize your account without leaving this page.",
+      label: "连接账号",
+      note: "在当前页面完成你的服务账号授权。",
       type: "connect_member",
     });
   });

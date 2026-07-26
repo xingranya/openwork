@@ -11,6 +11,6 @@ describe("MCP tool runner layout", () => {
     const runner = readFileSync(runnerPath, "utf8")
 
     expect(runner).toContain('className="shrink-0 whitespace-nowrap"')
-    expect(runner).toContain("Refresh tools")
+    expect(runner).toContain("刷新工具")
   })
 })

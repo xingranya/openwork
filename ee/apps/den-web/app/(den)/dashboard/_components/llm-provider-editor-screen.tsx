@@ -32,6 +32,7 @@ import {
     readGuidedCustomProviderFieldsFromText,
     slugifyProviderId,
     validateGuidedCustomProvider,
+    type GuidedProviderProtocol,
 } from "./llm-provider-guided";
 import {
     buildCustomProviderTemplate,
@@ -52,8 +53,21 @@ import {
 } from "./llm-provider-data";
 
 const SOURCE_TABS = [
-    { value: "models_dev" as const, label: "目录模型服务", icon: Cpu },
-    { value: "custom" as const, label: "自定义模型服务", icon: CodeXml },
+    { value: "models_dev" as const, label: "国内常用服务", icon: Cpu },
+    { value: "custom" as const, label: "自定义协议", icon: CodeXml },
+];
+
+const CUSTOM_PROTOCOL_OPTIONS = [
+    {
+        value: "openai",
+        label: "OpenAI 兼容协议",
+        description: "适用于兼容 OpenAI 接口格式的模型服务",
+    },
+    {
+        value: "anthropic",
+        label: "Anthropic 兼容协议",
+        description: "适用于兼容 Anthropic 接口格式的模型服务",
+    },
 ];
 
 type EditableLlmProviderSource = (typeof SOURCE_TABS)[number]["value"];
@@ -97,11 +111,13 @@ export function LlmProviderEditorScreen({
     const [detailError, setDetailError] = useState<string | null>(null);
     const [providerName, setProviderName] = useState("");
     const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+    const [catalogCustomModelsText, setCatalogCustomModelsText] = useState("");
     const [modelQuery, setModelQuery] = useState("");
     const [customConfigText, setCustomConfigText] = useState(
         buildCustomProviderTemplate(),
     );
     const [customMode, setCustomMode] = useState<"form" | "json">("form");
+    const [customProtocol, setCustomProtocol] = useState<GuidedProviderProtocol>("openai");
     const [customProviderId, setCustomProviderId] = useState("");
     const [customProviderIdTouched, setCustomProviderIdTouched] = useState(false);
     const [customBaseUrl, setCustomBaseUrl] = useState("");
@@ -166,6 +182,7 @@ export function LlmProviderEditorScreen({
             setSelectedProviderId(provider.providerId);
             setProviderName(provider.name);
             setSelectedModelIds(provider.models.map((entry) => entry.id));
+            setCatalogCustomModelsText("");
             setSelectedMemberIds(
                 provider.access.members.map((entry) => entry.orgMembershipId),
             );
@@ -190,6 +207,7 @@ export function LlmProviderEditorScreen({
                     setCustomBaseUrl(guided.baseUrl);
                     setCustomModelsText(guided.modelIds.join("\n"));
                     setCustomEnvNames(guided.envNames);
+                    setCustomProtocol(guided.protocol);
                 } else {
                     setCustomMode("json");
                 }
@@ -204,12 +222,14 @@ export function LlmProviderEditorScreen({
         setSelectedProviderId("");
         setProviderName("");
         setSelectedModelIds([]);
+        setCatalogCustomModelsText("");
         setSelectedMemberIds(
             orgContext?.currentMember.id ? [orgContext.currentMember.id] : [],
         );
         setSelectedTeamIds([]);
         setCustomConfigText(buildCustomProviderTemplate());
         setCustomMode("form");
+        setCustomProtocol("openai");
         setCustomProviderId("");
         setCustomProviderIdTouched(false);
         setCustomBaseUrl("");
@@ -235,11 +255,6 @@ export function LlmProviderEditorScreen({
             .then((detail) => {
                 if (!canceled) {
                     setCatalogDetail(detail);
-                    setSelectedModelIds((current) =>
-                        current.filter((entry) =>
-                            detail.models.some((model) => model.id === entry),
-                        ),
-                    );
                 }
             })
             .catch((loadError) => {
@@ -392,6 +407,13 @@ export function LlmProviderEditorScreen({
         ? customProviderId.trim()
         : slugifyProviderId(providerName);
 
+    const resolvedCatalogModelIds = [
+        ...new Set([
+            ...selectedModelIds,
+            ...parseGuidedModelIds(catalogCustomModelsText),
+        ]),
+    ];
+
     // 多环境变量服务为每个变量显示独立输入，并通过 `apiKeys` 一并保存。
     const credentialEnvNames =
         source === "models_dev"
@@ -431,20 +453,28 @@ export function LlmProviderEditorScreen({
 
     // 基础地址和密钥齐全后延迟探测接口，并加载接口实际提供的模型。
     useEffect(() => {
-        if (source !== "custom" || customMode !== "form") return;
-        const api = customBaseUrl.trim();
-        const key = probeCredential;
-        if (!api || !key) {
+        if (
+            source !== "custom" ||
+            customMode !== "form" ||
+            (customProtocol !== "openai" && customProtocol !== "anthropic")
+        ) {
             setProbeState("idle");
             setProbeResult(null);
             return;
         }
-        const probeKey = `${api}::${key}`;
+        const api = customBaseUrl.trim();
+        const key = probeCredential;
+        if (!api) {
+            setProbeState("idle");
+            setProbeResult(null);
+            return;
+        }
+        const probeKey = `${customProtocol}::${api}::${key}`;
         if (lastProbeKeyRef.current === probeKey) return;
         const timer = window.setTimeout(() => {
             lastProbeKeyRef.current = probeKey;
             setProbeState("probing");
-            requestLlmProviderTestConnection({ api, apiKey: key })
+            requestLlmProviderTestConnection({ api, apiKey: key, protocol: customProtocol })
                 .then((result) => {
                     if (lastProbeKeyRef.current !== probeKey) return;
                     setProbeResult(result);
@@ -452,7 +482,7 @@ export function LlmProviderEditorScreen({
                     if (result.ok) {
                         if (result.normalizedApi && result.normalizedApi !== api) {
                             // 记录修正后的地址，避免字段更新后重复探测。
-                            lastProbeKeyRef.current = `${result.normalizedApi}::${key}`;
+                            lastProbeKeyRef.current = `${customProtocol}::${result.normalizedApi}::${key}`;
                             setCustomBaseUrl(result.normalizedApi);
                         }
                         // 已保存的模型仍存在时保留选择。
@@ -474,7 +504,7 @@ export function LlmProviderEditorScreen({
         }, 700);
         return () => window.clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在接口或密钥变化时探测
-    }, [source, customMode, customBaseUrl, probeCredential]);
+    }, [source, customMode, customProtocol, customBaseUrl, probeCredential]);
 
     const filteredProbeModels = useMemo(() => {
         const models = probeResult?.models ?? [];
@@ -489,6 +519,7 @@ export function LlmProviderEditorScreen({
             providerId: resolvedCustomProviderId,
             baseUrl: customBaseUrl,
             modelIds,
+            protocol: customProtocol,
         })) {
             setCustomConfigText(
                 JSON.stringify(
@@ -498,6 +529,7 @@ export function LlmProviderEditorScreen({
                         baseUrl: customBaseUrl,
                         modelIds,
                         envNames: customEnvNames,
+                        protocol: customProtocol,
                     }),
                     null,
                     2,
@@ -521,6 +553,7 @@ export function LlmProviderEditorScreen({
         setCustomBaseUrl(guided.baseUrl);
         setCustomModelsText(guided.modelIds.join("\n"));
         setCustomEnvNames(guided.envNames);
+        setCustomProtocol(guided.protocol);
         setCustomJsonHint(null);
         setCustomMode("form");
     }
@@ -546,8 +579,8 @@ export function LlmProviderEditorScreen({
                 setSaveError("请选择模型服务。");
                 return;
             }
-            if (!selectedModelIds.length) {
-                setSaveError("请至少选择一个模型。");
+            if (!resolvedCatalogModelIds.length) {
+                setSaveError("请至少选择或填写一个模型 ID。");
                 return;
             }
         }
@@ -557,6 +590,7 @@ export function LlmProviderEditorScreen({
                 providerId: resolvedCustomProviderId,
                 baseUrl: customBaseUrl,
                 modelIds: resolvedCustomModelIds,
+                protocol: customProtocol,
             });
             if (validationError) {
                 setSaveError(validationError);
@@ -572,7 +606,12 @@ export function LlmProviderEditorScreen({
         // 保存前逐个验证所选模型。Azure 上拒绝 max_tokens 的模型会切换为
         // OpenAI 请求格式；两种格式都失败时显示模型错误并要求人工确认。
         let guidedNpm: string | null = null;
-        if (source === "custom" && customMode === "form" && probeCredential) {
+        if (
+            source === "custom" &&
+            customMode === "form" &&
+            customProtocol === "openai" &&
+            probeCredential
+        ) {
             const verifyKey = [
                 customBaseUrl.trim(),
                 probeCredential,
@@ -632,7 +671,7 @@ export function LlmProviderEditorScreen({
 
             if (source === "models_dev") {
                 body.providerId = selectedProviderId;
-                body.modelIds = selectedModelIds;
+                body.modelIds = resolvedCatalogModelIds;
             } else if (customMode === "form") {
                 body.customConfig = buildGuidedCustomProviderConfig({
                     providerId: resolvedCustomProviderId,
@@ -641,6 +680,7 @@ export function LlmProviderEditorScreen({
                     modelIds: resolvedCustomModelIds,
                     envNames: customEnvNames,
                     npm: guidedNpm,
+                    protocol: customProtocol,
                 });
             } else {
                 body.customConfigText = customConfigText;
@@ -733,15 +773,9 @@ export function LlmProviderEditorScreen({
     const providerDoc = catalogDetail
         ? getProviderDocUrl(catalogDetail.config)
         : null;
-    const providerNpm = catalogDetail
-        ? getProviderNpmPackage(catalogDetail.config)
-        : null;
     const providerApiBase = catalogDetail
         ? getProviderApiBase(catalogDetail.config)
         : null;
-    const providerEnv = catalogDetail
-        ? getProviderEnvNames(catalogDetail.config)
-        : [];
 
     // 独立凭据区与自定义模型引导表单共用以下输入组件。
     const credentialFields = credentialEnvNames.length > 1 ? (
@@ -816,7 +850,7 @@ export function LlmProviderEditorScreen({
                                 : "添加模型服务"}
                         </h1>
                         <p className="mt-3 max-w-[720px] text-[16px] leading-8 text-gray-500">
-                            从目录选择模型服务或配置自定义接口，再选择允许使用的模型、成员和团队。
+                            选择国内常用服务，或配置自定义协议，再设置模型和使用范围。
                         </p>
                     </div>
                 </div>
@@ -901,7 +935,11 @@ export function LlmProviderEditorScreen({
                             <DenCombobox
                                 value={selectedProviderId}
                                 options={catalogProviderOptions}
-                                onChange={setSelectedProviderId}
+                                onChange={(value) => {
+                                    setSelectedProviderId(value);
+                                    setSelectedModelIds([]);
+                                    setCatalogCustomModelsText("");
+                                }}
                                 ariaLabel="模型服务"
                                 placeholder="选择模型服务..."
                                 searchPlaceholder="搜索模型服务..."
@@ -911,7 +949,7 @@ export function LlmProviderEditorScreen({
 
                         {catalogBusy ? (
                             <p className="text-[14px] text-gray-500">
-                                正在加载模型服务目录...
+                                正在加载常用模型服务...
                             </p>
                         ) : null}
                         {catalogError ? (
@@ -922,7 +960,7 @@ export function LlmProviderEditorScreen({
 
                         {detailBusy ? (
                             <p className="text-[14px] text-gray-500">
-                                正在加载模型服务详情...
+                                正在加载服务信息...
                             </p>
                         ) : null}
                         {detailError ? (
@@ -936,16 +974,6 @@ export function LlmProviderEditorScreen({
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <p className="text-[12px] font-semibold uppercase text-gray-400">
-                                            NPM 软件包
-                                        </p>
-                                        <p className="mt-2">
-                                            <span className="inline-flex max-w-full rounded-md bg-white px-3 py-1.5 font-mono text-[11px] leading-5 text-gray-700 ring-1 ring-inset ring-gray-200">
-                                                {providerNpm ?? "未设置"}
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[12px] font-semibold uppercase text-gray-400">
                                             API 基础地址
                                         </p>
                                         <p className="mt-2">
@@ -953,29 +981,6 @@ export function LlmProviderEditorScreen({
                                                 {providerApiBase ?? "未设置"}
                                             </span>
                                         </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[12px] font-semibold uppercase text-gray-400">
-                                            环境变量
-                                        </p>
-                                        {providerEnv.length > 0 ? (
-                                            <div className="mt-2 flex flex-wrap gap-2">
-                                                {providerEnv.map((envName) => (
-                                                    <span
-                                                        key={envName}
-                                                        className="inline-flex max-w-full break-all rounded-md bg-white px-3 py-1.5 font-mono text-[11px] leading-5 text-gray-700 ring-1 ring-inset ring-gray-200"
-                                                    >
-                                                        {envName}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="mt-2">
-                                                <span className="inline-flex max-w-full rounded-md bg-white px-3 py-1.5 font-mono text-[11px] leading-5 text-gray-700 ring-1 ring-inset ring-gray-200">
-                                                    未列出
-                                                </span>
-                                            </p>
-                                        )}
                                     </div>
                                     <div>
                                         <p className="text-[12px] font-semibold uppercase text-gray-400">
@@ -994,8 +999,27 @@ export function LlmProviderEditorScreen({
                 ) : customMode === "form" ? (
                     <div className="mt-8 grid gap-6">
                         <p className="text-[15px] text-gray-500">
-                            可连接 Azure AI Foundry、LiteLLM、vLLM、公司内部网关等 OpenAI 兼容接口，无需手写 JSON。
+                            选择接口协议，并填写服务地址、密钥和模型 ID。
                         </p>
+
+                        <div className="grid gap-3">
+                            <span className="text-[14px] font-medium text-gray-700">
+                                接口协议
+                            </span>
+                            <DenCombobox
+                                value={customProtocol}
+                                options={CUSTOM_PROTOCOL_OPTIONS}
+                                onChange={(value) =>
+                                    setCustomProtocol(
+                                        value === "anthropic" ? "anthropic" : "openai",
+                                    )
+                                }
+                                ariaLabel="接口协议"
+                                placeholder="选择接口协议"
+                                searchPlaceholder="搜索接口协议..."
+                                emptyLabel="没有匹配的接口协议"
+                            />
+                        </div>
 
                         <label className="grid gap-3">
                             <span className="text-[14px] font-medium text-gray-700">
@@ -1007,7 +1031,7 @@ export function LlmProviderEditorScreen({
                                     setCustomProviderId(event.target.value);
                                     setCustomProviderIdTouched(true);
                                 }}
-                                placeholder="azure-foundry"
+                                placeholder="例如：company-models"
                                 autoComplete="off"
                                 spellCheck={false}
                             />
@@ -1018,7 +1042,7 @@ export function LlmProviderEditorScreen({
 
                         {credentialFields}
                         <p className="-mt-3 text-[13px] text-gray-500">
-                            此凭据会立即用于检查接口并读取可用模型。
+                            填写后会检查接口并读取可用模型，供你直接选择。凭据只会加密保存并下发给获授权的 FoxWork。
                         </p>
 
                         <label className="grid gap-3">
@@ -1030,19 +1054,30 @@ export function LlmProviderEditorScreen({
                                 onChange={(event) =>
                                     setCustomBaseUrl(event.target.value)
                                 }
-                                placeholder="https://my-resource.openai.azure.com/openai/v1"
+                                placeholder={
+                                    customProtocol === "anthropic"
+                                        ? "https://anthropic.example.com/v1"
+                                        : "https://models.example.com/v1"
+                                }
                                 autoComplete="off"
                                 spellCheck={false}
                             />
                         </label>
                         <p className="-mt-3 text-[13px] text-gray-500">
-                            模型服务的 OpenAI 兼容接口地址，通常以{" "}
+                            {customProtocol === "anthropic"
+                                ? "模型服务的 Anthropic 兼容接口地址，通常以"
+                                : "模型服务的 OpenAI 兼容接口地址，通常以"}{" "}
                             <code className="rounded bg-gray-100 px-1 py-0.5">
                                 /v1
                             </code>
                             结尾。
                         </p>
 
+                        {customProtocol === "anthropic" ? (
+                            <p className="-mt-2 text-[13px] text-gray-500">
+                                系统会自动读取 Anthropic 兼容接口的模型列表，你只需勾选要开放的模型。
+                            </p>
+                        ) : null}
                         {probeState === "probing" ? (
                             <p className="-mt-2 text-[13px] text-gray-500">
                                 正在检查接口...
@@ -1055,12 +1090,14 @@ export function LlmProviderEditorScreen({
                         ) : null}
                         {probeState === "failed" ? (
                             <p className="-mt-2 text-[13px] text-red-600">
-                                {getErrorMessage(probeResult?.hint, "无法使用当前地址和密钥访问接口。")}
+                                {probeCredential
+                                    ? getErrorMessage(probeResult?.hint, "无法使用当前地址和密钥访问接口。")
+                                    : "此接口需要凭据，请填写 API 密钥后重试。"}
                             </p>
                         ) : null}
-                        {probeState === "idle" && customBaseUrl.trim() && !probeCredential ? (
+                        {probeState === "idle" && customBaseUrl.trim() ? (
                             <p className="-mt-2 text-[13px] text-gray-500">
-                                请先填写 API 密钥，以读取此接口提供的模型。
+                                正在准备读取此接口提供的模型列表；如果服务需要认证，请补充 API 密钥。
                             </p>
                         ) : null}
 
@@ -1094,7 +1131,9 @@ export function LlmProviderEditorScreen({
                                                     description={
                                                         probeResult.vendor === "azure"
                                                             ? "Azure 部署"
-                                                            : "模型"
+                                                            : probeResult.vendor === "anthropic"
+                                                                ? "Anthropic 模型"
+                                                                : "模型"
                                                     }
                                                     onClick={() =>
                                                         setSelectedCustomModelIds((current) =>
@@ -1132,11 +1171,15 @@ export function LlmProviderEditorScreen({
                                             setCustomModelsText(event.target.value)
                                         }
                                         rows={4}
-                                        placeholder={"gpt-5.2\nmy-deployment-name"}
+                                        placeholder={
+                                            customProtocol === "anthropic"
+                                                ? "例如：claude-company\n每行一个模型 ID"
+                                                : "例如：company-chat\n每行一个模型 ID"
+                                        }
                                     />
                                 </label>
                                 <p className="-mt-3 text-[13px] text-gray-500">
-                                    每行填写一个，也可以用逗号分隔。请填写接口实际提供的模型 ID；Azure AI Foundry 应填写部署名称。
+                                    每行填写一个，也可以用逗号分隔。请填写接口实际提供的模型 ID。
                                 </p>
                                 {probeState === "ok" && probeResult ? (
                                     <button
@@ -1171,11 +1214,7 @@ export function LlmProviderEditorScreen({
                             rows={18}
                         />
                         <p className="text-[13px] text-gray-500">
-                            可粘贴 models.dev 模型服务、单个模型服务配置块或完整的{" "}
-                            <code className="rounded bg-gray-100 px-1 py-0.5">
-                                opencode.jsonc
-                            </code>
-                            ，模型映射会自动导入。
+                            可粘贴单个模型服务配置块或完整的 FoxWork 模型服务 JSON，模型映射会自动导入。
                         </p>
                         {customJsonHint ? (
                             <p className="text-[13px] text-amber-700">
@@ -1223,8 +1262,8 @@ export function LlmProviderEditorScreen({
                                 </h2>
                                 {catalogDetail ? (
                                     <span className="rounded-full bg-gray-200 px-3 py-1 text-[12px] font-medium text-gray-700">
-                                        {selectedModelIds.length}{" "}
-                                        {selectedModelIds.length === 1
+                                        {resolvedCatalogModelIds.length}{" "}
+                                        {resolvedCatalogModelIds.length === 1
                                             ? "个已选择"
                                             : "个已选择"}
                                     </span>
@@ -1316,6 +1355,27 @@ export function LlmProviderEditorScreen({
                             请选择模型服务后查看可用模型。
                         </div>
                     )}
+
+                    {catalogDetail?.allowCustomModelIds ? (
+                        <div className="mt-6 grid gap-3">
+                            <label className="grid gap-3">
+                                <span className="text-[14px] font-medium text-gray-700">
+                                    补充模型 ID
+                                </span>
+                                <DenTextarea
+                                    value={catalogCustomModelsText}
+                                    onChange={(event) =>
+                                        setCatalogCustomModelsText(event.target.value)
+                                    }
+                                    rows={3}
+                                    placeholder="填写控制台中的模型 ID 或推理接入点 ID"
+                                />
+                            </label>
+                            <p className="text-[13px] text-gray-500">
+                                内置列表中没有所需模型时填写。每行一个，也可以用逗号分隔。
+                            </p>
+                        </div>
+                    ) : null}
                 </section>
             ) : null}
 

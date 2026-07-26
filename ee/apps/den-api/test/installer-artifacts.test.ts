@@ -28,6 +28,13 @@ test("builds the direct standard desktop asset URL for the configured release", 
   })).toBe("https://github.com/different-ai/openwork/releases/download/v9.9.9%2Bbuild%202/openwork-mac-arm64-9.9.9.dmg")
 })
 
+test("does not invent an upstream release URL when the company repository is missing", () => {
+  envModule.env.installerReleaseRepo = undefined
+  expect(installerReleaseAssetUrl("openwork-mac-arm64-9.9.9.dmg", {
+    releaseTag: "v9.9.9",
+  })).toBeNull()
+})
+
 test.each([
   ["mac-arm64", "v9.9.9", "openwork-mac-arm64-9.9.9.dmg"],
   ["mac-x64", "9.9.9", "openwork-mac-x64-9.9.9.dmg"],

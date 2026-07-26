@@ -1,16 +1,21 @@
 /**
  * Den 管理后台的自定义模型服务引导配置。
  *
- * 管理员填写少量字段描述 OpenAI 兼容接口，系统生成 API 已支持的
- * models.dev 风格配置；高级场景仍可直接粘贴或编辑 JSON。
+ * 管理员填写少量字段描述 OpenAI 或 Anthropic 兼容接口，系统生成 API 已支持的
+ * 公司模型目录风格配置；高级场景仍可直接粘贴或编辑 JSON。
  */
 
 type JsonRecord = Record<string, unknown>;
 
 export const GUIDED_PROVIDER_NPM = "@ai-sdk/openai-compatible";
 export const GUIDED_PROVIDER_NPM_OPENAI = "@ai-sdk/openai";
+export const GUIDED_PROVIDER_NPM_ANTHROPIC = "@ai-sdk/anthropic";
 
-const GUIDED_PROVIDER_NPM_PACKAGES = new Set([GUIDED_PROVIDER_NPM, GUIDED_PROVIDER_NPM_OPENAI]);
+const GUIDED_PROVIDER_NPM_PACKAGES = new Set([
+    GUIDED_PROVIDER_NPM,
+    GUIDED_PROVIDER_NPM_OPENAI,
+    GUIDED_PROVIDER_NPM_ANTHROPIC,
+]);
 
 const GUIDED_PROVIDER_CONFIG_KEYS = new Set(["id", "name", "npm", "env", "api", "doc"]);
 const GUIDED_MODEL_KEYS = new Set(["id", "name"]);
@@ -21,7 +26,20 @@ export type GuidedCustomProviderFields = {
     modelIds: string[];
     envNames: string[];
     npm: string;
+    protocol: GuidedProviderProtocol;
 };
+
+export type GuidedProviderProtocol = "openai" | "anthropic";
+
+export function guidedProviderNpmForProtocol(protocol: GuidedProviderProtocol): string {
+    return protocol === "anthropic" ? GUIDED_PROVIDER_NPM_ANTHROPIC : GUIDED_PROVIDER_NPM;
+}
+
+export function guidedProviderProtocolFromNpm(npm: string): GuidedProviderProtocol | null {
+    if (npm === GUIDED_PROVIDER_NPM_ANTHROPIC) return "anthropic";
+    if (npm === GUIDED_PROVIDER_NPM || npm === GUIDED_PROVIDER_NPM_OPENAI) return "openai";
+    return null;
+}
 
 function isRecord(value: unknown): value is JsonRecord {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -67,6 +85,7 @@ export function validateGuidedCustomProvider(input: {
     providerId: string;
     baseUrl: string;
     modelIds: string[];
+    protocol?: GuidedProviderProtocol;
 }): string | null {
     if (!input.providerId.trim()) {
         return "请填写模型服务 ID，例如 azure-foundry。";
@@ -75,7 +94,9 @@ export function validateGuidedCustomProvider(input: {
         return "模型服务 ID 只能包含英文字母、数字、短横线和下划线。";
     }
     if (!input.baseUrl.trim()) {
-        return "请填写 OpenAI 兼容接口的基础地址。";
+        return input.protocol === "anthropic"
+            ? "请填写 Anthropic 兼容接口的基础地址。"
+            : "请填写 OpenAI 兼容接口的基础地址。";
     }
     if (!/^https?:\/\//i.test(input.baseUrl.trim())) {
         return "基础地址必须以 http:// 或 https:// 开头。";
@@ -94,6 +115,7 @@ export function buildGuidedCustomProviderConfig(input: {
     envNames?: string[] | null;
     /** AI SDK 软件包；验证时可能切换为 OpenAI 软件包。 */
     npm?: string | null;
+    protocol?: GuidedProviderProtocol;
 }): JsonRecord {
     const providerId = input.providerId.trim();
     const envNames = (input.envNames ?? [])
@@ -102,7 +124,9 @@ export function buildGuidedCustomProviderConfig(input: {
     return {
         id: providerId,
         name: input.name.trim() || providerId,
-        npm: input.npm && GUIDED_PROVIDER_NPM_PACKAGES.has(input.npm) ? input.npm : GUIDED_PROVIDER_NPM,
+        npm: input.npm && GUIDED_PROVIDER_NPM_PACKAGES.has(input.npm)
+            ? input.npm
+            : guidedProviderNpmForProtocol(input.protocol ?? "openai"),
         env: envNames.length > 0 ? envNames : [buildGuidedProviderEnvName(providerId)],
         api: input.baseUrl.trim().replace(/\/+$/, ""),
         models: input.modelIds.map((modelId) => ({ id: modelId, name: modelId })),
@@ -127,6 +151,10 @@ export function readGuidedCustomProviderFields(
 
     const npm = asString(config.npm);
     if (!npm || !GUIDED_PROVIDER_NPM_PACKAGES.has(npm)) {
+        return null;
+    }
+    const protocol = guidedProviderProtocolFromNpm(npm);
+    if (!protocol) {
         return null;
     }
 
@@ -182,6 +210,7 @@ export function readGuidedCustomProviderFields(
         modelIds,
         envNames: env,
         npm,
+        protocol,
     };
 }
 

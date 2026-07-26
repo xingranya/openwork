@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     buildGuidedCustomProviderConfig,
     buildGuidedProviderEnvName,
+    guidedProviderNpmForProtocol,
     parseGuidedModelIds,
     readEnvNamesFromCustomProviderText,
     readGuidedCustomProviderFields,
@@ -33,6 +34,13 @@ describe("buildGuidedProviderEnvName", () => {
     });
 });
 
+describe("guidedProviderNpmForProtocol", () => {
+    test("maps the two supported protocols to their runtime packages", () => {
+        expect(guidedProviderNpmForProtocol("openai")).toBe("@ai-sdk/openai-compatible");
+        expect(guidedProviderNpmForProtocol("anthropic")).toBe("@ai-sdk/anthropic");
+    });
+});
+
 describe("validateGuidedCustomProvider", () => {
     test("accepts a valid input", () => {
         expect(
@@ -50,13 +58,13 @@ describe("validateGuidedCustomProvider", () => {
         ).toContain("ID");
         expect(
             validateGuidedCustomProvider({ providerId: "bad id", baseUrl: "https://x", modelIds: ["m"] }),
-        ).toContain("Provider IDs");
+        ).toContain("模型服务 ID");
         expect(
             validateGuidedCustomProvider({ providerId: "ok", baseUrl: "ftp://x", modelIds: ["m"] }),
         ).toContain("http");
         expect(
             validateGuidedCustomProvider({ providerId: "ok", baseUrl: "https://x", modelIds: [] }),
-        ).toContain("model");
+        ).toContain("模型 ID");
     });
 });
 
@@ -132,6 +140,7 @@ describe("readGuidedCustomProviderFields", () => {
             modelIds: ["m1", "m2"],
             envNames: ["AZURE_FOUNDRY_API_KEY"],
             npm: "@ai-sdk/openai-compatible",
+            protocol: "openai",
         });
     });
 
@@ -147,6 +156,7 @@ describe("readGuidedCustomProviderFields", () => {
             modelIds: ["m1"],
             envNames: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
             npm: "@ai-sdk/openai-compatible",
+            protocol: "openai",
         });
     });
 
@@ -161,6 +171,26 @@ describe("readGuidedCustomProviderFields", () => {
         expect(generated.npm).toBe("@ai-sdk/openai");
         expect(generated.env).toEqual(["ACME_FOUNDRY_API_KEY"]);
         expect(readGuidedCustomProviderFields(generated)?.npm).toBe("@ai-sdk/openai");
+        expect(readGuidedCustomProviderFields(generated)?.protocol).toBe("openai");
+    });
+
+    test("round-trips an Anthropic-compatible config", () => {
+        const generated = buildGuidedCustomProviderConfig({
+            providerId: "company-anthropic",
+            name: "公司 Anthropic 网关",
+            baseUrl: "https://anthropic.example.com/v1",
+            modelIds: ["claude-company"],
+            protocol: "anthropic",
+        });
+        expect(generated.npm).toBe("@ai-sdk/anthropic");
+        expect(readGuidedCustomProviderFields(generated)).toEqual({
+            providerId: "company-anthropic",
+            baseUrl: "https://anthropic.example.com/v1",
+            modelIds: ["claude-company"],
+            envNames: ["COMPANY_ANTHROPIC_API_KEY"],
+            npm: "@ai-sdk/anthropic",
+            protocol: "anthropic",
+        });
     });
 
     test("ignores npm packages outside the guided set", () => {
@@ -223,6 +253,7 @@ describe("readGuidedCustomProviderFieldsFromText", () => {
             modelIds: ["m1"],
             envNames: [],
             npm: "@ai-sdk/openai-compatible",
+            protocol: "openai",
         });
     });
 

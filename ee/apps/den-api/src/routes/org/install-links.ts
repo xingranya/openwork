@@ -11,7 +11,6 @@ import type { Hono } from "hono"
 import { stream } from "hono/streaming"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
-import { OPENWORK_DOWNLOAD_URL } from "../../CONSTS.js"
 import { resolvePublicOrigin } from "../../capability-sources/generic-oauth.js"
 import { organizationInstallLinksEnabled } from "../../capability-sources/install-links-rollout.js"
 import { db } from "../../db.js"
@@ -77,6 +76,11 @@ const installLinkNotFoundSchema = z.object({
   error: z.literal("install_link_not_found"),
 }).meta({ ref: "InstallLinkNotFoundError" })
 
+const installerNotConfiguredSchema = z.object({
+  error: z.literal("installer_not_configured"),
+  message: z.string(),
+}).meta({ ref: "InstallerNotConfiguredError" })
+
 const installExperienceConfigSchema = installConfigSchema.extend({
   connectUrl: z.string(),
   connectExpiresAt: z.string().datetime(),
@@ -96,7 +100,7 @@ type InstallPlatform = z.infer<typeof installPlatformSchema>
 
 export type InstallExperienceDependencies = {
   resolveConfiguredArtifact: typeof resolveConfiguredInstallerArtifact
-  resolveDirectUrl: (platform: InstallPlatform, releaseTag: string) => string
+  resolveDirectUrl: (platform: InstallPlatform, releaseTag: string) => string | null
   mintConnectGrant: typeof mintDesktopConnectGrant
   previewConnectGrant: typeof previewDesktopConnectGrant
   consumeConnectGrant: typeof consumeDesktopConnectGrant
@@ -106,7 +110,7 @@ const defaultInstallerDependencies: InstallExperienceDependencies = {
   resolveConfiguredArtifact: resolveConfiguredInstallerArtifact,
   resolveDirectUrl: (platform, releaseTag) => {
     const fileName = desktopReleaseAssetName(platform, releaseTag)
-    return fileName ? installerReleaseAssetUrl(fileName, { releaseTag }) : OPENWORK_DOWNLOAD_URL
+    return fileName ? installerReleaseAssetUrl(fileName, { releaseTag }) : null
   },
   mintConnectGrant: mintDesktopConnectGrant,
   previewConnectGrant: previewDesktopConnectGrant,
@@ -492,6 +496,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
         302: emptyResponse("Den redirected the browser to a verified normal desktop download."),
         400: jsonResponse("The install-link token or platform was invalid.", invalidRequestSchema),
         404: jsonResponse("The install link was missing, expired, or revoked.", installLinkNotFoundSchema),
+        503: jsonResponse("The FoxWork installer is not configured on this deployment.", installerNotConfiguredSchema),
         429: jsonResponse("Too many installer download attempts.", rateLimitedSchema),
       },
     }),
@@ -536,7 +541,14 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
           }
         })
       }
-      return c.redirect(installer.resolveDirectUrl(platform, resolved.installerReleaseTag), 302)
+      const directUrl = installer.resolveDirectUrl(platform, resolved.installerReleaseTag)
+      if (!directUrl) {
+        return c.json({
+          error: "installer_not_configured" as const,
+          message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+        }, 503)
+      }
+      return c.redirect(directUrl, 302)
     },
   )
 }

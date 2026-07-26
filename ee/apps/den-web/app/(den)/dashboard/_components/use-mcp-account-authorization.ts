@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getErrorMessage } from "../../_lib/den-flow";
 import { openMcpAuthorizationWindow, safeMcpAuthorizationUrl, showMcpAuthorizationError } from "./mcp-authorization-url";
 import {
   McpOAuthStartError,
@@ -72,12 +73,15 @@ export function useMcpAccountAuthorization(onConnected?: () => void) {
         return;
       }
       if (!result.authorizeUrl) {
-        throw new Error("The MCP provider did not return an authorization URL.");
+        throw new Error("MCP 服务没有返回登录地址。");
       }
       authorizationWindow.location.href = safeMcpAuthorizationUrl(result.authorizeUrl);
       pollUntilConnected(connectionId);
     } catch (connectError) {
-      const message = connectError instanceof Error ? connectError.message : "Failed to connect account.";
+      const message = getErrorMessage(
+        connectError instanceof Error ? connectError.message : null,
+        "无法连接 MCP 账号，请重试。",
+      );
       showMcpAuthorizationError(authorizationWindow, {
         message,
         ...(connectError instanceof McpOAuthStartError

@@ -1,8 +1,20 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import {
+  DenRequestNetworkError,
+  getErrorMessage,
+  requestJson,
+} from "../app/(den)/_lib/den-flow";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 const sourcePaths = [
+  "../app/layout.tsx",
   "../app/(den)/_components/auth-screen.tsx",
   "../app/(den)/_components/auth-panel.tsx",
   "../app/(den)/_components/reset-password-screen.tsx",
@@ -43,6 +55,7 @@ describe("Den 账号入口中文文案", () => {
       "重置密码",
       "打开 FoxWork",
       'alt="FoxWork"',
+      '<html lang="zh-CN"',
       "返回登录",
       "登录状态已经失效，请重新登录。",
     ];
@@ -50,5 +63,33 @@ describe("Den 账号入口中文文案", () => {
     for (const copy of requiredCopy) {
       expect(source).toContain(copy);
     }
+  });
+
+  test("未知英文服务错误统一回退为当前操作的中文提示", () => {
+    expect(getErrorMessage(
+      { message: "The upstream service failed unexpectedly." },
+      "加载公司信息失败，请重试。",
+    )).toBe("加载公司信息失败，请重试。");
+    expect(getErrorMessage(
+      { error: "permission denied" },
+      "保存失败，请重试。",
+    )).toBe("当前账号没有执行此操作的权限。");
+    expect(getErrorMessage(
+      "<!doctype html><html><body>Bad Gateway</body></html>",
+      "加载管理员数据失败。",
+    )).toBe("加载管理员数据失败。 公司服务返回了异常页面。");
+  });
+
+  test("浏览器网络异常不会暴露英文原始错误", async () => {
+    const failingFetch: typeof fetch = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    globalThis.fetch = failingFetch;
+
+    const error = await requestJson("/v1/me").catch((failure) => failure);
+
+    expect(error).toBeInstanceOf(DenRequestNetworkError);
+    expect(error.message).toBe("无法连接公司服务，请检查网络后重试。");
+    expect(error.message).not.toContain("Failed to fetch");
   });
 });

@@ -166,7 +166,7 @@ export function PluginImportScreen() {
                 setSelectedSkillKeys([]);
                 setError(null);
               }}
-              placeholder="https://github.com/anthropics/knowledge-work-plugins/tree/main/sales"
+              placeholder="请输入公司 GitHub 能力仓库地址"
               disabled={busy}
             />
           </label>

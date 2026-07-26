@@ -17,6 +17,7 @@ describe("detectVendor", () => {
     expect(detectVendor("https://res.services.ai.azure.com/openai/v1")).toBe("azure")
     expect(detectVendor("https://res.cognitiveservices.azure.com")).toBe("azure")
     expect(detectVendor("https://llm.internal.example.com/v1")).toBe("openai-compatible")
+    expect(detectVendor("https://api.anthropic.com/v1", "anthropic")).toBe("anthropic")
   })
 })
 
@@ -89,7 +90,7 @@ describe("probeEndpoint", () => {
     })
     expect(result.ok).toBe(false)
     expect(result.status).toBe(401)
-    expect(result.hint).toContain("key")
+    expect(result.hint).toContain("密钥")
   })
 
   test("blocks cloud metadata endpoints", async () => {
@@ -102,7 +103,7 @@ describe("probeEndpoint", () => {
       },
     })
     expect(result.ok).toBe(false)
-    expect(result.hint).toContain("not allowed")
+    expect(result.hint).toContain("不能探测")
   })
 
   test("blocks loopback unless explicitly allowed", async () => {
@@ -195,6 +196,61 @@ describe("probeEndpoint", () => {
     expect(calls).toEqual(["https://llm.example.com/v1/models"])
   })
 
+  test("Anthropic protocol reads all model pages with the required headers", async () => {
+    const calls: string[] = []
+    const result = await probeEndpoint({
+      api: "https://api.anthropic.com/v1",
+      apiKey: "anthropic-key",
+      protocol: "anthropic",
+      allowLoopback: false,
+      fetchImpl: async (url, init) => {
+        calls.push(url)
+        expect(new Headers(init.headers).get("x-api-key")).toBe("anthropic-key")
+        expect(new Headers(init.headers).get("anthropic-version")).toBe("2023-06-01")
+        if (url.includes("after_id")) {
+          return jsonResponse(200, {
+            data: [{ id: "claude-3-7-sonnet" }],
+            has_more: false,
+            last_id: "claude-3-7-sonnet",
+          })
+        }
+        return jsonResponse(200, {
+          data: [{ id: "claude-3-5-haiku" }],
+          has_more: true,
+          last_id: "claude-3-5-haiku",
+        })
+      },
+    })
+    expect(result.ok).toBe(true)
+    expect(result.vendor).toBe("anthropic")
+    expect(result.models.map((model) => model.id)).toEqual([
+      "claude-3-5-haiku",
+      "claude-3-7-sonnet",
+    ])
+    expect(calls).toHaveLength(2)
+  })
+
+  test("公开的 Anthropic Models 接口可以不填密钥，且不会发送 Bearer 头", async () => {
+    const result = await probeEndpoint({
+      api: "https://api.anthropic.com/v1",
+      apiKey: "",
+      protocol: "anthropic",
+      allowLoopback: false,
+      fetchImpl: async (_url, init) => {
+        const headers = new Headers(init.headers)
+        expect(headers.get("x-api-key")).toBeNull()
+        expect(headers.get("authorization")).toBeNull()
+        return jsonResponse(200, {
+          data: [{ id: "claude-public" }],
+          has_more: false,
+          last_id: "claude-public",
+        })
+      },
+    })
+    expect(result.ok).toBe(true)
+    expect(result.models.map((model) => model.id)).toEqual(["claude-public"])
+  })
+
   test("network failure on every candidate yields the reachability hint", async () => {
     const result = await probeEndpoint({
       api: "https://nowhere.example.com/v1",
@@ -206,7 +262,7 @@ describe("probeEndpoint", () => {
     })
     expect(result.ok).toBe(false)
     expect(result.status).toBeNull()
-    expect(result.hint).toContain("reach")
+    expect(result.hint).toContain("访问")
   })
 })
 

@@ -94,7 +94,7 @@ export function IntegrationIcon({
         <img
           key={src}
           src={src}
-          alt={`${name} icon`}
+          alt={`${name} 图标`}
           loading="lazy"
           onError={() => setFailedCount((count) => count + 1)}
           className={`object-contain ${imageClassName}`}

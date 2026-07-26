@@ -65,6 +65,7 @@ export type DenModelsDevProviderSummary = {
   doc: string | null;
   api: string | null;
   modelCount: number;
+  allowCustomModelIds: boolean;
 };
 
 export type DenModelsDevProviderDetail = DenModelsDevProviderSummary & {
@@ -246,6 +247,7 @@ function asCatalogProviderSummary(value: unknown): DenModelsDevProviderSummary |
     doc: asString(value.doc),
     api: asString(value.api),
     modelCount: typeof value.modelCount === "number" ? value.modelCount : 0,
+    allowCustomModelIds: value.allowCustomModelIds === true,
   };
 }
 
@@ -368,7 +370,7 @@ export function buildEditableCustomProviderText(provider: DenLlmProvider) {
 
 export type LlmProviderProbeResult = {
   ok: boolean;
-  vendor: "azure" | "openai-compatible";
+  vendor: "azure" | "openai-compatible" | "anthropic";
   normalizedApi: string | null;
   attempted: string[];
   models: Array<{ id: string }>;
@@ -403,7 +405,11 @@ function asProbeResult(value: unknown): LlmProviderProbeResult | null {
     : [];
   return {
     ok: value.ok === true,
-    vendor: value.vendor === "azure" ? "azure" : "openai-compatible",
+    vendor: value.vendor === "azure"
+      ? "azure"
+      : value.vendor === "anthropic"
+        ? "anthropic"
+        : "openai-compatible",
     normalizedApi: asString(value.normalizedApi),
     attempted: asStringList(value.attempted),
     models,
@@ -413,11 +419,12 @@ function asProbeResult(value: unknown): LlmProviderProbeResult | null {
 }
 
 /**
- * 通过 Den API 探测 OpenAI 兼容接口，修正常见地址问题并返回实际模型 ID。
+ * 通过 Den API 探测兼容接口，修正常见地址问题并返回实际模型 ID。
  */
 export async function requestLlmProviderTestConnection(input: {
   api: string;
   apiKey?: string;
+  protocol?: "openai" | "anthropic";
   modelIds?: string[];
 }) {
   const timeoutMs = input.modelIds?.length ? 60000 : 20000;

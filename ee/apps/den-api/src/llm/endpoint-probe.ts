@@ -11,7 +11,8 @@
 
 type JsonRecord = Record<string, unknown>
 
-export type ProbeVendor = "azure" | "openai-compatible"
+export type ProbeProtocol = "openai" | "anthropic"
+export type ProbeVendor = "azure" | "openai-compatible" | "anthropic"
 
 export type EndpointProbeResult = {
   ok: boolean
@@ -33,6 +34,7 @@ const STRIP_SUFFIXES = [
   "/chat/completions",
   "/completions",
   "/responses",
+  "/messages",
   "/models",
 ]
 
@@ -40,7 +42,8 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-export function detectVendor(url: string): ProbeVendor {
+export function detectVendor(url: string, protocol: ProbeProtocol = "openai"): ProbeVendor {
+  if (protocol === "anthropic") return "anthropic"
   try {
     const { hostname } = new URL(url)
     if (AZURE_HOST_PATTERN.test(hostname)) return "azure"
@@ -103,16 +106,34 @@ function withAzureV1Path(base: string): string | null {
   return null
 }
 
+function withApiV1Path(base: string): string | null {
+  try {
+    const url = new URL(base)
+    if (url.pathname === "" || url.pathname === "/") {
+      url.pathname = "/v1"
+      return url.toString().replace(/\/+$/, "")
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
 /**
  * Ordered, deduplicated list of base URLs to try. The user's (normalized)
  * input always comes first; Azure-specific rewrites follow — the host twin
  * (`openai.azure.com` <-> `services.ai.azure.com`) and the bare-origin
  * `/openai/v1` path, both mistakes we have watched real users make.
  */
-export function buildCandidateBaseUrls(raw: string): string[] {
+export function buildCandidateBaseUrls(raw: string, protocol: ProbeProtocol = "openai"): string[] {
   const first = normalizeBase(raw)
   if (!first) return []
   const candidates: string[] = [first]
+
+  if (protocol === "anthropic") {
+    const apiV1 = withApiV1Path(first)
+    if (apiV1) candidates.push(apiV1)
+  }
 
   const v1 = withAzureV1Path(first)
   if (v1) candidates.push(v1)
@@ -146,7 +167,7 @@ export function assertProbeUrlAllowed(url: string, options?: { allowLoopback?: b
   const allowLoopback = options?.allowLoopback ?? process.env.OPENWORK_DEV_MODE === "1"
   const parsed = new URL(url)
   if (isBlockedHostname(parsed.hostname, allowLoopback)) {
-    throw new EndpointProbeBlockedError(`Probing ${parsed.hostname} is not allowed.`)
+    throw new EndpointProbeBlockedError(`出于安全原因，不能探测 ${parsed.hostname}。`)
   }
 }
 
@@ -165,7 +186,7 @@ type FetchLike = (url: string, init: RequestInit) => Promise<Response>
 async function readBoundedJson(response: Response): Promise<unknown> {
   const text = await response.text()
   if (text.length > MAX_RESPONSE_BYTES) {
-    throw new Error("Response too large.")
+    throw new Error("模型服务返回的数据过大，无法读取模型列表。")
   }
   try {
     return JSON.parse(text)
@@ -232,21 +253,93 @@ function parseModelIds(payload: unknown): string[] | null {
   return [...new Set(ids)].sort()
 }
 
+type AnthropicModelPage = {
+  ids: string[]
+  hasMore: boolean
+  lastId: string | null
+}
+
+function parseAnthropicModelPage(payload: unknown): AnthropicModelPage | null {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) return null
+
+  const ids = payload.data.flatMap((entry) => {
+    if (!isRecord(entry)) return []
+    const id = typeof entry.id === "string" ? entry.id.trim() : ""
+    return id ? [id] : []
+  })
+  const hasMore = payload.has_more === true
+  const lastId = typeof payload.last_id === "string" && payload.last_id.trim()
+    ? payload.last_id.trim()
+    : null
+  return { ids: [...new Set(ids)], hasMore, lastId }
+}
+
+const MAX_ANTHROPIC_MODELS = 10000
+
+/** 读取 Anthropic Models API 的全部分页，并兼容只返回一页的兼容网关。 */
+async function listAnthropicModels(
+  fetchImpl: FetchLike,
+  base: string,
+  apiKey: string,
+): Promise<{ ids: string[]; status: number } | null> {
+  const ids: string[] = []
+  let cursor: string | null = null
+  let status = 200
+
+  for (let page = 0; page < 100 && ids.length < MAX_ANTHROPIC_MODELS; page += 1) {
+    const url = new URL(`${base}/models`)
+    url.searchParams.set("limit", "100")
+    if (cursor) url.searchParams.set("after_id", cursor)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+    let response: Response
+    try {
+      response = await fetchImpl(url.toString(), {
+        method: "GET",
+        headers: {
+          ...(apiKey ? { "x-api-key": apiKey } : {}),
+          "anthropic-version": "2023-06-01",
+          Accept: "application/json",
+        },
+        signal: controller.signal,
+        redirect: "error",
+      })
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
+
+    status = response.status
+    if (!response.ok) return { ids: [], status }
+    const pageData = parseAnthropicModelPage(await readBoundedJson(response))
+    if (!pageData) return null
+    ids.push(...pageData.ids)
+    if (!pageData.hasMore || !pageData.lastId || pageData.lastId === cursor) break
+    cursor = pageData.lastId
+  }
+
+  return { ids: [...new Set(ids)].sort().slice(0, MAX_ANTHROPIC_MODELS), status }
+}
+
 function hintFor(vendor: ProbeVendor, status: number | null): string {
   if (status === 401 || status === 403) {
     return vendor === "azure"
-      ? "The endpoint rejected the key. Check Keys & Endpoint on the Azure resource — the key must belong to the same resource as the base URL."
-      : "The endpoint rejected the key. Double-check the credential for this endpoint."
+      ? "接口拒绝了密钥，请检查 Azure 资源的密钥和地址是否属于同一资源。"
+      : "接口拒绝了密钥，请检查此地址对应的访问密钥。"
   }
   if (status === 404) {
     return vendor === "azure"
-      ? "No OpenAI-compatible /models endpoint found. Azure base URLs usually end in /openai/v1 — copy the endpoint from the Azure portal and check the resource name."
-      : "No /models endpoint found at this base URL. Most OpenAI-compatible endpoints end in /v1."
+      ? "没有找到模型列表接口。Azure 地址通常以 /openai/v1 结尾，请检查资源名称。"
+      : vendor === "anthropic"
+        ? "没有找到 Anthropic 模型列表接口，请确认地址通常以 /v1 结尾。"
+        : "没有找到模型列表接口，请确认地址通常以 /v1 结尾。"
   }
   if (status !== null) {
-    return `The endpoint answered /models with HTTP ${status}.`
+    return `模型接口返回了 HTTP ${status}。`
   }
-  return "Could not reach the endpoint. Check the URL, network access, and that the endpoint allows requests from OpenWork Cloud."
+  return "暂时无法访问模型接口，请检查地址、网络和服务是否允许公司服务器访问。"
 }
 
 /**
@@ -257,12 +350,14 @@ function hintFor(vendor: ProbeVendor, status: number | null): string {
 export async function probeEndpoint(input: {
   api: string
   apiKey: string
+  protocol?: ProbeProtocol
   fetchImpl?: FetchLike
   allowLoopback?: boolean
 }): Promise<EndpointProbeResult> {
   const fetchImpl: FetchLike = input.fetchImpl ?? ((url, init) => fetch(url, init))
-  const vendor = detectVendor(input.api)
-  const candidates = buildCandidateBaseUrls(input.api)
+  const protocol = input.protocol ?? "openai"
+  const vendor = detectVendor(input.api, protocol)
+  const candidates = buildCandidateBaseUrls(input.api, protocol)
   const attempted: string[] = []
 
   if (candidates.length === 0) {
@@ -272,7 +367,7 @@ export async function probeEndpoint(input: {
       normalizedApi: null,
       attempted,
       models: [],
-      hint: "Enter a valid http(s) base URL.",
+      hint: "请输入有效的 http:// 或 https:// 基础地址。",
       status: null,
     }
   }
@@ -291,6 +386,23 @@ export async function probeEndpoint(input: {
     }
 
     try {
+      if (protocol === "anthropic") {
+        const anthropicResult = await listAnthropicModels(fetchImpl, base, input.apiKey)
+        if (anthropicResult?.ids.length) {
+          return {
+            ok: true,
+            vendor,
+            normalizedApi: base,
+            attempted,
+            models: anthropicResult.ids.map((id) => ({ id })),
+            hint: null,
+            status: anthropicResult.status,
+          }
+        }
+        if (anthropicResult) lastStatus = anthropicResult.status
+        continue
+      }
+
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
       let response: Response
@@ -436,7 +548,7 @@ async function completionAttempt(
     return {
       ok: false,
       needsCompletionTokens: false,
-      message: truncate(error instanceof Error ? error.message : "Request failed."),
+      message: truncate(error instanceof Error ? error.message : "模型请求失败。"),
     }
   } finally {
     clearTimeout(timer)
@@ -486,7 +598,7 @@ export async function verifyModels(input: {
           id,
           status: "adjusted",
           npm: "@ai-sdk/openai",
-          message: "Model requires max_completion_tokens; using the OpenAI request shape.",
+          message: "此模型要求使用 max_completion_tokens，已切换为兼容的 OpenAI 请求格式。",
         })
         continue
       }

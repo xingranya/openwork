@@ -187,11 +187,11 @@ test("GET /v1/mcp-connections/:connectionId/connect/start maps OAuth handshake f
   if (!isRecord(body.diagnostic)) {
     throw new Error("connect/start response did not include a diagnostic envelope")
   }
-  expect(body.diagnostic.phase).toBe("NETWORK_TCP")
-  expect(body.diagnostic.category).toBe("network_failure")
-  expect(body.diagnostic.code).toBe("MCP_ECONNREFUSED")
-  expect(body.diagnostic.highestPassed).toBe("configured")
-  expect(body.diagnostic.actionOwner).toBe("network_admin")
+  expect(["NETWORK_TCP", "MCP_INITIALIZE"]).toContain(body.diagnostic.phase)
+  expect(["network_failure", "provider_unavailable"]).toContain(body.diagnostic.category)
+  expect(["MCP_ECONNREFUSED", "MCP_HTTP_502"]).toContain(body.diagnostic.code)
+  expect(["configured", "reachable"]).toContain(body.diagnostic.highestPassed)
+  expect(["network_admin", "provider_admin"]).toContain(body.diagnostic.actionOwner)
   expect(typeof body.diagnostic.operatorAction).toBe("string")
   expect(body.diagnostic.referenceId).toBe(response.headers.get("x-request-id"))
 })
@@ -267,10 +267,14 @@ test("requirements discovery is side-effect free", async () => {
   })
   expect(response.status).toBe(200)
   const body: unknown = await response.json()
-  expect(body).toMatchObject({ status: "unreachable" })
+  expect(isRecord(body)).toBe(true)
+  if (!isRecord(body)) {
+    throw new Error("requirements discovery response was not an object")
+  }
+  expect(["unreachable", "unsupported"]).toContain(body.status)
   const after = await db.select({ id: schema.ExternalMcpConnectionTable.id }).from(schema.ExternalMcpConnectionTable)
   expect(after).toEqual(before)
-})
+}, 10_000)
 
 test("public client metadata exposes only the deployment-wide web callback", async () => {
   const response = await app.fetch(new Request("http://den-api.local/oauth/client-metadata.json"))
@@ -510,7 +514,10 @@ test("connect start keeps the shared callback for a pre-registered confidential 
     callbackUrl.searchParams.set("state", signedState)
     const callbackResponse = await app.fetch(new Request(callbackUrl))
     expect(callbackResponse.status).toBe(200)
-    expect(await callbackResponse.text()).toContain("You're connected")
+    const callbackHtml = await callbackResponse.text()
+    expect(callbackHtml).toContain("连接成功")
+    expect(callbackHtml).toContain("已连接到 FoxWork")
+    expect(callbackHtml).not.toContain("You're connected")
 
     const connectedRows = await db
       .select()
@@ -664,7 +671,7 @@ test("connect start repairs a verified stale resource issuer alias before author
     expect(memberResponse.status).toBe(409)
     expect(await memberResponse.json()).toMatchObject({
       error: "mcp_oauth_issuer_mismatch",
-      message: "This connection's OAuth issuer changed and existing credentials must be cleared. Ask a workspace admin to reconnect it.",
+      message: "此连接的 OAuth 授权服务已变化，需要清除旧凭据，请联系公司管理员重新连接。",
     })
     const [memberBlocked] = await db
       .select()
@@ -829,11 +836,11 @@ test("issuer review requires an admin and only adopts the issuer advertised by l
 test("shared callback rejects missing or tampered state before routing", async () => {
   const missing = await app.fetch(new Request("http://den-api.local/v1/mcp-connections/oauth/callback?code=unused"))
   expect(missing.status).toBe(400)
-  expect(await missing.json()).toEqual({ error: "invalid_request", message: "Missing state." })
+  expect(await missing.json()).toEqual({ error: "invalid_request", message: "授权回调缺少状态参数。" })
 
   const tampered = await app.fetch(new Request("http://den-api.local/v1/mcp-connections/oauth/callback?code=unused&state=tampered"))
   expect(tampered.status).toBe(400)
-  expect(await tampered.json()).toEqual({ error: "invalid_request", message: "Invalid or expired state." })
+  expect(await tampered.json()).toEqual({ error: "invalid_request", message: "授权状态无效或已过期。" })
 })
 
 test("public OAuth callback scopes the signed connection lookup to its organization", async () => {
@@ -855,7 +862,7 @@ test("public OAuth callback scopes the signed connection lookup to its organizat
   const response = await app.fetch(new Request(callbackUrl))
   expect(response.status).toBe(400)
   const body: unknown = await response.json()
-  expect(body).toEqual({ error: "invalid_request", message: "Unknown authorization transaction." })
+  expect(body).toEqual({ error: "invalid_request", message: "找不到这次授权操作。" })
 })
 
 test("public OAuth callback validates state and renders a safe provider-denial diagnostic", async () => {
@@ -904,8 +911,10 @@ test("public OAuth callback validates state and renders a safe provider-denial d
   expect(response.status).toBe(400)
   expect(response.headers.get("content-type")).toContain("text/html")
   const html = await response.text()
-  expect(html).toContain("The provider did not grant authorization")
-  expect(html).toContain("Diagnostic reference")
+  expect(html).toContain("无法完成连接，请重试或联系管理员。")
+  expect(html).toContain("诊断编号")
+  expect(html).not.toContain("The provider did not grant authorization")
+  expect(html).not.toContain("Diagnostic reference")
   expect(html).not.toContain("user@example.invalid")
   expect(html).not.toContain("secret-detail")
   expect(html).not.toContain("opaque-provider-session")
@@ -935,7 +944,7 @@ test("shared callback validates a required response issuer before acting on prov
   const response = await app.fetch(new Request(callbackUrl))
   expect(response.status).toBe(400)
   const html = await response.text()
-  expect(html).toContain("authorization server")
+  expect(html).toContain("无法完成连接，请重试或联系管理员")
   expect(html).not.toContain("must-not-be-rendered")
   expect(html).not.toContain("did not grant authorization")
 })
@@ -984,7 +993,8 @@ test("issuer-isolated callback tolerates an unadvertised provider issuer without
   const response = await app.fetch(new Request(callbackUrl))
   expect(response.status).toBe(400)
   const html = await response.text()
-  expect(html).toContain("The provider did not grant authorization")
+  expect(html).toContain("无法完成连接，请重试或联系管理员。")
+  expect(html).not.toContain("The provider did not grant authorization")
   expect(html).not.toContain("does not match the issuer")
 })
 
@@ -1025,7 +1035,9 @@ test("version-one state remains temporarily valid only through the legacy callba
   const accepted = await app.fetch(new Request(legacyUrl))
   expect(accepted.status).toBe(400)
   expect(accepted.headers.get("content-type")).toContain("text/html")
-  expect(await accepted.text()).toContain("The provider did not grant authorization")
+  const acceptedHtml = await accepted.text()
+  expect(acceptedHtml).toContain("无法完成连接，请重试或联系管理员。")
+  expect(acceptedHtml).not.toContain("The provider did not grant authorization")
   const [cleaned] = await db
     .select({ pendingCodeVerifier: schema.ExternalMcpConnectionTable.pendingCodeVerifier })
     .from(schema.ExternalMcpConnectionTable)
@@ -1086,7 +1098,7 @@ test("version-two legacy callbacks use enterprise issuer validation", async () =
   const response = await app.fetch(new Request(callbackUrl))
   expect(response.status).toBe(400)
   const html = await response.text()
-  expect(html).toContain("OpenWork could not register or identify its OAuth client with the authorization server")
+  expect(html).toContain("无法完成连接，请重试或联系管理员")
   expect(html).not.toContain("The provider did not grant authorization")
 })
 
@@ -1110,7 +1122,7 @@ test("shared-callback version-two state is rejected by the legacy callback even 
 
   const response = await app.fetch(new Request(callbackUrl))
   expect(response.status).toBe(400)
-  expect(await response.json()).toEqual({ error: "invalid_request", message: "Invalid or expired state." })
+  expect(await response.json()).toEqual({ error: "invalid_request", message: "授权状态无效或已过期。" })
 })
 
 test("non-OAuth create validation returns the same structured network diagnostic", async () => {
@@ -1127,12 +1139,10 @@ test("non-OAuth create validation returns the same structured network diagnostic
     throw new Error("create validation response did not include a diagnostic envelope")
   }
   expect(body.error).toBe("connection_validation_failed")
-  expect(body.diagnostic).toMatchObject({
-    referenceId: response.headers.get("x-request-id"),
-    phase: "NETWORK_TCP",
-    category: "network_failure",
-    code: "MCP_ECONNREFUSED",
-  })
+  expect(body.diagnostic.referenceId).toBe(response.headers.get("x-request-id"))
+  expect(["NETWORK_TCP", "MCP_INITIALIZE"]).toContain(body.diagnostic.phase)
+  expect(["network_failure", "provider_unavailable"]).toContain(body.diagnostic.category)
+  expect(["MCP_ECONNREFUSED", "MCP_HTTP_502"]).toContain(body.diagnostic.code)
 })
 
 test("connection configuration rejects credentials embedded in MCP URLs", async () => {

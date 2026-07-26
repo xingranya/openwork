@@ -145,10 +145,14 @@ function formatDuration(ms: number | null): string {
   return `${hours} 小时 ${minutes % 60} 分`;
 }
 
-function formatWeekLabel(weekStart: string): string {
+export function formatWeekLabel(weekStart: string): string {
   const date = new Date(`${weekStart}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return weekStart;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+export function formatTrendPointTitle(weekStart: string, label: string, value: number): string {
+  return `${formatWeekLabel(weekStart)}当周 · ${label}：${value}`;
 }
 
 function successRate(completed: number, failed: number): string {
@@ -229,7 +233,7 @@ function TrendChart({ title, subtitle, weeks, series }: {
                 return (
                   <div
                     key={s.label}
-                    title={`${formatWeekLabel(week.weekStart)}当周 · ${s.label}：${value}`}
+                    title={formatTrendPointTitle(week.weekStart, s.label, value)}
                     className="w-full max-w-[18px] rounded-t-[3px] transition-[height]"
                     style={{
                       height: `${height}%`,

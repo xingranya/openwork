@@ -2,7 +2,6 @@ import { and, eq, gt, isNull, or } from "@openwork-ee/den-db/drizzle"
 import { InstallLinkTable } from "@openwork-ee/den-db/schema"
 import { createDenTypeId, normalizeDenTypeId } from "@openwork-ee/utils/typeid"
 import { createHash, randomBytes } from "node:crypto"
-import { OPENWORK_DOWNLOAD_URL } from "./CONSTS.js"
 import { organizationInstallLinksEnabled } from "./capability-sources/install-links-rollout.js"
 import { db } from "./db.js"
 import { env } from "./env.js"
@@ -27,6 +26,10 @@ export function hashInstallLinkToken(token: string) {
 
 function installPageUrl(token: string) {
   return new URL(`/install?token=${encodeURIComponent(token)}`, env.betterAuthUrl).toString()
+}
+
+function companyLandingUrl() {
+  return env.marketingUrl ?? env.betterAuthUrl
 }
 
 export async function mintOrganizationInstallLink(input: MintOrganizationInstallLinkInput) {
@@ -69,9 +72,9 @@ export async function resolveInvitationDownloadUrl(input: InvitationDownloadUrlI
       createdByUserId: normalizeDenTypeId("user", input.createdByUserId),
       metadata: input.metadata,
     })
-    return installLink?.installPageUrl ?? OPENWORK_DOWNLOAD_URL
+    return installLink?.installPageUrl ?? companyLandingUrl()
   } catch (error) {
     logger.error("invite install link failed", { organization_id: input.organizationId, error })
-    return OPENWORK_DOWNLOAD_URL
+    return companyLandingUrl()
   }
 }

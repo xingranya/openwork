@@ -35,7 +35,6 @@ import { useMcpAccountAuthorization } from "./use-mcp-account-authorization";
  * 如果公司共用账号尚未完成 OAuth 授权，管理员也可以在此继续连接。
  */
 export function YourConnectionsScreen() {
-  const { data: connections = [], isLoading, error, refetch } = useMcpConnections("usable");
   const { data: presets = [] } = useMcpConnectionPresets();
   const { orgContext } = useOrgDashboard();
   const searchParams = useSearchParams();
@@ -43,6 +42,10 @@ export function YourConnectionsScreen() {
     orgContext?.currentMember.role ?? "member",
     orgContext?.currentMember.isOwner ?? false,
     orgContext?.roles,
+  );
+  // 管理员需要看到公司的完整连接列表，普通成员只能看到已授权的连接。
+  const { data: connections = [], isLoading, error, refetch } = useMcpConnections(
+    access.isAdmin ? "manageable" : "usable",
   );
   const authorization = useMcpAccountAuthorization();
   const disconnectProvider = useDisconnectMyProviderAccount();
@@ -94,7 +97,19 @@ export function YourConnectionsScreen() {
         </div>
       ) : connections.length === 0 ? (
         <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-center text-[14px] text-gray-500">
-          暂时没有向你开放的连接。请联系工作区管理员添加 MCP 连接。
+          {access.isAdmin ? (
+            <>
+              <p>目前还没有公司连接。</p>
+              <Link
+                href="/dashboard/mcp-connections"
+                className={`${buttonVariants({ variant: "secondary", size: "sm" })} mt-4`}
+              >
+                添加公司连接
+              </Link>
+            </>
+          ) : (
+            "暂时没有向你开放的连接，请联系公司管理员添加 MCP 连接。"
+          )}
         </div>
       ) : (
         <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white">

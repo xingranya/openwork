@@ -1,6 +1,3 @@
-const MODELS_DEV_API_URL = "https://models.openworklabs.com/api.json"
-const MODELS_DEV_CACHE_TTL_MS = 1000 * 60 * 10
-
 type JsonRecord = Record<string, unknown>
 
 export type ModelsDevProviderSummary = {
@@ -11,6 +8,7 @@ export type ModelsDevProviderSummary = {
   doc: string | null
   api: string | null
   modelCount: number
+  allowCustomModelIds: boolean
 }
 
 export type ModelsDevModel = {
@@ -28,105 +26,90 @@ export type ModelsDevProvider = {
   api: string | null
   config: JsonRecord
   models: ModelsDevModel[]
+  allowCustomModelIds: boolean
 }
 
-let modelsDevCache:
-  | {
-      expiresAt: number
-      providers: ModelsDevProvider[]
-      providersById: Map<string, ModelsDevProvider>
-    }
-  | null = null
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value : null
-}
-
-function asStringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-    : []
-}
-
-async function loadModelsDevCatalog() {
-  if (modelsDevCache && modelsDevCache.expiresAt > Date.now()) {
-    return modelsDevCache
+function createProvider(input: {
+  id: string
+  name: string
+  env: string
+  api: string
+  doc: string
+  models: string[]
+}): ModelsDevProvider {
+  const models = input.models.map((modelId) => ({
+    id: modelId,
+    name: modelId,
+    config: { id: modelId, name: modelId },
+  }))
+  const config = {
+    id: input.id,
+    name: input.name,
+    npm: "@ai-sdk/openai-compatible",
+    env: [input.env],
+    api: input.api,
+    doc: input.doc,
   }
 
-  const response = await fetch(MODELS_DEV_API_URL, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "OpenWork Den API",
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`models.dev returned ${response.status}`)
+  return {
+    ...config,
+    config,
+    models,
+    allowCustomModelIds: true,
   }
-
-  const payload = await response.json()
-  if (!isRecord(payload)) {
-    throw new Error("models.dev returned an invalid payload")
-  }
-
-  const providers = Object.entries(payload)
-    .map(([providerKey, rawProvider]) => {
-      if (!isRecord(rawProvider)) {
-        return null
-      }
-
-      const providerId = asString(rawProvider.id) ?? providerKey
-      const name = asString(rawProvider.name) ?? providerId
-      const modelsRecord = isRecord(rawProvider.models) ? rawProvider.models : {}
-      const { models: _models, ...providerConfig } = rawProvider
-      const models = Object.entries(modelsRecord)
-        .map(([modelKey, rawModel]) => {
-          if (!isRecord(rawModel)) {
-            return null
-          }
-
-          const modelId = asString(rawModel.id) ?? modelKey
-          const modelName = asString(rawModel.name) ?? modelId
-          return {
-            id: modelId,
-            name: modelName,
-            config: rawModel,
-          } satisfies ModelsDevModel
-        })
-        .filter((entry): entry is ModelsDevModel => entry !== null)
-        .sort((left, right) => left.name.localeCompare(right.name))
-
-      return {
-        id: providerId,
-        name,
-        npm: asString(rawProvider.npm),
-        env: asStringList(rawProvider.env),
-        doc: asString(rawProvider.doc),
-        api: asString(rawProvider.api),
-        config: providerConfig,
-        models,
-      } satisfies ModelsDevProvider
-    })
-    .filter((entry): entry is ModelsDevProvider => entry !== null)
-    .sort((left, right) => left.name.localeCompare(right.name))
-
-  const nextCache = {
-    expiresAt: Date.now() + MODELS_DEV_CACHE_TTL_MS,
-    providers,
-    providersById: new Map(providers.map((provider) => [provider.id, provider])),
-  }
-
-  modelsDevCache = nextCache
-  return nextCache
 }
+
+// 员工和管理员只看到公司批准的常用服务。模型 ID 可补充填写，
+// 因此无需依赖外部大目录，也不会因供应商发布新模型而阻断配置。
+const COMPANY_MODEL_PROVIDERS: ModelsDevProvider[] = [
+  createProvider({
+    id: "deepseek",
+    name: "DeepSeek",
+    env: "DEEPSEEK_API_KEY",
+    api: "https://api.deepseek.com",
+    doc: "https://api-docs.deepseek.com/zh-cn/",
+    models: ["deepseek-chat", "deepseek-reasoner"],
+  }),
+  createProvider({
+    id: "alibaba-cn",
+    name: "阿里云百炼",
+    env: "DASHSCOPE_API_KEY",
+    api: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    doc: "https://help.aliyun.com/zh/model-studio/",
+    models: ["qwen-plus", "qwen-max", "qwen3-coder-plus"],
+  }),
+  createProvider({
+    id: "volcengine-ark",
+    name: "火山方舟",
+    env: "ARK_API_KEY",
+    api: "https://ark.cn-beijing.volces.com/api/v3",
+    doc: "https://www.volcengine.com/docs/82379",
+    models: ["doubao-seed-1-6", "doubao-seed-1-6-thinking"],
+  }),
+  createProvider({
+    id: "zhipuai",
+    name: "智谱",
+    env: "ZHIPUAI_API_KEY",
+    api: "https://open.bigmodel.cn/api/paas/v4",
+    doc: "https://docs.bigmodel.cn/",
+    models: ["glm-4.7", "glm-4.5-air", "glm-4.5-flash"],
+  }),
+  createProvider({
+    id: "moonshotai-cn",
+    name: "月之暗面",
+    env: "MOONSHOT_API_KEY",
+    api: "https://api.moonshot.cn/v1",
+    doc: "https://platform.moonshot.cn/docs/",
+    models: ["kimi-k2.5", "kimi-k2-turbo-preview"],
+  }),
+]
+
+const COMPANY_MODEL_PROVIDERS_BY_ID = new Map(
+  COMPANY_MODEL_PROVIDERS.map((provider) => [provider.id, provider]),
+)
 
 export async function listModelsDevProviders(): Promise<ModelsDevProviderSummary[]> {
-  const catalog = await loadModelsDevCatalog()
-  return catalog.providers.map((provider) => ({
+  return COMPANY_MODEL_PROVIDERS.map((provider) => ({
     id: provider.id,
     name: provider.name,
     npm: provider.npm,
@@ -134,10 +117,10 @@ export async function listModelsDevProviders(): Promise<ModelsDevProviderSummary
     doc: provider.doc,
     api: provider.api,
     modelCount: provider.models.length,
+    allowCustomModelIds: provider.allowCustomModelIds,
   }))
 }
 
 export async function getModelsDevProvider(providerId: string): Promise<ModelsDevProvider | null> {
-  const catalog = await loadModelsDevCatalog()
-  return catalog.providersById.get(providerId) ?? null
+  return COMPANY_MODEL_PROVIDERS_BY_ID.get(providerId) ?? null
 }

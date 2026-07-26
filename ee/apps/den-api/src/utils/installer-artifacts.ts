@@ -10,9 +10,10 @@ export type ConfiguredInstallerArtifact = {
 export function installerReleaseAssetUrl(
   fileName: string,
   options: { releaseRepo?: string; releaseTag?: string } = {},
-) {
+): string | null {
   const releaseRepo = options.releaseRepo ?? env.installerReleaseRepo
   const releaseTag = options.releaseTag ?? env.installerReleaseTag
+  if (!releaseRepo) return null
   return `https://github.com/${releaseRepo}/releases/download/${encodeURIComponent(releaseTag)}/${encodeURIComponent(fileName)}`
 }
 

@@ -47,4 +47,20 @@ describe("guided custom provider form contract", () => {
       "AWS_BEARER_TOKEN_BEDROCK",
     ])
   })
+
+  test("an Anthropic-compatible form config keeps its protocol package and model id", () => {
+    const customConfig = buildGuidedCustomProviderConfig({
+      providerId: "company-anthropic",
+      name: "公司 Anthropic 网关",
+      baseUrl: "https://anthropic.example.com/v1",
+      modelIds: ["claude-company"],
+      protocol: "anthropic",
+    })
+
+    const normalized = normalizeCustomProviderConfig({ customConfig })
+
+    expect(normalized.providerConfig.npm).toBe("@ai-sdk/anthropic")
+    expect(normalized.providerConfig.api).toBe("https://anthropic.example.com/v1")
+    expect(normalized.models.map((model) => model.id)).toEqual(["claude-company"])
+  })
 })

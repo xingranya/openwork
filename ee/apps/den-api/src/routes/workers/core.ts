@@ -1,20 +1,28 @@
-import { desc, eq } from "@openwork-ee/den-db/drizzle"
+import { and, desc, eq } from "@openwork-ee/den-db/drizzle"
 import { WorkerTable, WorkerTokenTable } from "@openwork-ee/den-db/schema"
 import { createDenTypeId, normalizeDenTypeId } from "@openwork-ee/utils/typeid"
 import type { Hono } from "hono"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
 import { db } from "../../db.js"
+import { env } from "../../env.js"
 import { jsonValidator, orgMemberRoute, paramValidator, queryValidator } from "../../middleware/index.js"
 import { denTypeIdSchema, emptyResponse, forbiddenSchema, invalidRequestSchema, jsonResponse, notFoundSchema, unauthorizedSchema } from "../../openapi.js"
 import { getOrganizationLimitStatus } from "../../organization-limits.js"
 import { getRequiredUserEmail } from "../../user.js"
+import {
+  canAccessWorkerTokens,
+  formatCloudWorkerLimitReachedMessage,
+  shouldEnforceCloudWorkerLimit,
+  shouldRequireCloudWorkerBilling,
+} from "../../worker-limit-policy.js"
 import type { WorkerRouteVariables } from "./shared.js"
 import {
   continueCloudProvisioning,
   createWorkerSchema,
   deleteWorkerCascade,
   getLatestWorkerInstance,
+  getWorkerActiveTokens,
   getWorkerByIdForOrg,
   getWorkerTokensAndConnect,
   listWorkersQuerySchema,
@@ -107,6 +115,11 @@ const orgLimitReachedSchema = z.object({
   message: z.string(),
 }).meta({ ref: "WorkerOrgLimitReachedError" })
 
+const idempotencyKeyReusedSchema = z.object({
+  error: z.literal("idempotency_key_reused"),
+  message: z.string(),
+}).meta({ ref: "WorkerIdempotencyKeyReusedError" })
+
 const paymentRequiredSchema = z.object({
   error: z.literal("cloud_worker_billing_unavailable"),
   message: z.string(),
@@ -123,6 +136,63 @@ const workerRuntimeUnavailableSchema = z.object({
   error: z.literal("worker_runtime_unavailable"),
   message: z.string(),
 })).meta({ ref: "WorkerConnectionError" })
+
+type WorkerRow = typeof WorkerTable.$inferSelect
+type WorkerCreateInput = z.infer<typeof createWorkerSchema>
+
+function workerMatchesCreateInput(worker: WorkerRow, input: WorkerCreateInput) {
+  return worker.name === input.name
+    && worker.description === (input.description ?? null)
+    && worker.destination === input.destination
+    && worker.image_version === (input.imageVersion ?? null)
+    && worker.workspace_path === (input.workspacePath ?? null)
+    && worker.sandbox_backend === (input.sandboxBackend ?? null)
+}
+
+function idempotencyKeyReusedResponse() {
+  return {
+    error: "idempotency_key_reused" as const,
+    message: "该幂等键已用于不同的远程工作区创建请求。",
+  }
+}
+
+async function findIdempotentWorker(input: {
+  orgId: WorkerRow["org_id"]
+  userId: NonNullable<WorkerRow["created_by_user_id"]>
+  idempotencyKey: string
+}) {
+  const rows = await db
+    .select()
+    .from(WorkerTable)
+    .where(and(
+      eq(WorkerTable.org_id, input.orgId),
+      eq(WorkerTable.created_by_user_id, input.userId),
+      eq(WorkerTable.idempotency_key, input.idempotencyKey),
+    ))
+    .limit(1)
+  return rows[0] ?? null
+}
+
+async function buildIdempotentWorkerResponse(worker: WorkerRow, userId: string) {
+  const tokens = await getWorkerActiveTokens(worker.id)
+  if (!tokens.hostToken || !tokens.clientToken) {
+    throw new Error("幂等 Worker 缺少有效连接令牌")
+  }
+  const instance = await getLatestWorkerInstance(worker.id)
+  return {
+    worker: toWorkerResponse(worker, userId),
+    tokens: {
+      owner: tokens.hostToken,
+      host: tokens.hostToken,
+      client: tokens.clientToken,
+    },
+    instance: toInstanceResponse(instance),
+    launch: {
+      mode: "existing",
+      pollAfterMs: worker.status === "healthy" ? 0 : 5_000,
+    },
+  }
+}
 
 export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVariables }>(app: Hono<T>) {
   app.get(
@@ -176,12 +246,16 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
       summary: "Create worker",
       description: "Creates a local worker or cloud worker for the active organization and returns the initial tokens needed to connect to it.",
       responses: {
+        200: jsonResponse("An existing idempotent worker was returned successfully.", workerCreateResponseSchema),
         201: jsonResponse("Local worker created successfully.", workerCreateResponseSchema),
         202: jsonResponse("Cloud worker creation started successfully.", workerCreateResponseSchema),
         400: jsonResponse("The worker creation payload was invalid.", z.union([invalidRequestSchema, organizationUnavailableSchema, workspacePathRequiredSchema, userEmailRequiredSchema])),
         401: jsonResponse("The caller must be signed in to create workers.", unauthorizedSchema),
         402: jsonResponse("The caller needs an active cloud plan before launching a cloud worker.", paymentRequiredSchema),
-        409: jsonResponse("The organization has reached its worker limit.", orgLimitReachedSchema),
+        409: jsonResponse(
+          "The organization worker limit was reached or the idempotency key was reused with different input.",
+          z.union([orgLimitReachedSchema, idempotencyKeyReusedSchema]),
+        ),
       },
     }),
     orgMemberRoute({ useUserOrganizations: true }),
@@ -199,7 +273,21 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
       return c.json({ error: "workspace_path_required" }, 400)
     }
 
-    if (input.destination === "cloud") {
+    if (input.idempotencyKey) {
+      const existing = await findIdempotentWorker({
+        orgId,
+        userId: user.id,
+        idempotencyKey: input.idempotencyKey,
+      })
+      if (existing) {
+        if (!workerMatchesCreateInput(existing, input)) {
+          return c.json(idempotencyKeyReusedResponse(), 409)
+        }
+        return c.json(await buildIdempotentWorkerResponse(existing, user.id), 200)
+      }
+    }
+
+    if (input.destination === "cloud" && shouldRequireCloudWorkerBilling(env.orgMode)) {
       const email = getRequiredUserEmail(user)
       if (!email) {
         return c.json({ error: "user_email_required" }, 400)
@@ -218,57 +306,75 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
         }, 402)
       }
 
-      const workerLimit = await getOrganizationLimitStatus(orgId, "workers")
-      if (workerLimit.exceeded) {
-        return c.json({
-          error: "org_limit_reached",
-          limitType: "workers",
-          limit: workerLimit.limit,
-          currentCount: workerLimit.currentCount,
-          message: `This workspace currently supports up to ${workerLimit.limit} workers. Contact support to increase the limit.`,
-        }, 409)
+      if (shouldEnforceCloudWorkerLimit(env.orgMode)) {
+        const workerLimit = await getOrganizationLimitStatus(orgId, "workers")
+        if (workerLimit.exceeded) {
+          return c.json({
+            error: "org_limit_reached",
+            limitType: "workers",
+            limit: workerLimit.limit,
+            currentCount: workerLimit.currentCount,
+            message: formatCloudWorkerLimitReachedMessage(workerLimit.limit),
+          }, 409)
+        }
       }
     }
 
     const workerId = createDenTypeId("worker")
     const workerStatus = input.destination === "cloud" ? "provisioning" : "healthy"
 
-    await db.insert(WorkerTable).values({
-      id: workerId,
-      org_id: orgId,
-      created_by_user_id: user.id,
-      name: input.name,
-      description: input.description,
-      destination: input.destination,
-      status: workerStatus,
-      image_version: input.imageVersion,
-      workspace_path: input.workspacePath,
-      sandbox_backend: input.sandboxBackend,
-    })
-
     const hostToken = token()
     const clientToken = token()
     const activityToken = token()
-    await db.insert(WorkerTokenTable).values([
-      {
-        id: createDenTypeId("workerToken"),
-        worker_id: workerId,
-        scope: "host",
-        token: hostToken,
-      },
-      {
-        id: createDenTypeId("workerToken"),
-        worker_id: workerId,
-        scope: "client",
-        token: clientToken,
-      },
-      {
-        id: createDenTypeId("workerToken"),
-        worker_id: workerId,
-        scope: "activity",
-        token: activityToken,
-      },
-    ])
+    try {
+      await db.transaction(async (tx) => {
+        await tx.insert(WorkerTable).values({
+          id: workerId,
+          org_id: orgId,
+          created_by_user_id: user.id,
+          name: input.name,
+          description: input.description,
+          destination: input.destination,
+          status: workerStatus,
+          image_version: input.imageVersion,
+          workspace_path: input.workspacePath,
+          sandbox_backend: input.sandboxBackend,
+          idempotency_key: input.idempotencyKey,
+        })
+        await tx.insert(WorkerTokenTable).values([
+          {
+            id: createDenTypeId("workerToken"),
+            worker_id: workerId,
+            scope: "host",
+            token: hostToken,
+          },
+          {
+            id: createDenTypeId("workerToken"),
+            worker_id: workerId,
+            scope: "client",
+            token: clientToken,
+          },
+          {
+            id: createDenTypeId("workerToken"),
+            worker_id: workerId,
+            scope: "activity",
+            token: activityToken,
+          },
+        ])
+      })
+    } catch (error) {
+      if (!input.idempotencyKey) throw error
+      const existing = await findIdempotentWorker({
+        orgId,
+        userId: user.id,
+        idempotencyKey: input.idempotencyKey,
+      })
+      if (!existing) throw error
+      if (!workerMatchesCreateInput(existing, input)) {
+        return c.json(idempotencyKeyReusedResponse(), 409)
+      }
+      return c.json(await buildIdempotentWorkerResponse(existing, user.id), 200)
+    }
 
     if (input.destination === "cloud") {
       void continueCloudProvisioning({
@@ -293,6 +399,7 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
           image_version: input.imageVersion ?? null,
           workspace_path: input.workspacePath ?? null,
           sandbox_backend: input.sandboxBackend ?? null,
+          idempotency_key: input.idempotencyKey ?? null,
           last_heartbeat_at: null,
           last_active_at: null,
           created_at: new Date(),
@@ -434,6 +541,7 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
     orgMemberRoute({ useUserOrganizations: true }),
     paramValidator(workerIdParamSchema),
     async (c) => {
+    const user = c.get("user")
     const orgId = c.get("activeOrganizationId")
     const params = c.req.valid("param")
 
@@ -449,7 +557,7 @@ export function registerWorkerCoreRoutes<T extends { Variables: WorkerRouteVaria
     }
 
     const worker = await getWorkerByIdForOrg(workerId, orgId)
-    if (!worker) {
+    if (!worker || !canAccessWorkerTokens(worker.created_by_user_id, user.id)) {
       return c.json({ error: "worker_not_found" }, 404)
     }
 

@@ -37,9 +37,9 @@ test("single-org slug normalization keeps Helm-safe slugs strict", () => {
   expect(() => envModule.normalizeSingleOrgSlug("bad slug")).toThrow("DEN_SINGLE_ORG_SLUG")
 })
 
-test("single-org public signup defaults private and parses Helm string values", () => {
-  expect(envModule.parseSingleOrgAllowPublicSignup(undefined, "single_org")).toBe(false)
-  expect(envModule.parseSingleOrgAllowPublicSignup("", "single_org")).toBe(false)
+test("single-org public signup defaults enabled and parses Helm string values", () => {
+  expect(envModule.parseSingleOrgAllowPublicSignup(undefined, "single_org")).toBe(true)
+  expect(envModule.parseSingleOrgAllowPublicSignup("", "single_org")).toBe(true)
   expect(envModule.parseSingleOrgAllowPublicSignup(" false ", "single_org")).toBe(false)
   expect(envModule.parseSingleOrgAllowPublicSignup("0", "single_org")).toBe(false)
   expect(envModule.parseSingleOrgAllowPublicSignup("true", "single_org")).toBe(true)
@@ -58,6 +58,49 @@ test("single-org signup policy allows matching domains", async () => {
   expect(matching).toBeNull()
 })
 
+test("single-org signup policy only lets a configured owner bootstrap an empty deployment", async () => {
+  const owner = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
+    orgMode: "single_org",
+    allowPublicSignup: true,
+    email: "Admin@Acme.com",
+    ownerEmails: ["admin@acme.com"],
+    getSingletonOrganization: async () => null,
+  })
+  expect(owner).toBeNull()
+
+  const unconfigured = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
+    orgMode: "single_org",
+    allowPublicSignup: true,
+    email: "employee@acme.com",
+    ownerEmails: ["admin@acme.com"],
+    getSingletonOrganization: async () => null,
+  })
+  expect(unconfigured).toEqual({
+    error: "single_org_owner_uninitialized",
+    message: "公司管理员还没有完成首次初始化，请使用预设的管理员邮箱先创建公司账号。",
+  })
+
+  const missingConfiguration = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
+    orgMode: "single_org",
+    allowPublicSignup: true,
+    email: "employee@acme.com",
+    ownerEmails: [],
+    getSingletonOrganization: async () => null,
+  })
+  expect(missingConfiguration?.error).toBe("single_org_owner_uninitialized")
+})
+
+test("single-org signup policy allows ordinary self-registration after the organization exists", async () => {
+  const member = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
+    orgMode: "single_org",
+    allowPublicSignup: true,
+    email: "employee@acme.com",
+    ownerEmails: ["admin@acme.com"],
+    getSingletonOrganization: async () => ({ allowedEmailDomains: null }),
+  })
+  expect(member).toBeNull()
+})
+
 test("single-org signup policy rejects outside domains", async () => {
   const rejected = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
     orgMode: "single_org",
@@ -67,7 +110,7 @@ test("single-org signup policy rejects outside domains", async () => {
   })
   expect(rejected).toEqual({
     error: "email_domain_restricted",
-    message: "This workspace only allows acme.com email addresses.",
+    message: "公司只允许使用 acme.com 邮箱注册。",
     allowedEmailDomains: ["acme.com"],
   })
 })
@@ -83,7 +126,7 @@ test("single-org signup policy blocks private email signup and leaves multi-org 
   })
   expect(disabled).toEqual({
     error: "single_org_signup_disabled",
-    message: "Email signup is disabled for this deployment. Use your organization's SSO or a pre-provisioned account to sign in.",
+    message: "公司已关闭自助注册，请使用公司单点登录或管理员预先创建的账号。",
   })
 
   const multiOrg = await signupPolicy.resolveSingleOrgEmailSignupPolicyViolation({
@@ -115,4 +158,10 @@ test("single-org owner bootstrap honors configured owner emails", () => {
     email: "user@example.com",
     ownerEmails: ["admin@example.com"],
   })).toBe("member")
+
+  expect(singleOrgPolicy.resolveSingleOrgMembershipRole({
+    activeOwnerCount: 0,
+    email: "first@example.com",
+    ownerEmails: [],
+  })).toBeNull()
 })

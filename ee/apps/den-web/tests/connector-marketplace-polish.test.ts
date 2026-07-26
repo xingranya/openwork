@@ -10,7 +10,7 @@ function readDashboardComponent(name: string) {
 }
 
 describe("connector and marketplace polish", () => {
-  test("puts Marketplace first and renames the org connection surface to Connectors beta", () => {
+  test("应用市场位于前面，公司连接入口使用中文名称", () => {
     const shell = readDashboardComponent("org-dashboard-shell.tsx");
     const marketplaceIndex = shell.indexOf('{ href: getMarketplacesRoute(activeOrg.slug), label: "应用市场" }');
     const sourcesIndex = shell.indexOf('{ href: getIntegrationsRoute(activeOrg.slug), label: "数据源" }');
@@ -23,13 +23,13 @@ describe("connector and marketplace polish", () => {
     expect(pluginsIndex).toBeLessThan(connectorsIndex);
   });
 
-  test("uses one Add MCP action and the approved connector copy", () => {
+  test("只保留一个添加 MCP 操作并使用确认过的连接文案", () => {
     const screen = readDashboardComponent("mcp-connections-screen.tsx");
 
-    expect(screen).toContain('title="Connectors"');
-    expect(screen).toContain('badgeLabel="Beta"');
-    expect(screen).toContain('description="Connectors is where you can add MCP servers that your whole team can use."');
-    expect(screen).toContain("Add MCP");
+    expect(screen).toContain('title="公司连接"');
+    expect(screen).toContain('badgeLabel="测试中"');
+    expect(screen).toContain('description="添加可由全体成员或指定团队使用的 MCP 服务。"');
+    expect(screen).toContain("添加 MCP");
     expect(screen).not.toContain("<ImportPluginConnectionDialog");
   });
 
@@ -37,7 +37,7 @@ describe("connector and marketplace polish", () => {
     const detail = readDashboardComponent("marketplace-detail-screen.tsx");
     const editor = readDashboardComponent("plugin-editor-screen.tsx");
 
-    expect(detail).toContain("Add a plugin");
+    expect(detail).toContain("添加插件");
     expect(detail).toContain("?marketplaceId=${encodeURIComponent(marketplace.id)}");
     expect(editor).toContain('searchParams.get("marketplaceId")');
   });

@@ -7,9 +7,10 @@ import {
   OrganizationEmailDomainRestrictionError,
   type AllowedEmailDomains,
 } from "./orgs.js"
+import { isSingleOrgOwnerEmailEligible } from "./single-org-policy.js"
 
 export type SingleOrgEmailSignupPolicyViolation = {
-  error: "single_org_signup_disabled" | "email_domain_restricted"
+  error: "single_org_signup_disabled" | "email_domain_restricted" | "single_org_owner_uninitialized"
   message: string
   allowedEmailDomains?: string[]
 }
@@ -38,7 +39,7 @@ export async function getAuthRequestEmail(request: Request) {
 function disabledSignupViolation(): SingleOrgEmailSignupPolicyViolation {
   return {
     error: "single_org_signup_disabled",
-    message: "Email signup is disabled for this deployment. Use your organization's SSO or a pre-provisioned account to sign in.",
+    message: "公司已关闭自助注册，请使用公司单点登录或管理员预先创建的账号。",
   }
 }
 
@@ -48,6 +49,13 @@ function domainSignupViolation(email: string, allowedEmailDomains: string[]): Si
     error: "email_domain_restricted",
     message: error.message,
     allowedEmailDomains,
+  }
+}
+
+function ownerBootstrapViolation(): SingleOrgEmailSignupPolicyViolation {
+  return {
+    error: "single_org_owner_uninitialized",
+    message: "公司管理员还没有完成首次初始化，请使用预设的管理员邮箱先创建公司账号。",
   }
 }
 
@@ -68,6 +76,7 @@ export async function resolveSingleOrgEmailSignupPolicyViolation(input: {
   orgMode: DenOrgMode
   allowPublicSignup: boolean
   email: string | null
+  ownerEmails?: readonly string[]
   getSingletonOrganization: () => Promise<SingletonOrganizationForSignup | null>
 }): Promise<SingleOrgEmailSignupPolicyViolation | null> {
   if (input.orgMode !== "single_org") {
@@ -83,6 +92,13 @@ export async function resolveSingleOrgEmailSignupPolicyViolation(input: {
   }
 
   const organization = await input.getSingletonOrganization()
+  const ownerEmails = input.ownerEmails ?? []
+  if (
+    !organization
+    && !isSingleOrgOwnerEmailEligible({ email: input.email, ownerEmails })
+  ) {
+    return ownerBootstrapViolation()
+  }
   const allowedEmailDomains = normalizeAllowedEmailDomains(organization?.allowedEmailDomains).domains
   return evaluateAllowedDomains({ email: input.email, allowedEmailDomains })
 }
@@ -92,6 +108,7 @@ export async function getSingleOrgEmailSignupPolicyViolation(email: string | nul
     orgMode: env.orgMode,
     allowPublicSignup: env.singleOrg.allowPublicSignup,
     email,
+    ownerEmails: env.singleOrg.ownerEmails,
     getSingletonOrganization,
   })
 }

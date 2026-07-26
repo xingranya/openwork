@@ -282,7 +282,7 @@ export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVari
     if (!exchange) {
       return c.json({
         error: "grant_not_found",
-        message: "This desktop sign-in link is missing, expired, or already used.",
+        message: "登录链接不存在、已过期或已经使用，请重新获取登录链接。",
       }, 404)
     }
 

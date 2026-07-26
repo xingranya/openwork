@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Pencil, Trash2 } from "lucide-react";
+import { getErrorMessage } from "../app/(den)/_lib/den-flow";
 
 type AccessState = "loading" | "ready" | "signed-out" | "forbidden" | "error";
 type ViewMode = "users" | "companies" | "organizations";
@@ -550,53 +551,6 @@ function readAdminOverviewCache(): AdminPayload | null {
   }
 }
 
-function getFriendlyHtmlError(value: string): string | null {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const lower = normalized.toLowerCase();
-
-  if (!lower) {
-    return null;
-  }
-
-  if (lower.includes("cannot get /v1/admin/overview")) {
-    return "The Den admin API is not live on the upstream service yet. The backend deploy likely failed or is still rolling out.";
-  }
-
-  if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-    return "The upstream Den service returned HTML instead of JSON. This usually means the admin backend route is stale or unavailable.";
-  }
-
-  return null;
-}
-
-function getErrorMessage(payload: unknown, fallback: string): string {
-  if (typeof payload === "string") {
-    const friendly = getFriendlyHtmlError(payload);
-    if (friendly) {
-      return friendly;
-    }
-
-    if (payload.trim()) {
-      return payload.trim();
-    }
-  }
-
-  if (!isRecord(payload)) {
-    return fallback;
-  }
-
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message.trim();
-  }
-
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    const friendly = getFriendlyHtmlError(payload.error);
-    return friendly ?? payload.error.trim();
-  }
-
-  return fallback;
-}
-
 function isAdminScaleFixtureEnabled(): boolean {
   if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
     return false;
@@ -1009,39 +963,39 @@ function formatDateTime(value: string | null): string {
 
 function formatRelativeTime(value: string | null): string {
   if (!value) {
-    return "No activity";
+    return "暂无活动";
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "No activity";
+    return "暂无活动";
   }
 
   const diffMs = Date.now() - date.getTime();
   const diffMinutes = Math.floor(diffMs / (60 * 1000));
   if (diffMinutes < 1) {
-    return "Just now";
+    return "刚刚";
   }
   if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
+    return `${diffMinutes} 分钟前`;
   }
 
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) {
-    return `${diffHours}h ago`;
+    return `${diffHours} 小时前`;
   }
 
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 30) {
-    return `${diffDays}d ago`;
+    return `${diffDays} 天前`;
   }
 
   const diffMonths = Math.floor(diffDays / 30);
   if (diffMonths < 12) {
-    return `${diffMonths}mo ago`;
+    return `${diffMonths} 个月前`;
   }
 
-  return `${Math.floor(diffMonths / 12)}y ago`;
+  return `${Math.floor(diffMonths / 12)} 年前`;
 }
 
 function formatHours(hours: number | null): string {
@@ -1050,36 +1004,63 @@ function formatHours(hours: number | null): string {
   }
 
   if (hours < 1) {
-    return "<1h";
+    return "不到 1 小时";
   }
 
   if (hours < 48) {
-    return `${Math.round(hours)}h`;
+    return `${Math.round(hours)} 小时`;
   }
 
-  return `${Math.round(hours / 24)}d`;
+  return `${Math.round(hours / 24)} 天`;
 }
 
 function formatOptionalCount(value: number | null): string {
-  return value === null ? "Deferred" : String(value);
+  return value === null ? "待加载" : String(value);
 }
 
 function formatOptionalDetail(value: number | null, label: string): string {
-  return value === null ? "Load analytics to calculate" : `${value} ${label}`;
+  return value === null ? "加载统计后计算" : `${value} ${label}`;
 }
 
-function formatProvider(provider: string): string {
-  return provider
-    .split(/[-_]/g)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
+function formatAuthProvider(provider: string): string {
+  const labels: Record<string, string> = {
+    credential: "邮箱密码",
+    email: "邮箱",
+    password: "邮箱密码",
+    google: "Google 登录",
+    github: "GitHub 登录",
+    oidc: "OIDC 单点登录",
+    saml: "SAML 单点登录",
+    sso: "公司单点登录",
+  };
+  return labels[provider.trim().toLowerCase()] ?? "其他登录方式";
+}
+
+function formatOrganizationRole(role: string): string {
+  const labels: Record<string, string> = {
+    owner: "所有者",
+    admin: "管理员",
+    member: "成员",
+    "security-admin": "安全管理员",
+    "billing-admin": "计费管理员",
+  };
+  return labels[role.trim().toLowerCase()] ?? "自定义角色";
+}
+
+function formatPlanSource(source: string): string {
+  const labels: Record<string, string> = {
+    default: "默认方案",
+    manual: "手动设置",
+    benefit: "公司权益",
+    subscription: "订阅",
+  };
+  return labels[source.trim().toLowerCase()] ?? "其他来源";
 }
 
 function getEmailDomain(email: string): string {
   const at = email.lastIndexOf("@");
   if (at === -1 || at === email.length - 1) {
-    return "unknown";
+    return "未知";
   }
 
   return email.slice(at + 1).trim().toLowerCase();
@@ -1101,30 +1082,34 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 function formatBillingStatus(value: AdminBillingStatus | null): string {
   if (!value) {
-    return "Not loaded";
+    return "未加载";
   }
 
   if (value.status === "paid") {
-    return "Paid";
+    return "已付费";
   }
 
   if (value.status === "unpaid") {
-    return "Unpaid";
+    return "未付费";
   }
 
-  return "Unavailable";
+  return "不可用";
 }
 
 function formatSubscriptionStatus(value: string | null): string {
   if (!value) {
-    return "No subscription record";
+    return "没有订阅记录";
   }
 
-  return value
-    .split(/[-_]/g)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
+  const labels: Record<string, string> = {
+    active: "有效",
+    canceled: "已取消",
+    cancelled: "已取消",
+    past_due: "逾期",
+    unpaid: "未付费",
+    trialing: "试用中",
+  };
+  return value.split(/[-_]/g).filter(Boolean).map((part) => labels[part] ?? part).join(" ");
 }
 
 function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
@@ -1147,17 +1132,17 @@ function ActivityChart({ series }: { series: ActivityPoint[] }) {
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500">Active users · last 30 days</p>
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500">近 30 天活跃员工</p>
         <p className="text-xs text-slate-500">
-          <span className="mr-3 inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-slate-900/80" />Any activity</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" />Real DAU (ran a task)</span>
+          <span className="mr-3 inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-slate-900/80" />有活动</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" />实际日活（运行过任务）</span>
         </p>
       </div>
       <div className="mt-3 flex h-16 items-end gap-[3px]">
         {series.map((point) => (
           <div
             key={point.day}
-            title={`${point.day}: ${point.activeUsers} active · ${point.realActiveUsers} ran a task · ${point.signups} signup${point.signups === 1 ? "" : "s"}`}
+            title={`${point.day}：${point.activeUsers} 人有活动，${point.realActiveUsers} 人运行过任务，新增 ${point.signups} 人`}
             className="relative flex-1"
             style={{ height: "100%" }}
           >
@@ -1195,7 +1180,7 @@ function BillingPill({ billing }: { billing: AdminBillingStatus | null }) {
   if (!billing) {
     return (
       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Not loaded
+        未加载
       </span>
     );
   }
@@ -1223,7 +1208,7 @@ function PlanPill({ tier }: { tier: AdminOrganization["plan"]["tier"] }) {
 
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] ${palette}`}>
-      {tier}
+      {tier === "enterprise" ? "企业" : tier === "team" ? "团队" : "基础"}
     </span>
   );
 }
@@ -1234,10 +1219,10 @@ function DenAdminLoadingShell() {
       <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Den admin</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">User backoffice</h1>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">公司管理</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">员工与公司管理</h1>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-              Loading global totals and the first bounded user page.
+              正在加载公司统计和员工列表。
             </p>
           </div>
 
@@ -1354,7 +1339,7 @@ export function DenAdminPanel() {
       if (!response.ok) {
         setAccessState("error");
         setPayload(null);
-        setError(getErrorMessage(nextPayload, `Backoffice request failed with ${response.status}.`));
+        setError(getErrorMessage(nextPayload, `管理员请求失败（${response.status}）。`));
         return;
       }
 
@@ -1362,7 +1347,7 @@ export function DenAdminPanel() {
       if (!parsed) {
         setAccessState("error");
         setPayload(null);
-        setError("Backoffice payload was missing required fields.");
+        setError("管理员数据缺少必要字段。请刷新后重试。");
         return;
       }
 
@@ -1375,7 +1360,7 @@ export function DenAdminPanel() {
       if (requestId === overviewRequestIdRef.current) {
         setAccessState("error");
         setPayload(null);
-        setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+        setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
       }
     } finally {
       if (requestId === overviewRequestIdRef.current) {
@@ -1420,7 +1405,7 @@ export function DenAdminPanel() {
         return;
       }
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `User search failed with ${response.status}.`));
+        setError(getErrorMessage(nextPayload, `用户搜索失败（${response.status}）。`));
         return;
       }
 
@@ -1429,7 +1414,7 @@ export function DenAdminPanel() {
         return;
       }
       if (!parsed) {
-        setError("User search payload was missing required fields.");
+        setError("用户搜索结果缺少必要字段。请刷新后重试。");
         return;
       }
 
@@ -1454,7 +1439,7 @@ export function DenAdminPanel() {
       });
     } catch (nextError) {
       if (requestId === userRequestIdRef.current && !isAbortError(nextError)) {
-        setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+        setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
       }
     } finally {
       if (requestId === userRequestIdRef.current) {
@@ -1496,7 +1481,7 @@ export function DenAdminPanel() {
         return;
       }
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `Organization search failed with ${response.status}.`));
+        setError(getErrorMessage(nextPayload, `公司搜索失败（${response.status}）。`));
         return;
       }
 
@@ -1505,7 +1490,7 @@ export function DenAdminPanel() {
         return;
       }
       if (!parsed) {
-        setError("Organization search payload was missing required fields.");
+        setError("公司搜索结果缺少必要字段。请刷新后重试。");
         return;
       }
 
@@ -1522,7 +1507,7 @@ export function DenAdminPanel() {
       });
     } catch (nextError) {
       if (requestId === organizationRequestIdRef.current && !isAbortError(nextError)) {
-        setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+        setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
       }
     } finally {
       if (requestId === organizationRequestIdRef.current) {
@@ -1550,13 +1535,13 @@ export function DenAdminPanel() {
         return;
       }
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `Analytics request failed with ${response.status}.`));
+        setError(getErrorMessage(nextPayload, `统计请求失败（${response.status}）。`));
         return;
       }
 
       const parsed = parseAdminMetricsPayload(nextPayload);
       if (!parsed) {
-        setError("Analytics payload was missing required fields.");
+        setError("统计数据缺少必要字段。请刷新后重试。");
         return;
       }
 
@@ -1578,7 +1563,7 @@ export function DenAdminPanel() {
         };
       });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+      setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
     } finally {
       setAnalyticsLoading(false);
     }
@@ -1611,7 +1596,7 @@ export function DenAdminPanel() {
       await navigator.clipboard.writeText(orgId);
       setCopiedOrgId(orgId);
     } catch {
-      setError("Could not copy the organization ID to the clipboard.");
+      setError("公司 ID 复制失败，请重试。");
     }
   }, []);
 
@@ -1730,7 +1715,7 @@ export function DenAdminPanel() {
 
     const seatLimit = Number(draft.seatLimit);
     if (!Number.isInteger(seatLimit) || seatLimit < 1) {
-      setError("Seat limit must be a positive whole number.");
+      setError("席位数必须是大于 0 的整数。");
       return;
     }
 
@@ -1744,7 +1729,7 @@ export function DenAdminPanel() {
       });
 
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `Could not update ${org.name}.`));
+        setError(getErrorMessage(nextPayload, `无法更新 ${org.name}。`));
         return;
       }
 
@@ -1760,7 +1745,7 @@ export function DenAdminPanel() {
         };
       });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+      setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
     } finally {
       setSavingOrgId(null);
     }
@@ -1773,7 +1758,7 @@ export function DenAdminPanel() {
 
     const totalFreeSeats = Number(freeSeatsDialog.totalFreeSeats);
     if (!Number.isInteger(totalFreeSeats) || totalFreeSeats < DEFAULT_FREE_SEAT_COUNT) {
-      setError(`Free seats must be a whole number at least ${DEFAULT_FREE_SEAT_COUNT}.`);
+      setError(`免费席位数必须是大于等于 ${DEFAULT_FREE_SEAT_COUNT} 的整数。`);
       return;
     }
 
@@ -1786,7 +1771,7 @@ export function DenAdminPanel() {
       });
 
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `Could not update free seats for ${freeSeatsDialog.org.name}.`));
+        setError(getErrorMessage(nextPayload, `无法更新 ${freeSeatsDialog.org.name} 的免费席位。`));
         return;
       }
 
@@ -1810,7 +1795,7 @@ export function DenAdminPanel() {
       });
       setFreeSeatsDialog(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+      setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
     } finally {
       setSavingFreeSeatsOrgId(null);
     }
@@ -1845,13 +1830,13 @@ export function DenAdminPanel() {
 
       if (!response.ok) {
         setOrganizationCapabilityLocally(org.id, key, !enabled);
-        const message = getErrorMessage(nextPayload, `Could not update capabilities for ${org.name}.`);
+        const message = getErrorMessage(nextPayload, `无法更新 ${org.name} 的能力开关。`);
         setError(message);
         setCapabilityError({ orgId: org.id, message });
       }
     } catch (nextError) {
       setOrganizationCapabilityLocally(org.id, key, !enabled);
-      const message = nextError instanceof Error ? nextError.message : "Unknown network error";
+      const message = getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。");
       setError(message);
       setCapabilityError({ orgId: org.id, message });
     } finally {
@@ -1871,7 +1856,7 @@ export function DenAdminPanel() {
       const { response, payload: nextPayload } = await deleteJson(`/v1/admin/users/${deleteUserDialog.id}`);
 
       if (!response.ok) {
-        setError(getErrorMessage(nextPayload, `Could not delete ${deleteUserDialog.email}.`));
+        setError(getErrorMessage(nextPayload, `无法删除 ${deleteUserDialog.email}。`));
         return;
       }
 
@@ -1879,7 +1864,7 @@ export function DenAdminPanel() {
       setSelectedUserId(null);
       await loadOverview();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unknown network error");
+      setError(getErrorMessage(nextError instanceof Error ? nextError.message : null, "网络异常，请重试。"));
     } finally {
       setDeletingUserId(null);
     }
@@ -1890,13 +1875,13 @@ export function DenAdminPanel() {
 
     if (viewMode === "organizations") {
       downloadCsv(`den-organizations-${date}.csv`, [
-        ["id", "name", "slug", "plan", "plan_source", "seat_limit", "free_seats", "additional_free_seats", "chargeable_seats", "members", "created_at"],
+        ["公司 ID", "公司名称", "公司标识", "方案", "方案来源", "席位上限", "免费席位", "额外免费席位", "计费席位", "成员数", "创建时间"],
         ...filteredOrganizations.map((org) => [
           org.id,
           org.name,
           org.slug,
-          org.plan.tier,
-          org.plan.source,
+          org.plan.tier === "enterprise" ? "企业" : org.plan.tier === "team" ? "团队" : "基础",
+          formatPlanSource(org.plan.source),
           String(org.seatLimit),
           String(org.freeSeatCount),
           String(org.seatsFreeAdditional),
@@ -1909,22 +1894,22 @@ export function DenAdminPanel() {
     }
 
     downloadCsv(`den-users-${date}.csv`, [
-      ["email", "name", "domain", "verified", "signed_up", "last_active", "sign_ins", "active_days", "recurring", "invites_sent", "hours_to_first_invite", "workers", "providers", "organizations"],
+      ["邮箱", "姓名", "邮箱域名", "已验证", "注册时间", "最近活动", "登录次数", "活跃天数", "重复使用", "发出邀请数", "首次邀请用时（小时）", "工作环境数", "登录方式", "所属公司"],
       ...filteredUsers.map((user) => [
         user.email,
         user.name ?? "",
         getEmailDomain(user.email),
-        user.emailVerified ? "yes" : "no",
+        user.emailVerified ? "是" : "否",
         user.createdAt ?? "",
         user.lastActiveAt ?? "",
         String(user.sessionCount),
         String(user.activeDayCount),
-        user.isRecurring ? "yes" : "no",
+        user.isRecurring ? "是" : "否",
         String(user.invitesSent),
         user.hoursToFirstInvite === null ? "" : String(user.hoursToFirstInvite),
         String(user.workerCount),
-        user.authProviders.join("; "),
-        user.organizations.map((org) => `${org.name} (${org.id}, ${org.role})`).join("; ")
+        user.authProviders.map(formatAuthProvider).join("；"),
+        user.organizations.map((org) => `${org.name}（${org.id}，${formatOrganizationRole(org.role)}）`).join("；")
       ])
     ]);
   }, [filteredOrganizations, filteredUsers, viewMode]);
@@ -1954,19 +1939,19 @@ export function DenAdminPanel() {
 
   if (accessState === "signed-out" || accessState === "forbidden" || accessState === "error") {
     const title = accessState === "signed-out"
-      ? "Sign in required"
+      ? "需要登录"
       : accessState === "forbidden"
-        ? "Admin access required"
-        : "Backoffice unavailable";
+        ? "需要管理员权限"
+        : "管理页面暂时不可用";
     const message = accessState === "signed-out"
-      ? "Use the main Den page to sign in, then return with a whitelisted admin account."
+      ? "请先回到公司登录页登录，再使用已获授权的管理员账号返回。"
       : accessState === "forbidden"
-        ? "Your session is valid, but the email on it is not present in the Den admin allowlist."
-        : error ?? "The backoffice request failed before the dashboard could load.";
+        ? "当前会话有效，但账号不在公司管理员名单中。"
+        : error ?? "管理页面加载失败，请刷新后重试。";
 
     return (
       <section className="mx-auto w-full max-w-4xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Den admin</p>
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">公司管理</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{message}</p>
         <div className="mt-6 flex flex-wrap gap-3">
@@ -1974,7 +1959,7 @@ export function DenAdminPanel() {
             href="/"
             className="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
           >
-            Open sign-in page
+            打开登录页
           </a>
           <button
             type="button"
@@ -1983,7 +1968,7 @@ export function DenAdminPanel() {
             }}
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
           >
-            Retry
+            重试
           </button>
         </div>
       </section>
@@ -1996,15 +1981,15 @@ export function DenAdminPanel() {
 
   const billingValue = payload.summary.billingLoaded
     ? formatOptionalCount(payload.summary.paidUsers)
-    : "On demand";
+    : "按需加载";
   const billingDetail = payload.summary.billingLoaded && payload.summary.paidUsers !== null && payload.summary.unpaidUsers !== null
-    ? `${payload.summary.paidUsers} paid / ${payload.summary.unpaidUsers} unpaid on current page`
+    ? `当前页面：${payload.summary.paidUsers} 个已付费，${payload.summary.unpaidUsers} 个未付费`
     : payload.summary.billingLoaded
-      ? "Billing counts unavailable for this page"
-      : "Load billing only when you need it";
+      ? "当前页面没有可用的计费统计"
+      : "需要时再加载计费信息";
   const inviterDetail = payload.summary.medianHoursToFirstInvite === null
-    ? "Load analytics to calculate"
-    : `Median time to invite ${formatHours(payload.summary.medianHoursToFirstInvite)}`;
+    ? "加载统计后计算"
+    : `首次邀请的中位用时：${formatHours(payload.summary.medianHoursToFirstInvite)}`;
   const analyticsLoaded = payload.summary.verifiedUsers !== null || payload.summary.activitySeries.length > 0;
   const pageDurationLabel = isAdminScaleFixtureEnabled() ? "fixture computation" : "server";
 
@@ -2013,10 +1998,10 @@ export function DenAdminPanel() {
       <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Den admin</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">User backoffice</h1>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">公司管理</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950">员工与公司管理</h1>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-              Lightweight internal view for signups, worker creation, and on-demand billing checks.
+              查看员工注册、工作环境和计费状态。
             </p>
           </div>
 
@@ -2032,7 +2017,7 @@ export function DenAdminPanel() {
               disabled={refreshing}
               className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing ? "正在刷新…" : "刷新"}
             </button>
             <button
               type="button"
@@ -2042,22 +2027,22 @@ export function DenAdminPanel() {
               disabled={analyticsLoading}
               className="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {analyticsLoading ? "Loading analytics..." : analyticsLoaded ? "Refresh analytics" : "Load analytics"}
+              {analyticsLoading ? "正在加载统计…" : analyticsLoaded ? "刷新统计" : "加载统计"}
             </button>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Users" value={String(payload.summary.totalUsers)} detail={formatOptionalDetail(payload.summary.recentUsers7d, "new in 7d")} />
-          <StatCard label="Active today" value={formatOptionalCount(payload.summary.activeUsers1d)} detail="Load analytics to calculate" />
-          <StatCard label="Real DAU" value={formatOptionalCount(payload.summary.realActiveUsers1d)} detail="Load analytics to calculate" />
-          <StatCard label="Recurring" value={formatOptionalCount(payload.summary.recurringUsers)} detail="Load analytics to calculate" />
-          <StatCard label="Inviters" value={formatOptionalCount(payload.summary.inviters)} detail={inviterDetail} />
-          <StatCard label="Verified" value={formatOptionalCount(payload.summary.verifiedUsers)} detail="Load analytics to calculate" />
-          <StatCard label="Worker creators" value={formatOptionalCount(payload.summary.usersWithWorkers)} detail={payload.summary.usersWithoutWorkers === null ? "Load analytics to calculate" : `${payload.summary.usersWithoutWorkers} without workers`} />
-          <StatCard label="Workers" value={formatOptionalCount(payload.summary.totalWorkers)} detail="Load analytics to calculate" />
-          <StatCard label="Billing" value={billingValue} detail={billingDetail} />
-          <StatCard label="Admins" value={String(payload.summary.adminCount)} detail="Whitelisted operator accounts" />
+          <StatCard label="员工" value={String(payload.summary.totalUsers)} detail={formatOptionalDetail(payload.summary.recentUsers7d, "近 7 天新增")} />
+          <StatCard label="今日活跃" value={formatOptionalCount(payload.summary.activeUsers1d)} detail="加载统计后计算" />
+          <StatCard label="实际日活" value={formatOptionalCount(payload.summary.realActiveUsers1d)} detail="加载统计后计算" />
+          <StatCard label="重复使用" value={formatOptionalCount(payload.summary.recurringUsers)} detail="加载统计后计算" />
+          <StatCard label="发出邀请" value={formatOptionalCount(payload.summary.inviters)} detail={inviterDetail} />
+          <StatCard label="已验证" value={formatOptionalCount(payload.summary.verifiedUsers)} detail="加载统计后计算" />
+          <StatCard label="创建工作环境" value={formatOptionalCount(payload.summary.usersWithWorkers)} detail={payload.summary.usersWithoutWorkers === null ? "加载统计后计算" : `${payload.summary.usersWithoutWorkers} 人尚未创建`} />
+          <StatCard label="工作环境" value={formatOptionalCount(payload.summary.totalWorkers)} detail="加载统计后计算" />
+          <StatCard label="计费" value={billingValue} detail={billingDetail} />
+          <StatCard label="管理员" value={String(payload.summary.adminCount)} detail="已授权的管理员账号" />
         </div>
 
         <ActivityChart series={payload.summary.activitySeries} />
@@ -2079,14 +2064,14 @@ export function DenAdminPanel() {
               onClick={() => setViewMode("users")}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${viewMode === "users" ? "bg-slate-950 text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
-              Users ({payload.summary.totalUsers})
+              员工（{payload.summary.totalUsers}）
             </button>
             <button
               type="button"
               onClick={() => setViewMode("companies")}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${viewMode === "companies" ? "bg-slate-950 text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
-              Companies (deferred)
+              公司域名（暂缓）
             </button>
             <button
               type="button"
@@ -2099,7 +2084,7 @@ export function DenAdminPanel() {
               }}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${viewMode === "organizations" ? "bg-slate-950 text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
-              Organizations ({payload.summary.totalOrganizations})
+              公司（{payload.summary.totalOrganizations}）
             </button>
           </div>
 
@@ -2109,7 +2094,7 @@ export function DenAdminPanel() {
               disabled={viewMode === "companies" || (viewMode === "organizations" ? filteredOrganizations.length === 0 : filteredUsers.length === 0)}
               className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Export current page CSV
+              导出当前页 CSV
             </button>
         </div>
 
@@ -2121,13 +2106,13 @@ export function DenAdminPanel() {
 
         {isAdminScaleFixtureEnabled() ? (
           <div data-testid="admin-scale-eval-status" className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-900">
-            Eval scale fixture active: 50,000 users · 60,000 organizations · first pages capped at 50. Browser usable {overviewUsableMs === null ? "measuring" : `${overviewUsableMs} ms`}. Real database budget command: pnpm benchmark:admin-scale:mysql (500 ms initial, 300 ms searches).
+            当前使用规模测试数据：50,000 名员工、60,000 家公司；每页最多显示 50 条。页面可用时间：{overviewUsableMs === null ? "测量中" : `${overviewUsableMs} 毫秒`}。真实数据库预算命令：pnpm benchmark:admin-scale:mysql（初始加载 500 毫秒，搜索 300 毫秒）。
           </div>
         ) : null}
 
         {(viewMode === "users" && usersLoading) || (viewMode === "organizations" && organizationsLoading) ? (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600" aria-busy="true">
-            Loading the bounded page…
+            正在加载当前页…
           </div>
         ) : null}
 
@@ -2135,7 +2120,7 @@ export function DenAdminPanel() {
           <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between" data-testid="admin-orgs-page">
             <div className="grid w-full max-w-xl gap-2">
               <label className="grid gap-2">
-                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Search organizations</span>
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">搜索公司</span>
                 <input
                   value={organizationQuery}
                   onChange={(event) => {
@@ -2146,12 +2131,12 @@ export function DenAdminPanel() {
                     setOrganizationVisibleDurationMs(null);
                     setOrganizationQuery(event.target.value);
                   }}
-                  placeholder="Org name, slug, or id"
+                  placeholder="公司名称、短名称或 ID"
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                 />
               </label>
               <p className="text-xs leading-5 text-slate-500">
-                Search across all {payload.summary.totalOrganizations} organizations · page {payload.organizationPage.offset + 1}-{payload.organizationPage.offset + payload.organizationPage.returned} of {payload.organizationPage.total} · {pageDurationLabel} {payload.organizationPage.durationMs} ms{organizationVisibleDurationMs === null ? "" : ` · browser visible ${organizationVisibleDurationMs} ms`}
+                共 {payload.summary.totalOrganizations} 家公司 · 当前页 {payload.organizationPage.offset + 1}-{payload.organizationPage.offset + payload.organizationPage.returned} / {payload.organizationPage.total} · {pageDurationLabel === "server" ? "服务端" : "测试数据"} {payload.organizationPage.durationMs} 毫秒{organizationVisibleDurationMs === null ? "" : ` · 页面耗时 ${organizationVisibleDurationMs} 毫秒`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -2163,7 +2148,7 @@ export function DenAdminPanel() {
                 disabled={organizationsLoading || payload.organizationPage.offset === 0}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Previous
+                上一页
               </button>
               <button
                 type="button"
@@ -2173,19 +2158,19 @@ export function DenAdminPanel() {
                 disabled={organizationsLoading || !payload.organizationPage.hasMore}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Next
+                下一页
               </button>
             </div>
           </div>
         ) : viewMode === "companies" ? (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
-            Company-domain grouping is intentionally deferred at scale. It previously grouped only the loaded user list, which would be misleading now. Use server-side user search (for example, @acme.com) to find matching users across all {payload.summary.totalUsers} users.
+            大规模公司域名汇总暂不开放。当前请使用服务端员工搜索（例如 @acme.com）查询全部 {payload.summary.totalUsers} 名员工。
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="grid w-full max-w-xl gap-2">
               <label className="grid gap-2">
-                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Search users</span>
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">搜索员工</span>
                 <input
                   value={userQuery}
                   onChange={(event) => {
@@ -2196,12 +2181,12 @@ export function DenAdminPanel() {
                     setUserVisibleDurationMs(null);
                     setUserQuery(event.target.value);
                   }}
-                  placeholder="Email, name, user id, provider, organization"
+                  placeholder="邮箱、姓名、员工 ID、登录方式或公司"
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                 />
               </label>
               <p className="text-xs leading-5 text-slate-500">
-                Search across all {payload.summary.totalUsers} users · page {payload.userPage.offset + 1}-{payload.userPage.offset + payload.userPage.returned} of {payload.userPage.total} · {pageDurationLabel} {payload.userPage.durationMs} ms{userVisibleDurationMs === null ? "" : ` · browser visible ${userVisibleDurationMs} ms`}
+                共 {payload.summary.totalUsers} 名员工 · 当前页 {payload.userPage.offset + 1}-{payload.userPage.offset + payload.userPage.returned} / {payload.userPage.total} · {pageDurationLabel === "server" ? "服务端" : "测试数据"} {payload.userPage.durationMs} 毫秒{userVisibleDurationMs === null ? "" : ` · 页面耗时 ${userVisibleDurationMs} 毫秒`}
               </p>
             </div>
 
@@ -2215,10 +2200,10 @@ export function DenAdminPanel() {
                   disabled={usersLoading}
                   className="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Load billing for page
+                  加载当前页计费信息
                 </button>
               ) : (
-                <p className="self-center text-sm text-slate-500">Billing loaded for this page only.</p>
+                <p className="self-center text-sm text-slate-500">仅加载当前页的计费信息。</p>
               )}
               <button
                 type="button"
@@ -2228,7 +2213,7 @@ export function DenAdminPanel() {
                 disabled={usersLoading || payload.userPage.offset === 0}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Previous
+                上一页
               </button>
               <button
                 type="button"
@@ -2238,7 +2223,7 @@ export function DenAdminPanel() {
                 disabled={usersLoading || !payload.userPage.hasMore}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Next
+                下一页
               </button>
             </div>
           </div>
@@ -2265,28 +2250,28 @@ export function DenAdminPanel() {
 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                        {org.memberCount} / {org.seatLimit} seats
+                        {org.memberCount} / {org.seatLimit} 个席位
                       </span>
                       <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                        {org.freeSeatCount} free
+                        {org.freeSeatCount} 个免费席位
                       </span>
                       <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-amber-700">
-                        {org.billableSeatCount} chargeable
+                        {org.billableSeatCount} 个计费席位
                       </span>
                     </div>
                   </div>
 
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <MetaCell label="Created" value={formatDateTime(org.createdAt)} />
-                    <MetaCell label="Plan source" value={formatProvider(org.plan.source)} />
-                    <MetaCell label="Members" value={String(org.memberCount)} />
+                    <MetaCell label="创建时间" value={formatDateTime(org.createdAt)} />
+                    <MetaCell label="方案来源" value={formatPlanSource(org.plan.source)} />
+                    <MetaCell label="成员数" value={String(org.memberCount)} />
                     <div>
-                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Free seats</p>
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">免费席位</p>
                       <div className="mt-1 flex items-center gap-2">
                         <p className="text-sm text-slate-700">{org.freeSeatCount}</p>
                         <button
                           type="button"
-                          aria-label={`Edit free seats for ${org.name}`}
+                          aria-label={`编辑 ${org.name} 的免费席位`}
                           onClick={() => setFreeSeatsDialog({ org, totalFreeSeats: String(org.freeSeatCount) })}
                           className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
                         >
@@ -2294,13 +2279,13 @@ export function DenAdminPanel() {
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-slate-400">
-                        {org.seatsFreeAdditional > 0 ? `${org.seatsFreeAdditional} additional` : "Default included"}
+                        {org.seatsFreeAdditional > 0 ? `${org.seatsFreeAdditional} 个额外席位` : "包含默认席位"}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4 border-t border-slate-200 pt-4">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Capabilities</p>
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">公司能力</p>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                       <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                         <input
@@ -2313,7 +2298,7 @@ export function DenAdminPanel() {
                           }}
                           className="h-4 w-4 rounded border-slate-300"
                         />
-                        Install links
+                        安装链接
                       </label>
                       <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                         <input
@@ -2326,21 +2311,21 @@ export function DenAdminPanel() {
                           }}
                           className="h-4 w-4 rounded border-slate-300"
                         />
-                        OpenWork Connect (alpha)
+                        员工连接入口（内测）
                       </label>
                     </div>
                     {capabilityError?.orgId === org.id ? (
                       <p data-testid="admin-capability-error" className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
-                        Save failed — the change was reverted. {capabilityError.message}
+                        保存失败，已恢复原设置。{capabilityError.message}
                       </p>
                     ) : null}
-                    <p className="mt-1 text-xs text-slate-400">On by default. Turn off to stop workspace admins from minting desktop install links for this organization.</p>
-                    <p className="mt-1 text-xs text-slate-400">On by default. Turn off to hide member-facing org connections, marketplace capabilities on the agent rail, and the desktop Connect tab.</p>
+                    <p className="mt-1 text-xs text-slate-400">默认开启。关闭后，工作区管理员不能为这家公司生成桌面安装链接。</p>
+                    <p className="mt-1 text-xs text-slate-400">默认开启。关闭后，员工看不到公司连接、能力市场和桌面连接入口。</p>
                   </div>
 
                   <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 lg:grid-cols-[12rem_10rem_auto] lg:items-end">
                     <label className="grid gap-2">
-                      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Plan</span>
+                      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">方案</span>
                       <select
                         value={draft.tier}
                         onChange={(event) => {
@@ -2349,14 +2334,14 @@ export function DenAdminPanel() {
                         }}
                         className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                       >
-                        <option value="free">Free</option>
-                        <option value="team">Team</option>
-                        <option value="enterprise">Enterprise</option>
+                        <option value="free">基础</option>
+                        <option value="team">团队</option>
+                        <option value="enterprise">企业</option>
                       </select>
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Seats</span>
+                      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">席位数</span>
                       <input
                         type="number"
                         min={1}
@@ -2374,7 +2359,7 @@ export function DenAdminPanel() {
                       disabled={!changed || savingOrgId === org.id}
                       className="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {savingOrgId === org.id ? "Saving..." : "Save access"}
+                      {savingOrgId === org.id ? "正在保存…" : "保存方案"}
                     </button>
                   </div>
                 </div>
@@ -2383,14 +2368,14 @@ export function DenAdminPanel() {
               </>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-                <p className="text-base font-semibold text-slate-950">No organizations match</p>
-                <p className="mt-2 text-sm leading-7 text-slate-500">Try a different search.</p>
+                <p className="text-base font-semibold text-slate-950">没有找到符合条件的公司</p>
+                <p className="mt-2 text-sm leading-7 text-slate-500">请换一个搜索条件。</p>
               </div>
             )
           ) : viewMode === "companies" ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-              <p className="text-base font-semibold text-slate-950">Company rollups are deferred at scale</p>
-              <p className="mt-2 text-sm leading-7 text-slate-500">This view no longer groups a partial user page. Search Users by domain to query the full user table server-side.</p>
+              <p className="text-base font-semibold text-slate-950">大规模公司汇总暂缓</p>
+              <p className="mt-2 text-sm leading-7 text-slate-500">当前页面不再根据部分员工列表汇总公司。请按公司域名搜索员工。</p>
             </div>
           ) : filteredUsers.length > 0 ? filteredUsers.map((user) => {
             const isSelected = user.id === selectedUser?.id;
@@ -2408,12 +2393,12 @@ export function DenAdminPanel() {
                         <p className="truncate text-base font-semibold text-slate-950">{user.name?.trim() || user.email}</p>
                         {user.emailVerified ? (
                           <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                            Verified
+                            已验证
                           </span>
                         ) : null}
                         {user.isRecurring ? (
                           <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-sky-700">
-                            Recurring
+                            重复使用
                           </span>
                         ) : null}
                       </div>
@@ -2423,41 +2408,41 @@ export function DenAdminPanel() {
                     <div className="flex flex-wrap items-center gap-2">
                       <BillingPill billing={user.billing} />
                       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                        {user.workerCount} workers
+                        {user.workerCount} 个工作环境
                       </span>
                       <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-violet-700">
-                        {user.organizations.length} {user.organizations.length === 1 ? "org" : "orgs"}
+                        {user.organizations.length} 家公司
                       </span>
                     </div>
                   </div>
 
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                    <MetaCell label="Signed up" value={formatDateTime(user.createdAt)} />
-                    <MetaCell label="Last active" value={formatRelativeTime(user.lastActiveAt)} />
-                    <MetaCell label="Sign-ins" value={String(user.sessionCount)} />
-                    <MetaCell label="Active days" value={String(user.activeDayCount)} />
-                    <MetaCell label="Invites" value={user.invitesSent > 0 ? `${user.invitesSent} · first after ${formatHours(user.hoursToFirstInvite)}` : "None"} />
-                    <MetaCell label="Workers" value={`${user.cloudWorkerCount} cloud / ${user.localWorkerCount} local`} />
+                    <MetaCell label="注册时间" value={formatDateTime(user.createdAt)} />
+                    <MetaCell label="最近活动" value={formatRelativeTime(user.lastActiveAt)} />
+                    <MetaCell label="登录次数" value={String(user.sessionCount)} />
+                    <MetaCell label="活跃天数" value={String(user.activeDayCount)} />
+                    <MetaCell label="发出邀请" value={user.invitesSent > 0 ? `${user.invitesSent} · 首次邀请 ${formatHours(user.hoursToFirstInvite)} 后` : "无"} />
+                    <MetaCell label="工作环境" value={`${user.cloudWorkerCount} 个远程 / ${user.localWorkerCount} 个本地`} />
                   </div>
                 </button>
 
                 {isSelected ? (
                   <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 lg:grid-cols-2">
                     <div className="grid gap-4">
-                      <MetaCell label="Auth providers" value={user.authProviders.length > 0 ? user.authProviders.map(formatProvider).join(", ") : "No provider records"} />
-                      <MetaCell label="Latest worker" value={user.latestWorkerCreatedAt ? `${formatRelativeTime(user.latestWorkerCreatedAt)} · ${formatDateTime(user.latestWorkerCreatedAt)}` : "No workers created"} />
+                      <MetaCell label="登录方式" value={user.authProviders.length > 0 ? user.authProviders.map(formatAuthProvider).join("、") : "没有登录记录"} />
+                      <MetaCell label="最近创建的工作环境" value={user.latestWorkerCreatedAt ? `${formatRelativeTime(user.latestWorkerCreatedAt)} · ${formatDateTime(user.latestWorkerCreatedAt)}` : "尚未创建工作环境"} />
                     </div>
 
                     <div className="grid gap-4">
                       {user.billing ? (
                         <>
-                          <MetaCell label="Subscription" value={formatSubscriptionStatus(user.billing.subscriptionStatus)} />
-                          <MetaCell label="Billing note" value={user.billing.note ?? "No billing note returned."} />
+                          <MetaCell label="订阅状态" value={formatSubscriptionStatus(user.billing.subscriptionStatus)} />
+                          <MetaCell label="计费备注" value={user.billing.note ?? "没有计费备注。"} />
                         </>
                       ) : (
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                           <p className="text-sm leading-7 text-slate-600">
-                            Billing is intentionally loaded on demand to keep the admin page fast.
+                            计费信息按需加载，避免影响管理页面速度。
                           </p>
                           <button
                             type="button"
@@ -2468,7 +2453,7 @@ export function DenAdminPanel() {
                             disabled={usersLoading}
                             className="mt-3 inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Load billing for page
+                            加载当前页计费信息
                           </button>
                         </div>
                       )}
@@ -2477,16 +2462,16 @@ export function DenAdminPanel() {
                     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 lg:col-span-2">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Organizations</p>
+                          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">所属公司</p>
                           <p className="mt-1 text-sm text-slate-600">
                             {user.organizations.length > 0
-                              ? `${user.email} is a member of ${user.organizations.length} organization${user.organizations.length === 1 ? "" : "s"}.`
-                              : `${user.email} is not an active member of any organization.`}
+                              ? `${user.email} 是 ${user.organizations.length} 家公司的成员。`
+                              : `${user.email} 目前不属于任何公司。`}
                           </p>
                         </div>
                         {user.organizations.length > 0 ? (
                           <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-violet-700">
-                            {user.organizations.length} total
+                            共 {user.organizations.length} 家
                           </span>
                         ) : null}
                       </div>
@@ -2494,8 +2479,8 @@ export function DenAdminPanel() {
                       <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <p className="text-sm font-semibold text-red-950">Delete user</p>
-                            <p className="mt-1 text-sm leading-6 text-red-700">Removes this user account, active sessions, auth records, and org memberships.</p>
+                            <p className="text-sm font-semibold text-red-950">删除员工</p>
+                            <p className="mt-1 text-sm leading-6 text-red-700">删除账号、活动会话、登录记录和公司成员关系。</p>
                           </div>
                           <button
                             type="button"
@@ -2504,7 +2489,7 @@ export function DenAdminPanel() {
                             className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Trash2 size={15} aria-hidden="true" />
-                            {deletingUserId === user.id ? "Deleting..." : "Delete user"}
+                            {deletingUserId === user.id ? "正在删除…" : "删除员工"}
                           </button>
                         </div>
                       </div>
@@ -2521,10 +2506,10 @@ export function DenAdminPanel() {
 
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                    {formatProvider(org.role)}
+                                    {formatOrganizationRole(org.role)}
                                   </span>
                                   <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                    {org.memberCount} {org.memberCount === 1 ? "member" : "members"}
+                                    {org.memberCount} 名成员
                                   </span>
                                   <button
                                     type="button"
@@ -2534,7 +2519,7 @@ export function DenAdminPanel() {
                                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300"
                                   >
                                     <Copy size={13} aria-hidden="true" />
-                                    {copiedOrgId === org.id ? "Copied" : "Copy ID"}
+                                    {copiedOrgId === org.id ? "已复制" : "复制 ID"}
                                   </button>
                                   <button
                                     type="button"
@@ -2549,7 +2534,7 @@ export function DenAdminPanel() {
                                     }}
                                     className="inline-flex items-center justify-center rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white"
                                   >
-                                    View org
+                                    查看公司
                                   </button>
                                 </div>
                               </div>
@@ -2564,13 +2549,13 @@ export function DenAdminPanel() {
             );
           }) : (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-              <p className="text-base font-semibold text-slate-950">No users match the current filters</p>
-              <p className="mt-2 text-sm leading-7 text-slate-500">Try broadening search or relaxing the worker and billing filters.</p>
+              <p className="text-base font-semibold text-slate-950">没有符合当前条件的员工</p>
+              <p className="mt-2 text-sm leading-7 text-slate-500">请扩大搜索范围，或放宽工作环境和计费条件。</p>
             </div>
           )}
         </div>
 
-        <p className="mt-6 text-xs leading-6 text-slate-500">Snapshot generated {formatDateTime(payload.generatedAt)}.</p>
+        <p className="mt-6 text-xs leading-6 text-slate-500">快照生成时间：{formatDateTime(payload.generatedAt)}。</p>
       </div>
 
       {freeSeatsDialog ? (
@@ -2582,16 +2567,16 @@ export function DenAdminPanel() {
           onClick={() => setFreeSeatsDialog(null)}
         >
           <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Organization billing</p>
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500">公司计费</p>
             <h2 id="free-seats-dialog-title" className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
-              Edit free seats
+              编辑免费席位
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Set the total number of free seats for {freeSeatsDialog.org.name}. The default {DEFAULT_FREE_SEAT_COUNT} seats stay included; OpenWork saves only the additional seats in organization metadata.
+              设置 {freeSeatsDialog.org.name} 的免费席位总数。默认包含 {DEFAULT_FREE_SEAT_COUNT} 个席位，额外数量会保存到公司设置中。
             </p>
 
             <label className="mt-5 grid gap-2">
-              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Total free seats</span>
+              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">免费席位总数</span>
               <input
                 type="number"
                 min={DEFAULT_FREE_SEAT_COUNT}
@@ -2602,7 +2587,7 @@ export function DenAdminPanel() {
             </label>
 
             <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
-              Additional metadata value to save: {Math.max(0, Number(freeSeatsDialog.totalFreeSeats) - DEFAULT_FREE_SEAT_COUNT) || 0}
+              将保存的额外席位数：{Math.max(0, Number(freeSeatsDialog.totalFreeSeats) - DEFAULT_FREE_SEAT_COUNT) || 0}
             </p>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
@@ -2611,7 +2596,7 @@ export function DenAdminPanel() {
                 onClick={() => setFreeSeatsDialog(null)}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
               >
-                Cancel
+                取消
               </button>
               <button
                 type="button"
@@ -2621,7 +2606,7 @@ export function DenAdminPanel() {
                 disabled={savingFreeSeatsOrgId === freeSeatsDialog.org.id}
                 className="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {savingFreeSeatsOrgId === freeSeatsDialog.org.id ? "Saving..." : "Save"}
+                {savingFreeSeatsOrgId === freeSeatsDialog.org.id ? "正在保存…" : "保存"}
               </button>
             </div>
           </div>
@@ -2637,12 +2622,12 @@ export function DenAdminPanel() {
           onClick={() => setDeleteUserDialog(null)}
         >
           <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-red-500">Danger zone</p>
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-red-500">危险操作</p>
             <h2 id="delete-user-dialog-title" className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
-              Delete {deleteUserDialog.email}?
+              删除 {deleteUserDialog.email}？
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              This permanently removes the user account and revokes their sessions. Organization memberships are marked removed.
+              这会永久删除员工账号并撤销其会话，公司成员关系也会被移除。
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button
@@ -2651,7 +2636,7 @@ export function DenAdminPanel() {
                 disabled={deletingUserId === deleteUserDialog.id}
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Cancel
+                取消
               </button>
               <button
                 type="button"
@@ -2661,7 +2646,7 @@ export function DenAdminPanel() {
                 disabled={deletingUserId === deleteUserDialog.id}
                 className="inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {deletingUserId === deleteUserDialog.id ? "Deleting..." : "Delete user"}
+                {deletingUserId === deleteUserDialog.id ? "正在删除…" : "删除员工"}
               </button>
             </div>
           </div>

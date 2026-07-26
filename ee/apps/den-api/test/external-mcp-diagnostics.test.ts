@@ -1127,8 +1127,10 @@ describe("external MCP diagnostics", () => {
       referenceId: error.diagnostic.referenceId,
     })
 
-    expect(html).toContain("Diagnostic reference: <code>req_callback</code>")
+    expect(html).toContain("诊断编号：<code>req_callback</code>")
     expect(html).toContain("Enterprise MCP &lt;test&gt;")
+    expect(html).toContain("无法完成连接，请重试或联系管理员。")
+    expect(html).not.toContain(error.diagnostic.message)
     expect(html).not.toContain("client_secret")
     expect(html).not.toContain("access_token")
     expect(html).not.toContain("Bearer hidden")
@@ -1137,12 +1139,15 @@ describe("external MCP diagnostics", () => {
   test("successful callbacks stay in the browser without opening the desktop app", () => {
     const html = connectCallbackPage({ ok: true, name: "Enterprise MCP <test>" })
 
-    expect(html).toContain("You're connected")
-    expect(html).toContain("Enterprise MCP &lt;test&gt; is connected to OpenWork.")
+    expect(html).toContain("连接成功")
+    expect(html).toContain("Enterprise MCP &lt;test&gt; 已连接到 FoxWork。")
+    expect(html).toContain('<html lang="zh-CN">')
+    expect(html).toContain("<title>连接成功 — FoxWork</title>")
+    expect(html).toContain("关闭窗口")
     expect(html).toContain("window.close()")
-    expect(html).toContain("Close window")
+    expect(html).not.toContain("Close window")
     expect(html).not.toContain("openwork://")
-    expect(html).not.toContain("Open OpenWork")
+    expect(html).not.toContain("OpenWork")
   })
 
   test("exhausts paginated tool catalogs exactly once", async () => {

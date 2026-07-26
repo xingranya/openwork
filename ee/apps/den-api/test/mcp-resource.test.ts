@@ -95,4 +95,20 @@ describe("deriveFirstPartyMcpTokenResourceFromRequest", () => {
       "x-forwarded-proto": "https",
     })).toBe(DIRECT_API_MCP_RESOURCE)
   })
+
+  test("never mints the unspecified 0.0.0.0 listener address", () => {
+    expect(deriveFirstPartyMcpTokenResourceFromRequest(
+      new Request("http://den-api.internal/v1/mcp/token", {
+        headers: {
+          "x-forwarded-host": "0.0.0.0",
+          "x-forwarded-prefix": "/api/den",
+          "x-forwarded-proto": "http",
+        },
+      }),
+      {
+        fallback: "http://localhost:8790/mcp",
+        trustedOrigins: ["http://0.0.0.0:3005"],
+      },
+    )).toBe("http://localhost:8790/mcp")
+  })
 })

@@ -46,14 +46,14 @@ afterEach(() => {
 });
 
 describe("single-org public signup UI policy", () => {
-  test("runtime config exposes private public-signup default for single-org deployments", async () => {
+  test("单公司默认允许普通员工自助注册", async () => {
     delete process.env.DEN_API_BASE;
     process.env.DEN_ORG_MODE = "single_org";
     delete process.env.DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP;
 
     const payload: unknown = await (await GET()).json();
 
-    expect(readBooleanProperty(payload, "singleOrgAllowPublicSignup")).toBe(false);
+    expect(readBooleanProperty(payload, "singleOrgAllowPublicSignup")).toBe(true);
     expect(readBooleanProperty(payload, "emailRecoveryEnabled")).toBe(false);
   });
 

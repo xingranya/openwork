@@ -14,10 +14,11 @@ import { runEgressDiagnostic } from "../src/egress-diagnostics"
 const origin = "https://diagnostic.openwork.test"
 const denApiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
-function expectConfiguredOrigin(expectedOrigin: string, configuredOrigin?: string): void {
+function expectConfiguredOrigin(expectedOrigin: string | null, configuredOrigin?: string): void {
   const result = spawnSync(process.execPath, ["--conditions", "development", "--eval", `
     const { env } = await import("./src/env.ts")
-    if (env.diagnostics.origin !== process.env.TEST_EXPECTED_ORIGIN) {
+    const expectedOrigin = process.env.TEST_EXPECTED_ORIGIN === "__none__" ? null : process.env.TEST_EXPECTED_ORIGIN
+    if (env.diagnostics.origin !== expectedOrigin) {
       throw new Error(\`Expected diagnostics origin \${process.env.TEST_EXPECTED_ORIGIN}, got \${env.diagnostics.origin}\`)
     }
   `], {
@@ -34,7 +35,7 @@ function expectConfiguredOrigin(expectedOrigin: string, configuredOrigin?: strin
       BETTER_AUTH_URL: "https://den.openwork.test",
       OPENWORK_DEV_MODE: "0",
       PROVISIONER_MODE: "stub",
-      TEST_EXPECTED_ORIGIN: expectedOrigin,
+      TEST_EXPECTED_ORIGIN: expectedOrigin ?? "__none__",
       ...(configuredOrigin ? { DEN_DIAGNOSTICS_ORIGIN: configuredOrigin } : {}),
     },
   })
@@ -92,8 +93,8 @@ function healthyDiagnosticFetch(seen: Request[]): typeof fetch {
 }
 
 describe("Den private-cloud egress diagnostic", () => {
-  test("defaults to the OpenWork Labs diagnostic host and accepts an operator override", () => {
-    expectConfiguredOrigin("https://diagnostic.openworklabs.com")
+  test("未配置时关闭诊断目标，并接受公司运维显式配置", () => {
+    expectConfiguredOrigin(null)
     expectConfiguredOrigin("https://diagnostic.customer.example", "https://diagnostic.customer.example/")
   })
 

@@ -27,13 +27,16 @@ describe("safeMcpAuthorizationUrl", () => {
 })
 
 describe("mcpAuthorizationPendingDocument", () => {
-  test("renders a concise accessible connection screen before provider redirect", () => {
+  test("服务跳转前显示简洁且可访问的中文连接页", () => {
     const document = mcpAuthorizationPendingDocument()
 
-    expect(document).toContain("Preparing your connection")
-    expect(document).toContain("securely checking the provider")
-    expect(document).toContain("Keep this window open")
-    expect(document).toContain("OpenWork Connect")
+    expect(document).toContain('<html lang="zh-CN">')
+    expect(document).toContain("正在准备连接")
+    expect(document).toContain("正在安全检查服务")
+    expect(document).toContain("请保持此窗口打开")
+    expect(document).toContain("FoxWork 公司连接")
+    expect(document).not.toContain("OpenWork Connect")
+    expect(document).not.toContain("Preparing your connection")
     expect(document).toContain('role="status"')
     expect(document).toContain('aria-live="polite"')
     expect(document).toContain("prefers-reduced-motion: reduce")
@@ -41,7 +44,7 @@ describe("mcpAuthorizationPendingDocument", () => {
 })
 
 describe("mcpAuthorizationErrorDocument", () => {
-  test("keeps OAuth failures visible with the exact redirect URI", () => {
+  test("OAuth 失败时显示中文提示并保留准确的重定向地址", () => {
     const document = mcpAuthorizationErrorDocument({
       message: "A pre-registered OAuth client is required.",
       details: {
@@ -56,16 +59,20 @@ describe("mcpAuthorizationErrorDocument", () => {
       },
     })
 
-    expect(document).toContain("Connection failed")
-    expect(document).toContain("A pre-registered OAuth client is required.")
-    expect(document).toContain("Technical details")
-    expect(document).toContain("Redirect URI")
+    expect(document).toContain('<html lang="zh-CN">')
+    expect(document).toContain("连接失败")
+    expect(document).toContain("无法连接 MCP 账号，请重试。")
+    expect(document).not.toContain("A pre-registered OAuth client is required.")
+    expect(document).toContain("技术详情")
+    expect(document).toContain("重定向地址")
     expect(document).toContain("https://api.openwork.example/v1/mcp-connections/oauth/callback")
-    expect(document).toContain("HTTP status")
+    expect(document).toContain("HTTP 状态")
     expect(document).toContain("409")
-    expect(document).toContain("Error code")
+    expect(document).toContain("错误代码")
     expect(document).toContain("mcp_oauth_configuration_required")
-    expect(document).toContain("Response payload")
+    expect(document).toContain("返回数据")
+    expect(document).not.toContain("Connection failed")
+    expect(document).not.toContain("Technical details")
     expect(document).toContain("<details>")
     expect(document).not.toContain("<details open")
     expect(document).toContain('role="alert"')
@@ -83,7 +90,8 @@ describe("mcpAuthorizationErrorDocument", () => {
     })
 
     expect(document).not.toContain("<script>alert")
-    expect(document).toContain("&lt;script&gt;alert(&quot;message&quot;)&lt;/script&gt;")
+    expect(document).not.toContain("alert(&quot;message&quot;)")
+    expect(document).toContain("无法连接 MCP 账号，请重试。")
     expect(document).toContain("next=&lt;script&gt;alert(&quot;uri&quot;)&lt;/script&gt;")
     expect(document).toContain("&lt;script&gt;alert(&quot;response&quot;)&lt;/script&gt;")
   })

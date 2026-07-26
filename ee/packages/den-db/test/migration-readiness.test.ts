@@ -54,6 +54,16 @@ describe("Den DB migration readiness wiring", () => {
     assert.ok(denDbBuildIndex < denApiBuildIndex, "den-db dist assets are built before den-api")
   })
 
+  test("Den API version changes do not invalidate dependency installation layers", () => {
+    const dockerfile = readRepoFile("packaging/docker/Dockerfile.den")
+    const dependencyInstallIndex = dockerfile.indexOf("RUN pnpm install --frozen-lockfile")
+    const versionArgumentIndex = dockerfile.indexOf("ARG DEN_API_VERSION=dev")
+    const denApiBuildIndex = dockerfile.indexOf("pnpm --dir /app/ee/apps/den-api run build")
+
+    assert.ok(dependencyInstallIndex < versionArgumentIndex, "版本号必须位于依赖安装层之后")
+    assert.ok(versionArgumentIndex < denApiBuildIndex, "版本号必须在 Den API 编译前注入")
+  })
+
   test("hosted Den API build includes den-db assets but start does not run migrations", () => {
     const denApiPackage = readRepoFile("ee/apps/den-api/package.json")
     const denApiBuild = readRepoFile("ee/apps/den-api/scripts/build.mjs")

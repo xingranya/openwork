@@ -1,43 +1,16 @@
 import { createHash } from "node:crypto"
-import { eq } from "@openwork-ee/den-db/drizzle"
-import { RateLimitTable } from "@openwork-ee/den-db/schema"
-import { createDenTypeId } from "@openwork-ee/utils/typeid"
-import { db } from "./db.js"
 import { env } from "./env.js"
 
-export const EMAIL_PASSWORD_SIGN_IN_PATH = "/api/auth/sign-in/email"
 export const EMAIL_PASSWORD_SIGN_UP_PATH = "/api/auth/sign-up/email"
 export const CHANGE_PASSWORD_PATH = "/api/auth/change-password"
 export const RESET_PASSWORD_PATH = "/api/auth/reset-password"
 export const MIN_PASSWORD_LENGTH = 8
-export const LOGIN_LOCKOUT_FAILURE_THRESHOLD = 5
-export const LOGIN_LOCKOUT_FAILURE_WINDOW_MS = 60 * 60 * 1000
-export const LOGIN_LOCKOUT_BASE_MS = 5 * 60 * 1000
-export const LOGIN_LOCKOUT_MAX_MS = 60 * 60 * 1000
-
-type LoginAttempt = {
-  email: string
-}
-
-type LoginFailureState = {
-  count: number
-  lastRequest: number
-}
-
-type LockoutStatus = {
-  locked: boolean
-  retryAfterSeconds: number
-}
 
 type PwnedPasswordsFetch = (input: string, init?: RequestInit) => Promise<Response>
 
 function normalizedPath(request: Request) {
   const path = new URL(request.url).pathname
   return path !== "/" ? path.replace(/\/+$/, "") : path
-}
-
-function normalizeEmail(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim().toLowerCase() : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,122 +40,8 @@ function jsonError(status: number, body: { error: string; message: string }, hea
   })
 }
 
-function lockoutKey(email: string) {
-  const digest = createHash("sha256").update(email).digest("base64url")
-  return `auth:email-password-lockout:${digest}`
-}
-
 function hashPasswordForRangeLookup(password: string) {
   return createHash("sha1").update(password).digest("hex").toUpperCase()
-}
-
-export function getLoginLockoutDurationMs(failureCount: number) {
-  if (failureCount < LOGIN_LOCKOUT_FAILURE_THRESHOLD) {
-    return 0
-  }
-
-  const exponent = Math.min(failureCount - LOGIN_LOCKOUT_FAILURE_THRESHOLD, 4)
-  return Math.min(LOGIN_LOCKOUT_BASE_MS * (2 ** exponent), LOGIN_LOCKOUT_MAX_MS)
-}
-
-export function getLoginLockoutStatus(state: LoginFailureState | null, now = Date.now()): LockoutStatus {
-  if (!state || now - state.lastRequest > LOGIN_LOCKOUT_FAILURE_WINDOW_MS) {
-    return { locked: false, retryAfterSeconds: 0 }
-  }
-
-  const durationMs = getLoginLockoutDurationMs(state.count)
-  const retryAfterMs = state.lastRequest + durationMs - now
-  if (retryAfterMs <= 0) {
-    return { locked: false, retryAfterSeconds: 0 }
-  }
-
-  return {
-    locked: true,
-    retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
-  }
-}
-
-export async function readEmailPasswordSignInAttempt(request: Request): Promise<LoginAttempt | null> {
-  if (request.method !== "POST" || normalizedPath(request) !== EMAIL_PASSWORD_SIGN_IN_PATH) {
-    return null
-  }
-
-  const body = await readJsonObject(request)
-  const email = normalizeEmail(body?.email)
-  return email ? { email } : null
-}
-
-async function readLoginFailureState(email: string): Promise<LoginFailureState | null> {
-  const [row] = await db
-    .select({
-      count: RateLimitTable.count,
-      lastRequest: RateLimitTable.lastRequest,
-    })
-    .from(RateLimitTable)
-    .where(eq(RateLimitTable.key, lockoutKey(email)))
-    .limit(1)
-
-  return row ?? null
-}
-
-export async function getEmailPasswordLockoutResponse(attempt: LoginAttempt, now = Date.now()) {
-  const status = getLoginLockoutStatus(await readLoginFailureState(attempt.email), now)
-  if (!status.locked) {
-    return null
-  }
-
-  return jsonError(429, {
-    error: "login_locked",
-    message: "Too many failed sign-in attempts. Try again later.",
-  }, {
-    "retry-after": String(status.retryAfterSeconds),
-  })
-}
-
-export async function recordEmailPasswordSignInFailure(attempt: LoginAttempt, now = Date.now()) {
-  const key = lockoutKey(attempt.email)
-  const [row] = await db
-    .select({
-      id: RateLimitTable.id,
-      count: RateLimitTable.count,
-      lastRequest: RateLimitTable.lastRequest,
-    })
-    .from(RateLimitTable)
-    .where(eq(RateLimitTable.key, key))
-    .limit(1)
-
-  if (!row) {
-    await db.insert(RateLimitTable).values({
-      id: createDenTypeId("rateLimit"),
-      key,
-      count: 1,
-      lastRequest: now,
-    })
-    return
-  }
-
-  const nextCount = now - row.lastRequest > LOGIN_LOCKOUT_FAILURE_WINDOW_MS ? 1 : row.count + 1
-  await db
-    .update(RateLimitTable)
-    .set({ count: nextCount, lastRequest: now })
-    .where(eq(RateLimitTable.id, row.id))
-}
-
-export async function clearEmailPasswordSignInFailures(attempt: LoginAttempt) {
-  await db
-    .delete(RateLimitTable)
-    .where(eq(RateLimitTable.key, lockoutKey(attempt.email)))
-}
-
-export async function recordEmailPasswordSignInResult(attempt: LoginAttempt, response: Response, now = Date.now()) {
-  if (response.status === 401) {
-    await recordEmailPasswordSignInFailure(attempt, now)
-    return
-  }
-
-  if (response.status >= 200 && response.status < 400) {
-    await clearEmailPasswordSignInFailures(attempt)
-  }
 }
 
 export async function readPasswordForBreachCheck(request: Request) {
@@ -249,7 +108,7 @@ export async function getBreachedPasswordResponse(
   } catch {
     return jsonError(503, {
       error: "password_screening_unavailable",
-      message: "Something went wrong. Please try again in a moment.",
+      message: "暂时无法检查密码安全性，请稍后重试。",
     })
   }
 
@@ -259,7 +118,7 @@ export async function getBreachedPasswordResponse(
 
   return jsonError(400, {
     error: "password_compromised",
-    message: "This password appeared in a data breach. Choose a different one.",
+    message: "此密码曾出现在数据泄露记录中，请更换密码。",
   })
 }
 
@@ -271,6 +130,6 @@ export async function getShortPasswordResponse(request: Request) {
 
   return jsonError(400, {
     error: "password_too_short",
-    message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    message: `密码至少需要 ${MIN_PASSWORD_LENGTH} 个字符。`,
   })
 }

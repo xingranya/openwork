@@ -205,6 +205,16 @@ describe("Den upstream proxy", () => {
     expect(observed.forwarded).toBeNull();
   });
 
+  test("normalizes a wildcard listener host before forwarding it", async () => {
+    const { proxyUpstream } = await import("./upstream-proxy.ts");
+    const request = new NextRequest("http://0.0.0.0/api/den/v1/me");
+
+    await proxyUpstream(request, [], { routePrefix: "/api/den" });
+
+    expect(observed.forwardedHost).toBe("localhost");
+    expect(observed.forwardedProto).toBe("http");
+  });
+
   test("injects the active W3C trace context into upstream requests", async () => {
     const { proxyUpstream } = await import("./upstream-proxy.ts");
     const request = new NextRequest("https://app.example.com/api/den/v1/me");

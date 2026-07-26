@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const APP_ROOT = fileURLToPath(new URL("../app", import.meta.url));
+const COMPONENTS_ROOT = fileURLToPath(new URL("../components", import.meta.url));
+const ADMIN_PANEL_SOURCE = readFileSync(path.join(COMPONENTS_ROOT, "den-admin-panel.tsx"), "utf8");
+const DEN_FLOW_SOURCE = readFileSync(path.join(APP_ROOT, "(den)/_lib/den-flow.ts"), "utf8");
 const VISIBLE_ATTRIBUTES = new Set([
   "alt",
   "aria-label",
@@ -69,6 +72,7 @@ function sourceFiles(directory: string): string[] {
 
 function isVisibleEnglish(text: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
+  if (/\bOpen(?:Work|Code)\b|Big Pickle/.test(normalized)) return true;
   if (!/[A-Za-z]{2}/.test(normalized) || /[\u3400-\u9fff]/.test(normalized)) return false;
   if (TECHNICAL_LABELS.has(normalized)) return false;
   if (/^(?:https?:\/\/|\.?\.?\/|~\/|[A-Za-z]:\\|\.)/.test(normalized)) return false;
@@ -77,11 +81,21 @@ function isVisibleEnglish(text: string) {
   return true;
 }
 
-function renderedStringLiterals(node: ts.Expression): ts.StringLiteralLike[] {
-  const values: ts.StringLiteralLike[] = [];
+type RenderedText = {
+  node: ts.Node;
+  text: string;
+};
+
+function renderedTexts(node: ts.Expression): RenderedText[] {
+  const values: RenderedText[] = [];
   function visit(expression: ts.Expression) {
     if (ts.isStringLiteralLike(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) {
-      values.push(expression);
+      values.push({ node: expression, text: expression.text });
+    } else if (ts.isTemplateExpression(expression)) {
+      values.push({ node: expression.head, text: expression.head.text });
+      for (const span of expression.templateSpans) {
+        values.push({ node: span.literal, text: span.literal.text });
+      }
     } else if (ts.isConditionalExpression(expression)) {
       visit(expression.whenTrue);
       visit(expression.whenFalse);
@@ -89,9 +103,17 @@ function renderedStringLiterals(node: ts.Expression): ts.StringLiteralLike[] {
       visit(expression.expression);
     } else if (ts.isAsExpression(expression) || ts.isTypeAssertionExpression(expression)) {
       visit(expression.expression);
-    } else if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-      visit(expression.left);
-      visit(expression.right);
+    } else if (ts.isBinaryExpression(expression)) {
+      const visibleOperators = new Set([
+        ts.SyntaxKind.AmpersandAmpersandToken,
+        ts.SyntaxKind.BarBarToken,
+        ts.SyntaxKind.PlusToken,
+        ts.SyntaxKind.QuestionQuestionToken,
+      ]);
+      if (visibleOperators.has(expression.operatorToken.kind)) {
+        visit(expression.left);
+        visit(expression.right);
+      }
     }
   }
   visit(node);
@@ -141,20 +163,20 @@ function scanFile(file: string): Violation[] {
         if (ts.isStringLiteral(node.initializer)) {
           record(node.initializer, `属性 ${name}`, node.initializer.text);
         } else if (ts.isJsxExpression(node.initializer) && node.initializer.expression) {
-          for (const literal of renderedStringLiterals(node.initializer.expression)) {
-            record(literal, `属性 ${name}`, literal.text);
+          for (const rendered of renderedTexts(node.initializer.expression)) {
+            record(rendered.node, `属性 ${name}`, rendered.text);
           }
         }
       }
     } else if (ts.isJsxExpression(node) && !ts.isJsxAttribute(node.parent) && node.expression) {
-      for (const literal of renderedStringLiterals(node.expression)) {
-        record(literal, "JSX 表达式", literal.text);
+      for (const rendered of renderedTexts(node.expression)) {
+        record(rendered.node, "JSX 表达式", rendered.text);
       }
     } else if (ts.isPropertyAssignment(node)) {
       const name = propertyName(node.name);
       if (name && VISIBLE_ATTRIBUTES.has(name)) {
-        for (const literal of renderedStringLiterals(node.initializer)) {
-          record(literal, `字段 ${name}`, literal.text);
+        for (const rendered of renderedTexts(node.initializer)) {
+          record(rendered.node, `字段 ${name}`, rendered.text);
         }
       }
     } else if (ts.isCallExpression(node)) {
@@ -166,8 +188,8 @@ function scanFile(file: string): Violation[] {
       if (isVisibleCall) {
         const firstArgument = node.arguments[0];
         if (firstArgument) {
-          for (const literal of renderedStringLiterals(firstArgument)) {
-            record(literal, `调用 ${name}`, literal.text);
+          for (const rendered of renderedTexts(firstArgument)) {
+            record(rendered.node, `调用 ${name}`, rendered.text);
           }
         }
       }
@@ -181,10 +203,26 @@ function scanFile(file: string): Violation[] {
 
 describe("Den 简体中文界面契约", () => {
   test("员工页面和管理员后台不直接显示英文句子", () => {
-    const violations = sourceFiles(APP_ROOT).flatMap(scanFile);
+    const violations = [APP_ROOT, COMPONENTS_ROOT].flatMap((root) => sourceFiles(root).flatMap(scanFile));
     const sample = violations.slice(0, 60).map(
       (item) => `${item.file}:${item.line} [${item.kind}] ${item.text}`,
     );
     expect(sample, `发现 ${violations.length} 处英文界面文案`).toEqual([]);
+  });
+
+  test("管理员图表提示和 CSV 导出字段使用中文", () => {
+    expect(ADMIN_PANEL_SOURCE).toContain("人运行过任务，新增");
+    expect(ADMIN_PANEL_SOURCE).not.toContain("ran a task");
+    expect(ADMIN_PANEL_SOURCE).toContain('["公司 ID", "公司名称", "公司标识", "方案", "方案来源"');
+    expect(ADMIN_PANEL_SOURCE).toContain('["邮箱", "姓名", "邮箱域名", "已验证", "注册时间"');
+    expect(ADMIN_PANEL_SOURCE).not.toContain('user.emailVerified ? "yes" : "no"');
+    expect(ADMIN_PANEL_SOURCE).not.toContain('user.isRecurring ? "yes" : "no"');
+  });
+
+  test("运行服务名称不暴露上游品牌", () => {
+    expect(DEN_FLOW_SOURCE).toContain('return "FoxWork 本地服务"');
+    expect(DEN_FLOW_SOURCE).toContain('return "AI 运行引擎"');
+    expect(DEN_FLOW_SOURCE).not.toContain('return "OpenWork server"');
+    expect(DEN_FLOW_SOURCE).not.toContain('return "OpenCode"');
   });
 });

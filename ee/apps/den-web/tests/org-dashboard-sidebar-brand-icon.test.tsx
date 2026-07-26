@@ -35,7 +35,7 @@ describe("Den dashboard sidebar brand icon", () => {
     );
 
     expect(markup).toContain(`src="${managedIconUrl}"`);
-    expect(markup).toContain('alt="Acme工作区图标"');
+    expect(markup).toContain('alt="Acme公司图标"');
     expect(markup).toContain('data-sidebar-brand-icon="loading"');
     expect(markup).toContain("object-contain");
     expect(markup).toContain("opacity-0");

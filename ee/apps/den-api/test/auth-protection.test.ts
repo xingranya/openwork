@@ -14,50 +14,6 @@ beforeAll(async () => {
   authProtection = await import("../src/auth-protection.js")
 })
 
-test("email password lockout starts at threshold and resets after the failure window", () => {
-  const now = 1_700_000_000_000
-  expect(authProtection.getLoginLockoutStatus({
-    count: authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD - 1,
-    lastRequest: now,
-  }, now)).toEqual({ locked: false, retryAfterSeconds: 0 })
-
-  expect(authProtection.getLoginLockoutStatus({
-    count: authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD,
-    lastRequest: now,
-  }, now)).toEqual({
-    locked: true,
-    retryAfterSeconds: authProtection.LOGIN_LOCKOUT_BASE_MS / 1000,
-  })
-
-  expect(authProtection.getLoginLockoutStatus({
-    count: authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD,
-    lastRequest: now - authProtection.LOGIN_LOCKOUT_FAILURE_WINDOW_MS - 1,
-  }, now)).toEqual({ locked: false, retryAfterSeconds: 0 })
-})
-
-test("email password lockout duration progresses but is capped", () => {
-  expect(authProtection.getLoginLockoutDurationMs(authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD)).toBe(authProtection.LOGIN_LOCKOUT_BASE_MS)
-  expect(authProtection.getLoginLockoutDurationMs(authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD + 1)).toBe(authProtection.LOGIN_LOCKOUT_BASE_MS * 2)
-  expect(authProtection.getLoginLockoutDurationMs(authProtection.LOGIN_LOCKOUT_FAILURE_THRESHOLD + 10)).toBe(authProtection.LOGIN_LOCKOUT_MAX_MS)
-})
-
-test("email password sign-in parsing normalizes the account identifier", async () => {
-  const request = new Request("http://den.local/api/auth/sign-in/email", {
-    body: JSON.stringify({ email: " User@Example.COM ", password: "secret" }),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  })
-
-  await expect(authProtection.readEmailPasswordSignInAttempt(request)).resolves.toEqual({
-    email: "user@example.com",
-  })
-
-  const ignored = new Request("http://den.local/api/auth/sign-in/social", {
-    method: "POST",
-  })
-  await expect(authProtection.readEmailPasswordSignInAttempt(ignored)).resolves.toBeNull()
-})
-
 test("breached password screening reads password fields only on password creation routes", async () => {
   const signUp = new Request("http://den.local/api/auth/sign-up/email", {
     body: JSON.stringify({ email: "user@example.com", password: "created-password" }),
@@ -108,7 +64,7 @@ test("breached password response blocks compromised passwords and fails closed o
   expect(blocked?.status).toBe(400)
   await expect(blocked?.json()).resolves.toEqual({
     error: "password_compromised",
-    message: "This password appeared in a data breach. Choose a different one.",
+    message: "此密码曾出现在数据泄露记录中，请更换密码。",
   })
 
   const unavailable = await authProtection.getBreachedPasswordResponse(
@@ -118,7 +74,7 @@ test("breached password response blocks compromised passwords and fails closed o
   expect(unavailable?.status).toBe(503)
   await expect(unavailable?.json()).resolves.toEqual({
     error: "password_screening_unavailable",
-    message: "Something went wrong. Please try again in a moment.",
+    message: "暂时无法检查密码安全性，请稍后重试。",
   })
 })
 
@@ -132,7 +88,7 @@ test("short password response rejects passwords below the minimum length on crea
   expect(rejected?.status).toBe(400)
   await expect(rejected?.json()).resolves.toEqual({
     error: "password_too_short",
-    message: `Password must be at least ${authProtection.MIN_PASSWORD_LENGTH} characters.`,
+    message: `密码至少需要 ${authProtection.MIN_PASSWORD_LENGTH} 个字符。`,
   })
 
   const atBoundary = new Request("http://den.local/api/auth/sign-up/email", {

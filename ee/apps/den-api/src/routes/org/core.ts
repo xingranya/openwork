@@ -193,14 +193,14 @@ export function registerOrgCoreRoutes<T extends { Variables: OrgRouteVariables }
     if (c.get("apiKey")) {
       return c.json({
         error: "forbidden",
-        message: "API keys cannot create organizations.",
+        message: "API 密钥不能创建公司组织。",
       }, 403)
     }
 
     if (env.orgMode === "single_org") {
       return c.json({
         error: "single_org_mode",
-        message: "This deployment is configured for one organization. New organizations cannot be created.",
+        message: "公司服务只允许一个公司组织，不能创建第二家公司。",
       }, 409)
     }
 

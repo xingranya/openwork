@@ -8,7 +8,7 @@ import {
 describe("Microsoft 365 permission picker", () => {
   test("matches the Google-style capability groups with truthful Graph scopes", () => {
     expect(MICROSOFT_365_PERMISSION_GROUPS.map((group) => group.name)).toEqual([
-      "Calendar",
+      "日历",
       "Outlook",
       "OneDrive",
       "Teams",

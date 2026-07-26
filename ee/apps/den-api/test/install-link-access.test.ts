@@ -307,18 +307,18 @@ test("invitation downloads mint the same org install page without storing the ra
   expect(revokedRows).toHaveLength(0)
 })
 
-test("invitation downloads keep the generic URL when install links are disabled", async () => {
+test("invitation downloads stay on the company service when install links are disabled", async () => {
   const downloadUrl = await installLinkMintingModule.resolveInvitationDownloadUrl({
     organizationId,
     createdByUserId: userId,
     metadata: { capabilities: { installLinks: false } },
   })
 
-  expect(downloadUrl).toBe("https://openworklabs.com/download")
+  expect(downloadUrl).toBe(envModule.env.betterAuthUrl)
   expect(insertedInstallLinks()).toHaveLength(0)
 })
 
-test("invitation delivery can fall back when install-link storage fails", async () => {
+test("invitation delivery stays on the company service when install-link storage fails", async () => {
   failInstallLinkInsert = true
 
   const downloadUrl = await installLinkMintingModule.resolveInvitationDownloadUrl({
@@ -327,7 +327,7 @@ test("invitation delivery can fall back when install-link storage fails", async 
     metadata: { capabilities: { installLinks: true } },
   })
 
-  expect(downloadUrl).toBe("https://openworklabs.com/download")
+  expect(downloadUrl).toBe(envModule.env.betterAuthUrl)
   expect(insertedInstallLinks()).toHaveLength(0)
 })
 
@@ -352,6 +352,20 @@ test("zero-config downloads redirect the browser to the official release", async
   expect(response.status).toBe(302)
   expect(response.headers.get("location")).toBe(officialWindowsInstallerUrl)
   expect(response.headers.get("location")).not.toContain("opaque-token")
+})
+
+test("downloads fail closed when the company installer is not configured", async () => {
+  envModule.env.installerReleaseRepo = undefined
+  const response = await createApp().request(
+    "http://den.local/v1/install/win-x64?token=opaque-token",
+    { redirect: "manual" },
+  )
+
+  expect(response.status).toBe(503)
+  await expect(response.json()).resolves.toEqual({
+    error: "installer_not_configured",
+    message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+  })
 })
 
 test("unordered organization allowed desktop versions select the maximum direct release URL", async () => {

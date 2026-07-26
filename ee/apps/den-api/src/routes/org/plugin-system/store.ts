@@ -58,13 +58,9 @@ import {
 } from "./github-discovery.js"
 import { planConnectorImportedResourceCleanup, uniqueIds } from "./connector-cleanup.js"
 import {
-  DEFAULT_ANTHROPIC_MARKETPLACE_DESCRIPTION,
-  DEFAULT_ANTHROPIC_MARKETPLACE_LOGO_URL,
-  DEFAULT_ANTHROPIC_MARKETPLACE_NAME,
-  DEFAULT_ANTHROPIC_STARTER_PLUGINS,
-  DEFAULT_OPENWORK_MARKETPLACE_DESCRIPTION,
-  DEFAULT_OPENWORK_MARKETPLACE_LOGO_URL,
-  DEFAULT_OPENWORK_MARKETPLACE_NAME,
+  DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
+  DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
+  DEFAULT_FOXWORK_MARKETPLACE_NAME,
   type DefaultMarketplacePluginEntry,
 } from "./default-marketplaces.js"
 import { db } from "../../../db.js"
@@ -668,47 +664,47 @@ type PluginMarketplaceSummary = {
   name: string
 }
 
-const DEFAULT_OPENWORK_EXTENSION_MANIFESTS = [
+const DEFAULT_FOXWORK_EXTENSION_MANIFESTS = [
   {
     schemaVersion: 1,
     id: "openwork-browser",
-    name: "OpenWork Browser",
-    description: "Automate the built-in browser panel that stays visible inside OpenWork.",
+    name: "FoxWork 浏览器",
+    description: "使用 FoxWork 内置的可见浏览器完成网页操作。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/openwork-mark.svg" },
-    composer: { prompt: "Use the OpenWork Browser extension to " },
-    setup: { instructions: "OpenWork Browser is ready by default in desktop workspaces." },
+    composer: { prompt: "使用 FoxWork 浏览器完成" },
+    setup: { instructions: "FoxWork 浏览器已在桌面工作区中默认就绪。" },
     resources: [{ type: "opencode-plugin", id: "opencode-chrome-devtools", packageName: "opencode-chrome-devtools", required: true }],
     contributions: [
       { type: "settings-panel", ref: "openwork.browser.settings", location: "settings-detail" },
       { type: "session-side-panel", ref: "openwork.browser.panel", location: "session-right-pane" },
-      { type: "composer-prompt", prompt: "Use the OpenWork Browser extension to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用 FoxWork 浏览器完成", location: "composer" },
     ],
-    enablement: [{ type: "toggle-enabled", ref: "openwork-browser", label: "Enabled" }],
+    enablement: [{ type: "toggle-enabled", ref: "openwork-browser", label: "已启用" }],
     lifecycle: { reload: ["plugins", "agents"], detection: ["plugin:opencode-chrome-devtools"] },
     defaultEnabled: true,
   },
   {
     schemaVersion: 1,
     id: "computer-use",
-    name: "Computer Use",
-    description: "Mac only: control Mac apps through semantic accessibility refs, screenshots, background-safe clicks, keyboard input, and strict mode.",
+    name: "电脑控制",
+    description: "在 Mac 上通过辅助功能定位、截图、后台安全点击和键盘输入控制应用。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/openwork-mark.svg" },
-    composer: { prompt: "Use Computer Use to " },
-    setup: { instructions: "Computer Use is Mac only. Grant Accessibility and Screen Recording permissions, then connect the local MCP server in this workspace." },
+    composer: { prompt: "使用电脑控制完成" },
+    setup: { instructions: "电脑控制仅支持 Mac。请授予辅助功能和屏幕录制权限，再连接此工作区中的本机 MCP。" },
     resources: [
-      { type: "mcp", id: "computer-use-mcp", label: "Computer Use MCP", mcpServerName: "computer-use", command: ["npx", "-y", "@openwork/handsfree", "mcp"], localCommandRef: "openwork.computerUseMcp", required: true },
-      { type: "native-binary", id: "computer-use-native", label: "macOS accessibility runtime", packageName: "@openwork/handsfree", required: true },
+      { type: "mcp", id: "computer-use-mcp", label: "电脑控制 MCP", mcpServerName: "computer-use", command: ["npx", "-y", "@openwork/handsfree", "mcp"], localCommandRef: "openwork.computerUseMcp", required: true },
+      { type: "native-binary", id: "computer-use-native", label: "macOS 辅助功能运行时", packageName: "@openwork/handsfree", required: true },
     ],
     contributions: [
       { type: "setup-instructions", ref: "openwork.computerUse.setup", location: "settings-detail" },
-      { type: "composer-prompt", prompt: "Use Computer Use to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用电脑控制完成", location: "composer" },
     ],
     enablement: [
-      { type: "mcp-connected", ref: "computer-use", label: "MCP server connected" },
-      { type: "permission-granted", ref: "accessibility", label: "Accessibility permission" },
-      { type: "permission-granted", ref: "screenRecording", label: "Screen Recording permission" },
+      { type: "mcp-connected", ref: "computer-use", label: "MCP 已连接" },
+      { type: "permission-granted", ref: "accessibility", label: "辅助功能权限" },
+      { type: "permission-granted", ref: "screenRecording", label: "屏幕录制权限" },
     ],
     lifecycle: { reload: ["mcp"], detection: ["mcp:computer-use"] },
     platform: ["darwin"],
@@ -716,74 +712,74 @@ const DEFAULT_OPENWORK_EXTENSION_MANIFESTS = [
   {
     schemaVersion: 1,
     id: "openai-image-gen",
-    name: "OpenAI Image Gen",
-    description: "Generate image artifacts with gpt-image-2.",
+    name: "OpenAI 图片生成",
+    description: "使用 gpt-image-2 生成图片资料。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/ext-openai.svg" },
-    composer: { prompt: "Use the OpenAI Image Gen extension to " },
-    setup: { instructions: "Add an OpenAI API key, then agents can generate image artifacts through OpenWork extension actions." },
+    composer: { prompt: "使用 OpenAI 图片生成功能完成" },
+    setup: { instructions: "添加 OpenAI API 密钥后，智能体即可通过 FoxWork 扩展操作生成图片资料。" },
     resources: [
       { type: "secret", id: "openai-api-key", envKey: "OPENAI_API_KEY", required: true },
-      { type: "local-service", id: "openai-image-generation-service", label: "OpenAI image generation", required: true },
-      { type: "tool", id: "openai-image-generate", label: "Image generation", required: true },
+      { type: "local-service", id: "openai-image-generation-service", label: "OpenAI 图片生成服务", required: true },
+      { type: "tool", id: "openai-image-generate", label: "图片生成", required: true },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.imageGen.settings", location: "settings-detail" },
-      { type: "composer-prompt", prompt: "Use the OpenAI Image Gen extension to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用 OpenAI 图片生成功能完成", location: "composer" },
     ],
-    enablement: [{ type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API key" }],
+    enablement: [{ type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API 密钥" }],
     lifecycle: { reload: ["config"], detection: ["env:OPENAI_API_KEY"] },
   },
   {
     schemaVersion: 1,
     id: "google-workspace",
-    name: "Google Workspace",
-    description: "Let OpenWork help with meetings, selected Drive files, and Gmail drafts.",
+    name: "Google 工作区",
+    description: "让 FoxWork 协助处理会议、指定云端硬盘文件和 Gmail 草稿。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { simpleIconSlug: "google" },
-    composer: { prompt: "Use Google Workspace to " },
-    setup: { instructions: "Connect your Google account to use Calendar, Drive, and Gmail drafts in OpenWork." },
+    composer: { prompt: "使用 Google 工作区完成" },
+    setup: { instructions: "连接 Google 账号后即可在 FoxWork 中使用日历、云端硬盘和 Gmail 草稿。" },
     resources: [
-      { type: "provider", id: "google-oauth", label: "Google account", providerId: "google-workspace", required: true },
-      { type: "local-service", id: "google-workspace-connector", label: "Secure local connection", required: true },
-      { type: "tool", id: "google-calendar-read", label: "Calendar", required: true },
-      { type: "tool", id: "google-gmail-drafts", label: "Gmail drafts", required: true },
-      { type: "tool", id: "google-drive-selected-files", label: "Selected Drive files", required: true },
-      { type: "tool", id: "google-gmail-read", label: "Gmail read (opt-in)", required: false },
-      { type: "tool", id: "google-drive-full", label: "Full Drive access (opt-in)", required: false },
-      { type: "tool", id: "google-calendar-events", label: "Calendar events (opt-in)", required: false },
-      { type: "tool", id: "google-chat", label: "Google Chat (opt-in)", required: false },
+      { type: "provider", id: "google-oauth", label: "Google 账号", providerId: "google-workspace", required: true },
+      { type: "local-service", id: "google-workspace-connector", label: "安全的本机连接", required: true },
+      { type: "tool", id: "google-calendar-read", label: "日历", required: true },
+      { type: "tool", id: "google-gmail-drafts", label: "Gmail 草稿", required: true },
+      { type: "tool", id: "google-drive-selected-files", label: "指定云端硬盘文件", required: true },
+      { type: "tool", id: "google-gmail-read", label: "读取 Gmail（可选）", required: false },
+      { type: "tool", id: "google-drive-full", label: "完整云端硬盘访问（可选）", required: false },
+      { type: "tool", id: "google-calendar-events", label: "日历事件（可选）", required: false },
+      { type: "tool", id: "google-chat", label: "Google Chat（可选）", required: false },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.googleWorkspace.settings", location: "settings-detail" },
-      { type: "composer-prompt", prompt: "Use Google Workspace to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用 Google 工作区完成", location: "composer" },
     ],
     lifecycle: { reload: ["config"], detection: ["provider:google-workspace"] },
   },
   {
     schemaVersion: 1,
     id: "ollama",
-    name: "Ollama",
-    description: "Local model provider at http://localhost:11434.",
+    name: "Ollama 本地模型",
+    description: "使用本机 http://localhost:11434 提供模型服务。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/ext-ollama.svg" },
-    composer: { prompt: "Use the Ollama extension to " },
-    setup: { instructions: "Run Ollama locally, choose or pull a model, then add it as an OpenCode provider." },
+    composer: { prompt: "使用 Ollama 本地模型完成" },
+    setup: { instructions: "在本机运行 Ollama，选择或下载模型，再把它添加为运行时模型服务。" },
     resources: [
-      { type: "local-service", id: "ollama-api", label: "Ollama API", description: "http://localhost:11434", required: true },
+      { type: "local-service", id: "ollama-api", label: "Ollama 接口", description: "http://localhost:11434", required: true },
       { type: "provider", id: "ollama", providerId: "ollama", packageName: "@ai-sdk/openai-compatible", required: true },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.ollama.settings", location: "settings-detail" },
-      { type: "composer-prompt", prompt: "Use the Ollama extension to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用 Ollama 本地模型完成", location: "composer" },
     ],
-    enablement: [{ type: "provider-connected", ref: "ollama", label: "Ollama provider" }],
+    enablement: [{ type: "provider-connected", ref: "ollama", label: "Ollama 模型服务" }],
     lifecycle: { reload: ["config"], detection: ["provider:ollama"] },
   },
 ] as const
 
-function defaultOpenWorkManifestForPlugin(row: PluginRow) {
-  return DEFAULT_OPENWORK_EXTENSION_MANIFESTS.find((manifest) => manifest.name === row.name && manifest.description === row.description) ?? null
+function defaultFoxWorkManifestForPlugin(row: PluginRow) {
+  return DEFAULT_FOXWORK_EXTENSION_MANIFESTS.find((manifest) => manifest.name === row.name && manifest.description === row.description) ?? null
 }
 
 function extensionResourceTypeForConfigObject(objectType: string) {
@@ -802,7 +798,7 @@ function extensionResourceTypeForConfigObject(objectType: string) {
 }
 
 function serializePluginExtension(row: PluginRow, componentCounts: Record<string, number>) {
-  const builtInManifest = defaultOpenWorkManifestForPlugin(row)
+  const builtInManifest = defaultFoxWorkManifestForPlugin(row)
   if (builtInManifest) {
     return {
       description: builtInManifest.description,
@@ -2033,7 +2029,7 @@ export async function removePluginMembership(input: { configObjectId: ConfigObje
 }
 
 export async function listMarketplaces(input: { context: PluginArchActorContext; cursor?: string; limit?: number; q?: string; status?: MarketplaceRow["status"] }) {
-  await ensureDefaultOpenWorkMarketplace(input.context)
+  await ensureDefaultFoxWorkMarketplace(input.context)
 
   const rows = await db
     .select()
@@ -2071,33 +2067,19 @@ export async function listMarketplaces(input: { context: PluginArchActorContext;
   return pageItems(visible, input.cursor, input.limit)
 }
 
-async function ensureDefaultOpenWorkMarketplace(context: PluginArchActorContext) {
+async function ensureDefaultFoxWorkMarketplace(context: PluginArchActorContext) {
   const now = new Date()
-  const anthropicMarketplace = await ensureDefaultMarketplace({
-    context,
-    createdAt: now,
-    description: DEFAULT_ANTHROPIC_MARKETPLACE_DESCRIPTION,
-    logoUrl: DEFAULT_ANTHROPIC_MARKETPLACE_LOGO_URL,
-    name: DEFAULT_ANTHROPIC_MARKETPLACE_NAME,
-  })
-  await ensureDefaultMarketplacePlugins({
-    context,
-    createdAt: now,
-    entries: DEFAULT_ANTHROPIC_STARTER_PLUGINS,
-    marketplaceId: anthropicMarketplace.id,
-  })
-
   const marketplace = await ensureDefaultMarketplace({
     context,
     createdAt: now,
-    description: DEFAULT_OPENWORK_MARKETPLACE_DESCRIPTION,
-    logoUrl: DEFAULT_OPENWORK_MARKETPLACE_LOGO_URL,
-    name: DEFAULT_OPENWORK_MARKETPLACE_NAME,
+    description: DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
+    logoUrl: DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
+    name: DEFAULT_FOXWORK_MARKETPLACE_NAME,
   })
   await ensureDefaultMarketplacePlugins({
     context,
     createdAt: now,
-    entries: DEFAULT_OPENWORK_EXTENSION_MANIFESTS.map((manifest) => ({ description: manifest.description, name: manifest.name })),
+    entries: DEFAULT_FOXWORK_EXTENSION_MANIFESTS.map((manifest) => ({ description: manifest.description, name: manifest.name })),
     marketplaceId: marketplace.id,
   })
 }
@@ -2436,7 +2418,7 @@ export async function getMarketplaceResolved(input: { context: PluginArchActorCo
           teamIds: input.context.memberTeams.map((team) => team.id),
         },
         pluginIds,
-        desktopManifestPluginIds: pluginRows.flatMap((row) => defaultOpenWorkManifestForPlugin(row) ? [row.id] : []),
+        desktopManifestPluginIds: pluginRows.flatMap((row) => defaultFoxWorkManifestForPlugin(row) ? [row.id] : []),
       })
     : new Map<string, never>()
 

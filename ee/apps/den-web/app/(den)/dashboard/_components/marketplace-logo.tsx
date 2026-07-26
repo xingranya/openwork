@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Store } from "lucide-react";
 
-/** Marketplace logo with a graceful fallback to the generic store icon. */
+/** 能力市场图标，加载失败时回退到通用商店图标。 */
 export function MarketplaceLogo({
   logoUrl,
   name,
@@ -24,7 +24,7 @@ export function MarketplaceLogo({
   return (
     <img
       src={logoUrl}
-      alt={`${name} logo`}
+      alt={`${name} 标志`}
       onError={() => setErroredUrl(logoUrl)}
       className={`${imgClassName} object-contain`}
     />

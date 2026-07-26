@@ -31,6 +31,7 @@ export const createWorkerSchema = z.object({
   workspacePath: z.string().optional(),
   sandboxBackend: z.string().optional(),
   imageVersion: z.string().optional(),
+  idempotencyKey: z.string().trim().min(1).max(128).regex(/^[a-zA-Z0-9._:-]+$/).optional(),
 })
 
 export const updateWorkerSchema = z.object({
@@ -369,15 +370,22 @@ export async function requireCloudAccessOrPayment(input: {
   return requireCloudWorkerAccess(input)
 }
 
-export async function getWorkerTokensAndConnect(worker: WorkerRow) {
+export async function getWorkerActiveTokens(workerId: WorkerId) {
   const tokenRows = await db
     .select()
     .from(WorkerTokenTable)
-    .where(and(eq(WorkerTokenTable.worker_id, worker.id), isNull(WorkerTokenTable.revoked_at)))
+    .where(and(eq(WorkerTokenTable.worker_id, workerId), isNull(WorkerTokenTable.revoked_at)))
     .orderBy(asc(WorkerTokenTable.created_at))
 
-  const hostToken = tokenRows.find((entry) => entry.scope === "host")?.token ?? null
-  const clientToken = tokenRows.find((entry) => entry.scope === "client")?.token ?? null
+  return {
+    hostToken: tokenRows.find((entry) => entry.scope === "host")?.token ?? null,
+    clientToken: tokenRows.find((entry) => entry.scope === "client")?.token ?? null,
+    activityToken: tokenRows.find((entry) => entry.scope === "activity")?.token ?? null,
+  }
+}
+
+export async function getWorkerTokensAndConnect(worker: WorkerRow) {
+  const { hostToken, clientToken } = await getWorkerActiveTokens(worker.id)
 
   if (!hostToken || !clientToken) {
     return {
@@ -414,6 +422,9 @@ export async function deleteWorkerCascade(worker: WorkerRow) {
         instanceUrl: instance?.url ?? null,
       })
     } catch (error) {
+      if (env.provisionerMode === "kubernetes") {
+        throw error
+      }
       logger.warn("worker deprovision warning", { worker_id: worker.id, error })
     }
   }

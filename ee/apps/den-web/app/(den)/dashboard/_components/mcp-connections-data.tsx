@@ -17,7 +17,7 @@ function getOrgScopeHeaders(orgId: string) {
 
 function requireOrgId(orgId: string | null) {
   if (!orgId) {
-    throw new Error("Select an organization before managing connections.");
+    throw new Error("请先进入公司工作区，再管理连接。");
   }
   return orgId;
 }
@@ -249,7 +249,7 @@ export function useMcpConnectionTools(connectionId: string, enabled: boolean) {
         30000,
       );
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to inspect MCP tools (${response.status}).`);
+        throw getRequestError(payload, response, `读取 MCP 工具失败（${response.status}）。`);
       }
       const record = payload as { tools?: ExternalMcpTool[] };
       return record.tools ?? [];
@@ -257,7 +257,7 @@ export function useMcpConnectionTools(connectionId: string, enabled: boolean) {
   });
 }
 
-// The den-api tool run is bounded by its 150s MCP tool lifecycle deadline;
+// Den API 的工具调用受 150 秒 MCP 生命周期截止时间约束；
 // give the request a little headroom so the server's structured failure
 // arrives instead of a client-side timeout.
 const RUN_TOOL_REQUEST_TIMEOUT_MS = 160000;
@@ -276,7 +276,7 @@ export function useRunMcpConnectionTool(connectionId: string) {
         RUN_TOOL_REQUEST_TIMEOUT_MS,
       );
       if (!response.ok) {
-        const requestError = getRequestError(payload, response, `Failed to run MCP tool (${response.status}).`);
+        const requestError = getRequestError(payload, response, `运行 MCP 工具失败（${response.status}）。`);
         throw new ExternalMcpToolRunError(
           requestError.message,
           isRecord(payload) ? parseToolCallInspection(payload.inspection) : null,
@@ -462,7 +462,7 @@ async function fetchConnections(scope: ExternalMcpConnectionScope, orgId: string
     15000,
   );
   if (!response.ok) {
-    throw getRequestError(payload, response, `Failed to load MCP connectors (${response.status}).`);
+    throw getRequestError(payload, response, `加载 MCP 连接失败（${response.status}）。`);
   }
   const record = payload as { connections?: ExternalMcpConnection[] };
   return (record.connections ?? []).map((connection) => ({
@@ -503,7 +503,7 @@ export function useMcpConnectionPresets() {
     queryFn: async (): Promise<ExternalMcpPreset[]> => {
       const { response, payload } = await requestJson("/v1/mcp-connections/presets", {}, 15000);
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to load MCP presets (${response.status}).`);
+        throw getRequestError(payload, response, `加载 MCP 连接模板失败（${response.status}）。`);
       }
       const record = payload as { presets?: ExternalMcpPreset[] };
       return record.presets ?? [];
@@ -562,9 +562,7 @@ export type McpConnectionResolution = {
 };
 
 /**
- * Smart resolution for the add-connection flow: sends whatever the admin
- * typed (URL, bare host, or product name) and gets back a matched preset or
- * a probed endpoint with its requirements discovery inline.
+ * 解析管理员填写的地址、主机名或产品名称，并返回匹配模板或探测到的 MCP 服务信息。
  */
 export function useResolveMcpConnection() {
   const { orgId } = useOrgDashboard();
@@ -580,7 +578,7 @@ export function useResolveMcpConnection() {
         30000,
       );
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to look up the MCP server (${response.status}).`);
+        throw getRequestError(payload, response, `查找 MCP 服务失败（${response.status}）。`);
       }
       return payload as McpConnectionResolution;
     },
@@ -601,7 +599,7 @@ export function useDiscoverMcpConnectionRequirements() {
         20000,
       );
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to discover MCP requirements (${response.status}).`);
+        throw getRequestError(payload, response, `读取 MCP 接入要求失败（${response.status}）。`);
       }
       return payload as McpRequirementsDiscovery;
     },
@@ -627,11 +625,11 @@ export function useCreateMcpConnection() {
           20000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to add MCP connection (${response.status}).`);
+          throw getRequestError(payload, response, `添加 MCP 连接失败（${response.status}）。`);
         }
         created = payload as CreatedMcpConnection;
       });
-      if (!created) throw new Error("Create MCP connection response was incomplete.");
+      if (!created) throw new Error("公司服务返回的 MCP 连接信息不完整。");
       return created;
     },
     onSuccess: () => {
@@ -655,11 +653,11 @@ export function useUpdateMcpConnection() {
           30000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to update MCP connection (${response.status}).`);
+          throw getRequestError(payload, response, `更新 MCP 连接失败（${response.status}）。`);
         }
         updated = payload as UpdatedMcpConnection;
       });
-      if (!updated) throw new Error("Update MCP connection response was incomplete.");
+      if (!updated) throw new Error("公司服务返回的 MCP 连接更新结果不完整。");
       return updated;
     },
     onSuccess: () => {
@@ -692,7 +690,7 @@ export function useReviewMcpIssuer() {
           30000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to review the OAuth issuer (${response.status}).`);
+          throw getRequestError(payload, response, `检查 OAuth 授权服务失败（${response.status}）。`);
         }
         review = payload as McpIssuerReview;
       };
@@ -701,7 +699,7 @@ export function useReviewMcpIssuer() {
       } else {
         await request();
       }
-      if (!review) throw new Error("OAuth issuer review response was incomplete.");
+      if (!review) throw new Error("公司服务返回的 OAuth 授权检查结果不完整。");
       return review;
     },
     onSuccess: (_review, input) => {
@@ -726,11 +724,11 @@ export function useReplaceMcpConnectionAccess() {
           15000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to update connection access (${response.status}).`);
+          throw getRequestError(payload, response, `更新连接使用权限失败（${response.status}）。`);
         }
         result = input.connectionId;
       });
-      if (!result) throw new Error("Update connection access response was incomplete.");
+      if (!result) throw new Error("公司服务返回的连接权限更新结果不完整。");
       return result;
     },
     onSuccess: () => {
@@ -751,7 +749,7 @@ export function useStartMcpConnectionOAuth() {
       );
       if (!response.ok) {
         const details = mcpOAuthStartDebugDetails(payload, response.status);
-        const requestError = getRequestError(payload, response, `Failed to start OAuth (${response.status}).`);
+        const requestError = getRequestError(payload, response, `启动 OAuth 授权失败（${response.status}）。`);
         if (details.errorCode === "mcp_oauth_configuration_required") {
           throw new McpOAuthConfigurationRequiredError(
             requestError.message,
@@ -780,7 +778,7 @@ export function useDisconnectMyProviderAccount() {
         15000,
       );
       if (!response.ok) {
-        throw getRequestError(payload, response, `Failed to disconnect account (${response.status}).`);
+        throw getRequestError(payload, response, `断开账号连接失败（${response.status}）。`);
       }
       return providerId;
     },
@@ -804,11 +802,11 @@ export function useDisconnectMcpConnection() {
           15000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to disconnect MCP connection (${response.status}).`);
+          throw getRequestError(payload, response, `断开 MCP 连接失败（${response.status}）。`);
         }
         result = connectionId;
       });
-      if (!result) throw new Error("Disconnect MCP connection response was incomplete.");
+      if (!result) throw new Error("公司服务返回的 MCP 断开结果不完整。");
       return result;
     },
     onSuccess: () => {
@@ -831,11 +829,11 @@ export function useDeleteMcpConnection() {
           15000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to remove MCP connection (${response.status}).`);
+          throw getRequestError(payload, response, `删除 MCP 连接失败（${response.status}）。`);
         }
         result = connectionId;
       });
-      if (!result) throw new Error("Delete MCP connection response was incomplete.");
+      if (!result) throw new Error("公司服务返回的 MCP 删除结果不完整。");
       return result;
     },
     onSuccess: () => {
@@ -864,7 +862,7 @@ export type NativeProviderClient = {
 
 function parseNativeProviderClient(payload: unknown): NativeProviderClient {
   if (!isRecord(payload)) {
-    throw new Error("Native provider client response was incomplete.");
+    throw new Error("公司服务返回的授权客户端信息不完整。");
   }
   const { providerId, configured, clientId, tenantId, features, scopes, redirectUri } = payload;
   if (
@@ -876,15 +874,13 @@ function parseNativeProviderClient(payload: unknown): NativeProviderClient {
     || !isStringArray(scopes)
     || typeof redirectUri !== "string"
   ) {
-    throw new Error("Native provider client response was incomplete.");
+    throw new Error("公司服务返回的授权客户端信息不完整。");
   }
   return { providerId, configured, clientId, tenantId, features, scopes, redirectUri };
 }
 
 /**
- * Native providers are configured with an org OAuth
- * client instead of a server URL. Saving one makes the provider appear in
- * the usable connections list for every granted member.
+ * 原生服务使用公司 OAuth 客户端配置。保存后，获授权成员可在连接列表中使用该服务。
  */
 export function useSaveNativeProviderClient() {
   const queryClient = useQueryClient();
@@ -911,7 +907,7 @@ export function useSaveNativeProviderClient() {
           20000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to save the OAuth client (${response.status}).`);
+          throw getRequestError(payload, response, `保存 OAuth 客户端失败（${response.status}）。`);
         }
       });
     },
@@ -937,12 +933,12 @@ export function useNativeProviderClient(providerId: string, enabled: boolean) {
           15000,
         );
         if (!response.ok) {
-          throw getRequestError(payload, response, `Failed to load the OAuth client (${response.status}).`);
+          throw getRequestError(payload, response, `加载 OAuth 客户端失败（${response.status}）。`);
         }
         client = parseNativeProviderClient(payload);
       });
       if (!client) {
-        throw new Error("Native provider client response was incomplete.");
+        throw new Error("公司服务返回的授权客户端信息不完整。");
       }
       return client;
     },
@@ -972,19 +968,19 @@ export type TelegramPairing = {
 
 function requiredString(record: Record<string, unknown>, key: string): string {
   const value = record[key];
-  if (typeof value !== "string") throw new Error("Telegram connection response was incomplete.");
+  if (typeof value !== "string") throw new Error("公司服务返回的 Telegram 连接信息不完整。");
   return value;
 }
 
 function nullableString(record: Record<string, unknown>, key: string): string | null {
   const value = record[key];
-  if (typeof value !== "string" && value !== null) throw new Error("Telegram connection response was incomplete.");
+  if (typeof value !== "string" && value !== null) throw new Error("公司服务返回的 Telegram 连接信息不完整。");
   return value;
 }
 
 function parseTelegramConnectionValue(value: unknown): TelegramConnection {
   if (!isRecord(value) || !isRecord(value.bot) || !isRecord(value.worker) || !isRecord(value.webhook) || !isRecord(value.pairing)) {
-    throw new Error("Telegram connection response was incomplete.");
+    throw new Error("公司服务返回的 Telegram 连接信息不完整。");
   }
   const { bot, worker, webhook, pairing } = value;
   const chat = pairing.chat;
@@ -995,7 +991,7 @@ function parseTelegramConnectionValue(value: unknown): TelegramConnection {
     || typeof pairing.paired !== "boolean"
     || (chat !== null && !isRecord(chat))
   ) {
-    throw new Error("Telegram connection response was incomplete.");
+    throw new Error("公司服务返回的 Telegram 连接信息不完整。");
   }
   return {
     id: requiredString(value, "id"),
@@ -1031,7 +1027,7 @@ function parseTelegramConnectionValue(value: unknown): TelegramConnection {
 
 function parseTelegramConnectionPayload(payload: unknown): TelegramConnection | null {
   if (!isRecord(payload) || !("connection" in payload)) {
-    throw new Error("Telegram connection response was incomplete.");
+    throw new Error("公司服务返回的 Telegram 连接信息不完整。");
   }
   return payload.connection === null ? null : parseTelegramConnectionValue(payload.connection);
 }
@@ -1051,11 +1047,11 @@ export function useTelegramConnection(enabled: boolean) {
           { headers: getOrgScopeHeaders(requireOrgId(orgId)) },
           15000,
         );
-        if (!response.ok) throw getRequestError(payload, response, `Failed to load Telegram (${response.status}).`);
+        if (!response.ok) throw getRequestError(payload, response, `加载 Telegram 连接失败（${response.status}）。`);
         connection = parseTelegramConnectionPayload(payload);
         loaded = true;
       });
-      if (!loaded) throw new Error("Telegram connection response was incomplete.");
+      if (!loaded) throw new Error("公司服务返回的 Telegram 连接信息不完整。");
       return connection;
     },
   });
@@ -1073,10 +1069,10 @@ export function useSaveTelegramConnection() {
           { method: "PUT", headers: getOrgScopeHeaders(requireOrgId(orgId)), body: JSON.stringify(input) },
           30000,
         );
-        if (!response.ok) throw getRequestError(payload, response, `Failed to connect Telegram (${response.status}).`);
+        if (!response.ok) throw getRequestError(payload, response, `连接 Telegram 失败（${response.status}）。`);
         connection = parseTelegramConnectionPayload(payload);
       });
-      if (!connection) throw new Error("Telegram connection response was incomplete.");
+      if (!connection) throw new Error("公司服务返回的 Telegram 连接信息不完整。");
       return connection;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mcpConnectionQueryKeys.telegram(orgId) }),
@@ -1095,15 +1091,15 @@ export function useCreateTelegramPairing() {
           { method: "POST", headers: getOrgScopeHeaders(requireOrgId(orgId)), body: JSON.stringify({}) },
           15000,
         );
-        if (!response.ok) throw getRequestError(payload, response, `Failed to create Telegram pairing (${response.status}).`);
-        if (!isRecord(payload) || !isRecord(payload.pairing)) throw new Error("Telegram pairing response was incomplete.");
+        if (!response.ok) throw getRequestError(payload, response, `创建 Telegram 配对失败（${response.status}）。`);
+        if (!isRecord(payload) || !isRecord(payload.pairing)) throw new Error("公司服务返回的 Telegram 配对信息不完整。");
         pairing = {
           url: requiredString(payload.pairing, "url"),
           code: requiredString(payload.pairing, "code"),
           expiresAt: requiredString(payload.pairing, "expiresAt"),
         };
       });
-      if (!pairing) throw new Error("Telegram pairing response was incomplete.");
+      if (!pairing) throw new Error("公司服务返回的 Telegram 配对信息不完整。");
       return pairing;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mcpConnectionQueryKeys.telegram(orgId) }),

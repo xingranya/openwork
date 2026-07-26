@@ -1,0 +1,2 @@
+ALTER TABLE `worker` ADD `idempotency_key` varchar(128);--> statement-breakpoint
+ALTER TABLE `worker` ADD CONSTRAINT `worker_org_user_idempotency_key` UNIQUE(`org_id`,`created_by_user_id`,`idempotency_key`);

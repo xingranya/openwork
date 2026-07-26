@@ -24,10 +24,10 @@ export type EnterprisePlanRequiredError = {
 }
 
 const ENTITLEMENT_FEATURE_LABELS: Record<EntitlementKey, string> = {
-  sso: "SSO / SAML",
-  desktopPolicies: "Desktop policies",
-  orgControls: "Enforced SSO and desktop version controls",
-  analytics: "Usage analytics",
+  sso: "单点登录",
+  desktopPolicies: "桌面版本策略",
+  orgControls: "强制登录和桌面版本控制",
+  analytics: "使用情况分析",
 }
 
 type MetadataInput = Record<string, unknown> | string | null | undefined
@@ -106,7 +106,7 @@ export function checkEntitlement(
     response: {
       error: "enterprise_plan_required",
       feature: key,
-      message: `${ENTITLEMENT_FEATURE_LABELS[key]} requires an Enterprise plan. Talk to us at openworklabs.com/enterprise.`,
+      message: `${ENTITLEMENT_FEATURE_LABELS[key]}需要公司管理员启用。`,
     },
   }
 }

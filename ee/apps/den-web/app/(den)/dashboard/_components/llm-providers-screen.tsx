@@ -150,7 +150,7 @@ export function LlmProvidersScreen() {
               </p>
               <p className="mx-auto mt-3 max-w-[560px] text-[15px] leading-8 text-gray-500">
                 {customProviders.length === 0
-                  ? "先从 models.dev 目录选择服务和模型，填写凭据，再向需要的成员或团队授权。"
+                  ? "先从公司模型目录选择服务和模型，填写凭据，再向需要的成员或团队授权。"
                   : "可以缩短搜索词，或添加新的模型服务。"}
               </p>
             </div>

@@ -8,10 +8,7 @@ import { auth, normalizeMcpOAuthResource } from "../../auth.js"
 import { normalizeLoginEmail, resolveLoginOptionKind } from "../../auth-login-options.js"
 import {
   getBreachedPasswordResponse,
-  getEmailPasswordLockoutResponse,
   getShortPasswordResponse,
-  readEmailPasswordSignInAttempt,
-  recordEmailPasswordSignInResult,
 } from "../../auth-protection.js"
 import { db } from "../../db.js"
 import { env } from "../../env.js"
@@ -197,14 +194,14 @@ export async function normalizeMcpOAuthRequest(request: Request) {
 function singleOrgModeResponse() {
   return Response.json({
     error: "single_org_mode",
-    message: "This deployment is configured for one organization. Additional organization changes are disabled.",
+    message: "公司服务只允许一个公司组织，不能创建或加入第二家公司。",
   }, { status: 409 })
 }
 
 function singleOrgSsoRequiredResponse(signInPath: string) {
   return Response.json({
     error: "single_org_sso_required",
-    message: "This deployment uses organization SSO. Continue with SSO to sign in.",
+    message: "公司已启用单点登录，请继续使用公司登录入口。",
     signInPath,
   }, { status: 403 })
 }
@@ -418,11 +415,6 @@ async function getOAuthOpenIdConfiguration(request: Request) {
   return makeAuthorizationResponseIssuerOptional(await oauthProviderOpenIdConfigMetadata(auth)(request))
 }
 
-const authLoginLockedSchema = z.object({
-  error: z.literal("login_locked"),
-  message: z.string(),
-}).meta({ ref: "AuthLoginLockedError" })
-
 const authPasswordScreeningUnavailableSchema = z.object({
   error: z.literal("password_screening_unavailable"),
   message: z.string(),
@@ -475,14 +467,6 @@ async function handleAuthRequest(request: Request) {
     return singleOrgAuthGuardResponse
   }
 
-  const emailPasswordAttempt = await readEmailPasswordSignInAttempt(authRequest)
-  if (emailPasswordAttempt) {
-    const lockoutResponse = await getEmailPasswordLockoutResponse(emailPasswordAttempt)
-    if (lockoutResponse) {
-      return lockoutResponse
-    }
-  }
-
   const shortPasswordResponse = await getShortPasswordResponse(authRequest)
   if (shortPasswordResponse) {
     return shortPasswordResponse
@@ -502,11 +486,7 @@ async function handleAuthRequest(request: Request) {
     await revokeBearerSession(authRequest.headers)
   }
 
-  const response = await auth.handler(authRequest)
-  if (emailPasswordAttempt) {
-    await recordEmailPasswordSignInResult(emailPasswordAttempt, response)
-  }
-  return response
+  return auth.handler(authRequest)
 }
 
 export function registerAuthRoutes<T extends { Variables: AuthContextVariables }>(app: Hono<T>) {
@@ -588,7 +568,6 @@ export function registerAuthRoutes<T extends { Variables: AuthContextVariables }
         302: emptyResponse("Better Auth redirected the user to continue the auth flow."),
         400: emptyResponse("Better Auth rejected the request as invalid. Password creation, password change, or reset is also rejected when the proposed password is too short or is known to be compromised."),
         401: emptyResponse("Better Auth rejected the request because authentication failed."),
-        429: jsonResponse("Email/password sign-in is temporarily locked after too many failed attempts. The response includes a Retry-After header.", authLoginLockedSchema),
         503: jsonResponse("Password breach screening is temporarily unavailable, so password creation or reset should be retried later.", authPasswordScreeningUnavailableSchema),
       },
     }),

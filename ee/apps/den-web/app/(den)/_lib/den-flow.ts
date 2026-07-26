@@ -119,6 +119,16 @@ export class DenRequestCanceledError extends Error {
   }
 }
 
+export class DenRequestNetworkError extends Error {
+  constructor(cause?: unknown) {
+    super(
+      "无法连接公司服务，请检查网络后重试。",
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = "DenRequestNetworkError";
+  }
+}
+
 export type WorkerLaunch = {
   workerId: string;
   workerName: string;
@@ -459,6 +469,9 @@ const ERROR_TEXT_BY_KEY: Record<string, string> = {
   expired_token: "链接或凭据已过期，请重新操作。",
   organization_not_found: "没有找到公司信息。",
   single_org_mode: "当前账号只能加入这一家公司。",
+  single_org_owner_uninitialized: "公司管理员还没有完成首次初始化，请使用预设的管理员邮箱先创建公司账号。",
+  single_org_signup_disabled: "公司已关闭自助注册，请联系管理员获取账号。",
+  email_domain_restricted: "此邮箱不在公司允许的注册范围内。",
   org_limit_reached: "公司当前名额已满，请联系管理员。",
   payment_required: "当前服务方案不支持此操作，请联系管理员。",
   rate_limit_exceeded: "操作过于频繁，请稍后再试。",
@@ -714,9 +727,9 @@ export function getWorkerRuntimeSnapshot(payload: unknown): WorkerRuntimeSnapsho
 export function getRuntimeServiceLabel(name: RuntimeServiceName): string {
   switch (name) {
     case "openwork-server":
-      return "OpenWork server";
+      return "FoxWork 本地服务";
     case "opencode":
-      return "OpenCode";
+      return "AI 运行引擎";
   }
 }
 
@@ -1169,15 +1182,14 @@ export async function requestJson(path: string, init: RequestInit = {}, timeoutM
       signal: init.signal ?? timeoutController?.signal
     });
   } catch (error) {
-    // Only the deadline created by this helper becomes a timeout. An abort
-    // supplied by a caller becomes a distinct cancellation error.
+    // 只有本方法设置的截止时间才算超时；调用方主动中止时返回独立的取消错误。
     if (didReachDashboardDeadline) {
       throw new DenRequestTimeoutError(timeoutMs, error);
     }
     if (init.signal?.aborted && error instanceof Error && error.name === "AbortError") {
       throw new DenRequestCanceledError(error);
     }
-    throw error;
+    throw new DenRequestNetworkError(error);
   } finally {
     if (timeoutHandle) {
       clearTimeout(timeoutHandle);

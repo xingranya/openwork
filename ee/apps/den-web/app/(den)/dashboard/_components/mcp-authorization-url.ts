@@ -1,3 +1,5 @@
+import { getErrorMessage } from "../../_lib/den-flow"
+
 function isLoopbackHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "")
   if (normalized === "localhost" || normalized.endsWith(".localhost") || normalized === "::1") return true
@@ -21,12 +23,12 @@ export function safeMcpAuthorizationUrl(rawUrl: string): string {
   try {
     url = new URL(rawUrl)
   } catch {
-    throw new Error("The MCP provider returned an invalid authorization URL.")
+    throw new Error("MCP 服务返回的登录地址无效。")
   }
   const allowedProtocol = url.protocol === "https:"
     || (url.protocol === "http:" && isLoopbackHostname(url.hostname))
   if (!allowedProtocol || url.username || url.password) {
-    throw new Error("The MCP provider returned an unsafe authorization URL.")
+    throw new Error("MCP 服务返回的登录地址不安全。")
   }
   return url.toString()
 }
@@ -64,12 +66,12 @@ const authorizationDocumentStyles = `
 
 export function mcpAuthorizationPendingDocument(): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>Connecting — OpenWork</title>
+    <title>正在连接 — FoxWork</title>
     <style>
 ${authorizationDocumentStyles}
       .loading-card { padding: 40px 40px 34px; text-align: center; }
@@ -89,12 +91,12 @@ ${authorizationDocumentStyles}
   </head>
   <body>
     <main class="card loading-card" role="status" aria-live="polite">
-      <div class="brand"><span class="brand-mark">OW</span>OpenWork Connect</div>
-      <div class="mark" aria-hidden="true"><div class="orbit"></div><div class="core">OW</div></div>
-      <h1>Preparing your connection</h1>
-      <p>OpenWork is securely checking the provider and preparing your sign-in.</p>
+      <div class="brand"><span class="brand-mark">FX</span>FoxWork 公司连接</div>
+      <div class="mark" aria-hidden="true"><div class="orbit"></div><div class="core">FX</div></div>
+      <h1>正在准备连接</h1>
+      <p>FoxWork 正在安全检查服务，并准备登录。</p>
       <div class="progress" aria-hidden="true"><span></span></div>
-      <div class="footnote"><span class="footnote-dot" aria-hidden="true"></span>Keep this window open</div>
+      <div class="footnote"><span class="footnote-dot" aria-hidden="true"></span>请保持此窗口打开</div>
     </main>
   </body>
 </html>`
@@ -112,31 +114,31 @@ function debugDetailRow(label: string, value: string | number | boolean | undefi
 function technicalDetails(details: McpAuthorizationDebugDetails | undefined): string {
   if (!details) return ""
   const rows = [
-    debugDetailRow("HTTP status", details.httpStatus),
-    debugDetailRow("Error code", details.errorCode, true),
-    debugDetailRow("Diagnostic reference", details.diagnosticReference, true),
-    debugDetailRow("Redirect URI", details.redirectUri, true),
-    debugDetailRow("Client metadata URL", details.clientMetadataUrl, true),
-    debugDetailRow("Handshake phase", details.phase, true),
-    debugDetailRow("Highest step passed", details.highestPassed),
-    debugDetailRow("Category", details.category, true),
-    debugDetailRow("Retryable", details.retryable),
-    debugDetailRow("Action owner", details.actionOwner),
-    debugDetailRow("Recommended action", details.operatorAction),
-    debugDetailRow("Provider status", details.providerStatus),
-    debugDetailRow("Provider request ID", details.providerRequestId, true),
-    debugDetailRow("Provider code", details.providerCode, true),
+    debugDetailRow("HTTP 状态", details.httpStatus),
+    debugDetailRow("错误代码", details.errorCode, true),
+    debugDetailRow("诊断编号", details.diagnosticReference, true),
+    debugDetailRow("重定向地址", details.redirectUri, true),
+    debugDetailRow("客户端信息地址", details.clientMetadataUrl, true),
+    debugDetailRow("握手阶段", details.phase, true),
+    debugDetailRow("已完成步骤", details.highestPassed),
+    debugDetailRow("错误分类", details.category, true),
+    debugDetailRow("是否可重试", details.retryable),
+    debugDetailRow("负责方", details.actionOwner),
+    debugDetailRow("建议操作", details.operatorAction),
+    debugDetailRow("服务状态", details.providerStatus),
+    debugDetailRow("服务请求编号", details.providerRequestId, true),
+    debugDetailRow("服务错误代码", details.providerCode, true),
   ].join("")
 
   return `<details>
           <summary>
             <span class="summary-icon" aria-hidden="true">›</span>
-            <span><strong>Technical details</strong><small>Redirect, status, and safe error response</small></span>
+            <span><strong>技术详情</strong><small>重定向、状态和脱敏错误信息</small></span>
           </summary>
           <div class="details-content">
             <dl>${rows}</dl>
             <section aria-labelledby="response-payload-label">
-              <h2 id="response-payload-label">Response payload</h2>
+              <h2 id="response-payload-label">返回数据</h2>
               <pre><code>${escapeHtml(details.responseJson)}</code></pre>
             </section>
           </div>
@@ -147,13 +149,14 @@ export function mcpAuthorizationErrorDocument(input: {
   message: string
   details?: McpAuthorizationDebugDetails
 }): string {
+  const message = getErrorMessage(input.message, "无法连接 MCP 账号，请重试。")
   return `<!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>Connection failed — OpenWork</title>
+    <title>连接失败 — FoxWork</title>
     <style>
 ${authorizationDocumentStyles}
       body { align-items: start; }
@@ -192,16 +195,16 @@ ${authorizationDocumentStyles}
   <body>
     <main class="card error-card" role="alert" aria-live="assertive">
       <div class="error-header">
-        <div class="brand"><span class="brand-mark">OW</span>OpenWork Connect</div>
+        <div class="brand"><span class="brand-mark">FX</span>FoxWork 公司连接</div>
         <div class="status">
           <div class="error-mark" aria-hidden="true">!</div>
           <div>
-            <h1>Connection failed</h1>
-            <p>OpenWork couldn’t start the provider sign-in.</p>
+            <h1>连接失败</h1>
+            <p>FoxWork 无法启动服务登录。</p>
           </div>
         </div>
-        <div class="message">${escapeHtml(input.message)}</div>
-        <div class="stay-open"><span aria-hidden="true">i</span><div>This window will stay open so you can inspect and copy the details below.</div></div>
+        <div class="message">${escapeHtml(message)}</div>
+        <div class="stay-open"><span aria-hidden="true">i</span><div>此窗口会保持打开，你可以查看并复制下面的诊断信息。</div></div>
       </div>
       ${technicalDetails(input.details)}
     </main>
@@ -219,8 +222,7 @@ export function showMcpAuthorizationError(
     popup.document.write(mcpAuthorizationErrorDocument(input))
     popup.document.close()
   } catch {
-    // If browser isolation made the document inaccessible, leave the popup
-    // open so the browser/provider error remains available for diagnosis.
+    // 浏览器隔离可能阻止写入弹窗，此时保留窗口供用户查看浏览器或服务端提示。
   }
 }
 
@@ -228,7 +230,7 @@ export function openMcpAuthorizationWindow(): Window {
   const popupName = `openwork-mcp-authorization-${crypto.randomUUID()}`
   const popup = window.open("", popupName, "popup,width=600,height=760")
   if (!popup) {
-    throw new Error("OpenWork could not open the sign-in window. Allow popups for OpenWork, then try again.")
+    throw new Error("FoxWork 无法打开登录窗口。请允许弹窗后重试。")
   }
   try {
     popup.opener = null
@@ -236,10 +238,7 @@ export function openMcpAuthorizationWindow(): Window {
     popup.document.write(mcpAuthorizationPendingDocument())
     popup.document.close()
   } catch {
-    // Browsers may disown or isolate a newly opened named window before its
-    // document becomes writable. The authorization redirect can still reuse
-    // this unique popup, so do not convert that browser hardening into a
-    // failed OAuth start.
+    // 浏览器可能在文档可写前隔离新窗口，但后续授权跳转仍可复用该窗口。
   }
   return popup
 }

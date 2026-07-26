@@ -18,6 +18,7 @@ export const WorkerTable = mysqlTable(
     image_version: varchar("image_version", { length: 128 }),
     workspace_path: varchar("workspace_path", { length: 1024 }),
     sandbox_backend: varchar("sandbox_backend", { length: 64 }),
+    idempotency_key: varchar("idempotency_key", { length: 128 }),
     last_heartbeat_at: timestamp("last_heartbeat_at", { fsp: 3 }),
     last_active_at: timestamp("last_active_at", { fsp: 3 }),
     ...timestamps,
@@ -25,6 +26,11 @@ export const WorkerTable = mysqlTable(
   (table) => [
     index("worker_org_id").on(table.org_id),
     index("worker_created_by_user_id").on(table.created_by_user_id),
+    uniqueIndex("worker_org_user_idempotency_key").on(
+      table.org_id,
+      table.created_by_user_id,
+      table.idempotency_key,
+    ),
     index("worker_status").on(table.status),
     index("worker_last_heartbeat_at").on(table.last_heartbeat_at),
     index("worker_last_active_at").on(table.last_active_at),

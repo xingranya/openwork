@@ -96,8 +96,8 @@ export function registerOrgInvitationRoutes<T extends { Variables: OrgRouteVaria
         error: "invite_email_domain_not_allowed",
         message:
           payload.organization.allowedEmailDomains && payload.organization.allowedEmailDomains.length === 1
-            ? `This workspace only allows ${payload.organization.allowedEmailDomains[0]} email addresses.`
-            : `This workspace only allows email addresses from these domains: ${(payload.organization.allowedEmailDomains ?? []).join(", ")}.`,
+            ? `公司只允许使用 ${payload.organization.allowedEmailDomains[0]} 邮箱。`
+            : `公司只允许使用以下邮箱域名：${(payload.organization.allowedEmailDomains ?? []).join("、")}。`,
         emailDomain,
         allowedEmailDomains: payload.organization.allowedEmailDomains ?? [],
       }, 409)

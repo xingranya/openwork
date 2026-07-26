@@ -28,22 +28,22 @@ describe("MCP OAuth callback compatibility UI contract", () => {
   test("keeps connection rows focused on connect, disconnect, and a compact actions menu", () => {
     const screen = readFileSync(screenPath, "utf8")
 
-    expect(screen).toContain('const canConnectOAuth = !needsAdminSetup && !connection.issuerReviewRequired && connection.authType === "oauth"')
+    expect(screen).toContain('const canConnectOAuth = !setupRequired && !connection.issuerReviewRequired && connection.authType === "oauth"')
     expect(screen).toContain('isPerMember ? !connection.connectedForMe : !connection.connected')
     expect(screen).toContain('aria-haspopup="menu"')
     expect(screen).toContain('role="menu"')
-    expect(screen).toContain('More actions for ${connection.name}')
-    expect(screen).toContain('{toolsOpen ? "Hide tools" : "View tools"}')
+    expect(screen).toContain('aria-label={`${connection.name} 的更多操作`}')
+    expect(screen).toContain('{toolsOpen ? "收起工具" : "查看工具"}')
   })
 
   test("requires explicit administrator confirmation when live issuer metadata changes", () => {
     const screen = readFileSync(screenPath, "utf8")
     const data = readFileSync(dataPath, "utf8")
 
-    expect(screen).toContain("OAuth settings need review")
+    expect(screen).toContain("需要复核 OAuth 设置")
     expect(screen).toContain("复核 OAuth 服务")
-    expect(screen).toContain("Confirm issuer")
-    expect(screen).toContain("clears the old OAuth client and credentials")
+    expect(screen).toContain("确认签发方")
+    expect(screen).toContain("旧 OAuth 客户端和凭据会被清除")
     expect(data).toContain("/oauth/issuer-review")
     expect(data).toContain('action: "preview" | "confirm"')
   })
@@ -51,15 +51,15 @@ describe("MCP OAuth callback compatibility UI contract", () => {
   test("edits requested scopes without forcing an immediate reconnect", () => {
     const screen = readFileSync(screenPath, "utf8")
 
-    expect(screen).toContain("Requested OAuth scopes")
+    expect(screen).toContain("申请的 OAuth 授权范围")
     expect(screen).toContain("requestedScopesText")
-    expect(screen).toContain("Scope changes apply on next connect — reconnect to re-authorize.")
+    expect(screen).toContain("修改后需重新连接并授权。")
   })
 
   test("warns before deleting a connection", () => {
     const screen = readFileSync(screenPath, "utf8")
 
-    expect(screen).toContain("This can remove access grants, per-member authorization state, and plugin or marketplace bindings")
+    expect(screen).toContain("相关访问授权、成员认证状态以及插件或能力市场绑定都会被移除")
     expect(screen).toContain("window.confirm")
   })
 

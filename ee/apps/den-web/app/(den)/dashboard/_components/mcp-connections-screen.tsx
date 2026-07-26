@@ -809,7 +809,7 @@ function ImportPluginConnectionDialog({
                 setSelectedSkillKeys([]);
                 setError(null);
               }}
-              placeholder="https://github.com/anthropics/knowledge-work-plugins/tree/main/sales"
+              placeholder="请输入公司 GitHub 能力仓库地址"
               disabled={busy}
             />
             <DenButton variant="secondary" onClick={() => void previewGithubPlugin()} disabled={busy || !githubUrl.trim()}>

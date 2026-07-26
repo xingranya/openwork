@@ -6,7 +6,15 @@ import { resolveDenServiceVersion } from "./service-version.js"
 import { denApiAppVersion } from "./version.js"
 import { z } from "zod"
 
-export const DEFAULT_DEN_DIAGNOSTICS_ORIGIN = "https://diagnostic.openworklabs.com"
+const positiveIntegerString = z.string().regex(/^[1-9]\d*$/, "must be a positive integer")
+const portString = positiveIntegerString.refine(
+  (value) => Number(value) <= 65_535,
+  "must be a valid TCP port",
+)
+const sha256Image = z.string().regex(
+  /^.+@sha256:[a-f0-9]{64}$/,
+  "must use an immutable sha256 image digest",
+)
 
 const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
@@ -47,6 +55,7 @@ const EnvSchema = z.object({
   LOOPS_API_KEY: z.string().optional(),
   LOOPS_MARKETING_ENABLED: z.string().optional(),
   OPENWORK_DEV_MODE: z.string().optional(),
+  DEN_ALLOW_INSECURE_HTTP: z.string().optional(),
   DEN_ALLOW_PRIVATE_MCP_URLS: z.string().optional(),
   DEN_DIAGNOSTICS_ORIGIN: z.string().optional(),
   DEN_DIAGNOSTICS_BEARER_TOKEN: z.string().optional(),
@@ -69,13 +78,30 @@ const EnvSchema = z.object({
   DEN_MARKETING_URL: z.string().optional(),
   DEN_MCP_CLAIM_NAMESPACE: z.string().optional(),
   DEN_BOOTSTRAP_ADMIN_EMAILS: z.string().optional(),
+  DEN_SKILLS_CATALOG_API_BASE_URL: z.string().optional(),
   WORKER_PROXY_PORT: z.string().optional(),
   WORKER_PROVISIONING_RECONCILE_INTERVAL_MS: z.string().optional(),
   WORKER_PROVISIONING_RECONCILE_STALE_MS: z.string().optional(),
   WORKER_PROVISIONING_RECONCILE_BATCH_SIZE: z.string().optional(),
-  PROVISIONER_MODE: z.enum(["stub", "render", "daytona"]).optional(),
+  PROVISIONER_MODE: z.enum(["stub", "render", "daytona", "kubernetes"]).optional(),
   WORKER_URL_TEMPLATE: z.string().optional(),
   WORKER_ACTIVITY_BASE_URL: z.string().optional(),
+  KUBERNETES_NAMESPACE: z.string().optional(),
+  KUBERNETES_WORKER_IMAGE: sha256Image.optional(),
+  KUBERNETES_WORKER_DOMAIN_SUFFIX: z.string().optional(),
+  KUBERNETES_WORKER_URL_SCHEME: z.enum(["http", "https"]).optional(),
+  KUBERNETES_INGRESS_CLASS_NAME: z.string().optional(),
+  KUBERNETES_TLS_SECRET_NAME: z.string().optional(),
+  KUBERNETES_STORAGE_CLASS_NAME: z.string().optional(),
+  KUBERNETES_STORAGE_SIZE: z.string().optional(),
+  KUBERNETES_CPU_REQUEST: z.string().optional(),
+  KUBERNETES_CPU_LIMIT: z.string().optional(),
+  KUBERNETES_MEMORY_REQUEST: z.string().optional(),
+  KUBERNETES_MEMORY_LIMIT: z.string().optional(),
+  KUBERNETES_OPENWORK_PORT: portString.optional(),
+  KUBERNETES_OPENCODE_PORT: portString.optional(),
+  KUBERNETES_HEALTHCHECK_TIMEOUT_MS: positiveIntegerString.optional(),
+  KUBERNETES_POLL_INTERVAL_MS: positiveIntegerString.optional(),
   OPENWORK_DAYTONA_ENV_PATH: z.string().optional(),
   RENDER_API_BASE: z.string().optional(),
   RENDER_API_KEY: z.string().optional(),
@@ -181,6 +207,26 @@ const EnvSchema = z.object({
       }
     }
   }
+
+  if (value.PROVISIONER_MODE === "kubernetes") {
+    for (const key of ["KUBERNETES_WORKER_IMAGE", "KUBERNETES_WORKER_DOMAIN_SUFFIX"] as const) {
+      if (!value[key]?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${key} is required when PROVISIONER_MODE=kubernetes`,
+          path: [key],
+        })
+      }
+    }
+
+    if (value.KUBERNETES_WORKER_URL_SCHEME === "https" && !value.KUBERNETES_TLS_SECRET_NAME?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "KUBERNETES_TLS_SECRET_NAME is required when KUBERNETES_WORKER_URL_SCHEME=https",
+        path: ["KUBERNETES_TLS_SECRET_NAME"],
+      })
+    }
+  }
 })
 
 const parsed = EnvSchema.parse(process.env)
@@ -227,9 +273,10 @@ export function normalizeSingleOrgSlug(value: string | undefined) {
 }
 
 export function parseSingleOrgAllowPublicSignup(value: string | undefined, orgMode: DenOrgMode) {
+  void orgMode
   const normalized = value?.trim().toLowerCase()
   if (!normalized) {
-    return orgMode === "multi_org"
+    return true
   }
 
   if (["1", "true", "yes", "y", "on"].includes(normalized)) {
@@ -252,7 +299,8 @@ function normalizeOrigin(origin: string) {
 }
 
 function normalizeDiagnosticsOrigin(value: string | undefined, allowInsecureHttp: boolean) {
-  const configured = optionalString(value) ?? DEFAULT_DEN_DIAGNOSTICS_ORIGIN
+  const configured = optionalString(value)
+  if (!configured) return null
 
   let url: URL
   try {
@@ -337,13 +385,16 @@ const mcpConnectionsGatingEnabled =
   (parsed.DEN_MCP_CONNECTIONS_GATING_ENABLED ?? "false").toLowerCase() === "true"
 
 const devMode = (parsed.OPENWORK_DEV_MODE ?? "0").trim() === "1"
+const allowInsecureHttp = devMode || ["1", "true"].includes(
+  (parsed.DEN_ALLOW_INSECURE_HTTP ?? "false").trim().toLowerCase(),
+)
 const diagnosticsOrigin = normalizeDiagnosticsOrigin(parsed.DEN_DIAGNOSTICS_ORIGIN, devMode)
 const diagnosticsBearerToken = optionalString(parsed.DEN_DIAGNOSTICS_BEARER_TOKEN)
 if (diagnosticsBearerToken && diagnosticsBearerToken.length < 24) {
   throw new Error("DEN_DIAGNOSTICS_BEARER_TOKEN must contain at least 24 characters.")
 }
 const apiPublicUrl = normalizeConfiguredPublicApiBaseUrl(parsed.DEN_API_PUBLIC_URL, {
-  allowInsecureHttp: devMode,
+  allowInsecureHttp,
 })
 const publicUrlTrustedOrigins = Array.from(new Set([
   ...corsOrigins,
@@ -364,6 +415,11 @@ const passwordBreachScreeningEnabled = parsed.DEN_PASSWORD_BREACH_SCREENING_ENAB
   ? true
   : parsed.DEN_PASSWORD_BREACH_SCREENING_ENABLED.trim().toLowerCase() !== "false"
 const port = Number(parsed.PORT ?? "8790")
+const provisionerMode = parsed.PROVISIONER_MODE ?? "stub"
+const renderWorkerRepo = optionalString(parsed.RENDER_WORKER_REPO)
+if (provisionerMode === "render" && !renderWorkerRepo) {
+  throw new Error("PROVISIONER_MODE=render 需要配置公司控制的 RENDER_WORKER_REPO。")
+}
 
 const daytonaSandboxPublic =
   (parsed.DAYTONA_SANDBOX_PUBLIC ?? "false").toLowerCase() === "true"
@@ -442,7 +498,7 @@ export const env = {
   },
   orgMode,
   singleOrg: {
-    name: optionalString(parsed.DEN_SINGLE_ORG_NAME) ?? "OpenWork",
+    name: optionalString(parsed.DEN_SINGLE_ORG_NAME) ?? "FoxWork 公司",
     slug: normalizeSingleOrgSlug(parsed.DEN_SINGLE_ORG_SLUG),
     allowPublicSignup: parseSingleOrgAllowPublicSignup(parsed.DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP, orgMode),
     ownerEmails: splitCsv(parsed.DEN_SINGLE_ORG_OWNER_EMAILS)
@@ -461,7 +517,7 @@ export const env = {
   // Standard desktop release assets: the release tag to download from,
   // defaulting to the pinned app release this den-api build shipped with.
   installerReleaseTag: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_TAG) ?? `v${denApiAppVersion.latestAppVersion}`,
-  installerReleaseRepo: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_REPO) ?? "different-ai/openwork",
+  installerReleaseRepo: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_REPO),
   installerCacheDir: optionalString(parsed.OPENWORK_INSTALLER_CACHE_DIR) ?? path.join(os.tmpdir(), "openwork-desktop-artifacts"),
   // Native-provider endpoint overrides for evals/self-host testing. Unset in
   // production so Google, Microsoft Entra, and Graph use their public APIs.
@@ -475,7 +531,10 @@ export const env = {
   marketingUrl: optionalString(parsed.DEN_MARKETING_URL),
   mcpClaimNamespace: normalizeOrigin(optionalString(parsed.DEN_MCP_CLAIM_NAMESPACE) ?? parsed.BETTER_AUTH_URL),
   bootstrapAdminEmails: splitCsv(parsed.DEN_BOOTSTRAP_ADMIN_EMAILS).map((email) => email.toLowerCase()),
-  provisionerMode: parsed.PROVISIONER_MODE ?? "stub",
+  skillsCatalog: {
+    apiBaseUrl: optionalString(parsed.DEN_SKILLS_CATALOG_API_BASE_URL),
+  },
+  provisionerMode,
   workerProvisioningReconcileIntervalMs: Number(parsed.WORKER_PROVISIONING_RECONCILE_INTERVAL_MS ?? "60000"),
   workerProvisioningReconcileStaleMs: Number(parsed.WORKER_PROVISIONING_RECONCILE_STALE_MS ?? "1200000"),
   workerProvisioningReconcileBatchSize: Number(parsed.WORKER_PROVISIONING_RECONCILE_BATCH_SIZE ?? "10"),
@@ -483,6 +542,26 @@ export const env = {
   workerActivityBaseUrl:
     optionalString(parsed.WORKER_ACTIVITY_BASE_URL) ??
     parsed.BETTER_AUTH_URL.trim().replace(/\/+$/, ""),
+  kubernetes: {
+    namespace: optionalString(parsed.KUBERNETES_NAMESPACE) ?? "openwork-workers",
+    workerImage: optionalString(parsed.KUBERNETES_WORKER_IMAGE),
+    workerDomainSuffix: optionalString(parsed.KUBERNETES_WORKER_DOMAIN_SUFFIX),
+    workerUrlScheme: parsed.KUBERNETES_WORKER_URL_SCHEME ?? "https",
+    ingressClassName: optionalString(parsed.KUBERNETES_INGRESS_CLASS_NAME),
+    tlsSecretName: optionalString(parsed.KUBERNETES_TLS_SECRET_NAME),
+    storageClassName: optionalString(parsed.KUBERNETES_STORAGE_CLASS_NAME),
+    storageSize: optionalString(parsed.KUBERNETES_STORAGE_SIZE) ?? "10Gi",
+    resources: {
+      cpuRequest: optionalString(parsed.KUBERNETES_CPU_REQUEST) ?? "500m",
+      cpuLimit: optionalString(parsed.KUBERNETES_CPU_LIMIT) ?? "2",
+      memoryRequest: optionalString(parsed.KUBERNETES_MEMORY_REQUEST) ?? "1Gi",
+      memoryLimit: optionalString(parsed.KUBERNETES_MEMORY_LIMIT) ?? "4Gi",
+    },
+    openworkPort: Number(parsed.KUBERNETES_OPENWORK_PORT ?? "8787"),
+    opencodePort: Number(parsed.KUBERNETES_OPENCODE_PORT ?? "4096"),
+    healthcheckTimeoutMs: Number(parsed.KUBERNETES_HEALTHCHECK_TIMEOUT_MS ?? "300000"),
+    pollIntervalMs: Number(parsed.KUBERNETES_POLL_INTERVAL_MS ?? "2000"),
+  },
   inferenceProxyBaseUrl: optionalString(parsed.INFERENCE_PROXY_BASE_URL) ?? "http://127.0.0.1:8791",
   openRouterManagementApiKey: optionalString(parsed.OPENROUTER_MANAGEMENT_API_KEY),
   openRouterWorkspaceId: optionalString(parsed.OPENROUTER_WORKSPACE_ID),
@@ -498,9 +577,7 @@ export const env = {
     apiBase: parsed.RENDER_API_BASE ?? "https://api.render.com/v1",
     apiKey: parsed.RENDER_API_KEY,
     ownerId: parsed.RENDER_OWNER_ID,
-    workerRepo:
-      // TODO(ent): require RENDER_WORKER_REPO for hosted/customer Render deployments instead of using OpenWork's public repo default.
-      parsed.RENDER_WORKER_REPO ?? "https://github.com/different-ai/openwork",
+    workerRepo: renderWorkerRepo,
     workerBranch: parsed.RENDER_WORKER_BRANCH ?? "dev",
     workerRootDir:
       parsed.RENDER_WORKER_ROOT_DIR ?? "ee/apps/den-worker-runtime",

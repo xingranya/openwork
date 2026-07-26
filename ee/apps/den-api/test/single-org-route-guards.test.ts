@@ -13,12 +13,15 @@ function seedRequiredEnv() {
 let authRoutesModule: typeof import("../src/routes/auth/index.js")
 let meRoutesModule: typeof import("../src/routes/me/index.js")
 let orgCoreModule: typeof import("../src/routes/org/core.js")
+let envModule: typeof import("../src/env.js")
 
 beforeAll(async () => {
   seedRequiredEnv()
   authRoutesModule = await import("../src/routes/auth/index.js")
   meRoutesModule = await import("../src/routes/me/index.js")
   orgCoreModule = await import("../src/routes/org/core.js")
+  envModule = await import("../src/env.js")
+  envModule.env.singleOrg.allowPublicSignup = false
 })
 
 function createSignedOrgCoreApp() {
@@ -52,7 +55,7 @@ test("POST /v1/org is blocked in single_org mode before creating another organiz
   expect(response.status).toBe(409)
   await expect(response.json()).resolves.toEqual({
     error: "single_org_mode",
-    message: "This deployment is configured for one organization. New organizations cannot be created.",
+    message: "公司服务只允许一个公司组织，不能创建第二家公司。",
   })
 })
 
@@ -69,7 +72,7 @@ test("raw Better Auth organization creation is blocked in single_org mode", asyn
   expect(response.status).toBe(409)
   await expect(response.json()).resolves.toEqual({
     error: "single_org_mode",
-    message: "This deployment is configured for one organization. Additional organization changes are disabled.",
+    message: "公司服务只允许一个公司组织，不能创建或加入第二家公司。",
   })
 })
 
@@ -86,7 +89,7 @@ test("raw Better Auth email signup is blocked in private single_org mode before 
   expect(response.status).toBe(403)
   await expect(response.json()).resolves.toEqual({
     error: "single_org_signup_disabled",
-    message: "Email signup is disabled for this deployment. Use your organization's SSO or a pre-provisioned account to sign in.",
+    message: "公司已关闭自助注册，请使用公司单点登录或管理员预先创建的账号。",
   })
 })
 

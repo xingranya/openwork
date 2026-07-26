@@ -38,6 +38,7 @@ async function configuredBearerToken(organizationId: OrganizationId) {
 
 async function egressDiagnosticConfiguration(organizationId: OrganizationId): Promise<EgressDiagnosticConfiguration> {
   const missingConfiguration: EgressDiagnosticConfiguration["missingConfiguration"] = []
+  if (!env.diagnostics.origin) missingConfiguration.push("DEN_DIAGNOSTICS_ORIGIN")
   if (!await configuredBearerToken(organizationId)) missingConfiguration.push("DEN_DIAGNOSTICS_BEARER_TOKEN")
   return {
     available: missingConfiguration.length === 0,
@@ -113,7 +114,8 @@ export function registerOrgEgressDiagnosticRoutes<T extends { Variables: OrgRout
       if (!organizationId) return c.json({ error: "organization_not_found" }, 404)
       const bearerToken = await configuredBearerToken(organizationId)
       const configuration = await egressDiagnosticConfiguration(organizationId)
-      if (!configuration.available || !bearerToken) {
+      const origin = env.diagnostics.origin
+      if (!configuration.available || !bearerToken || !origin) {
         return c.json({
           error: "egress_diagnostics_not_configured" as const,
           missingConfiguration: configuration.missingConfiguration,
@@ -123,7 +125,7 @@ export function registerOrgEgressDiagnosticRoutes<T extends { Variables: OrgRout
       console.info("den_egress_diagnostic_started", { organizationId })
       const result = await runEgressDiagnostic({
         bearerToken,
-        origin: env.diagnostics.origin,
+        origin,
       })
       console.info("den_egress_diagnostic_completed", {
         failedStep: result.failedStep,

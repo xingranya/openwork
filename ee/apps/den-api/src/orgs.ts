@@ -340,8 +340,8 @@ export class OrganizationEmailDomainRestrictionError extends Error {
     const emailDomain = getEmailDomain(email)
     super(
       allowedEmailDomains.length === 1
-        ? `This workspace only allows ${allowedEmailDomains[0]} email addresses.`
-        : `This workspace only allows email addresses from these domains: ${allowedEmailDomains.join(", ")}.`,
+        ? `公司只允许使用 ${allowedEmailDomains[0]} 邮箱注册。`
+        : `公司只允许使用以下邮箱域名注册：${allowedEmailDomains.join("、")}。`,
     )
     this.name = "OrganizationEmailDomainRestrictionError"
     this.emailDomain = emailDomain

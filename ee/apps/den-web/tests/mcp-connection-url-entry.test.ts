@@ -11,9 +11,9 @@ describe("MCP URL entry UI contract", () => {
     const screen = readFileSync(screenPath, "utf8");
 
     expect(screen).toContain('useState<"smart" | "advanced">(preset ? "advanced" : "smart")');
-    expect(screen).toContain("Add an MCP server");
-    expect(screen).toContain("Paste the MCP server URL");
-    expect(screen).toContain("Paste a server URL and we&apos;ll check it for you.");
+    expect(screen).toContain("添加 MCP 服务");
+    expect(screen).toContain("粘贴 MCP 服务地址");
+    expect(screen).toContain("自动识别并检查认证要求");
     expect(screen).toContain('placeholder="https://mcp.example.com/mcp"');
     expect(screen).toContain('if (kind !== "url" && kind !== "domain")');
     expect(screen).not.toContain('data-testid="select-custom-mcp"');
@@ -27,7 +27,7 @@ describe("MCP URL entry UI contract", () => {
     const screen = readFileSync(screenPath, "utf8");
 
     expect(screen).toContain("setFormPreset(preset);");
-    expect(screen).toContain("{preset ? `Add ${preset.displayName}` : \"Add a custom MCP server\"}");
+    expect(screen).toContain("{preset ? `添加 ${preset.displayName}` : \"添加自定义 MCP 服务\"}");
     expect(screen).toContain("disabled={Boolean(preset)}");
     expect(screen).not.toContain("existingConnectionUrls");
     expect(screen).not.toContain("onSelectPreset");
@@ -39,7 +39,7 @@ describe("MCP URL entry UI contract", () => {
     expect(screen).toContain("optionalScopes.length > OPTIONAL_SCOPE_BULK_TOGGLE_THRESHOLD");
     expect(screen).toContain('role="checkbox"');
     expect(screen).toContain('"mixed"');
-    expect(screen).toContain('"Deselect all" : "Select all"');
+    expect(screen).toContain('"取消全选" : "全选"');
     expect(screen).toContain('data-testid="toggle-all-optional-permissions"');
     expect(screen).toContain("toggleAllOptionalScopes(current, optionalScopes)");
   });

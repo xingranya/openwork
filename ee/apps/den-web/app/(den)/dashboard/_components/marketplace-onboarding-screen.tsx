@@ -349,7 +349,7 @@ export function MarketplaceOnboardingScreen() {
             done={mcpAdded}
             required={false}
             icon={<Plug className="h-4 w-4" />}
-            title="在 OpenCode、Codex 或其他 MCP 客户端中使用 FoxWork"
+            title="在 FoxWork、Codex 或其他 MCP 客户端中使用公司能力"
             helper="复制公司 MCP 地址。未配置时请联系管理员获取接入方式。"
           >
             <div className="space-y-2.5">

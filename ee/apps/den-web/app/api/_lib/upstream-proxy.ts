@@ -32,17 +32,26 @@ function readBaseUrlEnv(name: string): string | null {
   return value ? normalizeBaseUrl(value) : null;
 }
 
+function normalizeUnspecifiedOrigin(value: URL): URL {
+  const hostname = value.hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (hostname === "0.0.0.0" || hostname === "::") {
+    // 0.0.0.0/:: 只适合服务监听，不能写入客户端的跳转或令牌资源。
+    value.hostname = "localhost";
+  }
+  return value;
+}
+
 function requestPublicOrigin(request: NextRequest): URL {
   const configuredOrigin = readBaseUrlEnv("DEN_WEB_PUBLIC_ORIGIN");
   if (configuredOrigin) {
     try {
-      return new URL(configuredOrigin);
+      return normalizeUnspecifiedOrigin(new URL(configuredOrigin));
     } catch {
-      return new URL(request.url);
+      return normalizeUnspecifiedOrigin(new URL(request.url));
     }
   }
 
-  return new URL(request.url);
+  return normalizeUnspecifiedOrigin(new URL(request.url));
 }
 
 function normalizePathPrefix(value: string): string {

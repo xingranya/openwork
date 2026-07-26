@@ -497,32 +497,7 @@ export const auth = betterAuth({
     },
   },
   rateLimit: {
-    enabled: !env.devMode,
-    storage: "database",
-    window: 60,
-    max: 20,
-    customRules: {
-      "/sign-in/email": {
-        window: 300,
-        max: 5,
-      },
-      "/sign-up/email": {
-        window: 3600,
-        max: env.devMode ? 100 : 5,
-      },
-      "/email-otp/send-verification-otp": {
-        window: 3600,
-        max: 5,
-      },
-      "/email-otp/verify-email": {
-        window: 300,
-        max: 10,
-      },
-      "/request-password-reset": {
-        window: 3600,
-        max: 5,
-      },
-    },
+    enabled: false,
   },
   emailVerification: {
     sendOnSignUp: env.requireEmailVerification,

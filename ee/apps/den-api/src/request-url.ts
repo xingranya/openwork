@@ -18,6 +18,15 @@ function isTrustedOrigin(origin: string, trustedOrigins: readonly string[]): boo
   })
 }
 
+/**
+ * 监听地址不能作为客户端可访问的公开地址。开发服务可以绑定到
+ * 0.0.0.0 或 ::，但令牌、跳转和 MCP 资源不能把这类通配地址发给客户端。
+ */
+function isUnspecifiedHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "")
+  return normalized === "0.0.0.0" || normalized === "::"
+}
+
 function forwardedOrigin(request: Request, protocol: string, trustedOrigins: readonly string[]): URL | null {
   const host = firstForwardedValue(request.headers.get("x-forwarded-host"))
   if (!host) return null
@@ -30,6 +39,7 @@ function forwardedOrigin(request: Request, protocol: string, trustedOrigins: rea
       || candidate.pathname !== "/"
       || candidate.search
       || candidate.hash
+      || isUnspecifiedHost(candidate.hostname)
       || !isTrustedOrigin(candidate.origin, trustedOrigins)
     ) {
       return null
@@ -91,7 +101,9 @@ export function normalizeConfiguredPublicApiBaseUrl(
     throw new Error("DEN_API_PUBLIC_URL cannot contain credentials, a query string, or a fragment.")
   }
   if (url.protocol !== "https:" && !options.allowInsecureHttp && !isLocalPublicApiHost(url.hostname)) {
-    throw new Error("DEN_API_PUBLIC_URL must use HTTPS outside development and localhost.")
+    throw new Error(
+      "DEN_API_PUBLIC_URL must use HTTPS outside development and localhost unless DEN_ALLOW_INSECURE_HTTP is explicitly enabled.",
+    )
   }
 
   const pathname = url.pathname.replace(/\/+$/, "")
