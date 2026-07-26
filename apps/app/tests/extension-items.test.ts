@@ -3,7 +3,11 @@ import { describe, expect, test } from "bun:test";
 import type { McpDirectoryInfo } from "../src/app/constants";
 import type { DenExternalMcpConnection } from "../src/app/lib/den";
 import type { McpServerEntry } from "../src/app/types";
-import { buildExtensionItems } from "../src/react-app/domains/settings/extension-items";
+import {
+  buildExtensionItems,
+  employeeFacingSkillDescription,
+  employeeFacingSkillName,
+} from "../src/react-app/domains/settings/extension-items";
 
 const connectedBuiltIn: McpDirectoryInfo = {
   id: "openwork-browser",
@@ -73,6 +77,14 @@ function orgMcpConnection(input: Partial<DenExternalMcpConnection> = {}): DenExt
 }
 
 describe("extension item projection", () => {
+  test("uses Chinese employee-facing copy for installed skills", () => {
+    expect(employeeFacingSkillName("computer-use")).toBe("电脑操作");
+    expect(employeeFacingSkillDescription("computer-use")).toBe(
+      "可在对话中调用“电脑操作”技能完成对应任务。",
+    );
+    expect(employeeFacingSkillDescription("officecli")).not.toMatch(/Create|Orca|OpenCode/);
+  });
+
   test("keeps unconnected built-ins out of My Extensions quick connect", () => {
     const result = buildExtensionItems({
       quickConnect: [connectedBuiltIn, availableBuiltIn],

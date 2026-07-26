@@ -5,10 +5,51 @@ import path from "node:path"
 import { installConfigUrlFor, parseInstallerFilenameTag } from "@openwork/install-config"
 
 import { desktopBootstrapPath, legacyDesktopBootstrapPath } from "../src/bootstrap-path"
-import { parseInstallLinkInput, resolveInstallerConfig } from "../src/config"
+import { installerConfigSourceLabel, parseInstallLinkInput, resolveInstallerConfig } from "../src/config"
 import { isTranslocatedPath, parseMountTableLine, readSidecarConfig, resolveTranslocatedOriginalPath } from "../src/config-sources"
 import { writeBootstrapConfig } from "../src/install"
 import { releaseAssetFor } from "../src/release-asset"
+import { renderInstallerHtml } from "../src/ui-html"
+
+describe("FoxWork 安装界面", () => {
+  test("未配置页面只显示中文操作文案", () => {
+    const html = renderInstallerHtml(null, "test-token")
+
+    expect(html).toContain('<html lang="zh-CN">')
+    expect(html).toContain("<title>FoxWork 安装程序</title>")
+    expect(html).toContain("粘贴 FoxWork 安装链接")
+    expect(html).toContain("继续")
+    expect(html).toContain("退出")
+    expect(html).not.toMatch(/>\s*(?:Continue|Exit|Install|Retry|Launch)\s*</)
+  })
+
+  test("公司配置页面和动态状态提示保持中文", () => {
+    const html = renderInstallerHtml({
+      source: "install-link",
+      config: {
+        appName: "FoxWork",
+        clientName: "Fox 公司",
+        webUrl: "https://foxwork.example.com",
+        apiUrl: "https://api.foxwork.example.com",
+        requireSignin: true,
+        logoUrl: null,
+      },
+    }, "test-token")
+
+    expect(html).toContain("安装 FoxWork")
+    expect(html).toContain("配置来源：公司安装链接")
+    expect(html).toContain("正在检查安装链接…")
+    expect(html).toContain("安装完成")
+    expect(html).toContain("无法开始安装，请稍后重试。")
+    expect(html).toContain('userMessage(status.message, "正在准备安装…")')
+    expect(html).toContain('userMessage(status.message, "安装失败，请检查网络后重试。")')
+    expect(html).not.toContain("statusEl.textContent = status.message")
+    expect(html).not.toContain("Successfully Installed")
+    expect(html).not.toContain("Could not start install")
+    expect(installerConfigSourceLabel("env")).toBe("环境配置")
+    expect(installerConfigSourceLabel("build")).toBe("内置部署配置")
+  })
+})
 
 describe("desktopBootstrapPath", () => {
   test("honors the explicit override", () => {

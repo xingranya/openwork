@@ -19,8 +19,8 @@ test("renders compact MCP attribution in a failed chat tool row", () => {
 
   const html = renderToStaticMarkup(<Tool toolPart={toolPart} />)
 
-  expect(html).toContain("Remote MCP · HTTP 504")
-  expect(html).toContain("Error attribution: Remote MCP · HTTP 504. Confirmed.")
+  expect(html).toContain("远程 MCP · HTTP 504")
+  expect(html).toContain("错误来源：远程 MCP · HTTP 504。已确认。")
   expect(html).not.toContain(">failed<")
 })
 
@@ -58,9 +58,9 @@ test("renders an inline reconnect button when Cloud capability discovery finds e
     <Tool toolPart={toolPart} onReconnect={async () => "connected"} />,
   )
 
-  expect(html).toContain("Reconnect required")
-  expect(html).toContain('aria-label="Reconnect Knowledge Hub"')
-  expect(html).toContain("Reconnect</button>")
+  expect(html).toContain("需要重新连接")
+  expect(html).toContain('aria-label="重新连接 Knowledge Hub"')
+  expect(html).toContain("重新连接</button>")
   expect(html).toContain("bg-amber-3/60")
   expect(html).toContain('data-testid="chat-mcp-reconnect-action"')
 })

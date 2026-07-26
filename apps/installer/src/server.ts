@@ -52,11 +52,11 @@ export function startInstallerServer(initialResolution: InstallerConfigResolutio
         if (request.method === "POST" && url.pathname === "/api/resolve-link") {
           const installLink = installLinkFromPayload(await request.json().catch(() => null))
           if (!installLink) {
-            return Response.json({ error: "missing_install_link", message: "Paste an OpenWork install link." }, { status: 400 })
+            return Response.json({ error: "missing_install_link", message: "请粘贴 FoxWork 安装链接。" }, { status: 400 })
           }
           const config = await installLinkConfig(installLink)
           if (!config) {
-            return Response.json({ error: "install_link_invalid", message: "That install link could not be resolved. Check the link and try again." }, { status: 400 })
+            return Response.json({ error: "install_link_invalid", message: "无法识别安装链接，请检查后重试。" }, { status: 400 })
           }
           resolution = { config, source: "install-link" }
           return Response.json({ ok: true, source: installerConfigSourceLabel(resolution.source) })
@@ -79,7 +79,7 @@ export function startInstallerServer(initialResolution: InstallerConfigResolutio
           return Response.json({ ok: true })
         }
       }
-      return new Response("Not found", { status: 404 })
+      return new Response("未找到请求的内容", { status: 404 })
     },
   })
 

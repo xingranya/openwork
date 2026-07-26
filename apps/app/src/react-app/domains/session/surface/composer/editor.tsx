@@ -324,11 +324,11 @@ function createPastedTextChipDom(label: string, lines: number) {
   button.type = "button";
   button.className = "ml-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-medium text-amber-11 underline decoration-amber-8 underline-offset-2 transition-colors hover:bg-amber-4 hover:text-amber-12";
   button.title = "Expand";
-  button.setAttribute("aria-label", "Expand pasted text in composer");
+  button.setAttribute("aria-label", "展开已粘贴文本");
   button.dataset.pastedExpandLabel = label;
 
   const actionText = document.createElement("span");
-  actionText.textContent = "Expand";
+  actionText.textContent = "展开";
 
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
@@ -353,7 +353,7 @@ function updatePastedTextChipDom(dom: HTMLElement, label: string, lines: number)
   const button = dom.querySelector("button[data-pasted-expand-label]");
   if (button instanceof HTMLButtonElement) {
     button.title = "Expand";
-    button.setAttribute("aria-label", "Expand pasted text in composer");
+    button.setAttribute("aria-label", "展开已粘贴文本");
     button.dataset.pastedExpandLabel = label;
   }
   dom.title = `Pasted text · ${label}`;

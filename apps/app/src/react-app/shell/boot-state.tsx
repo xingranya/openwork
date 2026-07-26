@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toChineseUserMessage } from "../../app/lib/user-facing-error";
 
 export type BootPhaseId =
   | "idle"
@@ -47,21 +48,19 @@ const DEFAULT_STATE: BootStateSnapshot = {
 
 const PHASE_MESSAGES: Record<BootPhaseId, string> = {
   idle: "",
-  "bootstrapping-workspaces": "Loading your workspaces",
-  "starting-openwork-server": "Starting the OpenWork server",
-  "starting-engine": "Preparing workspace",
-  "activating-workspace": "Activating your workspace",
-  ready: "Ready",
-  error: "Something went wrong",
+  "bootstrapping-workspaces": "正在加载工作区",
+  "starting-openwork-server": "正在启动 FoxWork 本地服务",
+  "starting-engine": "正在准备工作区",
+  "activating-workspace": "正在打开工作区",
+  ready: "已就绪",
+  error: "FoxWork 启动失败",
 };
 
 const BootStateContext = createContext<BootStateContextValue | null>(null);
 
 export function BootStateProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<BootStateSnapshot>(DEFAULT_STATE);
-  // Once the main route has finished its first successful refresh (workspaces
-  // + sessions fetched), we consider the app "interactive". This is a one-way
-  // latch so subsequent background refreshes never re-show the overlay.
+  // 主界面首次成功读取工作区和会话后即进入可交互状态；后续后台刷新不再显示启动浮层。
   const [routeReady, setRouteReady] = useState(false);
   const startedAtRef = useRef<number | null>(null);
 
@@ -84,11 +83,14 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setError = useCallback((message: string | null) => {
+    const visibleMessage = message
+      ? toChineseUserMessage(message, "FoxWork 启动失败，请重试。")
+      : null;
     setSnapshot((current) => ({
       ...current,
-      error: message,
-      phase: message ? "error" : current.phase,
-      message: message ? PHASE_MESSAGES.error : current.message,
+      error: visibleMessage,
+      phase: visibleMessage ? "error" : current.phase,
+      message: visibleMessage ? PHASE_MESSAGES.error : current.message,
     }));
   }, []);
 

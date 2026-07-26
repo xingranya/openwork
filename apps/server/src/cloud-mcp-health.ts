@@ -1794,6 +1794,7 @@ export async function readOpenworkCloudMcpHealth(input: {
   providerModel?: CloudMcpProviderModelContext;
   serverMetadata?: CloudMcpServerMetadata;
   probe?: boolean;
+  inspectEngine?: boolean;
   createWorkspaceOpencodeClient: (config: ServerConfig, workspace: WorkspaceInfo) => WorkspaceOpencodeClient;
 }): Promise<CloudMcpHealth> {
   const checkedAt = new Date().toISOString();
@@ -1849,7 +1850,14 @@ export async function readOpenworkCloudMcpHealth(input: {
     opencodeVersion: { expectedVersion: input.serverMetadata?.expectedOpencodeVersion ?? null, actualVersion: null, probe: "not_checked" },
     failures: [],
   };
-  if (desired.present && desired.config && !desired.validationProblem && input.directory && baseUrlConfigured(input.config, input.workspace)) {
+  if (
+    input.inspectEngine !== false
+    && desired.present
+    && desired.config
+    && !desired.validationProblem
+    && input.directory
+    && baseUrlConfigured(input.config, input.workspace)
+  ) {
     inspection = await inspectOpenworkCloud({
       opencode: input.createWorkspaceOpencodeClient(input.config, input.workspace),
       directory: input.directory,
@@ -1860,7 +1868,13 @@ export async function readOpenworkCloudMcpHealth(input: {
     failures.push(...inspection.failures);
   }
 
-  if (desired.present && desired.revision && failures.length === 0 && delivery.appliedRevision !== desired.revision) {
+  if (
+    input.inspectEngine !== false
+    && desired.present
+    && desired.revision
+    && failures.length === 0
+    && delivery.appliedRevision !== desired.revision
+  ) {
     cloudMcpDeliveryState.markDesired(input.workspace, input.directory, desired.revision, desired.metadata);
     cloudMcpDeliveryState.markReady(input.workspace, input.directory, desired.revision);
     delivery = cloudMcpDeliveryState.snapshot(input.workspace, input.directory, desired.revision);
@@ -2000,14 +2014,15 @@ export async function reconcileOpenworkCloudMcp(input: {
   createWorkspaceOpencodeClient: (config: ServerConfig, workspace: WorkspaceInfo) => WorkspaceOpencodeClient;
   registerRuntimeMcp: CloudMcpRuntimeRegistrar;
 }): Promise<CloudMcpHealth> {
-  const readHealth = () => readOpenworkCloudMcpHealth({
+  const readHealth = (probe = true, inspectEngine = true) => readOpenworkCloudMcpHealth({
     config: input.config,
     workspace: input.workspace,
     directory: input.directory,
     providerModel: input.providerModel,
     serverMetadata: input.serverMetadata,
     createWorkspaceOpencodeClient: input.createWorkspaceOpencodeClient,
-    probe: true,
+    probe,
+    inspectEngine,
   });
   const configBody = input.body.config ?? input.body;
   const desiredConfig = canonicalizeCloudMcpConfig(normalizeCloudMcpConfig(configBody));
@@ -2050,7 +2065,8 @@ export async function reconcileOpenworkCloudMcp(input: {
   if (registration.failures.length > 0) {
     const registrationError = registrationFailure(registration.failures);
     cloudMcpDeliveryState.markFailed(input.workspace, input.directory, desiredRevision, registrationError);
-    return healthWithFailure(await readHealth(), registrationError);
+    // 注册请求已经证明引擎不可用，不再对同一地址执行第二次网络探测。
+    return healthWithFailure(await readHealth(false, false), registrationError);
   }
 
   const opencode = input.createWorkspaceOpencodeClient(input.config, input.workspace);

@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 
 import type { OpencodeConnectStatus } from "@/app/types";
 import type { OpenworkCloudMcpHealth, OpenworkRuntimeConfigStatus, OpenworkServerStatus } from "@/app/lib/openwork-server";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { t } from "@/i18n";
 import { LayoutStack } from "../settings-layout";
 import type { useDenSession } from "../cloud/use-den-session";
@@ -106,15 +107,15 @@ export function AdvancedView(props: AdvancedViewProps) {
   })();
 
   const clientDetailLines = props.clientConnected
-    ? ["Chat and task creation can use the OpenCode engine for this workspace."]
+    ? ["当前工作区可以使用 AI 会话和任务功能。"]
     : [
-        "Chat and task creation may fail until OpenCode restarts.",
-        "OpenWork server config sources below can still be inspected.",
+        "AI 运行引擎重启完成前，会话和任务创建可能失败。",
+        "仍可查看下方的 FoxWork 本地服务配置来源。",
       ];
 
   const openworkDetailLines = props.openworkServerStatus === "connected"
-    ? ["Runtime DB, workspace config, and migration diagnostics are available."]
-    : ["Runtime config diagnostics need the OpenWork server connection."];
+    ? ["可以查看运行数据库、工作区配置和迁移诊断。"]
+    : ["连接 FoxWork 本地服务后才能查看运行配置诊断。"];
 
   const submitDebugDeepLink = async () => {
     const rawUrl = debugDeepLinkInput.trim();
@@ -123,14 +124,20 @@ export function AdvancedView(props: AdvancedViewProps) {
     try {
       const result = await props.openDebugDeepLink(rawUrl);
       if (result.ok) {
-        dispatchLocal({ type: "deepLinkSuccess", status: result.message });
+        dispatchLocal({
+          type: "deepLinkSuccess",
+          status: toChineseUserMessage(result.message, "链接已打开。"),
+        });
       } else {
-        dispatchLocal({ type: "deepLinkStatus", status: result.message });
+        dispatchLocal({
+          type: "deepLinkStatus",
+          status: toChineseUserMessage(result.message, t("settings.open_deeplink_failed")),
+        });
       }
     } catch (error) {
       dispatchLocal({
         type: "deepLinkStatus",
-        status: error instanceof Error ? error.message : t("settings.open_deeplink_failed"),
+        status: toChineseUserMessage(error, t("settings.open_deeplink_failed")),
       });
     } finally {
       dispatchLocal({ type: "deepLinkDone" });
@@ -147,7 +154,7 @@ export function AdvancedView(props: AdvancedViewProps) {
     try {
       setConfigStatus(await props.getRuntimeConfigStatus());
     } catch (error) {
-      setConfigStatusError(error instanceof Error ? error.message : "Failed to load runtime config status.");
+      setConfigStatusError(toChineseUserMessage(error, "无法读取运行配置状态，请重试。"));
     } finally {
       setConfigStatusBusy(false);
     }
@@ -166,13 +173,13 @@ export function AdvancedView(props: AdvancedViewProps) {
       dispatchLocal({
         type: "migrationStatus",
         status: result.migrated
-          ? `Migrated legacy runtime config: ${result.keys.join(", ")}.`
-          : "No legacy runtime config found for this workspace.",
+          ? `已迁移旧版运行配置：${result.keys.join("、")}。`
+          : "当前工作区没有需要迁移的旧版运行配置。",
       });
     } catch (error) {
       dispatchLocal({
         type: "migrationStatus",
-        status: error instanceof Error ? error.message : "Failed to migrate legacy runtime config.",
+        status: toChineseUserMessage(error, "迁移运行配置失败，请重试。"),
       });
     } finally {
       dispatchLocal({ type: "migrationDone" });
@@ -204,22 +211,26 @@ export function AdvancedView(props: AdvancedViewProps) {
         openworkDetailLines={openworkDetailLines}
       />
 
-      <AdvancedCloudMcpDiagnosticsSection
-        cloudMcpHealth={props.cloudMcpHealth}
-        onRefresh={props.refreshCloudMcpHealth}
-      />
+      {props.developerMode ? (
+        <>
+          <AdvancedCloudMcpDiagnosticsSection
+            cloudMcpHealth={props.cloudMcpHealth}
+            onRefresh={props.refreshCloudMcpHealth}
+          />
 
-      <AdvancedRuntimeMigrationSection
-        busy={props.busy}
-        canMigrate={props.canMigrateRuntimeConfig}
-        migrationBusy={migrationBusy}
-        migrationStatus={migrationStatus}
-        configStatus={configStatus}
-        configStatusBusy={configStatusBusy}
-        configStatusError={configStatusError}
-        onRefresh={refreshRuntimeConfigStatus}
-        onMigrate={migrateRuntimeConfig}
-      />
+          <AdvancedRuntimeMigrationSection
+            busy={props.busy}
+            canMigrate={props.canMigrateRuntimeConfig}
+            migrationBusy={migrationBusy}
+            migrationStatus={migrationStatus}
+            configStatus={configStatus}
+            configStatusBusy={configStatusBusy}
+            configStatusError={configStatusError}
+            onRefresh={refreshRuntimeConfigStatus}
+            onMigrate={migrateRuntimeConfig}
+          />
+        </>
+      ) : null}
 
       <AdvancedDeveloperSection
         busy={props.busy}

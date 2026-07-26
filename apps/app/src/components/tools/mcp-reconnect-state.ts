@@ -51,14 +51,14 @@ export function chatMcpReconnectPresentation(
 ): ChatMcpReconnectPresentation {
   switch (phase) {
     case "opening":
-      return { badgeLabel: "Reconnect required", buttonLabel: "Opening sign-in…", disabled: true }
+      return { badgeLabel: "需要重新连接", buttonLabel: "正在打开登录页面...", disabled: true }
     case "authorization_opened":
-      return { badgeLabel: "Reconnect required", buttonLabel: "Open sign-in again", disabled: false }
+      return { badgeLabel: "需要重新连接", buttonLabel: "重新打开登录页面", disabled: false }
     case "connected":
-      return { badgeLabel: "Reconnected", buttonLabel: "Try again", disabled: false }
+      return { badgeLabel: "已重新连接", buttonLabel: "重试", disabled: false }
     case "failed":
-      return { badgeLabel: "Reconnect failed", buttonLabel: "Try reconnecting", disabled: false }
+      return { badgeLabel: "重新连接失败", buttonLabel: "再次连接", disabled: false }
     default:
-      return { badgeLabel: "Reconnect required", buttonLabel: action.label, disabled: false }
+      return { badgeLabel: "需要重新连接", buttonLabel: action.label, disabled: false }
   }
 }

@@ -291,6 +291,11 @@ function AgentAccessCard(props: {
 
   const canRun = Boolean(props.client && context && signedIn);
   const readyTools = readyCloudMcpToolIds(health);
+  const readyToolLabels = readyTools.map((tool) => {
+    if (tool === "openwork-cloud_search_capabilities") return "搜索公司能力";
+    if (tool === "openwork-cloud_execute_capability") return "调用公司能力";
+    return "公司授权能力";
+  });
 
   if (health?.usable) {
     return (
@@ -303,8 +308,8 @@ function AgentAccessCard(props: {
           <div className="text-sm text-dls-secondary">
             当前工作区可以搜索和使用公司共享能力。
           </div>
-          <div className="flex flex-wrap gap-2 font-mono text-xs text-green-11">
-            {readyTools.map((tool) => <span key={tool} className="rounded-md bg-green-3 px-2 py-1">{tool}</span>)}
+          <div className="flex flex-wrap gap-2 text-xs text-green-11">
+            {readyToolLabels.map((label, index) => <span key={`${label}-${index}`} className="rounded-md bg-green-3 px-2 py-1">{label}</span>)}
           </div>
         </div>
         <Button variant="outline" size="sm" disabled={!canRun || busy !== null} onClick={() => void testNow()}>
@@ -340,8 +345,8 @@ function AgentAccessCard(props: {
       {health?.usable ? (
         <div className="space-y-2 rounded-xl border border-green-6/30 bg-green-2 p-3 text-sm text-green-11">
           <div className="font-medium">当前工作区的公司工具已通过检查</div>
-          <div className="flex flex-wrap gap-2 font-mono text-xs">
-            {readyTools.map((tool) => <span key={tool} className="rounded-md bg-green-3 px-2 py-1">{tool}</span>)}
+          <div className="flex flex-wrap gap-2 text-xs">
+            {readyToolLabels.map((label, index) => <span key={`${label}-${index}`} className="rounded-md bg-green-3 px-2 py-1">{label}</span>)}
           </div>
           <div className="text-xs">
             {health.usableByCurrentModel === null

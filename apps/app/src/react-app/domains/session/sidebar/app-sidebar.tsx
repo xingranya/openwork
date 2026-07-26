@@ -936,14 +936,17 @@ function WorkspaceHeader({
       <WorkspaceIcon workspaceId={workspace.id} sizeClass="size-4" />
       <div
         className={cn(
-          "min-w-0 flex-1 cursor-grab touch-none transition-[padding] duration-75 active:cursor-grabbing group-hover/workspace-header:pr-16 group-has-[[data-workspace-actions]:focus-within]/workspace-header:pr-16 group-has-data-popup-open/workspace-header:pr-11 group-hover/workspace-header:group-has-data-popup-open/workspace-header:pr-16 pr-2",
+          "min-w-0 flex-1 cursor-grab touch-none overflow-hidden transition-[padding] duration-75 active:cursor-grabbing group-hover/workspace-header:pr-16 group-has-[[data-workspace-actions]:focus-within]/workspace-header:pr-16 group-has-data-popup-open/workspace-header:pr-11 group-hover/workspace-header:group-has-data-popup-open/workspace-header:pr-16 pr-2",
           isLoading && "pr-6",
         )}
         onPointerDown={onTitlePointerDown}
       >
-        <span className="block truncate">{workspaceLabel(workspace)}</span>
+        <span className="block truncate" title={workspaceLabel(workspace)}>{workspaceLabel(workspace)}</span>
         {statusLabel ? (
-          <span className={cn("block text-xs", isError ? "text-destructive" : "text-muted-foreground")}>
+          <span
+            className={cn("block truncate text-xs", isError ? "text-destructive" : "text-muted-foreground")}
+            title={statusLabel}
+          >
             {statusLabel}
           </span>
         ) : null}

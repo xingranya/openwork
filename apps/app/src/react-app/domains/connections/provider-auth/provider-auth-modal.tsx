@@ -33,6 +33,12 @@ import type {
   ProviderAuthProvider,
   ProviderOAuthStartResult,
 } from "./store";
+import {
+  LOCAL_PROVIDER_PLANS,
+  parseLocalModelIds,
+  type LocalProviderInput,
+  type LocalProviderPlan,
+} from "./local-provider-config";
 
 type ProviderAuthEntry = {
   id: string;
@@ -40,6 +46,7 @@ type ProviderAuthEntry = {
   methods: ProviderAuthMethod[];
   connected: boolean;
   env: string[];
+  localPlan?: LocalProviderPlan;
 };
 
 type ProviderOAuthSession = ProviderOAuthStartResult & {
@@ -48,15 +55,11 @@ type ProviderOAuthSession = ProviderOAuthStartResult & {
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
-  openwork: "OpenWork",
-  opencode: "OpenCode Zen",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
   openrouter: "OpenRouter",
 };
-
-const OPENWORK_MODELS_PROVIDER_ID = "openwork";
 
 export type ProviderAuthModalProps = {
   open: boolean;
@@ -70,6 +73,9 @@ export type ProviderAuthModalProps = {
   authMethods: Record<string, ProviderAuthMethod[]>;
   onSelect: (providerId: string, methodIndex?: number) => Promise<ProviderOAuthStartResult>;
   onSubmitApiKey: (providerId: string, apiKey: string) => Promise<string | void>;
+  onSubmitLocalProvider: (
+    input: LocalProviderInput,
+  ) => Promise<{ providerId: string; message: string }>;
   onConnectCloudProvider: (cloudProviderId: string) => Promise<string | void>;
   onSubmitOAuth: (
     providerId: string,
@@ -77,8 +83,6 @@ export type ProviderAuthModalProps = {
     code?: string,
   ) => Promise<{ connected: boolean; pending?: boolean; message?: string }>;
   onRefreshProviders?: () => Promise<unknown>;
-  showOpenWorkModelsSubscribe?: boolean;
-  onSubscribeOpenWorkModels?: () => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -87,11 +91,15 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const isRemoteWorker = workerType === "remote";
 
   const [view, setView] = useState<
-    "list" | "method" | "api" | "cloud" | "oauth-code" | "oauth-auto" | "openwork-subscribe"
+    "list" | "method" | "local" | "api" | "cloud" | "oauth-code" | "oauth-auto"
   >("list");
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [selectedCloudMethod, setSelectedCloudMethod] = useState<ProviderAuthMethod | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [localProviderId, setLocalProviderId] = useState("");
+  const [localProviderName, setLocalProviderName] = useState("");
+  const [localBaseUrl, setLocalBaseUrl] = useState("");
+  const [localModelsText, setLocalModelsText] = useState("");
   const [oauthCodeInput, setOauthCodeInput] = useState("");
   const [oauthSession, setOauthSession] = useState<ProviderOAuthSession | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,16 +151,6 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     return normalizedId === "openai" || normalizedName === "openai";
   };
 
-  const isAnthropicProvider = (id: string, fallbackName?: string) => {
-    const normalizedId = id.trim().toLowerCase();
-    const normalizedName = fallbackName?.trim().toLowerCase() ?? "";
-    return normalizedId === "anthropic" || normalizedName === "anthropic";
-  };
-
-  const isOpencodeZenProvider = (id: string) => id.trim().toLowerCase() === "opencode";
-
-  const OPENCODE_ZEN_KEY_URL = "https://opencode.ai/auth";
-
   const openExternalUrl = async (url: string) => {
     if (!url) return;
     if (isDesktopRuntime()) {
@@ -162,56 +160,51 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const isClaudeProMaxMethod = (method: ProviderAuthMethod) => {
-    const label = method.label.toLowerCase();
-    return method.type === "oauth" && (label.includes("pro/max") || label.includes("create an api key"));
-  };
-
   const entries = useMemo<ProviderAuthEntry[]>(() => {
     const methods = props.authMethods ?? {};
     const connected = new Set(props.connectedProviderIds ?? []);
     const providers = props.providers ?? [];
-
     const providersById = new Map(providers.map((provider) => [provider.id, provider]));
-    const nextEntries = Object.keys(methods)
-      .flatMap((id) => {
-        const provider = providersById.get(id);
-        const entryMethods = (methods[id] ?? []).filter((method) => {
-          if (isAnthropicProvider(id, provider?.name) && isClaudeProMaxMethod(method)) {
-            return false;
-          }
-          if (!isOpenAiProvider(id, provider?.name)) return true;
-          if (method.type !== "oauth") return true;
-          if (isRemoteWorker) return isOpenAiHeadlessMethod(method);
-          return !isOpenAiHeadlessMethod(method);
+    const cloudMethodsById = new Map(
+      Object.entries(methods).flatMap(([id, providerMethods]) => {
+        const cloudMethods = providerMethods.filter((method) => method.type === "cloud");
+        return cloudMethods.length > 0 ? [[id, cloudMethods] as const] : [];
+      }),
+    );
+
+    const localEntries = isRemoteWorker
+      ? []
+      : LOCAL_PROVIDER_PLANS.map((plan) => {
+          const id = plan.providerId ?? plan.kind;
+          return {
+            id,
+            name: plan.name,
+            methods: [
+              { type: "api" as const, label: "本地配置" },
+              ...(cloudMethodsById.get(id) ?? []),
+            ],
+            connected: connected.has(id),
+            env: plan.env ? [plan.env] : [],
+            localPlan: plan,
+          } satisfies ProviderAuthEntry;
         });
-        if (entryMethods.length === 0) return [];
-        return [{
+    const localIds = new Set(localEntries.map((entry) => entry.id));
+    const companyEntries = [...cloudMethodsById.entries()]
+      .filter(([id]) => !localIds.has(id))
+      .map(([id, providerMethods]) => {
+        const provider = providersById.get(id);
+        return {
           id,
           name: formatProviderName(id, provider?.name),
-          methods: entryMethods,
+          methods: providerMethods,
           connected: connected.has(id),
           env: Array.isArray(provider?.env) ? provider.env : [],
-        } satisfies ProviderAuthEntry];
+        } satisfies ProviderAuthEntry;
       })
       .sort(compareProviders);
 
-    if (props.showOpenWorkModelsSubscribe) {
-      const connectedToOpenWork = connected.has(OPENWORK_MODELS_PROVIDER_ID);
-      return [
-        {
-          id: OPENWORK_MODELS_PROVIDER_ID,
-          name: "公司共享模型",
-          methods: [{ type: "cloud", label: "公司管理" }],
-          connected: connectedToOpenWork,
-          env: [],
-        },
-        ...nextEntries.filter((entry) => entry.id.trim().toLowerCase() !== OPENWORK_MODELS_PROVIDER_ID),
-      ];
-    }
-
-    return nextEntries;
-  }, [isRemoteWorker, props.authMethods, props.connectedProviderIds, props.providers, props.showOpenWorkModelsSubscribe]);
+    return [...localEntries, ...companyEntries];
+  }, [isRemoteWorker, props.authMethods, props.connectedProviderIds, props.providers]);
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedProviderId) ?? null,
@@ -276,6 +269,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     setSelectedProviderId(null);
     setSelectedCloudMethod(null);
     setApiKeyInput("");
+    setLocalProviderId("");
+    setLocalProviderName("");
+    setLocalBaseUrl("");
+    setLocalModelsText("");
     setOauthCodeInput("");
     setOauthSession(null);
     setSearchQuery("");
@@ -489,7 +486,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       const started = await props.onSelect(entry.id, methodIndex);
       const selectedMethod = entry.methods.find((method) => method.methodIndex === methodIndex);
       if (!selectedMethod) {
-        throw new Error(`Selected auth method is unavailable for ${entry.name}.`);
+        throw new Error(`${entry.name} 当前不支持所选登录方式。`);
       }
       const nextSession: ProviderOAuthSession = {
         providerId: entry.id,
@@ -521,6 +518,17 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     setLocalError(null);
     setSelectedCloudMethod(null);
 
+    if (method.type === "api" && selectedEntry.localPlan) {
+      const plan = selectedEntry.localPlan;
+      setLocalProviderId(plan.providerId ?? "");
+      setLocalProviderName(plan.custom ? "" : plan.name);
+      setLocalBaseUrl(plan.api ?? "");
+      setLocalModelsText(plan.modelIds.join("\n"));
+      setApiKeyInput("");
+      setView("local");
+      return;
+    }
+
     if (method.type === "oauth") {
       await startOauth(selectedEntry, method.methodIndex);
       return;
@@ -539,11 +547,6 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     if (actionDisabled) return;
     setLocalError(null);
     setSelectedProviderId(entry.id);
-
-    if (props.showOpenWorkModelsSubscribe && entry.id.trim().toLowerCase() === OPENWORK_MODELS_PROVIDER_ID) {
-      setView("openwork-subscribe");
-      return;
-    }
 
     if (entry.methods.length === 1) {
       void handleMethodSelect(entry.methods[0]);
@@ -578,6 +581,30 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     }
   };
 
+  const handleLocalProviderSubmit = async () => {
+    const plan = selectedEntry?.localPlan;
+    if (!plan || actionDisabled) return;
+
+    const input: LocalProviderInput = {
+      kind: plan.kind,
+      providerId: localProviderId,
+      name: localProviderName,
+      baseUrl: localBaseUrl,
+      apiKey: apiKeyInput,
+      modelIds: parseLocalModelIds(localModelsText),
+    };
+    setLocalError(null);
+    try {
+      await props.onSubmitLocalProvider(input);
+      props.onClose();
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "保存本地模型服务失败，请检查填写内容后重试。";
+      setLocalError(message);
+    }
+  };
+
   const handleCloudSubmit = async () => {
     if (!selectedCloudMethod?.cloudProviderId || actionDisabled) return;
 
@@ -604,11 +631,6 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   };
 
   const handleBack = () => {
-    if (resolvedView === "openwork-subscribe") {
-      resetState();
-      return;
-    }
-
     if (resolvedView === "oauth-code" || resolvedView === "oauth-auto") {
       if ((selectedEntry?.methods.length ?? 0) > 1) {
         setView("method");
@@ -623,7 +645,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       return;
     }
 
-    if (resolvedView === "api" && (selectedEntry?.methods.length ?? 0) > 1) {
+    if (
+      (resolvedView === "api" || resolvedView === "local") &&
+      (selectedEntry?.methods.length ?? 0) > 1
+    ) {
       setView("method");
       setSelectedCloudMethod(null);
       setApiKeyInput("");
@@ -641,6 +666,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
   const submittingLabel = () => {
     if (!props.submitting) return null;
+    if (resolvedView === "local") return "正在保存本地模型服务…";
     if (resolvedView === "api") return "正在保存 API 密钥…";
     if (resolvedView === "cloud") return "正在连接公司模型服务…";
     if (resolvedView === "oauth-code") return "正在验证授权码…";
@@ -704,10 +730,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         ? method.description
         : "使用公司统一管理的模型服务和凭据。";
     }
-    if (isOpencodeZenProvider(entry.id)) {
-      return "使用 API 密钥登录 OpenCode Zen，可在免费模型之外使用更多模型。";
+    if (entry.localPlan && method.type === "api") {
+      return "为当前本地工作区保存接口地址、API 密钥和模型 ID。";
     }
-    return "粘贴 API 密钥；密钥仅由本机 OpenCode 保存。";
+    return "粘贴 API 密钥；密钥仅由 FoxWork 本地运行环境保存。";
   };
 
   return (
@@ -861,39 +887,128 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                 </div>
               ) : null}
 
-              {resolvedView === "api" && selectedEntry ? (
-                <div className="rounded-xl border border-gray-6/40 bg-gray-2/50 shadow-sm p-5 space-y-4">
+              {resolvedView === "local" && selectedEntry?.localPlan ? (
+                <div className="space-y-4 rounded-xl border border-gray-6/40 bg-gray-2/50 p-5 shadow-sm">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
-                      <div className="text-xs text-gray-10 mt-1">
-                        {isOpencodeZenProvider(selectedEntry.id)
-                          ? "使用从 opencode.ai/auth 获取的 API 密钥登录 OpenCode Zen。"
-                          : "粘贴 API 密钥以完成连接。"}
+                      <div className="text-sm font-medium text-gray-12">
+                        {selectedEntry.name}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-10">
+                        配置只作用于当前本地工作区。
                       </div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
                       返回
                     </Button>
                   </div>
-                  {isOpencodeZenProvider(selectedEntry.id) ? (
-                    <div className="rounded-lg border border-indigo-5/30 bg-indigo-3/15 px-3 py-2.5 text-xs text-indigo-12 space-y-1.5">
-                      <div>
-                        OpenCode Zen 提供多种编程模型；不填写密钥仍可继续使用免费模型。
-                      </div>
-                      <button
-                        type="button"
-                        className="text-indigo-11 hover:text-indigo-12 underline underline-offset-2 font-medium"
-                        onClick={() => void openExternalUrl(OPENCODE_ZEN_KEY_URL)}
-                      >
-                        获取 API 密钥 →
-                      </button>
+
+                  {selectedEntry.localPlan.custom ? (
+                    <>
+                      <TextInput
+                        label="名称"
+                        type="text"
+                        placeholder="例如：公司模型网关"
+                        value={localProviderName}
+                        onChange={(event) => setLocalProviderName(event.currentTarget.value)}
+                        autoComplete="off"
+                        spellCheck={false}
+                        disabled={actionDisabled}
+                      />
+                      <TextInput
+                        label="模型服务 ID"
+                        type="text"
+                        placeholder="例如：company-models"
+                        value={localProviderId}
+                        onChange={(event) => setLocalProviderId(event.currentTarget.value)}
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        disabled={actionDisabled}
+                      />
+                      <TextInput
+                        label="基础地址"
+                        type="url"
+                        placeholder={
+                          selectedEntry.localPlan.protocol === "anthropic"
+                            ? "https://anthropic.example.com/v1"
+                            : "https://models.example.com/v1"
+                        }
+                        value={localBaseUrl}
+                        onChange={(event) => setLocalBaseUrl(event.currentTarget.value)}
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        disabled={actionDisabled}
+                      />
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-gray-6/60 bg-gray-1/60 px-3 py-2 text-xs text-gray-10">
+                      <div className="font-medium text-gray-12">服务地址</div>
+                      <div className="mt-1 break-all">{selectedEntry.localPlan.api}</div>
                     </div>
-                  ) : null}
+                  )}
+
                   <TextInput
                     label="API 密钥"
                     type="password"
-                    placeholder={isOpencodeZenProvider(selectedEntry.id) ? "ock_..." : "sk-..."}
+                    placeholder="粘贴 API 密钥"
+                    value={apiKeyInput}
+                    onChange={(event) => {
+                      setApiKeyInput(event.currentTarget.value);
+                      if (localError) setLocalError(null);
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    disabled={actionDisabled}
+                  />
+
+                  <label className="grid gap-2 text-xs text-gray-10">
+                    <span className="font-medium text-gray-12">模型 ID</span>
+                    <textarea
+                      value={localModelsText}
+                      onChange={(event) => setLocalModelsText(event.currentTarget.value)}
+                      placeholder="每行填写一个模型 ID"
+                      rows={4}
+                      spellCheck={false}
+                      disabled={actionDisabled}
+                      className="min-h-24 w-full resize-y rounded-xl border border-gray-6/60 bg-gray-1 px-3 py-2.5 text-[13px] text-gray-12 outline-none transition-colors placeholder:text-gray-9 focus:border-gray-8 disabled:opacity-60"
+                    />
+                    <span>每行填写一个，也可以用逗号分隔；可补充服务商新发布的模型。</span>
+                  </label>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] text-gray-9">
+                      密钥仅由 FoxWork 本地运行环境保存。
+                    </div>
+                    <Button
+                      onClick={() => void handleLocalProviderSubmit()}
+                      disabled={actionDisabled || !apiKeyInput.trim() || !localModelsText.trim()}
+                    >
+                      {props.submitting ? "正在保存…" : "保存并连接"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {resolvedView === "api" && selectedEntry ? (
+                <div className="rounded-xl border border-gray-6/40 bg-gray-2/50 shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-12">{selectedEntry.name}</div>
+                      <div className="text-xs text-gray-10 mt-1">
+                        粘贴 API 密钥以完成连接。
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>
+                      返回
+                    </Button>
+                  </div>
+                  <TextInput
+                    label="API 密钥"
+                    type="password"
+                    placeholder="粘贴 API 密钥"
                     value={apiKeyInput}
                     onChange={(event) => {
                       setApiKeyInput(event.currentTarget.value);
@@ -910,7 +1025,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] text-gray-9">密钥仅由本机 OpenCode 保存。</div>
+                    <div className="text-[11px] text-gray-9">密钥仅由 FoxWork 本地运行环境保存。</div>
                     <Button
                       onClick={handleApiSubmit}
                       disabled={actionDisabled || !apiKeyInput.trim()}
@@ -953,27 +1068,6 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                     <Button onClick={handleCloudSubmit} disabled={actionDisabled}>
                       {props.submitting ? "正在连接…" : "连接模型服务"}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              {resolvedView === "openwork-subscribe" && selectedEntry ? (
-                <div className="rounded-xl border border-blue-6/50 bg-blue-2/25 shadow-sm p-5 space-y-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-12">公司共享模型</div>
-                      <div className="text-xs text-gray-10 mt-1">
-                        使用公司为团队统一配置的 AI 模型。
-                      </div>
-                    </div>
-                    <Button variant="ghost" onClick={handleBack} disabled={actionDisabled}>
-                      返回
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <Button onClick={() => void props.onSubscribeOpenWorkModels?.()} disabled={actionDisabled}>
-                      查看公司模型
                     </Button>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import {
   DEN_AUTH_SIGNAL_RETRY_COOLDOWN_MS,
   hasRetainedDenSession,
   resolveDenAuthFailureStatus,
+  shouldOfferDenSignIn,
   shouldRetryDenAuthOnSignal,
 } from "../src/react-app/domains/cloud/den-auth-provider";
 
@@ -33,6 +34,13 @@ describe("retained Den sessions", () => {
     expect(hasRetainedDenSession("unavailable")).toBe(true);
     expect(hasRetainedDenSession("checking")).toBe(false);
     expect(hasRetainedDenSession("signed_out")).toBe(false);
+  });
+
+  test("only shows the welcome-page sign-in entry after sign-out is confirmed", () => {
+    expect(shouldOfferDenSignIn("signed_out")).toBe(true);
+    expect(shouldOfferDenSignIn("checking")).toBe(false);
+    expect(shouldOfferDenSignIn("signed_in")).toBe(false);
+    expect(shouldOfferDenSignIn("unavailable")).toBe(false);
   });
 });
 

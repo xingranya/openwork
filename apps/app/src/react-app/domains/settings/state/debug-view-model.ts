@@ -28,6 +28,7 @@ import {
   type ElectronAlphaArtifact,
 } from "../../../../app/lib/electron-alpha";
 import { downloadTextAsFile } from "../../../../app/lib/download";
+import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 
 import {
   writeOpenworkServerSettings,
@@ -361,7 +362,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       .catch((error) => {
         if (!cancelled) {
           setRuntimeConfigStatus(null);
-          setRuntimeConfigStatusError(error instanceof Error ? error.message : safeStringify(error));
+          setRuntimeConfigStatusError(toChineseUserMessage(error, "无法读取运行配置状态，请重试。"));
         }
       });
     return () => {
@@ -379,7 +380,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       .catch((error) => {
         if (!cancelled) {
           setBootstrapConfigDebug({
-            error: error instanceof Error ? error.message : safeStringify(error),
+            error: toChineseUserMessage(error, "无法读取桌面启动配置。"),
           });
         }
       });
@@ -466,7 +467,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       await navigator.clipboard.writeText(runtimeDebugReportJson);
       setRuntimeDebugStatus(t("settings.copied_debug_report"));
     } catch (error) {
-      setRuntimeDebugStatus(error instanceof Error ? error.message : safeStringify(error));
+      setRuntimeDebugStatus(toChineseUserMessage(error, "复制调试报告失败，请重试。"));
     }
   }, [runtimeDebugReportJson]);
 
@@ -479,7 +480,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       );
       setRuntimeDebugStatus(t("settings.exported_debug_report"));
     } catch (error) {
-      setRuntimeDebugStatus(error instanceof Error ? error.message : safeStringify(error));
+      setRuntimeDebugStatus(toChineseUserMessage(error, "导出调试报告失败，请重试。"));
     }
   }, [runtimeDebugReportJson]);
 
@@ -493,7 +494,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       await navigator.clipboard.writeText(developerLog.join("\n"));
       setDeveloperLogStatus("开发者日志已复制到剪贴板。");
     } catch (error) {
-      setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setDeveloperLogStatus(toChineseUserMessage(error, "复制开发者日志失败，请重试。"));
     }
   }, [developerLog]);
 
@@ -506,7 +507,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       );
       setDeveloperLogStatus("开发者日志已导出。");
     } catch (error) {
-      setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setDeveloperLogStatus(toChineseUserMessage(error, "导出开发者日志失败，请重试。"));
     }
   }, [developerLog]);
 
@@ -515,7 +516,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       await openDesktopUrl(ELECTRON_ALPHA_RELEASE_PAGE_URL);
       setElectronMigrationStatus("已打开 Electron 滚动测试版发布页。开发构建完成后可在该页面下载安装包。");
     } catch (error) {
-      setElectronMigrationStatus(error instanceof Error ? error.message : safeStringify(error));
+      setElectronMigrationStatus(toChineseUserMessage(error, "无法打开 Electron 测试版发布页。"));
     }
   }, []);
 
@@ -553,7 +554,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       await revealDesktopItemInDir(`${appBundlePath}.migrate-bak`);
       setElectronMigrationStatus("已请求在访达中显示 FoxWork.app.migrate-bak。完成安装交接后才会生成该备份。");
     } catch (error) {
-      setElectronMigrationStatus(error instanceof Error ? error.message : safeStringify(error));
+      setElectronMigrationStatus(toChineseUserMessage(error, "无法打开迁移备份，请重试。"));
     }
   }, []);
 
@@ -605,7 +606,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       );
       pushDeveloperLog(`已设置 Electron 更新渠道：${state.channel ?? channel}`);
     } catch (error) {
-      setElectronAlphaUpdaterStatus(error instanceof Error ? error.message : safeStringify(error));
+      setElectronAlphaUpdaterStatus(toChineseUserMessage(error, "切换 Electron 更新渠道失败，请重试。"));
     } finally {
       setElectronAlphaUpdaterBusy(false);
     }
@@ -653,14 +654,12 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     try {
       const result = (await sandboxDebugProbeCmd()) as SandboxDebugProbeResult | null;
       setSandboxProbeResult(result);
-      setSandboxProbeStatus(
-        result!.ready
-          ? t("settings.sandbox_probe_success")
-          : (result!.error ?? t("settings.sandbox_error")),
-      );
-      pushDeveloperLog(`sandbox probe ready=${String(result!.ready)}`);
+      setSandboxProbeStatus(result!.ready
+        ? t("settings.sandbox_probe_success")
+        : toChineseUserMessage(result!.error, t("settings.sandbox_error")));
+      pushDeveloperLog(`沙箱检查完成：${result!.ready ? "可用" : "不可用"}`);
     } catch (error) {
-      setSandboxProbeStatus(error instanceof Error ? error.message : safeStringify(error));
+      setSandboxProbeStatus(toChineseUserMessage(error, t("settings.sandbox_error")));
     } finally {
       setSandboxProbeBusy(false);
     }
@@ -695,7 +694,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
         writeStoredString(ENGINE_CUSTOM_BIN_KEY, target);
       }
     } catch (error) {
-      setServiceRestartError(error instanceof Error ? error.message : safeStringify(error));
+      setServiceRestartError(toChineseUserMessage(error, "无法选择本地运行引擎文件，请重试。"));
     }
   }, []);
 
@@ -783,14 +782,14 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       await bootFullEngineStack();
       setOpencodeServiceStatus({
         tone: "success",
-        message: t("settings.restart_succeeded_template", { service: "OpenCode" }),
+        message: t("settings.restart_succeeded_template", { service: "本地运行引擎" }),
       });
-      pushDeveloperLog("Restarted OpenCode via engine_start");
+      pushDeveloperLog("已通过 engine_start 重启 AI 运行引擎");
     } catch (error) {
-      const message = error instanceof Error ? error.message : safeStringify(error);
+      const message = toChineseUserMessage(error, "重启本地运行引擎失败，请重试。");
       setOpencodeServiceStatus({
         tone: "error",
-        message: `${t("settings.restart_failed_template", { service: "OpenCode" })} ${message}`,
+        message: `${t("settings.restart_failed_template", { service: "本地运行引擎" })} ${message}`,
       });
       setServiceRestartError(message);
     } finally {
@@ -809,15 +808,15 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       });
       setOpenworkServiceStatus({
         tone: "success",
-        message: t("settings.restart_succeeded_template", { service: "OpenWork server" }),
+        message: t("settings.restart_succeeded_template", { service: "FoxWork 本地服务" }),
       });
-      pushDeveloperLog("Restarted openwork-server");
+      pushDeveloperLog("已重启 FoxWork 本地服务");
       await openworkServerStore.reconnectOpenworkServer();
     } catch (error) {
-      const message = error instanceof Error ? error.message : safeStringify(error);
+      const message = toChineseUserMessage(error, "重启 FoxWork 本地服务失败，请重试。");
       setOpenworkServiceStatus({
         tone: "error",
-        message: `${t("settings.restart_failed_template", { service: "OpenWork server" })} ${message}`,
+        message: `${t("settings.restart_failed_template", { service: "FoxWork 本地服务" })} ${message}`,
       });
       setServiceRestartError(message);
     } finally {
@@ -849,9 +848,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
     try {
       await navigator.clipboard.writeText(text);
-      setOpencodeLogStatus(t("settings.copied_service_logs", { service: "OpenCode" }));
+      setOpencodeLogStatus(t("settings.copied_service_logs", { service: "本地运行引擎" }));
     } catch (error) {
-      setOpencodeLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOpencodeLogStatus(toChineseUserMessage(error, "复制运行引擎日志失败，请重试。"));
     }
   }, [engineInfoState?.lastStderr, engineInfoState?.lastStdout, formatServiceLogs]);
 
@@ -863,13 +862,13 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
     try {
       downloadTextAsFile(
-        `openwork-opencode-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
+        `foxwork-engine-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
         text,
         "text/plain",
       );
       setOpencodeLogStatus(t("settings.exported_developer_log"));
     } catch (error) {
-      setOpencodeLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOpencodeLogStatus(toChineseUserMessage(error, "导出运行引擎日志失败，请重试。"));
     }
   }, [engineInfoState?.lastStderr, engineInfoState?.lastStdout, formatServiceLogs]);
 
@@ -882,9 +881,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
     try {
       await navigator.clipboard.writeText(text);
-      setOpenworkLogStatus(t("settings.copied_service_logs", { service: "OpenWork server" }));
+      setOpenworkLogStatus(t("settings.copied_service_logs", { service: "FoxWork 本地服务" }));
     } catch (error) {
-      setOpenworkLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOpenworkLogStatus(toChineseUserMessage(error, "复制服务日志失败，请重试。"));
     }
   }, [formatServiceLogs, openworkServerSnapshot.openworkServerHostInfo]);
 
@@ -897,13 +896,13 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
     try {
       downloadTextAsFile(
-        `openwork-server-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
+        `foxwork-server-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
         text,
         "text/plain",
       );
       setOpenworkLogStatus(t("settings.exported_developer_log"));
     } catch (error) {
-      setOpenworkLogStatus(error instanceof Error ? error.message : safeStringify(error));
+      setOpenworkLogStatus(toChineseUserMessage(error, "导出服务日志失败，请重试。"));
     }
   }, [formatServiceLogs, openworkServerSnapshot.openworkServerHostInfo]);
 
@@ -929,10 +928,10 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
               ? "FoxWork 状态已重置，重启应用后生效。"
               : "首次使用引导已重置，重启应用后生效。",
           );
-          pushDeveloperLog(`reset_openwork_state mode=${mode}`);
+          pushDeveloperLog(`已重置 FoxWork 状态：${mode === "all" ? "全部数据" : "首次使用引导"}`);
         })
         .catch((error) => {
-          setRouteError(error instanceof Error ? error.message : safeStringify(error));
+          setRouteError(toChineseUserMessage(error, "重置 FoxWork 状态失败，请重试。"));
         })
         .finally(() => {
           setResetModalBusy(false);
@@ -947,7 +946,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       typeof window === "undefined"
         ? true
         : window.confirm(
-            "确定删除全部本机 FoxWork 和 OpenCode 配置并退出吗？此操作无法撤销。",
+            "确定删除 FoxWork 的全部本机设置和运行环境数据并退出吗？此操作无法撤销。",
           );
     if (!confirmed) return;
     setNukeConfigBusy(true);
@@ -955,7 +954,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     try {
       await nukeOpenworkAndOpencodeConfigAndExit();
     } catch (error) {
-      setNukeConfigStatus(error instanceof Error ? error.message : safeStringify(error));
+      setNukeConfigStatus(toChineseUserMessage(error, "删除本机设置失败，请重试。"));
     } finally {
       setNukeConfigBusy(false);
     }

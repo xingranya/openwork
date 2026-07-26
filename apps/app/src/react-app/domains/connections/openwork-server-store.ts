@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { t } from "../../../i18n";
 import type { StartupPreference, WorkspaceDisplay } from "../../../app/types";
 import { isDesktopRuntime } from "../../../app/utils";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import {
   openworkServerInfo,
   openworkServerRestart,
@@ -773,10 +774,10 @@ export function createOpenworkServerStore(options: CreateOpenworkServerStoreOpti
       updateOpenworkServerSettings(previous);
       mutateState((current) => ({
         ...current,
-        shareRemoteAccessError:
-          error instanceof Error
-            ? error.message
-            : t("app.error_remote_access"),
+        shareRemoteAccessError: toChineseUserMessage(
+          error,
+          t("app.error_remote_access"),
+        ),
       }));
       return;
     } finally {

@@ -1,30 +1,25 @@
 import type { EnablementCondition, EnablementResult } from "./extensions";
 import type { McpStatusMap } from "./types";
 
-/**
- * Runtime context needed to evaluate enablement conditions.
- * Each field is optional — missing context means the condition is unmet.
- */
+/** 检查启用条件所需的运行时上下文；缺少的字段按条件未满足处理。 */
 export type EnablementContext = {
-  /** MCP server runtime statuses keyed by server name. */
+  /** 以服务名为键的 MCP 运行状态。 */
   mcpStatuses?: McpStatusMap;
-  /** Set of MCP server names that are at least configured (in opencode.json). */
+  /** 已完成基础配置的 MCP 服务名集合。 */
   mcpConfigured?: Set<string>;
-  /** Set of loaded plugin package names or path fragments. */
+  /** 已加载的插件包名或路径片段。 */
   loadedPlugins?: Set<string>;
-  /** Set of connected provider IDs. */
+  /** 已连接的模型服务 ID。 */
   connectedProviders?: Set<string>;
-  /** Set of environment variable keys that are configured. */
+  /** 已配置的环境变量名。 */
   configuredEnvKeys?: Set<string>;
-  /** Permission results from the Computer Use --check binary. */
+  /** 电脑操作组件返回的权限检查结果。 */
   permissions?: { accessibility?: boolean; screenRecording?: boolean };
-  /** Toggle state reader — returns true if the extension toggle is on. */
+  /** 扩展开关状态读取函数。 */
   isToggleEnabled?: (ref: string) => boolean;
 };
 
-/**
- * Evaluate a single enablement condition against runtime context.
- */
+/** 根据运行时上下文检查单项启用条件。 */
 function evaluateCondition(condition: EnablementCondition, ctx: EnablementContext): boolean {
   switch (condition.type) {
     case "mcp-connected": {
@@ -50,10 +45,7 @@ function evaluateCondition(condition: EnablementCondition, ctx: EnablementContex
   }
 }
 
-/**
- * Evaluate all enablement conditions for an extension.
- * Returns per-condition results and an overall `active` boolean.
- */
+/** 检查扩展的全部启用条件，并返回逐项结果和整体可用状态。 */
 export function evaluateEnablement(
   conditions: EnablementCondition[] | undefined,
   ctx: EnablementContext,
@@ -71,10 +63,7 @@ export function evaluateEnablement(
   };
 }
 
-/**
- * For plain MCP entries that don't have an extension manifest,
- * generate a default single-condition enablement: mcp-connected.
- */
+/** 为没有扩展清单的普通 MCP 生成默认连接条件。 */
 export function defaultMcpEnablement(serverName: string): EnablementCondition[] {
-  return [{ type: "mcp-connected", ref: serverName, label: "MCP server connected" }];
+  return [{ type: "mcp-connected", ref: serverName, label: "MCP 服务已连接" }];
 }

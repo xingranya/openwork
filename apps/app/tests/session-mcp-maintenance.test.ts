@@ -479,4 +479,24 @@ describe("session MCP maintenance", () => {
     expect(targetARuns).toBe(1);
     expect(targetBRuns).toBe(1);
   });
+
+  test("超时会释放任务锁并通知界面进入明确终态", async () => {
+    let timeoutCount = 0;
+    const neverSettles = new Promise<void>(() => undefined);
+
+    await expect(runSessionMcpMaintenanceTask({
+      targetKey: "timeout-target",
+      timeoutMs: 1,
+      onTimeout: () => {
+        timeoutCount += 1;
+      },
+      task: async () => neverSettles,
+    })).resolves.toBe(true);
+
+    expect(timeoutCount).toBe(1);
+    await expect(runSessionMcpMaintenanceTask({
+      targetKey: "timeout-target",
+      task: async () => undefined,
+    })).resolves.toBe(true);
+  });
 });

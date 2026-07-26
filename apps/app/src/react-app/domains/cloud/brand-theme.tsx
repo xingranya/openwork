@@ -86,7 +86,7 @@ export function useBrandLogoUrl(): string | undefined {
 
 /** Organization-managed display name. It does not change the signed app identity. */
 export function useBrandAppName(): string {
-  return useOrgRestrictions().brandAppName ?? "OpenWork";
+  return useOrgRestrictions().brandAppName ?? "FoxWork";
 }
 
 const POLICY_NOTIFICATION_DEDUPE = "desktop-policy-active";
@@ -113,8 +113,8 @@ function DesktopPolicyNotificationEffect() {
     addNotification({
       kind: "cloud",
       severity: "info",
-      title: "Organization policies active",
-      body: "Some features and appearance settings are managed by your administrator.",
+      title: "公司策略已生效",
+      body: "部分功能和外观设置由公司管理员统一管理。",
       dedupeKey: POLICY_NOTIFICATION_DEDUPE,
     });
   }, [config, addNotification]);

@@ -504,7 +504,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       version: 1,
       workspace: workspacePath
         ? {
-            name: path.basename(workspacePath) || "Workspace",
+            name: path.basename(workspacePath) || "工作区",
             createdAt: Date.now(),
             preset: preset || null,
           }
@@ -571,8 +571,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       seen.add(key);
       return [normalizeWorkspaceEntry({
         id: localWorkspaceId(candidate.path),
-        name: path.basename(candidate.path) || "Workspace",
-        displayName: path.basename(candidate.path) || "Workspace",
+        name: path.basename(candidate.path) || "工作区",
+        displayName: path.basename(candidate.path) || "工作区",
         path: candidate.path,
         preset: "starter",
         workspaceType: "local",
@@ -634,7 +634,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
         path: normalizedPath,
         name: typeof entry.name === "string" && entry.name.trim()
           ? entry.name.trim()
-          : path.basename(normalizedPath) || "Workspace",
+          : path.basename(normalizedPath) || "工作区",
         displayName: typeof entry.displayName === "string" ? entry.displayName : undefined,
         preset: typeof entry.preset === "string" && entry.preset.trim() ? entry.preset.trim() : "starter",
         workspaceType,
@@ -733,7 +733,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
         cache: "no-store",
       });
       if (!response.ok) {
-        throw new Error(`OpenWork workspace discovery failed (${response.status} ${response.statusText || "HTTP error"})`);
+        throw new Error(`读取 FoxWork 工作区失败（${response.status} ${response.statusText || "请求错误"}）`);
       }
       return await response.json();
     } finally {
@@ -749,7 +749,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
   function normalizeWorkspaceEntry(input) {
     return {
       id: String(input.id),
-      name: String(input.name ?? "Workspace"),
+      name: String(input.name ?? "工作区"),
       path: String(input.path ?? ""),
       preset: String(input.preset ?? "starter"),
       workspaceType: input.workspaceType === "remote" ? "remote" : "local",
@@ -840,6 +840,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       }
     }
     const idMap = new Map();
+    const remoteServerIdMap = new Map();
     const migratedWorkspaces = workspaces.map((entry) => {
       const workspace = entry && typeof entry === "object" ? entry : normalizeWorkspaceEntry(entry ?? {});
       if (workspace.workspaceType !== "remote" || workspace.remoteType !== "openwork") return workspace;
@@ -852,6 +853,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       const hostUrl = stripOpenworkWorkspaceMount(workspace.openworkHostUrl) || stripOpenworkWorkspaceMount(workspace.baseUrl);
       const nextId = openworkRemoteWorkspaceId(hostUrl ?? workspace.baseUrl, remoteWorkspaceId);
       idMap.set(workspace.id, nextId);
+      remoteServerIdMap.set(remoteWorkspaceId, nextId);
       const nextWorkspace = {
         ...workspace,
         id: nextId,
@@ -887,9 +889,14 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       changed = true;
     }
 
-    const migratedSelectedId = idMap.get(selectedId) ?? selectedId;
-    const migratedWatchedId = watchedId ? idMap.get(watchedId) ?? watchedId : null;
-    const migratedActiveId = activeId ? idMap.get(activeId) ?? activeId : null;
+    const persistedWorkspaceIds = new Set(dedupedWorkspaces.map((workspace) => String(workspace?.id ?? "").trim()));
+    const migrateWorkspacePointer = (workspaceId) => {
+      if (!workspaceId || persistedWorkspaceIds.has(workspaceId)) return workspaceId;
+      return idMap.get(workspaceId) ?? remoteServerIdMap.get(workspaceId) ?? workspaceId;
+    };
+    const migratedSelectedId = migrateWorkspacePointer(selectedId);
+    const migratedWatchedId = watchedId ? migrateWorkspacePointer(watchedId) : null;
+    const migratedActiveId = activeId ? migrateWorkspacePointer(activeId) : null;
     if (migratedSelectedId !== selectedId || migratedWatchedId !== watchedId || migratedActiveId !== activeId) changed = true;
 
     const nextState = {
@@ -946,8 +953,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     const preset = String(input.preset ?? "starter");
     const workspace = normalizeWorkspaceEntry({
       id: localWorkspaceId(folderPath),
-      name: String(input.name ?? (path.basename(folderPath) || "Workspace")),
-      displayName: String(input.name ?? (path.basename(folderPath) || "Workspace")),
+      name: String(input.name ?? (path.basename(folderPath) || "工作区")),
+      displayName: String(input.name ?? (path.basename(folderPath) || "工作区")),
       path: folderPath,
       preset,
       workspaceType: "local",
@@ -999,8 +1006,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       if (!discovered?.id) {
         throw new Error(
           directory
-            ? `OpenWork server has no workspace matching ${directory}.`
-            : "OpenWork server returned no workspaces.",
+            ? `FoxWork 服务中没有与 ${directory} 匹配的工作区。`
+            : "FoxWork 服务未返回任何工作区。",
         );
       }
       resolvedOpenworkWorkspaceId = String(discovered.id).trim();
@@ -1011,7 +1018,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       : remoteWorkspaceId(baseUrl, directory);
     const workspace = normalizeWorkspaceEntry({
       id,
-      name: String(input.displayName ?? resolvedOpenworkWorkspaceName ?? "Remote workspace"),
+      name: String(input.displayName ?? resolvedOpenworkWorkspaceName ?? "远程工作区"),
       displayName: input.displayName ?? null,
       path: directory ?? "",
       preset: "remote",
@@ -1043,8 +1050,19 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     if (!workspaceId) throw new Error("workspaceId is required");
     const { workspaceId: _workspaceId, ...patch } = input;
     return mutateWorkspaceState(async (state) => {
-      const existing = state.workspaces.find((entry) => entry.id === workspaceId);
-      if (!existing) return state;
+      const persistedWorkspace = state.workspaces.find((entry) => entry.id === workspaceId);
+      // 远程工作区可能先由本机服务或 Den 下发，桌面文件里尚无副本。
+      // 编辑连接时必须补建记录，不能静默返回成功却继续使用旧地址。
+      const existing = persistedWorkspace ?? normalizeWorkspaceEntry({
+        id: workspaceId,
+        name: String(input.displayName ?? "远程工作区"),
+        displayName: input.displayName ?? null,
+        path: typeof input.directory === "string" ? input.directory : "",
+        preset: "remote",
+        workspaceType: "remote",
+        remoteType: input.remoteType === "opencode" ? "opencode" : "openwork",
+        ...patch,
+      });
 
       let nextWorkspace = { ...existing, ...patch };
       const nextRemoteType = nextWorkspace.remoteType === "opencode" ? "opencode" : "openwork";
@@ -1074,8 +1092,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
           if (!discovered?.id) {
             throw new Error(
               directory
-                ? `OpenWork server has no workspace matching ${directory}.`
-                : "OpenWork server returned no workspaces.",
+                ? `FoxWork 服务中没有与 ${directory} 匹配的工作区。`
+                : "FoxWork 服务未返回任何工作区。",
             );
           }
           remoteWorkspaceId = String(discovered.id).trim();
@@ -1099,9 +1117,9 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
         }
       }
 
-      state.workspaces = state.workspaces.map((entry) =>
-        entry.id === workspaceId ? nextWorkspace : entry,
-      );
+      state.workspaces = persistedWorkspace
+        ? state.workspaces.map((entry) => entry.id === workspaceId ? nextWorkspace : entry)
+        : [...state.workspaces, nextWorkspace];
       return state;
     });
   }
@@ -1156,7 +1174,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     if (!outputPath) throw new Error("outputPath is required");
     const state = await readWorkspaceState();
     const workspace = state.workspaces.find((entry) => entry.id === workspaceId);
-    if (!workspace) throw new Error("Unknown workspaceId");
+    if (!workspace) throw new Error("找不到指定的工作区。");
     return exportWorkspaceConfig({ workspace, outputPath });
   }
 

@@ -1072,7 +1072,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       toast.warning(
         oversize.length === 1
           ? t("composer.file_exceeds_limit", { name: oversize[0] })
-          : `${oversize.length} files exceed the 8MB limit.`,
+          : `${oversize.length} 个文件超过 8MB 限制。`,
       );
     }
 

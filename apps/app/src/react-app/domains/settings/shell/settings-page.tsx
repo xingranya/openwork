@@ -104,13 +104,13 @@ export function getSettingsTabIcon(tab: SettingsTab) {
 export function getSettingsTabLabel(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "AI Providers";
+      return "AI 模型服务";
     case "preferences":
-      return "Preferences";
+      return "偏好设置";
     case "shell":
-      return "Customization";
+      return "界面与品牌";
     case "permissions":
-      return "Permissions";
+      return "权限";
     case "cloud-account":
       return t("settings.tab_cloud_account");
     case "connect":
@@ -138,7 +138,7 @@ export function getSettingsTabLabel(tab: SettingsTab) {
     case "debug":
       return t("settings.tab_debug");
     case "general":
-      return "Settings";
+      return "设置";
     default:
       return t("settings.tab_general");
   }
@@ -147,13 +147,13 @@ export function getSettingsTabLabel(tab: SettingsTab) {
 export function getSettingsTabDescription(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "Connect services that provide AI models";
+      return "连接可提供 AI 模型的服务。";
     case "preferences":
-      return "Default model, reasoning, and compaction";
+      return "设置默认模型、推理方式和上下文整理。";
     case "shell":
-      return "Branding, visibility, and shell controls";
+      return "管理品牌名称、显示内容和界面行为。";
     case "permissions":
-      return "Authorized folders and file access";
+      return "管理已授权的文件夹和文件访问。";
     case "cloud-account":
       return t("settings.tab_description_cloud_account");
     case "connect":
@@ -181,14 +181,14 @@ export function getSettingsTabDescription(tab: SettingsTab) {
     case "debug":
       return t("settings.tab_description_debug");
     case "general":
-      return "Overview of all settings";
+      return "查看所有设置。";
     default:
       return t("settings.tab_description_general");
   }
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return ["preferences", "permissions", "extensions", "advanced"];
+  return ["preferences", "permissions", "skills", "extensions", "advanced"];
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {

@@ -21,6 +21,7 @@ interface MessageListContextValue {
   onRevertToUserMessage: (messageId: string) => void
   onForkAtMessage: (messageId: string) => void
   onEditUserMessage: (messageId: string, text: string) => void
+  onQuoteAssistantText: (text: string) => void
   onMcpReconnect: (
     action: ChatToolReconnectAction,
     onProgress: (progress: ChatToolReconnectProgress) => void,
@@ -41,6 +42,7 @@ interface MessageListProviderProps {
   onRevertToUserMessage: (messageId: string) => void
   onForkAtMessage: (messageId: string) => void
   onEditUserMessage: (messageId: string, text: string) => void
+  onQuoteAssistantText: (text: string) => void
   onMcpReconnect: (
     action: ChatToolReconnectAction,
     onProgress: (progress: ChatToolReconnectProgress) => void,
@@ -73,6 +75,7 @@ export function MessageListProvider({
   onRevertToUserMessage,
   onForkAtMessage,
   onEditUserMessage,
+  onQuoteAssistantText,
   onMcpReconnect,
   onMcpReopenAuthorization,
   onMcpRetry,
@@ -91,6 +94,7 @@ export function MessageListProvider({
       onRevertToUserMessage,
       onForkAtMessage,
       onEditUserMessage,
+      onQuoteAssistantText,
       onMcpReconnect,
       onMcpReopenAuthorization,
       onMcpRetry,
@@ -108,6 +112,7 @@ export function MessageListProvider({
       onRevertToUserMessage,
       onForkAtMessage,
       onEditUserMessage,
+      onQuoteAssistantText,
       onMcpReconnect,
       onMcpReopenAuthorization,
       onMcpRetry,

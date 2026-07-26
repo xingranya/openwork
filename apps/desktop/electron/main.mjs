@@ -45,6 +45,10 @@ import { resolveConnectLinkPublicKeys } from "./connect-link-keys.mjs";
 import { openExternalUrl } from "./open-external.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
 import {
+  createDeepLinkDelivery,
+  shouldResetDeepLinkDeliveryForNavigation,
+} from "./deep-link-delivery.mjs";
+import {
   applyWindowsTaskbarIcon,
   windowsBrandAppUserModelId,
   windowsBrandShortcutDetails,
@@ -421,7 +425,7 @@ async function registerWindowsBrandShortcut(appId, appIconPath) {
     appName: currentDisplayAppName,
   });
   const written = writeWindowsBrandShortcut(shell, shortcutTempPath, details, false);
-  if (!written) throw new Error(`Windows rejected the organization shortcut: ${shortcutPath}`);
+  if (!written) throw new Error(`Windows 无法创建公司快捷方式：${shortcutPath}`);
   await rename(shortcutTempPath, shortcutPath);
   if (shell.readShortcutLink(shortcutPath).target !== details.target) {
     repairWindowsShortcutTarget(shortcutPath, details);
@@ -816,10 +820,8 @@ if (process.platform === "darwin" && INITIAL_APP_ICON_IMAGE && !INITIAL_APP_ICON
   app.dock.setIcon(INITIAL_APP_ICON_IMAGE);
 }
 
-// Expose Chrome DevTools Protocol so the opencode-chrome-devtools plugin can
-// drive the built-in browser panel.  Use OPENWORK_ELECTRON_REMOTE_DEBUG_PORT to
-// pin a specific port; otherwise probe for a free one starting at 9223.
-// Must resolve before app.commandLine.appendSwitch (before `ready`).
+// 向 FoxWork 自带的浏览器工具开放 Chrome DevTools Protocol。可通过环境变量
+// 固定端口，否则从 9223 开始选择空闲端口。该配置必须在应用就绪前完成。
 function probePort(port) {
   return new Promise((resolve) => {
     const srv = net.createServer();
@@ -925,7 +927,13 @@ const IDLE_ROUTER_INFO = Object.freeze({
 });
 
 let mainWindow = null;
-const pendingDeepLinks = [];
+const deepLinkDelivery = createDeepLinkDelivery((urls) => {
+  const webContents = mainWindow?.webContents;
+  if (!webContents || webContents.isDestroyed()) {
+    throw new Error("FoxWork 页面尚未准备好接收深层链接。");
+  }
+  webContents.send(NATIVE_DEEP_LINK_EVENT, urls);
+});
 
 const browserPanel = createBrowserPanel({
   remoteDebugPort,
@@ -1010,18 +1018,18 @@ function forwardedDeepLinks(argv) {
 }
 
 function queueDeepLinks(urls) {
-  const nextUrls = urls.filter(Boolean);
-  if (nextUrls.length === 0) return;
-  pendingDeepLinks.push(...nextUrls);
-  if (mainWindow?.webContents) {
-    mainWindow.webContents.send(NATIVE_DEEP_LINK_EVENT, nextUrls);
+  try {
+    const incomingCount = Array.isArray(urls) ? urls.filter(Boolean).length : 0;
+    if (incomingCount > 0) {
+      console.info("[deep-link] 收到应用链接", {
+        count: incomingCount,
+        rendererReady: deepLinkDelivery.isReady(),
+      });
+    }
+    deepLinkDelivery.enqueue(urls);
+  } catch (error) {
+    console.warn("[deep-link] 暂时无法投递链接，已保留待重试：", error);
   }
-}
-
-function flushPendingDeepLinks() {
-  if (!mainWindow?.webContents || pendingDeepLinks.length === 0) return;
-  const urls = pendingDeepLinks.splice(0, pendingDeepLinks.length);
-  mainWindow.webContents.send(NATIVE_DEEP_LINK_EVENT, urls);
 }
 
 function configHomePath() {
@@ -1158,13 +1166,13 @@ async function disposeRuntimeBeforeQuit() {
 
 function assertOpenworkServerReady(info) {
   if (!info?.running) {
-    throw new Error("OpenWork server did not stay running after startup.");
+    throw new Error("FoxWork 本机服务启动后未能持续运行。");
   }
   if (!info.baseUrl) {
-    throw new Error("OpenWork server did not report a base URL after startup.");
+    throw new Error("FoxWork 本机服务启动后未返回访问地址。");
   }
   if (!info.ownerToken && !info.clientToken) {
-    throw new Error("OpenWork server did not report an access token after startup.");
+    throw new Error("FoxWork 本机服务启动后未返回访问凭据。");
   }
   return info;
 }
@@ -1517,6 +1525,8 @@ function applyNativeTheme(mode) {
 
   mainWindow?.setVibrancy(macosVibrancyForCurrentTheme());
   mainWindow?.setBackgroundColor("#00000001");
+  // 切换振动材质后，macOS 个别版本会重置窗口阴影状态。
+  mainWindow?.setHasShadow(true);
 
   return true;
 }
@@ -1827,7 +1837,7 @@ const desktopCommandHandlers = {
       const projectDir = String(args[0] ?? "").trim();
       const skillPath = await findSkillFile(projectDir, args[1]);
       if (!skillPath) {
-        throw new Error("Skill not found");
+        throw new Error("找不到指定的技能。");
       }
       return { path: skillPath, content: await readFile(skillPath, "utf8") };
   },
@@ -2022,7 +2032,7 @@ const desktopCommandHandlers = {
   "__fetch": async (event, ...args) => {
       const url = String(args[0] ?? "").trim();
       const init = args[1] ?? {};
-      if (!url) throw new Error("URL is required.");
+      if (!url) throw new Error("必须提供网址。");
       /** @type {RequestInit} */
       const requestInit = {
         method: typeof init.method === "string" ? init.method : undefined,
@@ -2149,7 +2159,7 @@ function desktopErrorMessageWithCauses(error) {
 async function handleDesktopInvoke(event, command, ...args) {
   const handler = desktopCommandHandlers[command];
   if (!handler) {
-    throw new Error(`Electron desktop bridge method is not implemented yet: ${command}`);
+    throw new Error(`FoxWork 桌面桥接尚不支持此操作：${command}`);
   }
   try {
     return await handler(event, ...args);
@@ -2162,11 +2172,15 @@ async function handleDesktopInvoke(event, command, ...args) {
 async function createMainWindow() {
   if (mainWindow) return mainWindow;
 
+  deepLinkDelivery.reset();
+
   const preloadPath = path.join(__dirname, "preload.mjs");
   const windowAppearanceOptions = {};
   if (process.platform === "darwin") {
     Object.assign(windowAppearanceOptions, {
       backgroundColor: "#00000001",
+      hasShadow: true,
+      roundedCorners: true,
       titleBarStyle: "hiddenInset",
       vibrancy: macosVibrancyForCurrentTheme(),
       visualEffectState: "active",
@@ -2212,6 +2226,9 @@ async function createMainWindow() {
       plugins: true,
     },
   });
+  if (process.platform === "darwin") {
+    mainWindow.setHasShadow(true);
+  }
   if (cachedBrandImage && bootSourceUrl) {
     await applyCachedBrandIcon(cachedBrandImage, bootSourceUrl);
   }
@@ -2227,12 +2244,16 @@ async function createMainWindow() {
     mainWindow?.setTitle(currentDisplayAppName);
     if (process.platform === "win32") mainWindow?.setSkipTaskbar(false);
     mainWindow?.show();
-    flushPendingDeepLinks();
   });
 
   mainWindow.on("closed", () => {
+    deepLinkDelivery.reset();
     browserPanel.destroy();
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on("render-process-gone", () => {
+    deepLinkDelivery.reset();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -2270,7 +2291,11 @@ async function createMainWindow() {
   // reroute the URL into a built-in browser tab instead.
   mainWindow.webContents.on("did-start-navigation", (_event, url, isInPlace, isMainFrame) => {
     if (!isMainFrame || isInPlace) return;
-    if (browserPanel.isMainWindowAllowedNavigation(url)) return;
+    const isAllowed = browserPanel.isMainWindowAllowedNavigation(url);
+    if (shouldResetDeepLinkDeliveryForNavigation({ isMainFrame, isInPlace, isAllowed })) {
+      deepLinkDelivery.reset();
+      return;
+    }
     try {
       mainWindow?.webContents.stop();
     } catch {
@@ -2292,6 +2317,17 @@ async function createMainWindow() {
 }
 
 ipcMain.handle("openwork:desktop", handleDesktopInvoke);
+ipcMain.on("openwork:deep-links-ready", (event) => {
+  if (!mainWindow?.webContents || event.sender !== mainWindow.webContents) return;
+  try {
+    console.info("[deep-link] 渲染器监听已就绪", {
+      pendingCount: deepLinkDelivery.pendingUrls().length,
+    });
+    deepLinkDelivery.setRendererReady(true);
+  } catch (error) {
+    console.warn("[deep-link] 渲染器就绪后投递失败，等待下一次握手：", error);
+  }
+});
 ipcMain.handle("openwork:shell:openExternal", async (_event, url) => {
   if (typeof url !== "string" || url.trim().length === 0) {
     return { ok: false, error: "empty url" };
@@ -2398,6 +2434,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    app.setAccessibilitySupportEnabled(true);
     installMediaPermissionHandlers(session, () => mainWindow);
     await workspaceStore.importBundledDesktopBootstrapConfigIfPreferred();
     const bootstrapConfig = await workspaceStore.getDesktopBootstrapConfig();
@@ -2430,9 +2467,9 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === "linux") {
       await applyDesktopBootstrapBrandIcon(bootstrapConfig, applyBrandIconUrl);
     }
-    win.webContents.on("did-finish-load", () => {
-      flushPendingDeepLinks();
-    });
+  win.webContents.on("did-finish-load", () => {
+      // 深层链接必须等待渲染器主动报告监听已就绪，避免首次加载时丢失。
+  });
 
     // Initialize the packaged updater after the window is up so the user sees
     // a working app first. Renderer-owned checks pass the selected release

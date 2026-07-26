@@ -68,7 +68,7 @@ export function OpenWorkModelsStartupDialog(props: OpenWorkModelsStartupDialogPr
           </div>
 
           <p className="text-xs text-dls-secondary">
-            公司共享模型由管理员配置；也可以继续使用 OpenCode Zen 或个人模型服务。
+            公司共享模型由管理员配置；本地工作区也可以继续使用个人模型服务。
           </p>
         </div>
 

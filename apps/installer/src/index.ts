@@ -198,7 +198,7 @@ const ready = { url: uiServer.url, token: uiServer.token }
 process.on("exit", () => uiServer.stop())
 
 const uiResolution = await resolveOptionalInstallerConfig()
-const installerWindowTitle = `${uiResolution?.config.appName ?? "OpenWork"} Installer`
+const installerWindowTitle = `${uiResolution?.config.appName ?? "FoxWork"} 安装程序`
 
 async function installIsRunning(): Promise<boolean> {
   try {

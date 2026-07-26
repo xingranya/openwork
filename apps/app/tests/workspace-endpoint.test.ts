@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveWorkspaceEndpoint, workspaceServerId } from "../src/app/lib/workspace-endpoint";
+import {
+  resolveWorkspaceEndpoint,
+  shouldActivateWorkspaceEndpoint,
+  workspaceServerId,
+} from "../src/app/lib/workspace-endpoint";
 
 describe("workspace endpoint resolution", () => {
   test("local workspaces use the local server and local workspace id", () => {
@@ -51,5 +55,34 @@ describe("workspace endpoint resolution", () => {
       workspaceType: "remote",
       baseUrl: "https://worker.example.test",
     })).toBe("workspace-c");
+  });
+
+  test("只对本机工作区调用主机级激活接口", () => {
+    const local = resolveWorkspaceEndpoint({
+      id: "ws_local",
+      name: "Local",
+      path: "/tmp/ws-local",
+      preset: "minimal",
+      workspaceType: "local",
+    }, {
+      baseUrl: "http://127.0.0.1:4096",
+      token: "local-token",
+    });
+    const remote = resolveWorkspaceEndpoint({
+      id: "rem_ws_remote",
+      name: "Remote",
+      path: "/workspace/ws-remote",
+      preset: "minimal",
+      workspaceType: "remote",
+      baseUrl: "https://worker.example.test",
+      openworkToken: "remote-token",
+    }, {
+      baseUrl: "http://127.0.0.1:4096",
+      token: "local-token",
+    });
+
+    expect(shouldActivateWorkspaceEndpoint(local)).toBe(true);
+    expect(shouldActivateWorkspaceEndpoint(remote)).toBe(false);
+    expect(shouldActivateWorkspaceEndpoint(null)).toBe(false);
   });
 });

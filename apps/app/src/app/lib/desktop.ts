@@ -165,6 +165,9 @@ declare global {
         platform?: "darwin" | "linux" | "windows";
         version?: string;
       };
+      deepLinks?: {
+        ready?: () => void;
+      };
     };
   }
 }
@@ -449,6 +452,7 @@ export async function subscribeDesktopDeepLinks(
     }
   };
   window.addEventListener(nativeDeepLinkEvent, listener as EventListener);
+  window.__OPENWORK_ELECTRON__?.deepLinks?.ready?.();
   const initialUrls = window.__OPENWORK_ELECTRON__?.meta?.initialDeepLinks;
   if (Array.isArray(initialUrls) && initialUrls.length > 0) {
     handler(initialUrls);

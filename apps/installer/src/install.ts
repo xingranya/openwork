@@ -251,7 +251,7 @@ export async function runInstall(config: InstallerConfig, opts: InstallOptions =
     {
       state: "running",
       step: "write-config",
-      message: "Writing deployment configuration...",
+      message: "正在写入公司连接配置…",
       version: null,
       downloadedBytes: 0,
       totalBytes: null,
@@ -263,29 +263,29 @@ export async function runInstall(config: InstallerConfig, opts: InstallOptions =
 
   try {
     const bootstrapPath = writeBootstrapConfig(config)
-    update({ step: "check-version", message: "Checking your deployment for the supported app version..." }, opts.onStatus)
+    update({ step: "check-version", message: "正在检查公司支持的 FoxWork 版本…" }, opts.onStatus)
     const version = await fetchLatestSupportedVersion(config.apiUrl)
     const asset = releaseAssetFor(version)
-    update({ version, message: `Deployment supports OpenWork ${version}.` }, opts.onStatus)
+    update({ version, message: `公司当前支持 ${config.appName} ${version}。` }, opts.onStatus)
 
     if (opts.dryRun) {
       const head = await fetch(asset.url, { method: "HEAD", redirect: "follow" })
-      if (!head.ok) throw new Error(`Release asset missing (${head.status}): ${asset.url}`)
+      if (!head.ok) throw new Error(`安装文件不存在（${head.status}）：${asset.url}`)
       update(
-        { state: "done", step: null, message: `Dry run ok: ${asset.fileName} available; config written to ${bootstrapPath}.` },
+        { state: "done", step: null, message: `安装检查通过：${asset.fileName} 可用，配置已写入 ${bootstrapPath}。` },
         opts.onStatus,
       )
       return installStatus()
     }
 
-    update({ step: "download", message: `Downloading OpenWork ${version}...` }, opts.onStatus)
+    update({ step: "download", message: `正在下载 ${config.appName} ${version}…` }, opts.onStatus)
     const workDir = path.join(os.tmpdir(), `openwork-installer-${process.pid}-${Math.random().toString(36).slice(2)}`)
     mkdirSync(workDir, { recursive: true })
     try {
       const artifactPath = path.join(workDir, asset.fileName)
       await downloadAsset(asset, artifactPath, opts)
 
-      update({ step: "install", message: "Installing OpenWork..." }, opts.onStatus)
+      update({ step: "install", message: `正在安装 ${config.appName}…` }, opts.onStatus)
       const installedPath =
         asset.type === "dmg"
           ? installDmg(artifactPath, workDir)
@@ -294,7 +294,7 @@ export async function runInstall(config: InstallerConfig, opts: InstallOptions =
             : installAppImage(artifactPath)
 
       update(
-        { state: "done", step: null, installedPath, message: `OpenWork ${version} installed successfully.` },
+        { state: "done", step: null, installedPath, message: `${config.appName} ${version} 安装完成。` },
         opts.onStatus,
       )
     } finally {
@@ -302,7 +302,7 @@ export async function runInstall(config: InstallerConfig, opts: InstallOptions =
     }
   } catch (error) {
     update(
-      { state: "error", error: error instanceof Error ? error.message : String(error), message: "Install failed." },
+      { state: "error", error: error instanceof Error ? error.message : String(error), message: "安装失败，请检查网络后重试。" },
       opts.onStatus,
     )
   }

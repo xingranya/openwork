@@ -559,7 +559,7 @@ export const agentContextDiagnosticsReportSchema = z.object({
     if (!runtimeCloudMcp) {
       context.addIssue({
         code: "custom",
-        message: "cloud tools/list requires retained connected runtime OpenWork Cloud evidence",
+        message: "公司工具列表检查需要有效且已连接的运行时证据",
         path: ["mcps"],
       })
     }

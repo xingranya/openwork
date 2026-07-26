@@ -296,13 +296,13 @@ export function buildConstantsConfig(): InstallerConfig | null {
 export function installerConfigSourceLabel(source: InstallerConfigSource) {
   switch (source) {
     case "env":
-      return "environment overrides"
+      return "环境配置"
     case "build":
-      return "built-in deployment config"
+      return "内置部署配置"
     case "sidecar":
     case "filename":
     case "install-link":
-      return "install link"
+      return "公司安装链接"
   }
 }
 

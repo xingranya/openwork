@@ -81,6 +81,7 @@ import {
 } from "./composer-state-store";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageListProvider, type DispatchAction } from "@/components/chat/message-list-provider";
+import { appendAssistantQuote } from "@/components/chat/assistant-message-actions";
 import type {
   ChatToolReconnectAction,
   ChatToolReconnectProgress,
@@ -106,7 +107,7 @@ import {
 
 const EMPTY_TRANSCRIPT: UIMessage[] = [];
 const IDLE_STATUS: SessionStatus = { type: "idle" };
-const DEFAULT_COMPOSER_CONTROL_TEXT = "Help me outline the next OpenWork task.";
+const DEFAULT_COMPOSER_CONTROL_TEXT = "帮我梳理当前工作区的下一项任务。";
 const SESSION_SURFACE_SELECTOR = "[data-session-surface-id]";
 
 type SessionError = {
@@ -223,10 +224,10 @@ function resolveFindOwnerSessionId() {
 }
 
 function statusLabel(snapshot: OpenworkSessionSnapshot | undefined, busy: boolean) {
-  if (busy) return "Running...";
-  if (snapshot?.status.type === "busy") return "Running...";
-  if (snapshot?.status.type === "retry") return `Retrying: ${snapshot.status.message}`;
-  return "Ready";
+  if (busy) return "正在运行";
+  if (snapshot?.status.type === "busy") return "正在运行";
+  if (snapshot?.status.type === "retry") return "正在重试";
+  return "可以开始";
 }
 
 function controlTextArgument(args: unknown) {
@@ -792,9 +793,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await navigator.clipboard.writeText(transcriptToText(renderedMessages));
     } catch (nextError) {
-      setError({ message: nextError instanceof Error ? nextError.message : "Failed to copy transcript." });
+      setError({ message: nextError instanceof Error && /[\u3400-\u9fff]/.test(nextError.message)
+        ? nextError.message
+        : "复制会话内容失败，请检查系统剪贴板权限。" });
     }
   };
+
+  const handleQuoteAssistantText = useCallback((text: string) => {
+    const nextDraft = appendAssistantQuote(draft, text);
+    if (nextDraft === draft) return;
+    setComposerDraft(props.sessionId, nextDraft);
+    window.dispatchEvent(new Event("openwork:focusPrompt"));
+  }, [draft, props.sessionId, setComposerDraft]);
 
   // Core sender shared by initial send and steered follow-ups. OpenCode
   // accepts follow-up user turns mid-run (steering) — the running loop picks
@@ -962,15 +972,15 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const handleAttachFiles = (files: File[]) => {
     if (!props.attachmentsEnabled) {
-      toast.warning(props.attachmentsDisabledReason ?? "Attachments are unavailable.");
+      toast.warning(props.attachmentsDisabledReason ?? "当前无法添加附件。");
       return;
     }
     const oversized = files.filter((file) => file.size > 25 * 1024 * 1024);
     const sized = files.filter((file) => file.size <= 25 * 1024 * 1024);
     if (oversized.length) {
       toast.warning(
-        oversized.length === 1 ? `${oversized[0]?.name ?? "File"} is too large` : `${oversized.length} files are too large`,
-        { description: "Files over 25 MB were skipped." },
+        oversized.length === 1 ? `${oversized[0]?.name ?? "文件"}过大` : `${oversized.length} 个文件过大`,
+        { description: "已跳过超过 25MB 的文件。" },
       );
     }
     const unreadable = sized.filter((file) => !isAttachmentFileReadable(file));
@@ -978,8 +988,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (unreadable.length) {
       toast.warning(
         unreadable.length === 1
-          ? `${unreadable[0]?.name ?? "File"} has a format the model can't read`
-          : `${unreadable.length} files have formats the model can't read`,
+          ? `${unreadable[0]?.name ?? "文件"}的格式无法读取`
+          : `${unreadable.length} 个文件的格式无法读取`,
         { description: t("composer.any_file_type_supported") },
       );
     }
@@ -1623,6 +1633,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       onRevertToUserMessage={handleRevertToUserMessage}
                       onForkAtMessage={handleForkAtMessage}
                       onEditUserMessage={handleEditUserMessage}
+                      onQuoteAssistantText={handleQuoteAssistantText}
                       onMcpReconnect={handleMcpReconnect}
                       onMcpReopenAuthorization={handleMcpReopenAuthorization}
                       onMcpRetry={handleMcpRetry}

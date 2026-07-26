@@ -11,7 +11,7 @@ import { app, shell } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const COMPUTER_USE_HELPER_APP_NAME = "OpenWork Computer Use.app";
+const COMPUTER_USE_HELPER_APP_NAME = "FoxWork Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
 
 function computerUseHelperExecutablePath() {
@@ -41,7 +41,7 @@ function getComputerUseMcpCommand() {
   if (helperExecutable) return [helperExecutable, "mcp"];
 
   if (app.isPackaged) {
-    throw new Error("OpenWork Computer Use is missing from this OpenWork build.");
+    throw new Error("当前安装包缺少 FoxWork 电脑控制组件。请重新安装 FoxWork。");
   }
 
   if (process.env.OPENWORK_DEV_MODE === "1") {
@@ -73,8 +73,11 @@ function resolveComputerUseExecutable() {
     const devCandidates = [
       path.join(swiftPkg, ".build", "release", "HandsFreeComputerUse"),
       path.join(swiftPkg, ".build", "arm64-apple-macosx", "release", "HandsFreeComputerUse"),
+      path.join(swiftPkg, ".build", "x86_64-apple-macosx", "release", "HandsFreeComputerUse"),
+      path.join(swiftPkg, ".build", "foxwork-direct", "HandsFreeComputerUse"),
       path.join(swiftPkg, ".build", "debug", "HandsFreeComputerUse"),
       path.join(swiftPkg, ".build", "arm64-apple-macosx", "debug", "HandsFreeComputerUse"),
+      path.join(swiftPkg, ".build", "x86_64-apple-macosx", "debug", "HandsFreeComputerUse"),
     ];
     for (const c of devCandidates) {
       if (existsSync(c)) return c;
@@ -88,7 +91,7 @@ async function checkComputerUsePermissions() {
   // Spawn binary --check → read JSON from stdout → exit. Always fresh.
   const bin = resolveComputerUseExecutable();
   if (!bin) {
-    return { ok: false, accessibility: false, screenRecording: false, error: "Helper binary not found. Run pnpm dev to build it." };
+    return { ok: false, accessibility: false, screenRecording: false, error: "找不到 FoxWork 电脑控制组件，请重新安装 FoxWork。" };
   }
   return spawnCheckPermissions(bin);
 }
@@ -99,7 +102,7 @@ function spawnCheckPermissions(bin) {
     const child = spawn(bin, ["--check"], { stdio: ["ignore", "pipe", "ignore"], timeout: 5_000 });
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.on("error", () => resolve({ ok: false, accessibility: false, screenRecording: false, error: "Failed to run permission check." }));
+    child.on("error", () => resolve({ ok: false, accessibility: false, screenRecording: false, error: "无法检查电脑控制权限。" }));
     child.on("close", () => {
       try {
         const parsed = JSON.parse(stdout.trim());
@@ -109,7 +112,7 @@ function spawnCheckPermissions(bin) {
           screenRecording: parsed?.screenRecording === true,
         });
       } catch {
-        resolve({ ok: false, accessibility: false, screenRecording: false, error: "Permission check returned invalid output." });
+        resolve({ ok: false, accessibility: false, screenRecording: false, error: "电脑控制权限检查返回了无效结果。" });
       }
     });
   });
@@ -151,7 +154,7 @@ async function openComputerUseSetupApp() {
 
   // Fallback: spawn the raw binary (opens the same GUI).
   const bin = resolveComputerUseExecutable();
-  if (!bin) throw new Error("Helper binary not found. Run pnpm dev to build it.");
+  if (!bin) throw new Error("找不到 FoxWork 电脑控制组件，请重新安装 FoxWork。");
   const child = spawn(bin, [], { detached: true, stdio: "ignore" });
   child.unref();
 }

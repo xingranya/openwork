@@ -192,6 +192,7 @@ export function createApplicationMenu({ appName, docsUrl, getWindow }) {
         ],
       },
       {
+        label: "帮助",
         role: "help",
         submenu: [
           ...(isMac

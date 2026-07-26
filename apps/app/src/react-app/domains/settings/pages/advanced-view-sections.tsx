@@ -431,7 +431,7 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
               {compatibility ? (
                 <>
                   <DiagnosticRow label="FoxWork 版本" value={`服务端：${formatMaybe(compatibility.openwork.serverVersion)}；应用：${formatMetadataRecord(compatibility.openwork.app)}`} />
-                  <DiagnosticRow label="OpenCode 兼容性" value={`预期：${formatMaybe(compatibility.opencode.expectedVersion)}；实际：${formatMaybe(compatibility.opencode.actualVersion)}；探测：${compatibility.opencode.probe}`} />
+                  <DiagnosticRow label="运行引擎兼容性" value={`预期：${formatMaybe(compatibility.opencode.expectedVersion)}；实际：${formatMaybe(compatibility.opencode.actualVersion)}；探测：${compatibility.opencode.probe}`} />
                   <DiagnosticRow label="功能探针" value={formatSupportedFeatures(compatibility.supportedFeatures)} />
                   <DiagnosticRow label="实验工具 ID" value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
                   <DiagnosticRow label="实验模型服务工具" value={formatMcpToolExposure(compatibility.experimentalProviderTools)} />
@@ -571,9 +571,9 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
   return (
     <LayoutSection>
       <LayoutSectionHeader>
-        <LayoutSectionTitle>OpenCode 配置来源</LayoutSectionTitle>
+        <LayoutSectionTitle>运行配置来源</LayoutSectionTitle>
         <LayoutSectionDescription>
-          检查由 FoxWork 管理的运行时配置和工作区自有配置。此功能通过 FoxWork 服务运行，不要求 OpenCode 引擎处于正常状态。
+          检查 FoxWork 管理的运行配置和工作区自有配置。即使本地运行引擎暂时不可用，也可以查看这些信息。
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
@@ -581,7 +581,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>迁移 FoxWork 管理的配置</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            将 `.opencode/openwork.json` 中的旧运行时配置，以及 `opencode.jsonc` 中可安全迁移的 FoxWork 配置移入运行时数据库。
+            将旧版配置文件中可安全迁移的 FoxWork 配置移入运行时数据库。
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button
@@ -626,23 +626,21 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
             {props.configStatus.sources ? (
               <div className="space-y-3">
                 <div>
-                  <div className="font-medium text-gray-12">OpenCode 配置来源明细</div>
+                  <div className="font-medium text-gray-12">配置来源明细</div>
                   <div className="text-[11px] text-gray-9">
-                    OpenCode 也会读取项目和全局配置文件。FoxWork 会单独注入运行时配置；排查 FoxWork 管理项时，应以注入配置为准。
+                    本地运行引擎会读取项目和用户级配置。FoxWork 另行注入受管配置；排查公司管理项时，以注入配置为准。
                   </div>
                 </div>
                 <RuntimeConfigSourceBlock
-                  title="项目 OpenCode 配置"
-                  description="由员工或项目维护的工作区级 OpenCode 配置。"
-                  path={props.configStatus.sources.projectOpencode.path}
+                  title="项目高级配置"
+                  description="由员工或项目维护的工作区级运行配置。"
                   exists={props.configStatus.sources.projectOpencode.exists}
                   keys={props.configStatus.sources.projectOpencode.keys}
                   config={props.configStatus.sources.projectOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="全局 OpenCode 配置"
-                  description="位于 ~/.config/opencode 的员工级 OpenCode 配置。"
-                  path={props.configStatus.sources.globalOpencode.path}
+                  title="用户级高级配置"
+                  description="适用于当前员工全部本地工作区的运行配置。"
                   exists={props.configStatus.sources.globalOpencode.exists}
                   keys={props.configStatus.sources.globalOpencode.keys}
                   config={props.configStatus.sources.globalOpencode.config}
@@ -655,7 +653,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
                 />
                 <RuntimeConfigSourceBlock
                   title="FoxWork 注入配置"
-                  description="FoxWork 运行时注入 OpenCode 的配置对象。"
+                  description="FoxWork 注入本地运行引擎的受管配置。"
                   keys={props.configStatus.sources.injected.keys}
                   config={props.configStatus.sources.injected.config}
                 />
@@ -667,15 +665,13 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
             </div>
             <div>
               <div className="font-medium text-gray-12">旧版 FoxWork 元数据</div>
-              <div className="break-all">{props.configStatus.legacyOpenwork.path}</div>
               {props.configStatus.legacyOpenwork.error ? (
                 <div className="text-amber-11">旧配置文件存在错误，请先修复后再迁移。</div>
               ) : null}
               <div>可迁移配置项：{formatKeys(props.configStatus.legacyOpenwork.keys)}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">员工的 opencode.jsonc</div>
-              <div className="break-all">{props.configStatus.userOpencode.path}</div>
+              <div className="font-medium text-gray-12">员工自有高级配置</div>
               <div>{props.configStatus.userOpencode.exists ? "已找到" : "未找到"}</div>
               <div>员工自有配置项：{formatKeys(props.configStatus.userOpencode.keys)}</div>
               <div>可迁移配置项：{formatKeys(props.configStatus.userOpencode.migratableKeys)}</div>

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const NATIVE_DEEP_LINK_EVENT = "openwork:deep-link-native";
+const NATIVE_DEEP_LINKS_READY_EVENT = "openwork:deep-links-ready";
 const NATIVE_MENU_OPEN_SETTINGS_EVENT = "openwork:native-menu:open-settings";
 const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "openwork:native-menu:toggle-sidebar";
 const NATIVE_MENU_CHECK_UPDATES_EVENT = "openwork:native-menu:check-updates";
@@ -173,6 +174,11 @@ contextBridge.exposeInMainWorld("__OPENWORK_ELECTRON__", {
     initialDeepLinks: [],
     platform: normalizePlatform(process.platform),
     version: process.versions.electron,
+  },
+  deepLinks: {
+    ready() {
+      ipcRenderer.send(NATIVE_DEEP_LINKS_READY_EVENT);
+    },
   },
 });
 

@@ -182,7 +182,7 @@ function mergePersistedSessions(
       .map(({ id }): PanelTab => ({
         id,
         type: "browser",
-        label: "New tab",
+        label: "新标签页",
         url: "",
         favicon: null,
         status: "ready",

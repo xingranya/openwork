@@ -3,7 +3,7 @@ const { existsSync, mkdtempSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 
-const computerUseHelperAppName = "OpenWork Computer Use.app";
+const computerUseHelperAppName = "FoxWork Computer Use.app";
 
 function run(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -22,6 +22,20 @@ function requireEnv(name) {
 
 function computerUseHelperPath(appPath) {
   return path.join(appPath, "Contents", "Resources", "helpers", computerUseHelperAppName);
+}
+
+function signMacAppForLocalLaunch(appPath) {
+  const currentSignature = spawnSync(
+    "codesign",
+    ["--verify", "--deep", "--strict", appPath],
+    { encoding: "utf8", stdio: "pipe" },
+  );
+  if (!currentSignature.error && currentSignature.status === 0) return;
+
+  // electron-builder 在没有 Developer ID 时会保留未绑定 Info.plist 的链接签名。
+  // 目录测试包需要临时签名才能被 LaunchServices 识别；正式签名存在时不会进入这里。
+  run("codesign", ["--force", "--deep", "--sign", "-", appPath]);
+  run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath]);
 }
 
 function verifyComputerUseHelper(appPath, requireDistributionSignature) {
@@ -46,13 +60,15 @@ function verifyComputerUseHelper(appPath, requireDistributionSignature) {
 async function afterSign(context) {
   if (context.electronPlatformName !== "darwin") return;
 
+  const appName = `${context.packager.appInfo.productFilename}.app`;
+  const appPath = path.join(context.appOutDir, appName);
+
   if (process.env.MACOS_NOTARIZE !== "true") {
+    signMacAppForLocalLaunch(appPath);
     console.warn("[electron-after-sign] MACOS_NOTARIZE is not true; skipping notarization.");
     return;
   }
 
-  const appName = `${context.packager.appInfo.productFilename}.app`;
-  const appPath = path.join(context.appOutDir, appName);
   verifyComputerUseHelper(appPath, process.env.MACOS_NOTARIZE === "true");
 
   const notaryTempDir = mkdtempSync(path.join(tmpdir(), "openwork-electron-notary-"));

@@ -255,6 +255,89 @@ test("normalizes recovered remote OpenWork entries before persisting", async () 
   }
 });
 
+test("editing a server-discovered remote workspace persists a desktop routing record", async () => {
+  await withIsolatedBootstrapStore(async ({ store, userDataPath }) => {
+    await mkdir(userDataPath, { recursive: true });
+    await writeFile(
+      path.join(userDataPath, "openwork-workspaces.json"),
+      `${JSON.stringify({
+        selectedId: "rem_ws_remote",
+        activeId: "rem_ws_remote",
+        watchedId: null,
+        workspaces: [],
+      })}\n`,
+      "utf8",
+    );
+
+    const state = await store.updateRemoteWorkspace({
+      workspaceId: "rem_ws_remote",
+      baseUrl: "http://127.0.0.1:50142/workspace/ws_remote",
+      openworkHostUrl: "http://127.0.0.1:50142/workspace/ws_remote",
+      openworkToken: "synthetic-client-token",
+      openworkClientToken: "",
+      openworkHostToken: "",
+      displayName: "远程工作区验收",
+      directory: null,
+      remoteType: "openwork",
+    });
+
+    assert.equal(state.workspaces.length, 1);
+    assert.equal(state.workspaces[0].id, "rem_ws_remote");
+    assert.equal(state.workspaces[0].workspaceType, "remote");
+    assert.equal(state.workspaces[0].baseUrl, "http://127.0.0.1:50142");
+    assert.equal(state.workspaces[0].openworkHostUrl, "http://127.0.0.1:50142");
+    assert.equal(state.workspaces[0].openworkWorkspaceId, "ws_remote");
+    assert.equal(state.workspaces[0].openworkToken, "synthetic-client-token");
+    assert.equal(state.workspaces[0].displayName, "远程工作区验收");
+
+    const persisted = JSON.parse(
+      await readFile(path.join(userDataPath, "openwork-workspaces.json"), "utf8"),
+    );
+    assert.equal(persisted.workspaces[0].baseUrl, "http://127.0.0.1:50142");
+    assert.equal(persisted.selectedWorkspaceId, "rem_ws_remote");
+  });
+});
+
+test("migrates stale server workspace pointers for an already normalized remote workspace", async () => {
+  await withIsolatedBootstrapStore(async ({ store, userDataPath }) => {
+    await mkdir(userDataPath, { recursive: true });
+    await writeFile(
+      path.join(userDataPath, "openwork-workspaces.json"),
+      `${JSON.stringify({
+        selectedId: "ws_remote",
+        selectedWorkspaceId: "ws_remote",
+        activeId: "ws_remote",
+        watchedId: "rem_ws_remote",
+        watchedWorkspaceId: "rem_ws_remote",
+        workspaces: [
+          {
+            id: "rem_ws_remote",
+            name: "远程工作区",
+            workspaceType: "remote",
+            remoteType: "openwork",
+            baseUrl: "https://worker.example.com",
+            openworkHostUrl: "https://worker.example.com",
+            openworkWorkspaceId: "ws_remote",
+          },
+        ],
+      })}\n`,
+      "utf8",
+    );
+
+    const state = await store.readWorkspaceState();
+    assert.equal(state.selectedId, "rem_ws_remote");
+    assert.equal(state.activeId, "rem_ws_remote");
+    assert.equal(state.watchedId, "rem_ws_remote");
+
+    const persisted = JSON.parse(
+      await readFile(path.join(userDataPath, "openwork-workspaces.json"), "utf8"),
+    );
+    assert.equal(persisted.selectedWorkspaceId, "rem_ws_remote");
+    assert.equal(persisted.activeId, "rem_ws_remote");
+    assert.equal(persisted.watchedWorkspaceId, "rem_ws_remote");
+  });
+});
+
 test("forgetting a local workspace removes its recovery token", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "openwork-workspace-store-"));
   const userData = path.join(root, "userData");

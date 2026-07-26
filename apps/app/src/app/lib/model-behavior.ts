@@ -129,7 +129,20 @@ const getBehaviorTitle = (
   return t("model_behavior.title_standard_generation");
 };
 
-const getVariantLabel = (key: string) => key.charAt(0).toUpperCase() + key.slice(1);
+const getVariantLabel = (key: string) => {
+  const labels: Record<string, string> = {
+    none: "关闭",
+    minimal: "极轻",
+    low: "较轻",
+    medium: "均衡",
+    high: "较深",
+    xhigh: "很深",
+    max: "最深",
+    thinking: "深度思考",
+    reasoning: "推理",
+  };
+  return labels[key] ?? "自定义模式";
+};
 
 export const formatGenericBehaviorLabel = (value: string | null) => {
   const normalized = normalizeModelBehaviorValue(value);

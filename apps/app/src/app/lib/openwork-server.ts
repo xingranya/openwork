@@ -167,6 +167,11 @@ export type OpenworkHubRepo = {
   ref?: string;
 };
 
+export type OpenworkSkillBundleFile = {
+  path: string;
+  contents: string;
+};
+
 export type OpenworkWorkspaceFileContent = {
   path: string;
   content: string;
@@ -1747,6 +1752,31 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
             ...(options?.repo ? { repo: options.repo } : {}),
           },
         },
+      ),
+    installCatalogSkill: (
+      workspaceId: string,
+      name: string,
+      payload: {
+        sourceId: string;
+        sourceHash?: string | null;
+        bundleHash: string;
+        files: OpenworkSkillBundleFile[];
+        overwrite?: boolean;
+      },
+    ) =>
+      requestJson<{
+        ok: boolean;
+        name: string;
+        path: string;
+        sourceId: string;
+        sourceHash: string | null;
+        bundleHash: string;
+        action: "added" | "updated";
+        written: number;
+      }>(
+        baseUrl,
+        `/workspace/${workspaceId}/skills/catalog/${encodeURIComponent(name)}`,
+        { token, hostToken, method: "POST", body: payload, timeoutMs: timeouts.config },
       ),
     getSkill: (workspaceId: string, name: string, options?: { includeGlobal?: boolean }) => {
       const query = options?.includeGlobal ? "?includeGlobal=true" : "";

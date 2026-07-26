@@ -11,7 +11,22 @@ import {
 } from "./foxwork-brand.mjs";
 
 const browserPanelSource = readFileSync(new URL("./browser-panel.mjs", import.meta.url), "utf8");
+const connectLinkSource = readFileSync(new URL("./connect-link.mjs", import.meta.url), "utf8");
 const mainProcessSource = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+const runtimeSource = readFileSync(new URL("./runtime.mjs", import.meta.url), "utf8");
+const uiControlServerSource = readFileSync(new URL("./ui-control-server.mjs", import.meta.url), "utf8");
+const appIndexCssSource = readFileSync(new URL("../../app/src/app/index.css", import.meta.url), "utf8");
+const appIndexHtmlSource = readFileSync(new URL("../../app/index.html", import.meta.url), "utf8");
+const overlayHtmlSource = readFileSync(new URL("../../app/overlay.html", import.meta.url), "utf8");
+const builderConfigSource = readFileSync(new URL("../electron-builder.yml", import.meta.url), "utf8");
+const afterSignSource = readFileSync(new URL("../scripts/electron-after-sign.cjs", import.meta.url), "utf8");
+const computerUseSource = readFileSync(new URL("./computer-use.mjs", import.meta.url), "utf8");
+const computerUseBuildSource = readFileSync(new URL("../scripts/prepare-computer-use-helper.mjs", import.meta.url), "utf8");
+const computerUsePermissionSource = readFileSync(
+  new URL("../../../packages/handsfree/native/HandsFree/Sources/ComputerUse/PermissionSetupApp.swift", import.meta.url),
+  "utf8",
+);
+const desktopPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 test("默认发行身份固定为 FoxWork，且不带上游服务回退", () => {
   const config = resolveFoxWorkBrandConfig({});
@@ -56,4 +71,124 @@ test("桌面原生等待页和浏览器菜单只显示中文文案", () => {
     assert.match(browserPanelSource, new RegExp(label));
   }
   assert.doesNotMatch(browserPanelSource, /Copy URL|Open in Browser|Close (?:All )?Tabs?/);
+});
+
+test("主窗口和浮层模板固定使用 FoxWork 中文身份", () => {
+  for (const source of [appIndexHtmlSource, overlayHtmlSource]) {
+    assert.match(source, /<html lang="zh-CN">/);
+    assert.doesNotMatch(source, /<title>OpenWork/);
+  }
+  assert.match(appIndexHtmlSource, /<title>FoxWork<\/title>/);
+  assert.match(overlayHtmlSource, /<title>FoxWork 浮层<\/title>/);
+});
+
+test("macOS 系统权限提示和发行元数据使用 FoxWork 中文身份", () => {
+  assert.equal(desktopPackage.description, "FoxWork 公司桌面客户端");
+  assert.equal(desktopPackage.author?.name, "Fox");
+  assert.match(builderConfigSource, /copyright: "版权所有 © 2026 Fox"/);
+  assert.match(builderConfigSource, /NSCameraUsageDescription: FoxWork 仅在你主动使用摄像头相关功能时访问摄像头。/);
+  assert.match(builderConfigSource, /NSBluetoothAlwaysUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。/);
+  assert.match(builderConfigSource, /NSBluetoothPeripheralUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。/);
+  assert.doesNotMatch(builderConfigSource, /This app needs access|Copyright .*OpenWork/);
+});
+
+test("发行包只携带 FoxWork 中文说明和运行插件", () => {
+  assert.match(builderConfigSource, /from: \.\.\/\.\.\/packages\/foxwork-docs/);
+  assert.match(builderConfigSource, /to: foxwork-docs/);
+  assert.doesNotMatch(builderConfigSource, /from: \.\.\/\.\.\/packages\/docs/);
+  assert.match(builderConfigSource, /!\*\.test\.js/);
+  for (const excludedPath of [
+    "!electron/**/*.test.*",
+    "!electron/**/*.spec.*",
+    "!server/**/*.test.*",
+    "!server/**/*.spec.*",
+    "!node_modules/**/test/**",
+    "!node_modules/**/tests/**",
+    "!node_modules/**/*.test.*",
+    "!node_modules/**/*.spec.*",
+  ]) {
+    assert.ok(builderConfigSource.includes(`- "${excludedPath}"`));
+  }
+});
+
+test("桌面运行时不从上游地址安装引擎且关键错误保持中文", () => {
+  assert.doesNotMatch(runtimeSource, /https:\/\/opencode\.ai\/install/);
+  assert.match(runtimeSource, /AI 运行引擎随 FoxWork 安装包提供/);
+  assert.match(runtimeSource, /FoxWork 本机服务启动后未返回访问地址/);
+  assert.doesNotMatch(runtimeSource, /OpenWork server did not|Failed to locate opencode/);
+
+  for (const label of [
+    "无法连接公司服务器",
+    "此连接链接已过期",
+    "公司服务器返回的数据无效",
+  ]) {
+    assert.match(connectLinkSource, new RegExp(label));
+  }
+  assert.doesNotMatch(connectLinkSource, /The organization server|Connection link expired/);
+  assert.match(uiControlServerSource, /FoxWork 控制界面尚未就绪/);
+  assert.doesNotMatch(uiControlServerSource, /OpenWork control surface|Unauthorized|Not found/);
+});
+
+test("macOS 目录测试包在资源改写后重新签名并严格校验", () => {
+  assert.match(afterSignSource, /function signMacAppForLocalLaunch\(appPath\)/);
+  assert.match(afterSignSource, /\["--force", "--deep", "--sign", "-", appPath\]/);
+  assert.match(afterSignSource, /\["--verify", "--deep", "--strict", "--verbose=2", appPath\]/);
+  assert.match(afterSignSource, /if \(process\.env\.MACOS_NOTARIZE !== "true"\) \{\s*signMacAppForLocalLaunch\(appPath\);/);
+});
+
+test("电脑控制辅助应用使用 FoxWork 中文身份并保留工具链兼容回退", () => {
+  for (const source of [computerUseSource, computerUseBuildSource, computerUsePermissionSource, builderConfigSource]) {
+    assert.doesNotMatch(source, /OpenWork Computer Use/);
+  }
+  assert.match(computerUseBuildSource, /FoxWork Computer Use\.app/);
+  assert.match(computerUseBuildSource, /com\.foxwork\.desktop\.computer-use/);
+  assert.match(computerUseBuildSource, /OPENWORK_COMPUTER_USE_PREBUILT_BINARY/);
+  assert.match(computerUseBuildSource, /指定的电脑控制辅助程序不存在/);
+  assert.match(computerUseBuildSource, /Invalid manifest\|PackageDescription/);
+  assert.match(computerUseBuildSource, /run\("swiftc", \[\s*"-O",\s*"-whole-module-optimization"/);
+  assert.match(computerUseBuildSource, /CLANG_MODULE_CACHE_PATH: swiftModuleCachePath/);
+  assert.match(computerUseBuildSource, /SWIFT_MODULECACHE_PATH: swiftModuleCachePath/);
+  assert.match(computerUseBuildSource, /arm64-apple-macosx14\.0/);
+  assert.match(computerUseBuildSource, /x86_64-apple-macosx14\.0/);
+  assert.match(computerUseBuildSource, /"-target",\s*swiftTargetTriple\(\)/);
+  assert.match(computerUseBuildSource, /"-module-cache-path",\s*swiftModuleCachePath/);
+  for (const label of [
+    "电脑控制权限",
+    "辅助功能",
+    "授权辅助功能",
+    "屏幕录制",
+    "申请屏幕录制权限",
+    "打开“隐私与安全性”",
+    "完成，返回 FoxWork",
+    "已授权",
+    "待授权",
+  ]) {
+    assert.match(computerUsePermissionSource, new RegExp(label));
+  }
+  assert.doesNotMatch(
+    computerUsePermissionSource,
+    /"(?:Computer Use Setup|Grant Accessibility|Screen Recording(?:\\n| )list|Open Privacy & Security|Granted|Needed)"/,
+  );
+});
+
+test("macOS 主窗口始终启用原生阴影", () => {
+  assert.match(
+    mainProcessSource,
+    /if \(process\.platform === "darwin"\) \{[\s\S]*?Object\.assign\(windowAppearanceOptions, \{[\s\S]*?hasShadow: true,/,
+  );
+  assert.match(
+    mainProcessSource,
+    /mainWindow = new BrowserWindow\([\s\S]*?if \(process\.platform === "darwin"\) \{\s*mainWindow\.setHasShadow\(true\);\s*\}/,
+  );
+  assert.match(mainProcessSource, /roundedCorners: true,/);
+  assert.match(mainProcessSource, /setVibrancy\(macosVibrancyForCurrentTheme\(\)\);[\s\S]*?setHasShadow\(true\);/);
+});
+
+test("macOS 内容边界提供可见的窗口层次", () => {
+  assert.match(
+    appIndexCssSource,
+    /html\.openwork-electron\.openwork-platform-mac #root\s*\{[\s\S]*?border-radius: 14px;[\s\S]*?box-shadow:/,
+  );
+  assert.match(appIndexCssSource, /0 12px 28px rgba\(15, 23, 42, 0\.14\)/);
+  assert.match(appIndexCssSource, /html\.openwork-electron\.openwork-platform-mac\[data-theme="dark"\] #root/);
 });

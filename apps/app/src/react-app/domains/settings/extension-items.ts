@@ -76,17 +76,25 @@ export function isOrgMcpConnectionReady(connection: Pick<DenExternalMcpConnectio
 }
 
 export function orgMcpConnectionDescription(connection: Pick<DenExternalMcpConnection, "credentialMode" | "connectedForMe" | "needsReconnect" | "missingFeatures">) {
-  if (connection.credentialMode === "shared") return "One org account managed by your organization — the AI acts as it.";
-  if (connection.connectedForMe && connectionNeedsReconnect(connection)) return "Reconnect your account to grant newly requested permissions.";
-  if (connection.connectedForMe) return "Connected with your own account.";
-  return "Available from your organization. Connect your own account to use it.";
+  if (connection.credentialMode === "shared") return "使用由公司统一管理的账号。";
+  if (connection.connectedForMe && connectionNeedsReconnect(connection)) return "请重新连接个人账号并授予新增权限。";
+  if (connection.connectedForMe) return "已连接你的个人账号。";
+  return "由公司提供，连接个人账号后即可使用。";
 }
 
 export function orgMcpConnectionActionLabel(connection: Pick<DenExternalMcpConnection, "credentialMode" | "connected" | "connectedForMe" | "needsReconnect" | "missingFeatures">) {
-  if (connection.credentialMode === "shared") return "Managed by your organization";
-  if (connection.connectedForMe && connectionNeedsReconnect(connection)) return "Reconnect";
-  if (connection.connectedForMe) return "Connected";
-  return "Connect your account";
+  if (connection.credentialMode === "shared") return "由公司管理";
+  if (connection.connectedForMe && connectionNeedsReconnect(connection)) return "重新连接";
+  if (connection.connectedForMe) return "已连接";
+  return "连接个人账号";
+}
+
+export function employeeFacingSkillName(name: string) {
+  return name.toLowerCase() === "computer-use" ? "电脑操作" : name;
+}
+
+export function employeeFacingSkillDescription(name: string) {
+  return `可在对话中调用“${employeeFacingSkillName(name)}”技能完成对应任务。`;
 }
 
 export function isOrgMcpConnectionItem(item: ExtensionItem): item is ExtensionItem & { orgMcpConnection: DenExternalMcpConnection } {
@@ -282,8 +290,8 @@ export function buildExtensionItems(input: ExtensionItemBuildInput) {
   }).map((skill): ExtensionItem => ({
     id: `skill:${skill.name}`,
     source: "skill",
-    name: skill.name,
-    description: skill.description ?? null,
+    name: employeeFacingSkillName(skill.name),
+    description: employeeFacingSkillDescription(skill.name),
     installState: "installed",
     setupState: "ready",
     active: true,
@@ -332,7 +340,10 @@ export function buildExtensionItems(input: ExtensionItemBuildInput) {
         return !input.mcpServers.some((server) => server.name === serverName);
       }),
     ],
-    installedSkills: standaloneSkillItems.flatMap((item) => item.skill ? [item.skill] : []),
+    installedSkills: standaloneSkillItems.flatMap((item) => item.skill ? [{
+      ...item.skill,
+      description: employeeFacingSkillDescription(item.skill.name),
+    }] : []),
     installedCloudPlugins: Object.values(input.importedCloudPlugins),
   };
 }

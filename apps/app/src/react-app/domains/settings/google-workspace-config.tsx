@@ -27,7 +27,7 @@ const OPTIONAL_FEATURES: { id: OptionalFeature; label: string; description: stri
   { id: "gmailRead", label: "读取 Gmail", description: "读取你的 Gmail 邮件和会话。" },
   { id: "driveFull", label: "完整访问 Google Drive", description: "搜索、读取和编辑云端硬盘中的全部文件，不限于通过 FoxWork 创建的文件。" },
   { id: "calendarWrite", label: "创建日历活动", description: "在 Google 日历中创建活动。" },
-  { id: "chat", label: "Google Chat", description: "列出空间、读取消息并在 Google Chat 中发送消息。" },
+  { id: "chat", label: "Google Chat 聊天", description: "列出空间、读取消息并在 Google Chat 中发送消息。" },
 ];
 type GoogleWorkspaceCommand = () => Promise<unknown>;
 const DESKTOP_ACTION_TIMEOUT_MS = 6 * 60 * 1000;

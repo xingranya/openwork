@@ -32,6 +32,7 @@ import {
 } from "@/app/lib/openwork-server";
 import {
   resolveWorkspaceEndpoint,
+  shouldActivateWorkspaceEndpoint,
   workspaceServerId,
   type ResolvedWorkspaceEndpoint,
 } from "@/app/lib/workspace-endpoint";
@@ -45,6 +46,7 @@ import {
   workspaceForget,
   workspaceSetRuntimeActive,
   workspaceSetSelected,
+  workspaceUpdateRemote,
   type OpenworkServerInfo,
   type WorkspaceInfo,
   type WorkspaceList,
@@ -97,6 +99,11 @@ import { isDesktopProviderBlocked } from "@/app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction } from "@/react-app/domains/cloud/desktop-config-provider";
 import { ReactSessionRuntime } from "@/react-app/domains/session/sync/runtime-sync";
 import { useSessionActivityStore } from "@/react-app/domains/session/status/session-activity-store";
+import {
+  canRenderSessionSurface,
+  deriveSessionReadiness,
+  isSessionOwnedByOtherWorkspace,
+} from "@/react-app/domains/session/status/session-readiness";
 import { buildOpenworkEnvSystemContext } from "@/react-app/domains/session/sync/env-context";
 import {
   applySessionRevert,
@@ -122,6 +129,10 @@ import { useSessionMcpMaintenance } from "@/react-app/domains/connections/use-se
 import { useCloudMcpSubmitReadiness } from "@/react-app/domains/connections/use-cloud-mcp-submit-readiness";
 import type { CloudMcpSubmissionResult } from "@/react-app/domains/connections/cloud-mcp-submit-readiness";
 import { useRemoteAccessRestart } from "@/react-app/domains/workspace/remote-access-restart";
+import {
+  PERSONAL_REMOTE_WORKSPACE_RETRY_MS,
+  reconcilePersonalRemoteWorkspace,
+} from "@/react-app/domains/workspace/personal-remote-workspace";
 import { RenameWorkspaceModal } from "@/react-app/domains/workspace/rename-workspace-modal";
 import { useRemoteWorkspaceConnectionEditor } from "@/react-app/domains/workspace/use-remote-workspace-connection-editor";
 import { useDenAuth } from "@/react-app/domains/cloud/den-auth-provider";
@@ -158,7 +169,7 @@ import { saveSessionDraft } from "@/react-app/domains/session/sync/draft-store";
 import { useControlAction, type OpenworkControlAction } from "./control/control-provider";
 import { useReactRenderWatchdog } from "./react-render-watchdog";
 
-import { readDenSettings } from "@/app/lib/den";
+import { createDenClient, readDenSettings } from "@/app/lib/den";
 import { denSessionUpdatedEvent, denSettingsChangedEvent } from "@/app/lib/den-session-events";
 
 import { filterProviderList } from "@/app/utils/providers";
@@ -216,7 +227,7 @@ function describeTaskCreateError(error: unknown) {
     lower.includes("internal_error") ||
     lower.includes("unexpected server error")
   ) {
-    return "OpenCode is unavailable for this workspace. Retry once it restarts, or restart OpenWork if the problem continues.";
+    return "当前工作区的运行引擎暂时不可用。请稍后重试；如果仍无法使用，请重启 FoxWork。";
   }
   return message;
 }
@@ -307,7 +318,7 @@ async function draftToParts(
 
   if (draft.attachments.length > 0) {
     if (!endpoint) {
-      throw new Error("Workspace endpoint is unavailable; attachments could not be copied for tool access.");
+      throw new Error("当前工作区暂时不可用，无法复制附件供工具使用。");
     }
     parts.push(...(await composerAttachmentsToWorkspaceFileParts({
       attachments: draft.attachments,
@@ -385,6 +396,92 @@ export function SessionRoute() {
     onServerSettingsChanged: () => setOpenworkServerSettingsVersion((value) => value + 1),
     onHostInfo: setOpenworkServerHostInfoState,
   });
+  const personalRemoteWorkspaceCompletedRef = useRef("");
+  const personalRemoteWorkspaceInFlightRef = useRef("");
+  const personalRemoteWorkspaceAttemptRef = useRef(0);
+  const [personalRemoteWorkspaceRetryRevision, setPersonalRemoteWorkspaceRetryRevision] = useState(0);
+
+  useEffect(() => {
+    if (denAuth.status !== "signed_in" || !denAuth.user?.id) {
+      personalRemoteWorkspaceAttemptRef.current += 1;
+      personalRemoteWorkspaceCompletedRef.current = "";
+      personalRemoteWorkspaceInFlightRef.current = "";
+      return;
+    }
+    if (!isDesktopRuntime()) return;
+
+    const settings = readDenSettings();
+    const orgId = settings.activeOrgId?.trim() ?? "";
+    const denBaseUrl = settings.baseUrl.trim();
+    if (!orgId || !denBaseUrl || !settings.authToken?.trim()) return;
+
+    const syncKey = `${denBaseUrl}::${orgId}::${denAuth.user.id}`;
+    if (
+      personalRemoteWorkspaceCompletedRef.current === syncKey ||
+      personalRemoteWorkspaceInFlightRef.current === syncKey
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryTimer: number | null = null;
+    const attempt = personalRemoteWorkspaceAttemptRef.current + 1;
+    personalRemoteWorkspaceAttemptRef.current = attempt;
+    personalRemoteWorkspaceInFlightRef.current = syncKey;
+
+    void reconcilePersonalRemoteWorkspace({
+      denClient: createDenClient({ baseUrl: denBaseUrl, token: settings.authToken }),
+      orgId,
+      workspaces: workspacesRef.current,
+      createRemoteWorkspace: workspaceCreateRemote,
+      updateRemoteWorkspace: workspaceUpdateRemote,
+    }).then(async (result) => {
+      if (cancelled || personalRemoteWorkspaceAttemptRef.current !== attempt) return;
+      if (result.status === "provisioning") {
+        retryTimer = window.setTimeout(() => {
+          setPersonalRemoteWorkspaceRetryRevision((value) => value + 1);
+        }, PERSONAL_REMOTE_WORKSPACE_RETRY_MS);
+        return;
+      }
+
+      personalRemoteWorkspaceCompletedRef.current = syncKey;
+      await refreshRouteState();
+      if (result.created) {
+        navigateToWorkspaceSession(result.workspaceId, null, { replace: true });
+      }
+    }).catch((error) => {
+      if (cancelled || personalRemoteWorkspaceAttemptRef.current !== attempt) return;
+      console.error("[session-route] personal remote workspace sync failed", error);
+      retryTimer = window.setTimeout(() => {
+        setPersonalRemoteWorkspaceRetryRevision((value) => value + 1);
+      }, PERSONAL_REMOTE_WORKSPACE_RETRY_MS * 6);
+    }).finally(() => {
+      if (
+        personalRemoteWorkspaceAttemptRef.current === attempt &&
+        personalRemoteWorkspaceInFlightRef.current === syncKey
+      ) {
+        personalRemoteWorkspaceInFlightRef.current = "";
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      if (personalRemoteWorkspaceAttemptRef.current === attempt) {
+        personalRemoteWorkspaceAttemptRef.current += 1;
+        if (personalRemoteWorkspaceInFlightRef.current === syncKey) {
+          personalRemoteWorkspaceInFlightRef.current = "";
+        }
+      }
+    };
+  }, [
+    denAuth.status,
+    denAuth.user?.id,
+    navigateToWorkspaceSession,
+    personalRemoteWorkspaceRetryRevision,
+    refreshRouteState,
+    workspacesRef,
+  ]);
   const cloudMcpProviderModel = useMemo(() => local.prefs.defaultModel
     ? {
         provider: local.prefs.defaultModel.providerID,
@@ -700,9 +797,15 @@ export function SessionRoute() {
   }, [modelPicker.setCompactOpen, modelPicker.setOpen, modelPicker.setQuery, modelPicker.setRecentProviderIds, selectedModelUnavailableKey]);
 
   const hasUsableModel = Boolean(local.prefs.defaultModel && !selectedModelUnavailable);
-  const canCreateTask = Boolean(
-    opencodeClient && selectedWorkspaceId && !loading && !selectedWorkspaceError && !selectedModelUnavailable,
+  const workspaceRuntimeConnected = Boolean(
+    opencodeClient && selectedWorkspaceId && !selectedWorkspaceError,
   );
+  const sessionReadiness = deriveSessionReadiness({
+    routeLoading: effectiveLoading,
+    workspaceConnected: workspaceRuntimeConnected,
+    modelUsable: hasUsableModel,
+  });
+  const canCreateTask = sessionReadiness.canCreateTask;
 
   const openWorkModelsPromo = useOpenWorkModelsStartupPromo({
     clientReady: Boolean(opencodeClient),
@@ -725,8 +828,7 @@ export function SessionRoute() {
     workspaceRoot: selectedWorkspaceRoot,
   });
   const showPreparingStatus =
-    effectiveLoading ||
-    (!canCreateTask && !routeError && !selectedWorkspaceError);
+    sessionReadiness.statusBarLoading && !routeError && !selectedWorkspaceError;
 
   useEffect(() => {
     if (!opencodeClient) {
@@ -829,36 +931,33 @@ export function SessionRoute() {
     navigate(target, { state: { workspaceId, sessionId } });
   }, [navigate, selectedSessionId, sidebarActiveWorkspaceId]);
 
+  const sessionSurfaceRuntimeReady = canRenderSessionSurface({
+    selectedWorkspaceId,
+    selectedSessionId,
+    workspaceEndpointAvailable: Boolean(selectedWorkspaceEndpoint),
+    opencodeBaseUrl,
+    workspaceToken: selectedWorkspaceServerToken,
+    opencodeClientAvailable: Boolean(opencodeClient),
+  });
+  const sessionEnvironmentClient = selectedWorkspaceEndpoint?.client ?? null;
+
   const surfaceProps = useMemo(() => {
-    if (!client || !selectedWorkspaceId || !selectedSessionId || !opencodeBaseUrl || !token || !opencodeClient) {
+    if (!sessionSurfaceRuntimeReady || !sessionEnvironmentClient || !opencodeClient) {
       return null;
     }
 
-    // Transient-safety: when the user switches workspaces the URL-driven
-    // selectedSessionId may still point at a session from the old workspace
-    // for one render tick. Only block rendering when we KNOW the session
-    // belongs to a different workspace (i.e., it exists in another
-    // workspace's list). A brand-new session that hasn't been refreshed
-    // into any list yet must still render so "New task" feels instant.
-    let sessionOwnedByOtherWorkspace = false;
-    for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspaceId)) {
-      if (workspaceId === selectedWorkspaceId) continue;
-      if ((sessions ?? []).some((session) => session?.id === selectedSessionId)) {
-        sessionOwnedByOtherWorkspace = true;
-        break;
-      }
-    }
-    if (sessionOwnedByOtherWorkspace) {
+    // 切换工作区时，URL 中的会话可能短暂仍属于旧工作区。当前工作区已经
+    // 包含该会话时必须优先放行，因为远程别名和运行时工作区会共享会话 ID。
+    if (isSessionOwnedByOtherWorkspace({
+      selectedWorkspaceId,
+      selectedSessionId,
+      sessionsByWorkspaceId,
+    })) {
       return null;
     }
 
-    // Note: do NOT include `client`, `workspaceId`, `sessionId`,
-    // `opencodeBaseUrl`, or `openworkToken` here. SessionPage forwards those
-    // explicitly to SessionSurface from the per-workspace endpoint resolved
-    // by `resolveWorkspaceEndpoint`. If we leak them in here, the spread of
-    // `surfaceProps` in SessionPage overrides those correct values with the
-    // local server's, and remote workspaces silently end up calling the
-    // local server with the local `rem_*` id.
+    // 这些连接参数由 SessionPage 从当前工作区端点显式传入。不要放进
+    // surfaceProps，否则展开属性时会覆盖远程端点并错误调用本机服务。
     return {
       workspaceRoot: selectedWorkspaceRoot,
       developerMode: false,
@@ -892,7 +991,7 @@ export function SessionRoute() {
         if (!text && draft.attachments.length === 0) {
           return { outcome: "cancelled", reason: "context_changed" };
         }
-        if (selectedModelUnavailable) throw new Error("Selected model is unavailable. Choose another model before sending.");
+        if (selectedModelUnavailable) throw new Error("当前模型不可用，请更换模型后再发送。");
 
         return submitWithCloudMcpReadiness({
           // Temporarily bypass the pre-send Cloud MCP gate: it blocks every
@@ -940,7 +1039,7 @@ export function SessionRoute() {
             }
 
             const parts = await draftToParts(draft, selectedWorkspaceRoot, targetSessionId, selectedWorkspaceEndpoint);
-            const envSystemContext = await buildOpenworkEnvSystemContext(client, {
+            const envSystemContext = await buildOpenworkEnvSystemContext(sessionEnvironmentClient, {
               cacheKey: targetSessionId,
               runtimeKey: environmentRuntimeKey,
             });
@@ -1044,7 +1143,6 @@ export function SessionRoute() {
         : undefined,
     };
   }, [
-    client,
     modelPicker.compactOpen,
     handleOpenSettings,
     hasUsableModel,
@@ -1064,13 +1162,15 @@ export function SessionRoute() {
     providerConnectedIds,
     selectedAgent,
     selectedSessionId,
+    selectedWorkspaceEndpoint,
     selectedModelUnavailable,
     selectedWorkspace,
     selectedWorkspaceId,
     selectedWorkspaceRoot,
     sessionsByWorkspaceId,
+    sessionEnvironmentClient,
+    sessionSurfaceRuntimeReady,
     submitWithCloudMcpReadiness,
-    token,
   ]);
 
   const handleOpenCreateWorkspace = useCallback(() => {
@@ -1231,10 +1331,10 @@ export function SessionRoute() {
       return session.id;
     } catch (error) {
       const message = describeTaskCreateError(error);
-      const displayMessage = toChineseUserMessage(message, "OpenCode 暂时不可用，请稍后重试。");
+      const displayMessage = toChineseUserMessage(message, "运行引擎暂时不可用，请稍后重试。");
       setRouteError(displayMessage);
       setErrorsByWorkspaceId((current) => ({ ...current, [workspaceId]: displayMessage }));
-      toast.error("OpenCode 暂时不可用", {
+      toast.error("运行引擎暂时不可用", {
         id: taskCreateUnavailableToastId(workspaceId),
         description: displayMessage,
         action: {
@@ -1345,12 +1445,12 @@ export function SessionRoute() {
     if (!import.meta.env.DEV) return null;
     return {
       id: "eval.model_not_available.seed",
-      label: "Seed an unavailable selected model",
-      description: "Dev-only eval hook that selects a missing model and returns an available model to recover with.",
+      label: "模拟当前模型不可用",
+      description: "仅供开发验收：选中一个不存在的模型，并返回可用于恢复的模型。",
       sideEffect: "mutation",
       disabled: !opencodeClient,
       execute: async () => {
-        if (!opencodeClient) return { ok: false, error: "OpenCode client is not connected." };
+        if (!opencodeClient) return { ok: false, error: "工作区运行环境尚未连接。" };
 
         const providerList = await ensureProviderListQuery(getReactQueryClient(), {
           client: opencodeClient,
@@ -1371,7 +1471,7 @@ export function SessionRoute() {
           : undefined;
 
         if (!availableProvider || !availableModelId || !availableModel) {
-          return { ok: false, error: "No available connected model found for eval recovery." };
+          return { ok: false, error: "没有可用于恢复验收的已连接模型。" };
         }
 
         const unavailableModel = nextEvalUnavailableModel(local.prefs.defaultModel);
@@ -1401,8 +1501,8 @@ export function SessionRoute() {
 
   const commandPaletteControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "command_palette.open",
-    label: "Open the command palette",
-    description: "Open the in-app command palette so the next choice is visible.",
+    label: "打开命令面板",
+    description: "打开应用内命令面板，以便继续选择操作。",
     sideEffect: "none",
     execute: () => setCommandPaletteOpen(true),
   }), []);
@@ -1410,16 +1510,16 @@ export function SessionRoute() {
 
   const addProviderControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "settings.provider.add",
-    label: "Add a model provider",
-    description: "Open the provider connection modal, optionally pre-filtered to a specific provider.",
+    label: "添加模型供应商",
+    description: "打开模型供应商连接窗口，并可预先选中指定供应商。",
     sideEffect: "mutation",
     requiresArgs: false,
     args: [
-      { name: "providerId", type: "string" as const, required: false, description: "Provider id to pre-select, e.g. 'anthropic', 'openai', 'google'." },
+      { name: "providerId", type: "string" as const, required: false, description: "要预先选中的供应商标识。" },
     ],
     execute: async (rawArgs: unknown) => {
       if (checkDesktopRestriction({ restriction: "allowCustomProviders" })) {
-        return { ok: false, error: "Custom providers are disabled by your organization." };
+        return { ok: false, error: "公司管理员已停用自定义模型供应商。" };
       }
       const providerId = typeof rawArgs === "object" && rawArgs !== null
         ? (rawArgs as Record<string, unknown>).providerId
@@ -1479,8 +1579,8 @@ export function SessionRoute() {
 
   const sessionSearchPaletteItem = useMemo<PaletteItem>(() => ({
     id: "session-search.open",
-    title: "Search session messages",
-    detail: "Deep search every session, including message content",
+    title: "搜索全部会话",
+    detail: "搜索所有会话及其中的消息内容",
     meta: "Cmd/Ctrl+Shift+F",
     searchText: "search find sessions messages history transcript content",
     action: () => {
@@ -1493,8 +1593,8 @@ export function SessionRoute() {
     if (!selectedSessionId) return null;
     return {
       id: "session-find.open",
-      title: "Find in conversation",
-      detail: "Search within the current conversation",
+      title: "在当前会话中查找",
+      detail: "搜索当前会话中的消息内容",
       meta: "Cmd/Ctrl+F",
       searchText: "find search current conversation session messages transcript",
       action: () => {
@@ -1507,8 +1607,8 @@ export function SessionRoute() {
   const terminalPaletteItems = useMemo<PaletteItem[]>(() => [
     {
       id: "terminal.toggle",
-      title: terminalOpen ? "Hide terminal" : "Show terminal",
-      detail: "Toggle the integrated terminal panel for this workspace",
+      title: terminalOpen ? "隐藏终端" : "显示终端",
+      detail: "切换当前工作区的内置终端面板",
       meta: "Cmd/Ctrl+J",
       searchText: "terminal shell command line console show hide toggle",
       action: () => {
@@ -1566,7 +1666,9 @@ export function SessionRoute() {
         await navigator.clipboard.writeText(json);
         toast.success(t("session.diagnostics_copied"));
       } catch (error) {
-        toast.error(t("session.diagnostics_failed"), { description: describeRouteError(error) });
+        toast.error(t("session.diagnostics_failed"), {
+          description: toChineseUserMessage(error, "无法复制诊断信息，请稍后重试。"),
+        });
       }
     },
   }), [buildCommandDiagnosticsBundle]);
@@ -1584,15 +1686,17 @@ export function SessionRoute() {
         downloadTextAsFile(`openwork-diagnostics-${timestamp}.json`, json, "application/json");
         toast.success(t("session.diagnostics_exported"));
       } catch (error) {
-        toast.error(t("session.diagnostics_failed"), { description: describeRouteError(error) });
+        toast.error(t("session.diagnostics_failed"), {
+          description: toChineseUserMessage(error, "无法导出诊断信息，请稍后重试。"),
+        });
       }
     },
   }), [buildCommandDiagnosticsBundle]);
 
   const nextSessionTabPaletteItem = useMemo<PaletteItem>(() => ({
     id: "session-tab.next",
-    title: "Next session tab",
-    detail: "Switch to the next session in this workspace",
+    title: "下一个会话标签页",
+    detail: "切换到当前工作区的下一个会话",
     meta: "Cmd/Ctrl+T",
     searchText: "next session tab switch forward",
     action: () => {
@@ -1603,8 +1707,8 @@ export function SessionRoute() {
 
   const prevSessionTabPaletteItem = useMemo<PaletteItem>(() => ({
     id: "session-tab.previous",
-    title: "Previous session tab",
-    detail: "Switch to the previous session in this workspace",
+    title: "上一个会话标签页",
+    detail: "切换到当前工作区的上一个会话",
     meta: "Cmd/Ctrl+Shift+T",
     searchText: "previous session tab switch back",
     action: () => {
@@ -1668,7 +1772,7 @@ export function SessionRoute() {
           archived
             ? t("session_management.archive_failed")
             : t("session_management.unarchive_failed"),
-          { description: describeRouteError(error) },
+          { description: toChineseUserMessage(error, "请稍后重试。") },
         );
       }
     },
@@ -1698,7 +1802,7 @@ export function SessionRoute() {
           .catch(() => null);
       }
       if (!list) {
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
+        throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       let targetWorkspaceId = createdId;
@@ -1777,8 +1881,8 @@ export function SessionRoute() {
 
   const createWorkspaceControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "workspace.create",
-    label: "Create a local workspace",
-    description: "Create a workspace at the given folder path without showing the file picker dialog, optionally labeling its project for analytics.",
+    label: "创建本地工作区",
+    description: "使用指定文件夹创建工作区，并可填写项目名称。",
     sideEffect: "mutation",
     requiresArgs: true,
     args: [
@@ -1788,7 +1892,7 @@ export function SessionRoute() {
     execute: async (args) => {
       const parsed = args as { path?: string; projectLabel?: string } | undefined;
       const folder = parsed?.path?.trim();
-      if (!folder) return { ok: false, error: "path is required" };
+      if (!folder) return { ok: false, error: "必须提供文件夹路径。" };
       const trimmedLabel = parsed?.projectLabel?.trim() ?? "";
       await handleCreateWorkspace("starter", folder, trimmedLabel ? { projectLabel: trimmedLabel } : undefined);
       return { path: folder };
@@ -1823,7 +1927,7 @@ export function SessionRoute() {
         list = await client.createRemoteWorkspace(payload).catch(() => null);
       }
       if (!list) {
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before connecting a remote workspace.");
+        throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
@@ -1836,7 +1940,9 @@ export function SessionRoute() {
       await refreshRouteState();
       return true;
     } catch (error) {
-      setCreateWorkspaceRemoteError(error instanceof Error ? error.message : t("app.unknown_error"));
+      setCreateWorkspaceRemoteError(
+        toChineseUserMessage(error, "无法连接远程工作区，请检查连接地址与访问权限后重试。"),
+      );
       return false;
     } finally {
       setCreateWorkspaceRemoteBusy(false);
@@ -1877,13 +1983,19 @@ export function SessionRoute() {
       runtimeWorkspaceId={selectedWorkspaceEndpoint?.workspaceId || null}
       opencodeBaseUrl={opencodeBaseUrl}
       workspaces={workspaces}
-      clientConnected={canCreateTask}
+      clientConnected={workspaceRuntimeConnected}
       openworkServerStatus={client ? "connected" : "disconnected"}
       openworkServerClient={selectedWorkspaceEndpoint?.client ?? client}
       environmentClient={client}
       openworkServerToken={selectedWorkspaceServerToken}
       developerMode={developerMode}
-      headerStatus={canCreateTask ? t("status.connected") : t("session.loading_detail")}
+      headerStatus={
+        sessionReadiness.state === "connected"
+          ? t("status.connected")
+          : sessionReadiness.state === "model_required"
+            ? t("session.default_model")
+            : t("session.loading_detail")
+      }
       busyHint={effectiveLoading ? t("session.loading_detail") : null}
       startupPhase={effectiveLoading ? "nativeInit" : "ready"}
       providerConnectedIds={providerConnectedIds}
@@ -1920,6 +2032,13 @@ export function SessionRoute() {
           modelPicker.setOpen(true);
           return result;
         },
+        onSubmitLocalProvider: async (input) => {
+          const result = await sessionProviderAuthStore.submitLocalProvider(input);
+          modelPicker.setRecentProviderIds(new Set([result.providerId]));
+          modelPicker.setQuery("");
+          modelPicker.setOpen(true);
+          return result;
+        },
         onConnectCloudProvider: async (cloudProviderId) => {
           const result = await sessionProviderAuthStore.connectCloudProvider(cloudProviderId);
           modelPicker.setRecentProviderIds(new Set([cloudProviderId]));
@@ -1931,7 +2050,21 @@ export function SessionRoute() {
         onRefreshProviders: sessionProviderAuthStore.refreshProviders,
         onClose: () => sessionProviderAuthStore.closeProviderAuthModal(),
       } : null}
-      settingsSlot={
+      skillsSlot={
+        <SettingsSurface
+          embedded
+          initialPath="skills"
+          workspaceId={selectedWorkspaceId}
+          onClose={() => {
+            try {
+              window.dispatchEvent(new CustomEvent("openwork-close-right-pane"));
+            } catch {
+              // 忽略关闭事件分发失败。
+            }
+          }}
+        />
+      }
+      extensionsSlot={
         <SettingsSurface
           embedded
           initialPath="extensions"
@@ -1940,7 +2073,7 @@ export function SessionRoute() {
             try {
               window.dispatchEvent(new CustomEvent("openwork-close-right-pane"));
             } catch {
-              // ignore
+              // 忽略关闭事件分发失败。
             }
           }}
         />
@@ -1985,7 +2118,7 @@ export function SessionRoute() {
           if (workspaceId) {
             const workspace = workspaces.find((item) => item.id === workspaceId) ?? null;
             const endpoint = endpointForWorkspace(workspace);
-            if (endpoint) {
+            if (shouldActivateWorkspaceEndpoint(endpoint)) {
               void endpoint.client.activateWorkspace(endpoint.workspaceId, { persist: true }).catch(() => undefined);
             }
           }

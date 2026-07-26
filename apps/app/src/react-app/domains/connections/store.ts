@@ -15,6 +15,7 @@ import {
 } from "../../../app/lib/den";
 import { createClient, unwrap } from "../../../app/lib/opencode";
 import { finishPerf, perfNow, recordPerfLog } from "../../../app/lib/perf-log";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import {
   readOpencodeConfig,
   writeOpencodeConfig,
@@ -306,7 +307,7 @@ export function createConnectionsStore(options: {
     });
 
     if (hasOpenworkTarget && !canTryOpenworkServer) {
-      throw new Error("OpenWork server cannot read MCP config for this workspace.");
+      throw new Error("FoxWork 服务无法读取当前工作区的 MCP 配置。");
     }
 
     if (!canTryOpenworkServer || !openworkClient || !openworkWorkspaceId) return null;
@@ -350,7 +351,7 @@ export function createConnectionsStore(options: {
       if (!fallbackOnError) {
         throw error instanceof Error
           ? error
-          : new Error("Computer Use helper app is unavailable. Restart OpenWork or reinstall the app.");
+          : new Error("电脑操作辅助程序不可用，请重启 FoxWork 或重新安装应用。");
       }
       // Fall through to the published package command in the manifest/catalog.
     }
@@ -439,8 +440,8 @@ export function createConnectionsStore(options: {
           mcpLastUpdatedAt: Date.now(),
           mcpStatuses: serverResult.nextStatuses,
           mcpStatus: failedNames
-            ? `Some MCPs could not be registered with the engine: ${failedNames}. They may appear disconnected — try reloading the engine.`
-            : serverResult.next.length ? null : "No MCP servers configured yet.",
+            ? `部分 MCP 无法登记到运行环境：${failedNames}。请重新加载运行环境后再试。`
+            : serverResult.next.length ? null : "尚未配置 MCP 服务。",
         }));
         void healUnhealthyMcpEntries(serverResult.next, serverResult.nextStatuses);
         return;
@@ -455,7 +456,7 @@ export function createConnectionsStore(options: {
           ...current,
           mcpServers: [],
           mcpStatuses: {},
-          mcpStatus: error instanceof Error ? error.message : "Failed to load MCP servers",
+          mcpStatus: toChineseUserMessage(error, "无法加载 MCP 服务，请稍后重试。"),
         }));
         return;
       }
@@ -464,7 +465,7 @@ export function createConnectionsStore(options: {
     if (isRemoteWorkspace) {
       mutateState((current) => ({
         ...current,
-        mcpStatus: "OpenWork server unavailable. MCP config is read-only.",
+        mcpStatus: "FoxWork 服务不可用，MCP 配置当前为只读。",
         mcpServers: [],
         mcpStatuses: {},
       }));
@@ -474,7 +475,7 @@ export function createConnectionsStore(options: {
     if (!isDesktopRuntime()) {
       mutateState((current) => ({
         ...current,
-        mcpStatus: "MCP configuration is only available for local workspaces.",
+        mcpStatus: "MCP 配置仅支持本地工作区。",
         mcpServers: [],
         mcpStatuses: {},
       }));
@@ -484,7 +485,7 @@ export function createConnectionsStore(options: {
     if (!projectDir) {
       mutateState((current) => ({
         ...current,
-        mcpStatus: "Pick a workspace folder to load MCP servers.",
+        mcpStatus: "请选择工作区文件夹后再加载 MCP 服务。",
         mcpServers: [],
         mcpStatuses: {},
       }));
@@ -537,7 +538,7 @@ export function createConnectionsStore(options: {
           ...current,
           mcpServers: [],
           mcpStatuses: {},
-          mcpStatus: "No opencode.json found yet. Create one by connecting an MCP.",
+          mcpStatus: "尚未找到工作区配置文件，连接一个 MCP 后会自动创建。",
         }));
         return;
       }
@@ -558,7 +559,7 @@ export function createConnectionsStore(options: {
         mcpServers: next,
         mcpLastUpdatedAt: Date.now(),
         mcpStatuses: nextStatuses,
-        mcpStatus: next.length ? null : "No MCP servers configured yet.",
+        mcpStatus: next.length ? null : "尚未配置 MCP 服务。",
       }));
       void healUnhealthyMcpEntries(next, nextStatuses);
     } catch (error) {
@@ -566,7 +567,7 @@ export function createConnectionsStore(options: {
         ...current,
         mcpServers: [],
         mcpStatuses: {},
-        mcpStatus: error instanceof Error ? error.message : "Failed to load MCP servers",
+        mcpStatus: toChineseUserMessage(error, "无法加载 MCP 服务，请稍后重试。"),
       }));
     }
   }
@@ -591,7 +592,7 @@ export function createConnectionsStore(options: {
       await resolveWritableOpenworkTarget();
 
     if (isRemoteWorkspace && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "OpenWork server unavailable. MCP config is read-only.");
+      setStateField("mcpStatus", "FoxWork 服务不可用，MCP 配置当前为只读。");
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "openwork-server-unavailable",
       });
@@ -599,7 +600,7 @@ export function createConnectionsStore(options: {
     }
 
     if (hasOpenworkTarget && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "OpenWork server MCP config is read-only.");
+      setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 配置。");
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "openwork-server-read-only",
       });
@@ -648,11 +649,11 @@ export function createConnectionsStore(options: {
 
       if (entry.serverName === CLOUD_MCP_SERVER_NAME) {
         if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-          throw new Error("OpenWork server is required to repair agent access to connected services.");
+          throw new Error("需要连接 FoxWork 服务，才能修复 AI 对已连接服务的访问。");
         }
         const context = await resolveCloudMcpOperationContext(entry.url);
         if (!context) {
-          throw new Error("Sign in to OpenWork Cloud and choose an organization first.");
+          throw new Error("请先登录公司账号并选择公司。");
         }
         clearCloudMcpDisabledIntent(context);
         const result = await runOpenworkCloudMcpReconciler({
@@ -712,7 +713,7 @@ export function createConnectionsStore(options: {
 
       if (entryType === "remote") {
         if (!resolvedUrl) {
-          throw new Error("Missing MCP URL. Is the OpenWork desktop app running?");
+          throw new Error("缺少 MCP 地址，请确认 FoxWork 正在运行。");
         }
         mcpEntryConfig["url"] = resolvedUrl;
         if (resolvedHeaders) {
@@ -732,7 +733,7 @@ export function createConnectionsStore(options: {
 
       if (entryType === "local") {
         if (!entry.command?.length) {
-          throw new Error("Missing MCP command.");
+          throw new Error("缺少 MCP 启动命令。");
         }
         mcpEntryConfig["command"] = await resolveLocalMcpCommand(entry);
         const environment = await resolveLocalMcpEnvironment(entry);
@@ -754,7 +755,7 @@ export function createConnectionsStore(options: {
 
         const raw = configFile.exists && configFile.content?.trim()
           ? configFile.content
-          : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
+          : '{}\n';
 
         const parseErrors: Array<{ error: number; offset: number; length: number }> = [];
         parse(raw, parseErrors, { allowTrailingComma: true });
@@ -762,15 +763,11 @@ export function createConnectionsStore(options: {
           const details = parseErrors
             .map((entry) => printParseErrorCode(entry.error))
             .join(", ");
-          throw new Error(`Failed to parse opencode config: ${details}`);
+          throw new Error(`无法解析工作区配置：${details}`);
         }
 
         let updated = raw;
         const formattingOptions = { insertSpaces: true, tabSize: 2, eol: "\n" };
-        updated = applyEdits(
-          updated,
-          modify(updated, ["$schema"], "https://opencode.ai/config.json", { formattingOptions }),
-        );
         updated = applyEdits(
           updated,
           modify(updated, ["mcp", slug], mcpEntryConfig, { formattingOptions }),
@@ -782,7 +779,10 @@ export function createConnectionsStore(options: {
           updated.endsWith("\n") ? updated : `${updated}\n`,
         ) as { ok: boolean; stderr?: string; stdout?: string };
         if (!writeResult.ok) {
-          throw new Error(writeResult.stderr || writeResult.stdout || "Failed to write opencode.json");
+          throw new Error(toChineseUserMessage(
+            writeResult.stderr || writeResult.stdout,
+            "无法写入工作区配置文件。",
+          ));
         }
       }
 
@@ -867,7 +867,7 @@ export function createConnectionsStore(options: {
       console.error("[mcp.connect] failed", entry.name, error);
       setStateField(
         "mcpStatus",
-        error instanceof Error ? error.message : t("mcp.connect_failed"),
+        toChineseUserMessage(error, t("mcp.connect_failed")),
       );
       finishPerf(options.developerMode(), "mcp.connect", "error", startedAt, {
         name: entry.name,
@@ -970,12 +970,12 @@ export function createConnectionsStore(options: {
       await resolveWritableOpenworkTarget();
 
     if (isRemoteWorkspace && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "OpenWork server unavailable. MCP auth is read-only.");
+      setStateField("mcpStatus", "FoxWork 服务不可用，MCP 授权当前为只读。");
       return;
     }
 
     if (hasOpenworkTarget && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "OpenWork server MCP auth is read-only.");
+      setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 授权。");
       return;
     }
 
@@ -1028,7 +1028,7 @@ export function createConnectionsStore(options: {
     } catch (error) {
       setStateField(
         "mcpStatus",
-        error instanceof Error ? error.message : t("mcp.logout_failed"),
+        toChineseUserMessage(error, t("mcp.logout_failed")),
       );
     }
   }
@@ -1044,7 +1044,7 @@ export function createConnectionsStore(options: {
         await openworkClient.removeMcp(openworkWorkspaceId, name);
       } else {
         if (hasOpenworkTarget) {
-          setStateField("mcpStatus", "OpenWork server MCP config is read-only.");
+          setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 配置。");
           return;
         }
         const projectDir = options.projectDir().trim();
@@ -1068,7 +1068,7 @@ export function createConnectionsStore(options: {
     } catch (error) {
       setStateField(
         "mcpStatus",
-        error instanceof Error ? error.message : t("mcp.remove_failed"),
+        toChineseUserMessage(error, t("mcp.remove_failed")),
       );
     }
   }
@@ -1104,8 +1104,7 @@ export function createConnectionsStore(options: {
     }
 
     if (disposed) return;
-    // Only clear the reloading banner if it's still ours. refreshMcpServers
-    // may have already replaced it with a real message (e.g. "No MCP servers").
+    // 只清除本次重载提示，避免覆盖刷新过程写入的真实状态。
     if (snapshot.mcpStatus === t("mcp.reloading_status")) {
       setStateField("mcpStatus", null);
     }
@@ -1139,7 +1138,7 @@ export function createConnectionsStore(options: {
     } catch (error) {
       setStateField(
         "mcpStatus",
-        error instanceof Error ? error.message : t("mcp.toggle_failed"),
+        toChineseUserMessage(error, t("mcp.toggle_failed")),
       );
     }
   }

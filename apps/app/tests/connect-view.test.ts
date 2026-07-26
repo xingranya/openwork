@@ -89,6 +89,12 @@ describe("Agent access card helpers", () => {
     expect(connectViewSource).toContain('mode: "repair"');
     expect(connectViewSource).toContain('trigger: "desktop-connect-online-retry"');
   });
+
+  test("does not expose internal company tool ids to employees", () => {
+    expect(connectViewSource).toContain('return "搜索公司能力"')
+    expect(connectViewSource).toContain('return "调用公司能力"')
+    expect(connectViewSource).not.toContain("{readyTools.map((tool)")
+  });
 });
 
 describe("Connect cloud-readiness row resolution", () => {

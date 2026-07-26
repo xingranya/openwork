@@ -4,6 +4,7 @@ import { toast } from "@/components/ui/sonner";
 
 import type { CloudImportedProvider } from "@/app/cloud/import-state";
 import type { DenOrgLlmProvider } from "@/app/lib/den";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { t } from "@/i18n";
@@ -106,13 +107,13 @@ export function CloudProvidersView({
         if (!quiet) {
           toast.info(
             items.length > 0
-              ? `Loaded ${items.length} cloud provider${items.length === 1 ? "" : "s"} for ${activeOrg?.name ?? t("den.active_org_title")}.`
-              : `No cloud providers are available for ${activeOrg?.name ?? t("den.active_org_title")}.`,
+              ? `已为 ${activeOrg?.name ?? t("den.active_org_title")} 加载 ${items.length} 个公司模型供应商。`
+              : `${activeOrg?.name ?? t("den.active_org_title")} 暂无可用的公司模型供应商。`,
           );
         }
       } catch (error) {
         if (!quiet) {
-          setActionError(error instanceof Error ? error.message : "Failed to load cloud providers.");
+          setActionError(toChineseUserMessage(error, "无法加载公司模型供应商，请稍后重试。"));
         }
       } finally {
         setBusy(false);

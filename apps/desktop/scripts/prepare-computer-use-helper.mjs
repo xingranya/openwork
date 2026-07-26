@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,8 +10,24 @@ const packagePath = resolve(repoRoot, "packages", "handsfree", "native", "HandsF
 const iconPath = resolve(desktopRoot, "resources", "icons", "icon.icns");
 const productName = "HandsFreeComputerUse";
 const helperExecutableName = "ComputerUse";
-const helperAppName = "OpenWork Computer Use.app";
-const bundleIdentifier = "com.differentai.openwork.computer-use";
+const helperAppName = "FoxWork Computer Use.app";
+const bundleIdentifier = "com.foxwork.desktop.computer-use";
+const swiftModuleCachePath = join(packagePath, ".build", "foxwork-module-cache");
+
+function swiftBuildEnvironment() {
+  mkdirSync(swiftModuleCachePath, { recursive: true });
+  return {
+    ...process.env,
+    CLANG_MODULE_CACHE_PATH: swiftModuleCachePath,
+    SWIFT_MODULECACHE_PATH: swiftModuleCachePath,
+  };
+}
+
+function swiftTargetTriple() {
+  if (process.arch === "arm64") return "arm64-apple-macosx14.0";
+  if (process.arch === "x64") return "x86_64-apple-macosx14.0";
+  throw new Error(`不支持为 ${process.arch} 构建 FoxWork 电脑控制组件。`);
+}
 
 const readArg = (name) => {
   const raw = process.argv.slice(2);
@@ -41,15 +57,73 @@ function run(command, args, options = {}) {
   return result;
 }
 
+function buildComputerUseExecutable() {
+  const prebuiltBinary = process.env.OPENWORK_COMPUTER_USE_PREBUILT_BINARY?.trim();
+  if (prebuiltBinary) {
+    const resolvedBinary = resolve(prebuiltBinary);
+    if (!existsSync(resolvedBinary)) {
+      throw new Error(`指定的电脑控制辅助程序不存在：${resolvedBinary}`);
+    }
+    return resolvedBinary;
+  }
+
+  const packageArgs = ["build", "--package-path", packagePath, "-c", "release", "--product", productName];
+  const buildEnvironment = swiftBuildEnvironment();
+  const packageBuild = spawnSync("swift", packageArgs, {
+    encoding: "utf8",
+    stdio: "pipe",
+    env: buildEnvironment,
+  });
+  if (packageBuild.status === 0) {
+    if (packageBuild.stdout) process.stdout.write(packageBuild.stdout);
+    if (packageBuild.stderr) process.stderr.write(packageBuild.stderr);
+    const binPathResult = run("swift", [
+      "build",
+      "--package-path",
+      packagePath,
+      "-c",
+      "release",
+      "--show-bin-path",
+    ], { env: buildEnvironment });
+    return join(binPathResult.stdout.trim(), productName);
+  }
+
+  const diagnostic = [packageBuild.stdout, packageBuild.stderr].filter(Boolean).join("\n");
+  if (!/Invalid manifest|PackageDescription/.test(diagnostic)) {
+    throw new Error(`swift ${packageArgs.join(" ")} failed${diagnostic.trim() ? `: ${diagnostic.trim()}` : ""}`);
+  }
+
+  process.stderr.write("[FoxWork 构建] SwiftPM 清单接口不可用，改用 swiftc 编译同一套电脑控制源码。\n");
+  const sourceDir = join(packagePath, "Sources", "ComputerUse");
+  const sourceFiles = readdirSync(sourceDir)
+    .filter((name) => name.endsWith(".swift"))
+    .sort()
+    .map((name) => join(sourceDir, name));
+  const directBuildDir = join(packagePath, ".build", "foxwork-direct");
+  const directBinary = join(directBuildDir, productName);
+  mkdirSync(directBuildDir, { recursive: true });
+  run("swiftc", [
+    "-O",
+    "-whole-module-optimization",
+    "-target",
+    swiftTargetTriple(),
+    "-module-cache-path",
+    swiftModuleCachePath,
+    ...sourceFiles,
+    "-o",
+    directBinary,
+  ], { stdio: "inherit", env: buildEnvironment });
+  return directBinary;
+}
+
 function signingIdentity() {
   const fromEnv = process.env.OPENWORK_COMPUTER_USE_SIGN_IDENTITY;
   if (fromEnv) return fromEnv;
   const result = spawnSync("security", ["find-identity", "-v", "-p", "codesigning"], { encoding: "utf8" });
   if (result.status !== 0) return "-";
   const match = result.stdout.match(/"(Developer ID Application: [^"]+)"/);
-  // Prefer a stable Developer ID signature so macOS TCC permission grants
-  // (Accessibility, Screen Recording) survive rebuilds. Ad-hoc signatures are
-  // content hashes, so every rebuild would invalidate existing grants.
+  // 优先使用稳定的 Developer ID，使辅助功能和屏幕录制授权在重新构建后仍然有效。
+  // 临时签名以内容哈希作为身份，每次重新构建都会导致原有授权失效。
   return match ? match[1] : "-";
 }
 
@@ -63,7 +137,7 @@ function signHelperApp() {
     stdio: "pipe",
   });
   if (identity !== "-" && (result.status !== 0 || result.error)) {
-    // Keychain may refuse non-interactive signing; fall back to ad-hoc.
+    // 钥匙串可能拒绝非交互式正式签名，此时回退为临时签名供本地测试使用。
     const fallback = spawnSync("codesign", ["--force", "--deep", "--sign", "-", appPath], {
       encoding: "utf8",
       stdio: "pipe",
@@ -72,12 +146,12 @@ function signHelperApp() {
   }
   if (result.error) {
     if (result.error.code === "ENOENT") {
-      throw new Error("codesign is required to prepare the Computer Use helper app");
+      throw new Error("构建 FoxWork 电脑控制组件需要 codesign。");
     }
     throw result.error;
   }
   if (result.status !== 0) {
-    throw new Error(`Failed to codesign ${appPath}: ${result.stderr?.trim() ?? "unknown error"}`);
+    throw new Error(`无法签名 ${appPath}：${result.stderr?.trim() ?? "未知错误"}`);
   }
 }
 
@@ -87,9 +161,9 @@ function infoPlist() {
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key>
-  <string>en</string>
+  <string>zh-Hans</string>
   <key>CFBundleDisplayName</key>
-  <string>OpenWork Computer Use</string>
+  <string>FoxWork 电脑控制</string>
   <key>CFBundleExecutable</key>
   <string>${helperExecutableName}</string>
   <key>CFBundleIdentifier</key>
@@ -99,7 +173,7 @@ function infoPlist() {
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>OpenWork Computer Use</string>
+  <string>FoxWork 电脑控制</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -123,10 +197,7 @@ if (!force && existsSync(join(appPath, "Contents", "MacOS", helperExecutableName
   process.exit(0);
 }
 
-run("swift", ["build", "--package-path", packagePath, "-c", "release", "--product", productName], { stdio: "inherit" });
-const binPathResult = run("swift", ["build", "--package-path", packagePath, "-c", "release", "--show-bin-path"]);
-const binDir = binPathResult.stdout.trim();
-const builtExecutable = join(binDir, productName);
+const builtExecutable = buildComputerUseExecutable();
 if (!existsSync(builtExecutable)) {
   throw new Error(`Swift build succeeded, but ${builtExecutable} was not found`);
 }

@@ -1,0 +1,13 @@
+{
+  "name": "FoxWork 使用说明",
+  "navigation": [
+    "start/getting-started",
+    "account/sign-in-and-workspaces",
+    "ai/models",
+    "company/company-capabilities",
+    "company/skills-and-extensions",
+    "security/local-permissions",
+    "project/brand-project-work",
+    "troubleshooting/connection-and-recovery"
+  ]
+}

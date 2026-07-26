@@ -175,6 +175,25 @@ body {
   overflow: hidden;
 }
 
+/* macOS 窗口内容铺满视口时，原生阴影容易和页面边缘融在一起。
+ * 只在公司桌面包中补一圈轻边界，保留内容面积并强化窗口层次。 */
+html.openwork-electron.openwork-platform-mac #root {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 1px rgba(15, 23, 42, 0.08),
+    0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+html.openwork-electron.openwork-platform-mac[data-theme="dark"] #root {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 1px rgba(0, 0, 0, 0.3),
+    0 14px 34px rgba(0, 0, 0, 0.38);
+}
+
 html {
   font-size: var(--openwork-font-size, 16px);
 }

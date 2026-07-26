@@ -28,9 +28,9 @@ function reconnectStatus(connectionId = "emc_knowledge", connectionName = "Knowl
 describe("chat tool error attribution", () => {
   test("identifies an OpenWork-created capability deadline", () => {
     expect(attributeChatToolError("The capability call exceeded 180s. Retry once.")).toEqual({
-      label: "OpenWork timeout",
+      label: "FoxWork 等待超时",
       confidence: "Confirmed",
-      description: "OpenWork created this deadline. The external operation may still have completed, so verify its state before retrying.",
+      description: "FoxWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
     })
   })
 
@@ -43,7 +43,7 @@ describe("chat tool error attribution", () => {
         phase: "MCP_TOOL_EXECUTION",
       },
     }))).toMatchObject({
-      label: "OpenWork timeout",
+      label: "FoxWork 等待超时",
       confidence: "Confirmed",
     })
   })
@@ -52,7 +52,7 @@ describe("chat tool error attribution", () => {
     expect(attributeChatToolError(JSON.stringify({
       diagnostic: { code: "MCP_URL_BLOCKED", category: "security_blocked" },
     }))).toMatchObject({
-      label: "Blocked by OpenWork",
+      label: "FoxWork 已阻止请求",
       confidence: "Confirmed",
     })
   })
@@ -61,7 +61,7 @@ describe("chat tool error attribution", () => {
     expect(attributeChatToolError(`MCP error: ${JSON.stringify({
       diagnostic: { code: "MCP_HTTP_504", httpStatus: 504 },
     })} (tool execution failed)`)).toMatchObject({
-      label: "Remote MCP · HTTP 504",
+      label: "远程 MCP · HTTP 504",
       confidence: "Confirmed",
     })
   })
@@ -70,9 +70,9 @@ describe("chat tool error attribution", () => {
     expect(attributeChatToolError(JSON.stringify({
       diagnostic: { phase: "PROVIDER_AUTHORIZATION", providerStatus: 403 },
     }))).toMatchObject({
-      label: "Provider error",
+      label: "供应商错误",
       confidence: "Confirmed",
-      description: "The remote MCP responded, but the downstream provider returned status 403.",
+      description: "远程 MCP 已响应，但下游供应商返回状态 403。",
     })
   })
 
@@ -80,16 +80,16 @@ describe("chat tool error attribution", () => {
     expect(attributeChatToolError(JSON.stringify({
       diagnostic: { category: "provider_policy_denied", providerCode: "access_denied" },
     }))).toMatchObject({
-      label: "Provider error",
+      label: "供应商错误",
       confidence: "Confirmed",
     })
   })
 
   test("does not claim ownership for an unstructured timeout", () => {
     expect(attributeChatToolError("Tool request timed out while waiting for a response.")).toEqual({
-      label: "Timeout · source unclear",
+      label: "操作超时 · 来源不明",
       confidence: "Inferred",
-      description: "A timeout was reported, but the client did not receive structured evidence identifying which boundary created it.",
+      description: "已收到超时错误，但当前没有足够信息判断超时发生在哪个环节。",
     })
   })
 
@@ -106,7 +106,7 @@ describe("chat tool error attribution", () => {
     expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", errorText)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
-      label: "Reconnect",
+      label: "重新连接",
     })
   })
 
@@ -121,7 +121,7 @@ describe("chat tool error attribution", () => {
     expect(reconnectActionFromChatToolResult("openwork-cloud_search_capabilities", output)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
-      label: "Reconnect",
+      label: "重新连接",
     })
   })
 
@@ -136,7 +136,7 @@ describe("chat tool error attribution", () => {
     expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", errorText)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
-      label: "Reconnect",
+      label: "重新连接",
     })
   })
 

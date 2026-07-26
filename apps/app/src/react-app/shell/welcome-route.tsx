@@ -18,7 +18,6 @@ import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
 import { WelcomePage } from "../domains/onboarding/welcome-page";
 import { ProviderSelectionStep } from "../domains/onboarding/provider-selection-step";
-import { AttributionStep, type AttributionSource } from "../domains/onboarding/attribution-step";
 import { CreateWorkspaceModal } from "../domains/workspace/create-workspace-modal";
 import type { CreateWorkspaceOptions } from "../domains/workspace/types";
 import {
@@ -27,11 +26,12 @@ import {
   useOpenWorkModelsPromoEligibility,
   markOpenWorkModelsStartupPromoShown,
 } from "../domains/cloud/openwork-models-promo";
-import { useDenAuth } from "../domains/cloud/den-auth-provider";
+import { shouldOfferDenSignIn, useDenAuth } from "../domains/cloud/den-auth-provider";
 import { resolveOpenworkConnection } from "./openwork-connection";
-import { captureAnalyticsEvent } from "../../app/lib/analytics";
 import { buildOpenworkWorkspaceBaseUrl, createOpenworkServerClient } from "../../app/lib/openwork-server";
+import { captureAnalyticsEvent } from "../../app/lib/analytics";
 import { buildDenAuthUrl, clearDenSession, DEFAULT_DEN_BASE_URL, readDenSettings } from "../../app/lib/den";
+import { toChineseUserMessage } from "../../app/lib/user-facing-error";
 import {
   denSettingsChangedEvent,
   dispatchDenSessionUpdated,
@@ -60,7 +60,6 @@ type WelcomeState = {
   remoteBusy: boolean;
   remoteError: string | null;
   providerStep: boolean;
-  attributionStep: boolean;
   pendingRoute: string | null;
   pendingWorkspaceId: string | null;
   pendingSessionId: string | null;
@@ -75,8 +74,7 @@ type WelcomeAction =
   | { type: "remote:start" }
   | { type: "remote:error"; error: string }
   | { type: "remote:finish" }
-  | { type: "provider-step"; workspaceId: string; sessionId: string | null }
-  | { type: "attribution-step"; route: string };
+  | { type: "provider-step"; workspaceId: string; sessionId: string | null };
 
 const initialWelcomeState: WelcomeState = {
   modalOpen: false,
@@ -85,7 +83,6 @@ const initialWelcomeState: WelcomeState = {
   remoteBusy: false,
   remoteError: null,
   providerStep: false,
-  attributionStep: false,
   pendingRoute: null,
   pendingWorkspaceId: null,
   pendingSessionId: null,
@@ -111,18 +108,12 @@ function welcomeReducer(state: WelcomeState, action: WelcomeAction): WelcomeStat
       return { ...state, remoteBusy: false };
     case "provider-step":
       return { ...state, providerStep: true, pendingWorkspaceId: action.workspaceId, pendingSessionId: action.sessionId };
-    case "attribution-step":
-      return { ...state, providerStep: false, attributionStep: true, pendingRoute: action.route };
   }
 }
 
 /**
- * WelcomeRoute: full-screen welcome page shown on first launch when
- * the user has no workspaces and has not completed onboarding.
- *
- * Clicking "Get started" opens the CreateWorkspaceModal. Once a
- * workspace is created, provider and attribution onboarding runs before
- * hasCompletedOnboarding is set and the user is redirected to /session.
+ * 首次启动且尚无工作区时显示欢迎页。工作区创建后只保留模型选择，
+ * 不再展示上游推广问卷，完成选择后直接进入会话。
  */
 export function WelcomeRoute() {
   const navigate = useNavigate();
@@ -168,7 +159,7 @@ export function WelcomeRoute() {
       return true;
     } catch (error) {
       setOrganizationServerError(
-        error instanceof Error ? error.message : t("welcome.organization_server_error"),
+        toChineseUserMessage(error, t("welcome.organization_server_error")),
       );
       return false;
     } finally {
@@ -207,7 +198,7 @@ export function WelcomeRoute() {
           list = null;
         }
         if (!list) {
-          throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
+          throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||
@@ -263,7 +254,7 @@ export function WelcomeRoute() {
       } catch (error) {
         dispatch({
           type: "create:error",
-          error: error instanceof Error ? error.message : "Failed to create workspace.",
+          error: toChineseUserMessage(error, "无法创建工作区，请稍后重试。"),
         });
       } finally {
         dispatch({ type: "create:finish" });
@@ -311,7 +302,7 @@ export function WelcomeRoute() {
           }
         }
         if (!list) {
-          throw new Error("OpenWork server is unavailable. Start or reconnect the server before connecting a remote workspace.");
+          throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||
@@ -329,7 +320,7 @@ export function WelcomeRoute() {
       } catch (error) {
         dispatch({
           type: "remote:error",
-          error: error instanceof Error ? error.message : "Connection failed.",
+          error: toChineseUserMessage(error, "无法连接远程工作区，请检查连接地址与访问权限后重试。"),
         });
         return false;
       } finally {
@@ -362,30 +353,11 @@ export function WelcomeRoute() {
     platform.openLink(buildDenAuthUrl(settings.baseUrl || DEFAULT_DEN_BASE_URL, "sign-in"));
   }, [platform]);
 
-  const finishOnboarding = useCallback(() => {
+  const finishOnboarding = useCallback((route?: string) => {
     markOnboardingComplete();
-    navigate(state.pendingRoute ?? "/session", { replace: true });
+    navigate(route ?? state.pendingRoute ?? "/session", { replace: true });
     if (state.pendingSessionId) focusPromptSoon();
   }, [markOnboardingComplete, navigate, state.pendingRoute, state.pendingSessionId]);
-
-  const handleAttributionSubmit = useCallback(
-    (source: AttributionSource, aiPrompt?: string) => {
-      const prompt = aiPrompt?.trim().slice(0, 500) ?? "";
-      captureAnalyticsEvent("attribution_survey_submitted", {
-        source,
-        // User-volunteered survey answer (not session content); see survey UI.
-        ai_prompt: prompt || null,
-        ai_prompt_length: prompt.length,
-      });
-      finishOnboarding();
-    },
-    [finishOnboarding],
-  );
-
-  const handleAttributionSkip = useCallback(() => {
-    captureAnalyticsEvent("attribution_survey_skipped");
-    finishOnboarding();
-  }, [finishOnboarding]);
 
   return (
     <>
@@ -398,7 +370,7 @@ export function WelcomeRoute() {
         onManualFolderChange={setManualFolder}
         onUseManualFolder={handleUseManualFolder}
         showManualFolder={import.meta.env.DEV && isDesktopRuntime()}
-        onTeamSignIn={handleTeamSignIn}
+        onTeamSignIn={shouldOfferDenSignIn(denAuth.status) ? handleTeamSignIn : undefined}
         organizationServerBusy={organizationServerBusy}
         organizationServerError={organizationServerError}
         organizationServerUrl={organizationServerUrl}
@@ -429,14 +401,11 @@ export function WelcomeRoute() {
         <ProviderSelectionStep
           showOpenWorkModels={showOpenWorkModelsPromo}
           onOpenWorkModels={() => {
-            // Land on the OpenWork Models value-prop page when already
-            // signed in to Den; otherwise start sign-up. Previously this
-            // always opened a bare sign-up page — payment before value.
             platform.openLink(getOpenWorkModelsActionUrl(denAuth.isSignedIn, "sign-up"));
             const route = state.pendingWorkspaceId
               ? workspaceSessionRoute(state.pendingWorkspaceId, state.pendingSessionId)
               : "/session";
-            dispatch({ type: "attribution-step", route });
+            finishOnboarding(route);
           }}
           onBringYourOwn={() => {
             markOpenWorkModelsStartupPromoShown();
@@ -444,20 +413,14 @@ export function WelcomeRoute() {
             const route = state.pendingWorkspaceId
               ? workspaceSessionRoute(state.pendingWorkspaceId, state.pendingSessionId)
               : "/session";
-            dispatch({ type: "attribution-step", route: `${route}?onboarding=1` });
+            finishOnboarding(`${route}?onboarding=1`);
           }}
           onSkip={() => {
             const route = state.pendingWorkspaceId
               ? workspaceSessionRoute(state.pendingWorkspaceId, state.pendingSessionId)
               : "/session";
-            dispatch({ type: "attribution-step", route });
+            finishOnboarding(route);
           }}
-        />
-      ) : null}
-      {state.attributionStep ? (
-        <AttributionStep
-          onSubmit={handleAttributionSubmit}
-          onSkip={handleAttributionSkip}
         />
       ) : null}
     </>

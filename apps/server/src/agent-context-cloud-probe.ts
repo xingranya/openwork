@@ -17,11 +17,6 @@ const REQUIRED_TOOL_ID_SET = new Set<string>(REQUIRED_TOOL_IDS);
 const BEARER = /^Bearer [A-Za-z0-9\-._~+/]+=*$/;
 const REQUEST_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 const REQUIRED_TERMINAL_PATH = "/mcp/agent";
-const DEFAULT_TRUSTED_ORIGINS = new Set([
-  "https://app.openworklabs.com",
-  "https://api.openworklabs.com",
-]);
-
 export type CloudCatalogProbeStatus = "observed" | "not-performed" | "failed";
 
 export type CloudCatalogProbeCode =
@@ -172,7 +167,7 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 function configuredTrustedOrigins(): Set<string> {
-  const origins = new Set(DEFAULT_TRUSTED_ORIGINS);
+  const origins = new Set<string>();
   const configured = process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS ?? "";
   for (const entry of configured.split(",")) {
     const raw = entry.trim().replace(/\/+$/u, "");

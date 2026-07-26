@@ -93,19 +93,25 @@ function ReasoningTrigger({
 
   return (
     <button
-      className={cn("flex cursor-pointer items-center gap-2", className)}
+      type="button"
+      aria-expanded={isOpen}
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-blue-8 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        className
+      )}
       onClick={() => onOpenChange(!isOpen)}
       {...props}
     >
-      <span className="text-muted-foreground">{children}</span>
-      <div
+      <span className="min-w-0 flex-1 text-left">{children}</span>
+      <span
+        aria-hidden="true"
         className={cn(
-          "transform transition-transform",
+          "shrink-0 transform transition-transform duration-150 motion-reduce:transition-none",
           isOpen ? "rotate-180" : ""
         )}
       >
         <ChevronDownIcon className="size-4" />
-      </div>
+      </span>
     </button>
   )
 }
@@ -150,7 +156,7 @@ function ReasoningContent({
     <div
       ref={contentRef}
       className={cn(
-        "overflow-hidden transition-[max-height] duration-150 ease-out",
+        "overflow-hidden transition-[max-height] duration-150 ease-out motion-reduce:transition-none",
         className
       )}
       style={{

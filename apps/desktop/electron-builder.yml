@@ -2,6 +2,7 @@
 # 不再写入新安装包、协议注册或更新配置。
 appId: com.foxwork.desktop
 productName: FoxWork
+copyright: "版权所有 © 2026 Fox"
 protocols:
   - name: FoxWork
     schemes:
@@ -14,6 +15,14 @@ files:
   - electron/**/*
   - server/**/*
   - "!server/dist/opencode-plugins/**"
+  - "!electron/**/*.test.*"
+  - "!electron/**/*.spec.*"
+  - "!server/**/*.test.*"
+  - "!server/**/*.spec.*"
+  - "!node_modules/**/test/**"
+  - "!node_modules/**/tests/**"
+  - "!node_modules/**/*.test.*"
+  - "!node_modules/**/*.spec.*"
   - package.json
 extraResources:
   - from: ../app/dist
@@ -22,8 +31,9 @@ extraResources:
     to: opencode-plugins
     filter:
       - "*.js"
-  - from: ../../packages/docs
-    to: openwork-docs
+      - "!*.test.js"
+  - from: ../../packages/foxwork-docs
+    to: foxwork-docs
     filter:
       - "**/*.md"
       - "**/*.mdx"
@@ -44,6 +54,9 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
+    NSBluetoothAlwaysUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
+    NSBluetoothPeripheralUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
+    NSCameraUsageDescription: FoxWork 仅在你主动使用摄像头相关功能时访问摄像头。
     NSMicrophoneUsageDescription: FoxWork 仅在你主动开启语音模式时使用麦克风。
   extraResources:
     - from: resources/sidecars
@@ -61,7 +74,7 @@ mac:
     - from: resources/helpers
       to: helpers
       filter:
-        - "OpenWork Computer Use.app/**"
+        - "FoxWork Computer Use.app/**"
   target:
     - dmg
     - zip

@@ -205,7 +205,7 @@ function DenAuthControlActions() {
       const result = await exchangeHandoffAndSignIn(grant.trim(), {
         baseUrl: targetBaseUrl,
         client,
-        fallbackErrorMessage: "No token returned",
+        fallbackErrorMessage: "公司服务没有返回登录凭据。",
       });
       if (!result.ok) return { ok: false, error: result.error };
       return { email: result.exchange.user?.email };

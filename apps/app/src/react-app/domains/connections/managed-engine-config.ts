@@ -66,7 +66,7 @@ export async function updateManagedDisabledProviders(
   }
 
   const client = options.opencodeClient;
-  if (!client) throw new Error("OpenCode client is not connected.");
+  if (!client) throw new Error("AI 运行引擎尚未连接。");
   const currentConfig = options.currentConfig ?? unwrap(await client.config.get());
   await client.config.update({
     config: configWithDisabledProviders(

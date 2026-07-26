@@ -75,7 +75,7 @@ describe("desktop notifications", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({
       command: "desktopNotificationShow",
-      args: [{ title: "Question needs your answer", body: "Question: Continue?" }],
+      args: [{ title: "有问题等待回答", body: "Question: Continue?" }],
     });
   });
 
@@ -88,7 +88,7 @@ describe("desktop notifications", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({
       command: "desktopNotificationShow",
-      args: [{ title: "Task completed", body: "The session finished running." }],
+      args: [{ title: "任务已完成", body: "会话已完成运行。" }],
     });
   });
 

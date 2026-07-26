@@ -5,7 +5,7 @@ declare const expect: (value: unknown) => {
   toBe: (expected: unknown) => void;
 };
 
-import { DEFAULT_DEN_BASE_URL, HOSTED_DEFAULT_DEN_BASE_URL, setDenBootstrapConfig } from "../../../app/lib/den";
+import { DEFAULT_DEN_BASE_URL, setDenBootstrapConfig } from "../../../app/lib/den";
 import {
   isOpenWorkModelsPromoEligible,
   isOpenWorkModelsPromoEligibleForDenBaseUrl,
@@ -17,9 +17,9 @@ afterEach(async () => {
   await setDenBootstrapConfig({ baseUrl: DEFAULT_DEN_BASE_URL, requireSignin: false });
 });
 
-describe("OpenWork Models promo eligibility", () => {
-  test("allows promotions on the default Den URL after normalization", () => {
-    expect(isOpenWorkModelsPromoEligibleForDenBaseUrl(`${HOSTED_DEFAULT_DEN_BASE_URL}/api/den/`)).toBe(true);
+describe("FoxWork 公司模型入口", () => {
+  test("公司定制版始终关闭上游促销入口", () => {
+    expect(isOpenWorkModelsPromoEligibleForDenBaseUrl("https://app.openworklabs.com/api/den/")).toBe(false);
   });
 
   test("suppresses promotions for custom configured Den URLs", async () => {

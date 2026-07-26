@@ -29,6 +29,14 @@ const forcedSigninSource = readFileSync(
   fileURLToPath(new URL("../src/react-app/domains/cloud/forced-signin-page.tsx", import.meta.url)),
   "utf8",
 );
+const i18nIndexSource = readFileSync(
+  fileURLToPath(new URL("../src/i18n/index.ts", import.meta.url)),
+  "utf8",
+);
+const baseChineseSource = readFileSync(
+  fileURLToPath(new URL("../src/i18n/locales/zh.ts", import.meta.url)),
+  "utf8",
+);
 
 const TECHNICAL_IDENTIFIER_ONLY_KEYS = new Set([
   "composer.mcps_label",
@@ -68,6 +76,7 @@ describe("FoxWork 简体中文界面契约", () => {
     setLocale("en");
     expect(currentLocale()).toBe("zh");
     expect(appearanceSource).not.toContain("LanguageSection");
+    expect(i18nIndexSource).not.toMatch(/\.\/locales\/(?:en|ja|vi|pt-BR|th|fr|ca|es|ru)/);
   });
 
   test("中文资源完整覆盖界面键且占位符一致", () => {
@@ -96,11 +105,16 @@ describe("FoxWork 简体中文界面契约", () => {
       .map(([key]) => key)
       .filter((key) => !TECHNICAL_IDENTIFIER_ONLY_KEYS.has(key));
     const upstreamTerms = Object.entries(zh)
-      .filter(([, value]) => /OpenWork|\bCloud\b|组织/.test(value))
+      .filter(([, value]) => /OpenWork|OpenCode|Big Pickle|\bCloud\b|组织/.test(value))
+      .map(([key]) => key);
+    const exposedRuntimeBrandKeys = Object.entries(zh)
+      .filter(([, value]) => /opencode/i.test(value))
       .map(([key]) => key);
 
     expect(englishOnlyKeys).toEqual([]);
     expect(upstreamTerms).toEqual([]);
+    expect(exposedRuntimeBrandKeys).toEqual([]);
+    expect(baseChineseSource).not.toMatch(/OpenWork|OpenCode|FoxWork Cloud|\bCloud\b/);
   });
 
   test("单公司模式不限制新增本地或远程工作区", () => {

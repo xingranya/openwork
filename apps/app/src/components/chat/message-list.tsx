@@ -1,6 +1,7 @@
 "use memo";
 
 import * as React from "react"
+import { flushSync } from "react-dom"
 import {
   AlertTriangle,
   Check,
@@ -8,7 +9,9 @@ import {
   Download,
   FileIcon,
   LoaderCircle,
+  BrainCircuit,
   Pencil,
+  Quote,
   Split,
   Undo2,
 } from "lucide-react"
@@ -39,6 +42,11 @@ import { useMessageList, useSessionErrorMessage } from "@/components/chat/messag
 import { ArtifactList } from "@/components/chat/artifact"
 import { TaskSuggestions } from "@/components/chat/task-suggestions"
 import { AssistantThinkingOrb } from "@/components/chat/assistant-thinking-orb"
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ui/reasoning"
 import {
   DescriptiveButtonContent,
   DescriptiveButtonDescription,
@@ -82,6 +90,10 @@ import {
   getActiveToolLabel,
 } from "@/lib/tool-activity"
 import { cn } from "@/lib/utils"
+import {
+  readSelectionTextAtPointWithin,
+  readSelectionTextWithin,
+} from "./assistant-message-actions"
 import { groupMessages, isMessageGroup, getLastTextPart, getAssistantRenderGroups, getFileTitle, getMediaBadge, getMessageCreated, formatMessageTimestamp, type UIMessageWithIndex, getMessagesText, getSafeFileDownloadUrl } from "./utils"
 
 const SEARCH_HIGHLIGHT_MARK_CLASS = "rounded px-0.5 bg-amber-4/70 text-current"
@@ -321,6 +333,15 @@ function CopyMessageButton({ messages }: CopyMessageButtonProps) {
   )
 }
 
+async function copyTextToClipboard(text: string) {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    // 剪贴板可能被系统权限或浏览器策略阻止，此时保持当前界面不变。
+  }
+}
+
 type AssistantMessageProps = {
   message: UIMessage
   isLastMessage: boolean
@@ -330,11 +351,41 @@ type AssistantMessageProps = {
 
 const AssistantMessage = React.memo(
   ({ message }: AssistantMessageProps) => {
-    const { showThinking, highlightQuery } = useMessageList()
+    const { showThinking, highlightQuery, onQuoteAssistantText } = useMessageList()
+    const responseRef = React.useRef<HTMLDivElement>(null)
+    const selectedTextRef = React.useRef("")
+    const [selectedText, setSelectedText] = React.useState("")
+    const [selectionMenuOpen, setSelectionMenuOpen] = React.useState(false)
     const assistantRenderGroups = React.useMemo(
       () => getAssistantRenderGroups(message.parts, showThinking),
       [message.parts, showThinking]
     )
+    const readSelectedText = React.useCallback(() => {
+      const container = responseRef.current
+      return container ? readSelectionTextWithin(container, window.getSelection()) : ""
+    }, [])
+    const updateSelectedText = React.useCallback(() => {
+      const text = readSelectedText()
+      selectedTextRef.current = text
+      setSelectedText(text)
+    }, [readSelectedText])
+    const prepareSelectionMenu = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+      const container = responseRef.current
+      const text = container
+        ? readSelectionTextAtPointWithin(
+            container,
+            window.getSelection(),
+            { x: event.clientX, y: event.clientY },
+          )
+        : ""
+
+      selectedTextRef.current = text
+      flushSync(() => setSelectedText(text))
+      if (!text) event.preventDefault()
+    }, [])
+    const handleSelectionMenuOpenChange = React.useCallback((open: boolean) => {
+      setSelectionMenuOpen(open && Boolean(selectedTextRef.current))
+    }, [])
 
     return (
       <Message
@@ -342,8 +393,18 @@ const AssistantMessage = React.memo(
         data-message-id={message.id}
         data-message-role={message.role}
       >
-        <div className="group flex w-full flex-col gap-0 space-y-2">
-          {assistantRenderGroups.map((group, index) => {
+        <ContextMenu open={selectionMenuOpen} onOpenChange={handleSelectionMenuOpenChange}>
+          <ContextMenuTrigger
+            className="!select-text"
+            render={
+              <div
+                ref={responseRef}
+                className="group flex w-full select-text flex-col gap-0 space-y-2"
+                onMouseUp={updateSelectedText}
+                onKeyUp={updateSelectedText}
+                onContextMenuCapture={prepareSelectionMenu}
+              >
+                {assistantRenderGroups.map((group, index) => {
             if (group.kind === "text") {
               return (
                 <MessageContent
@@ -359,13 +420,28 @@ const AssistantMessage = React.memo(
 
             if (group.kind === "reasoning") {
               return (
-                <MessageContent
+                <Reasoning
                   key={`reasoning-${index}`}
-                  className="text-muted-foreground prose w-full min-w-0 flex-1 rounded-lg bg-transparent p-0"
-                  markdown
+                  isStreaming={group.isStreaming}
+                  className="not-prose w-full overflow-hidden rounded-lg border border-blue-7/70 bg-blue-2/55"
                 >
-                  {group.text}
-                </MessageContent>
+                  <ReasoningTrigger className="w-full justify-between px-3 py-2 text-blue-12 transition-colors hover:bg-blue-3/70">
+                    <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
+                      <BrainCircuit className="size-4 shrink-0 text-blue-11" aria-hidden="true" />
+                      <span>{group.isStreaming ? "正在深入思考" : "深度思考"}</span>
+                      <span className="text-[11px] font-normal text-blue-11">
+                        {group.isStreaming ? "进行中" : "已完成"}
+                      </span>
+                    </span>
+                  </ReasoningTrigger>
+                  <ReasoningContent
+                    markdown
+                    className="border-t border-blue-7/60"
+                    contentClassName="max-w-none px-3 py-3 text-[13px] leading-6 text-blue-12/90"
+                  >
+                    {group.text}
+                  </ReasoningContent>
+                </Reasoning>
               )
             }
 
@@ -382,8 +458,23 @@ const AssistantMessage = React.memo(
                 <ToolMessage part={group.part} />
               </div>
             )
-          })}
-        </div>
+                })}
+              </div>
+            }
+          />
+          {selectedText ? (
+            <ContextMenuContent className="w-56">
+              <ContextMenuItem onClick={() => onQuoteAssistantText(selectedText)}>
+                <Quote className="size-4" />
+                添加到聊天框
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => void copyTextToClipboard(selectedText)}>
+                <Copy className="size-4" />
+                复制
+              </ContextMenuItem>
+            </ContextMenuContent>
+          ) : null}
+        </ContextMenu>
       </Message>
     )
   }
@@ -400,7 +491,7 @@ const USER_SKILL_TOKEN_RE = /(Load \[skill [^\]]+\] and follow its instructions\
 
 function UserSkillChip(props: { name: string }) {
   return (
-    <span className="mx-0.5 inline-flex items-center rounded-full border border-violet-6/35 bg-violet-3/20 px-2.5 py-1 text-xs font-medium text-violet-11 align-middle" title={`Skill: ${props.name}`}>
+    <span className="mx-0.5 inline-flex items-center rounded-full border border-violet-6/35 bg-violet-3/20 px-2.5 py-1 text-xs font-medium text-violet-11 align-middle" title={`技能：${props.name}`}>
       {props.name}
     </span>
   )
@@ -598,7 +689,7 @@ const LoadingMessage = React.memo(({ label }: { label?: string }) => (
     <div className="group flex w-full flex-col gap-0">
       <div className="flex items-center gap-1.5 px-1 py-1 text-sm text-muted-foreground">
         <AssistantThinkingOrb />
-        <span>{label ?? "Thinking…"}</span>
+        <span>{label ?? "正在思考"}</span>
       </div>
     </div>
   </Message>
@@ -610,13 +701,23 @@ interface ErrorMessageProps {
   error: string | null
 }
 
+function readableModelRuntimeMessage(message: string | null, fallback: string) {
+  const raw = message?.trim() ?? ""
+  if (!raw) return fallback
+  if (/open\s*code|big\s*pickle|subscribe|free usage exceeded|usage exceeded/i.test(raw)) {
+    return "FoxWork 免费模型当前不可用，请稍后重试或切换到公司模型。"
+  }
+  return /[\u3400-\u9fff]/.test(raw) ? raw : fallback
+}
+
 function ErrorMessage({ error }: ErrorMessageProps) {
+  const message = readableModelRuntimeMessage(error, "任务运行失败，请检查模型连接后重试。")
   return (
     <Message className="not-prose mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-0 md:px-10">
       <div className="group flex w-full flex-col items-start gap-0">
         <div className="text-foreground flex min-w-0 flex-1 flex-row items-start gap-2 rounded-lg border-2 border-red-300 bg-red-300/20 px-2 py-1">
           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-destructive" />
-          <p className="whitespace-pre-wrap text-destructive">{error}</p>
+          <p className="whitespace-pre-wrap text-destructive">{message}</p>
         </div>
       </div>
     </Message>
@@ -651,9 +752,17 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
   }, [status])
 
   const info = seconds > 0
-    ? `Retrying in ${seconds}s · attempt ${status.attempt}`
-    : `Retrying · attempt ${status.attempt}`
-  const action = status.action
+    ? `${seconds} 秒后重试，第 ${status.attempt} 次尝试`
+    : `正在重试，第 ${status.attempt} 次尝试`
+  const message = readableModelRuntimeMessage(
+    status.message,
+    "模型服务暂时不可用，FoxWork 正在重试。",
+  )
+  const action = status.action && !/open\s*code|subscribe|big\s*pickle/i.test(
+    `${status.action.title} ${status.action.message} ${status.action.label} ${status.action.link ?? ""}`,
+  )
+    ? status.action
+    : null
 
   return (
     <Message className="not-prose mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-0 md:px-10">
@@ -662,7 +771,7 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
           <div className="flex items-start gap-2">
             <LoaderCircle size={16} className="mt-0.5 shrink-0 animate-spin text-amber-700" />
             <div className="min-w-0 space-y-1">
-              <p className="whitespace-pre-wrap text-sm font-medium text-amber-900">{status.message}</p>
+              <p className="whitespace-pre-wrap text-sm font-medium text-amber-900">{message}</p>
               <p className="text-xs text-amber-800">{info}</p>
             </div>
           </div>

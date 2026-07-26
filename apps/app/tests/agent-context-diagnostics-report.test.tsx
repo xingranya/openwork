@@ -223,6 +223,29 @@ describe("AgentContextDiagnosticsReportView", () => {
     expect(errorHtml).toContain("智能体诊断未能完成。");
   });
 
+  test("英文服务诊断不会回退显示给员工", () => {
+    const report = healthyReport();
+    report.checks[0] = {
+      ...report.checks[0],
+      status: "failed",
+      message: "The selected engine could not be observed.",
+      action: "Reconnect OpenWork Cloud and rerun diagnostics.",
+    };
+    const reportHtml = renderToStaticMarkup(
+      <AgentContextDiagnosticsReportView report={report} copied={false} copying={false} onCopy={() => {}} />,
+    );
+    const errorHtml = renderToStaticMarkup(
+      <AgentContextDiagnosticsErrorNotice message="Diagnostics request failed." />,
+    );
+
+    expect(reportHtml).toContain("检查未通过，请按建议处理后重新检查。");
+    expect(reportHtml).toContain("请检查公司连接、工作区权限和 AI 运行服务后重新诊断。");
+    expect(reportHtml).not.toContain("The selected engine");
+    expect(reportHtml).not.toContain("Reconnect OpenWork Cloud");
+    expect(errorHtml).toContain("诊断未能完成，请稍后重试。");
+    expect(errorHtml).not.toContain("Diagnostics request failed");
+  });
+
   test("labels engine-resolved evidence as effective and tool-policy-disabled MCPs as disabled", () => {
     const report = healthyReport();
     const engineConfigCheck = report.checks.find((check) => check.id === "engine-config");

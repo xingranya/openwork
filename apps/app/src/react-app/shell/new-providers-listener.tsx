@@ -153,22 +153,22 @@ export function NewProvidersListener() {
 
     const parts: string[] = [];
     if (state.newProviderCount > 0) {
-      parts.push(`${state.newProviderCount} new ${state.newProviderCount === 1 ? "provider" : "providers"}`);
+      parts.push(`${state.newProviderCount} 个新模型服务`);
     }
     if (state.newModelCount > 0) {
-      parts.push(`${state.newModelCount} new ${state.newModelCount === 1 ? "model" : "models"}`);
+      parts.push(`${state.newModelCount} 个新模型`);
     }
     const summary =
-      parts.join(" & ") ||
+      parts.join("、") ||
       resolveProviderDisplayName(
-        state.providers[0]?.name || state.providers[0]?.providerId || "Models",
+        state.providers[0]?.name || state.providers[0]?.providerId || "模型",
       );
 
     notifyEvent({
       kind: "providers",
       severity: "info",
       dedupeKey: NEW_PROVIDERS_DEDUPE_KEY,
-      title: `${summary} available`,
+      title: `${summary}现已可用`,
       action: {
         type: "open-model-picker",
         providerIds: state.providers.map((p) => p.id),

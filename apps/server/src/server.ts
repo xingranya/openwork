@@ -12,6 +12,7 @@ import { addMcp, listMcp, removeMcp, setMcpEnabled } from "./mcp.js";
 import { exportExtensions } from "./extensions-export.js";
 import { deleteSkill, listSkills, upsertSkill } from "./skills.js";
 import { installHubSkill, listHubSkills } from "./skill-hub.js";
+import { installSkillBundle } from "./skill-bundle.js";
 import { deleteCommand, listCommands, repairCommands, upsertCommand } from "./commands.js";
 import { ApiError, formatError } from "./errors.js";
 import { readJsoncFile, updateJsoncTopLevel, writeJsoncFile } from "./jsonc.js";
@@ -165,6 +166,8 @@ function reserveAgentDiagnosticsRun(
     if (released) return;
     released = true;
     inFlight.delete(key);
+    // 冷却期从任务结束后重新计算，避免长任务在执行期间耗尽整个冷却窗口。
+    agentDiagnosticsLastRunByServer.get(config)?.set(key, Date.now());
   };
 }
 
@@ -1023,8 +1026,8 @@ function createOpencodeDirectoryFetch(directory: string, fetchImpl: typeof fetch
 }
 
 type OpencodeClientResult<T, E> =
-  | { data: T | undefined; error: undefined; response: Response }
-  | { data: undefined; error: E; response: Response };
+  | { data: T | undefined; error: undefined; response?: Response }
+  | { data: undefined; error: E; response?: Response };
 
 function createWorkspaceOpencodeClient(
   config: ServerConfig,
@@ -1046,15 +1049,15 @@ function createWorkspaceOpencodeClient(
   });
 }
 
-function unwrapOpencodeResult<T, E>(result: OpencodeClientResult<T, E>, path: string): NonNullable<T> {
+export function unwrapOpencodeResult<T, E>(result: OpencodeClientResult<T, E>, path: string): NonNullable<T> {
   if (result.data != null) {
     return result.data;
   }
   if (result.error === undefined) {
-    throw new ApiError(502, "opencode_empty_response", "OpenCode returned an empty response", { path });
+    throw new ApiError(502, "opencode_empty_response", "AI 运行服务未返回数据", { path });
   }
-  throw new ApiError(502, "opencode_request_failed", "OpenCode request failed", {
-    status: result.response.status,
+  throw new ApiError(502, "opencode_request_failed", "AI 运行服务请求失败", {
+    ...(result.response ? { status: result.response.status } : {}),
     body: result.error,
     path,
   });
@@ -2374,6 +2377,52 @@ function createRoutes(
     return jsonResponse({ ok: true, ...result });
   });
 
+  addRoute(routes, "POST", "/workspace/:id/skills/catalog/:name", "client", async (ctx) => {
+    ensureWritable(config);
+    requireClientScope(ctx, "collaborator");
+    const workspace = await resolveWorkspace(config, ctx.params.id);
+    const name = String(ctx.params.name ?? "").trim();
+    const body = await readJsonBody(ctx.request);
+    const files = Array.isArray(body?.files)
+      ? body.files.map((file) => ({
+          path: typeof file?.path === "string" ? file.path : "",
+          contents: typeof file?.contents === "string" ? file.contents : "",
+        }))
+      : [];
+
+    await requireApproval(ctx, {
+      workspaceId: workspace.id,
+      action: "skills.install_catalog",
+      summary: `安装在线技能 ${name}`,
+      paths: [join(workspace.path, ".opencode", "skills", name)],
+    });
+
+    const result = await installSkillBundle(workspace.path, {
+      name,
+      sourceId: typeof body?.sourceId === "string" ? body.sourceId : "",
+      sourceHash: typeof body?.sourceHash === "string" ? body.sourceHash : null,
+      bundleHash: typeof body?.bundleHash === "string" ? body.bundleHash : "",
+      files,
+      overwrite: body?.overwrite === true,
+    });
+    await recordAudit(workspace.path, {
+      id: shortId(),
+      workspaceId: workspace.id,
+      actor: ctx.actor ?? { type: "remote" },
+      action: "skills.install_catalog",
+      target: result.path,
+      summary: `已安装在线技能 ${result.sourceId}`,
+      timestamp: Date.now(),
+    });
+    emitReloadEvent(ctx.reloadEvents, workspace, "skills", {
+      type: "skill",
+      name: result.name,
+      action: result.action,
+      path: result.path,
+    });
+    return jsonResponse({ ok: true, ...result });
+  });
+
   addRoute(routes, "GET", "/workspace/:id/skills/:name", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const includeGlobal = ctx.url.searchParams.get("includeGlobal") === "true";
@@ -3294,7 +3343,11 @@ async function reloadOpencodeEngine(
   let response: Response;
   try {
     // OpenCode reload targets the managed loopback engine; CA trust is irrelevant.
-    response = await loopbackFetch(targetUrl, { method: "POST", headers });
+    response = await loopbackFetch(targetUrl, {
+      method: "POST",
+      headers,
+      signal: AbortSignal.timeout(ENGINE_LOOPBACK_RELOAD_TIMEOUT_MS),
+    });
   } catch (error) {
     throw new ApiError(
       503,
@@ -3467,7 +3520,7 @@ async function postMcpEntryWithRetry(
         method: "POST",
         headers,
         body: JSON.stringify({ name, config: mcpConfig }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(ENGINE_LOOPBACK_MCP_TIMEOUT_MS),
       });
       if (response.ok) {
         // OpenCode's dynamic registration endpoint historically treats every
@@ -3508,6 +3561,10 @@ async function postMcpEntryWithRetry(
     },
   };
 }
+
+// 本机引擎请求属于交互链路。即使端口被防火墙黑洞，也不能长期阻塞保存或重载操作。
+const ENGINE_LOOPBACK_RELOAD_TIMEOUT_MS = 2_000;
+const ENGINE_LOOPBACK_MCP_TIMEOUT_MS = 750;
 
 const ENGINE_MCP_REGISTRATION_RESPONSE_MAX_BYTES = 64 * 1024;
 

@@ -1,5 +1,4 @@
-// Owned here: reload vocabulary is part of the extension manifest contract.
-// types.ts re-exports it for the rest of the app.
+// 扩展清单在此定义重载原因，types.ts 只向应用其余模块重新导出。
 export type ReloadReason = "plugins" | "skills" | "mcp" | "config" | "agents" | "commands";
 
 export type OpenWorkExtensionSourceFormat =
@@ -81,7 +80,7 @@ export type OpenWorkExtensionLifecycle = {
 };
 
 // ---------------------------------------------------------------------------
-// Enablement — declarative conditions for extension "active" state
+// 启用条件：以声明式规则判断扩展是否可用
 // ---------------------------------------------------------------------------
 
 export type EnablementConditionType =
@@ -94,13 +93,13 @@ export type EnablementConditionType =
 
 export type EnablementCondition = {
   type: EnablementConditionType;
-  /** What to check — MCP server name, plugin id, env key, etc. */
+  /** 要检查的 MCP 服务名、插件 ID 或环境变量名等引用。 */
   ref: string;
-  /** Human-readable label shown in the UI. */
+  /** 显示在界面中的可读名称。 */
   label: string;
 };
 
-/** Result of evaluating a single enablement condition at runtime. */
+/** 单项启用条件的运行时检查结果。 */
 export type EnablementResult = {
   condition: EnablementCondition;
   met: boolean;
@@ -124,7 +123,7 @@ export type OpenWorkExtensionManifest = {
   resources: OpenWorkExtensionResource[];
   contributions?: OpenWorkExtensionContribution[];
   lifecycle?: OpenWorkExtensionLifecycle;
-  /** Declarative conditions that must ALL be true for the extension to be "active". */
+  /** 全部满足后扩展才可用的声明式条件。 */
   enablement?: EnablementCondition[];
   defaultEnabled?: boolean;
   defaultHidden?: boolean;
@@ -153,13 +152,13 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
   {
     schemaVersion: 1,
     id: "openwork-browser",
-    name: "OpenWork Browser",
-    description: "Automate the built-in browser panel that stays visible inside OpenWork.",
+    name: "内置浏览器",
+    description: "在 FoxWork 内直接打开网页，并让 AI 帮你浏览和操作。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/openwork-mark.svg" },
-    composer: { prompt: "Use the OpenWork Browser extension to " },
+    composer: { prompt: "使用内置浏览器" },
     setup: {
-      instructions: "OpenWork Browser is ready by default in desktop workspaces.",
+      instructions: "桌面工作区已默认启用内置浏览器，无需额外配置。",
     },
     resources: [
       {
@@ -172,10 +171,10 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
     contributions: [
       { type: "settings-panel", ref: "openwork.browser.settings", location: "settings-detail" },
       { type: "session-side-panel", ref: "openwork.browser.panel", location: "session-right-pane" },
-      { type: "composer-prompt", prompt: "Use the OpenWork Browser extension to ", location: "composer" },
+      { type: "composer-prompt", prompt: "使用内置浏览器", location: "composer" },
     ],
     enablement: [
-      { type: "toggle-enabled", ref: "openwork-browser", label: "Enabled" },
+      { type: "toggle-enabled", ref: "openwork-browser", label: "已启用" },
     ],
     lifecycle: { reload: ["plugins", "agents"], detection: ["plugin:opencode-chrome-devtools"] },
     defaultEnabled: true,
@@ -183,23 +182,23 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
   {
     schemaVersion: 1,
     id: "computer-use",
-    name: "Computer Use",
-    description: "Mac only: control Mac apps through semantic accessibility refs, screenshots, background-safe clicks, keyboard input, and strict mode.",
+    name: "电脑操作",
+    description: "在 Mac 上通过辅助功能、截图、鼠标和键盘操作本机应用。",
     preview: true,
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/openwork-mark.svg" },
-    composer: { prompt: "Use Computer Use to " },
+    composer: { prompt: "使用电脑操作功能" },
     setup: {
-      instructions: "Computer Use is Mac only. It runs as a local MCP server backed by the macOS accessibility runtime. Grant Accessibility and Screen Recording permissions when macOS asks, then connect the MCP server in this workspace.",
-      primaryCta: "Connect Computer Use MCP",
-      secondaryCta: "Check macOS permissions",
+      instructions: "此功能仅支持 Mac。请按系统提示授予辅助功能和屏幕录制权限，再连接当前工作区中的电脑操作 MCP。",
+      primaryCta: "连接电脑操作 MCP",
+      secondaryCta: "检查 macOS 权限",
       testActionRef: "openwork.computerUse.healthCheck",
     },
     resources: [
       {
         type: "mcp",
         id: "computer-use-mcp",
-        label: "Computer Use MCP",
+        label: "电脑操作 MCP",
         mcpServerName: "computer-use",
         command: ["npx", "-y", "@openwork/handsfree", "mcp"],
         localCommandRef: "openwork.computerUseMcp",
@@ -208,21 +207,21 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
       {
         type: "native-binary",
         id: "computer-use-native",
-        label: "macOS accessibility runtime",
+        label: "macOS 辅助功能组件",
         packageName: "@openwork/handsfree",
         required: true,
       },
     ],
     contributions: [
       { type: "setup-instructions", ref: "openwork.computerUse.setup", location: "settings-detail" },
-      { type: "native-capability", ref: "openwork.computerUse.axPermissions", label: "Accessibility and Screen Recording" },
-      { type: "test-action", ref: "openwork.computerUse.healthCheck", label: "Verify Computer Use MCP" },
-      { type: "composer-prompt", prompt: "Use Computer Use to ", location: "composer" },
+      { type: "native-capability", ref: "openwork.computerUse.axPermissions", label: "辅助功能和屏幕录制" },
+      { type: "test-action", ref: "openwork.computerUse.healthCheck", label: "检查电脑操作 MCP" },
+      { type: "composer-prompt", prompt: "使用电脑操作功能", location: "composer" },
     ],
     enablement: [
-      { type: "mcp-connected", ref: "computer-use", label: "MCP server connected" },
-      { type: "permission-granted", ref: "accessibility", label: "Accessibility permission" },
-      { type: "permission-granted", ref: "screenRecording", label: "Screen Recording permission" },
+      { type: "mcp-connected", ref: "computer-use", label: "MCP 服务已连接" },
+      { type: "permission-granted", ref: "accessibility", label: "已授予辅助功能权限" },
+      { type: "permission-granted", ref: "screenRecording", label: "已授予屏幕录制权限" },
     ],
     lifecycle: { reload: ["mcp"], detection: ["mcp:computer-use"] },
     platform: ["darwin"],
@@ -230,126 +229,126 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
   {
     schemaVersion: 1,
     id: "openai-image-gen",
-    name: "OpenAI Image Gen",
-    description: "Generate image artifacts with gpt-image-2.",
+    name: "图片生成",
+    description: "使用已配置的 OpenAI 图片模型生成图片。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/ext-openai.svg" },
-    composer: { prompt: "Use the OpenAI Image Gen extension to " },
+    composer: { prompt: "使用图片生成功能" },
     setup: {
-      instructions: "Add an OpenAI API key, then agents can generate image artifacts through OpenWork extension actions.",
-      primaryCta: "Enable image generation",
-      secondaryCta: "Generate test image",
+      instructions: "添加 OpenAI API 密钥后，AI 即可在会话中生成图片。",
+      primaryCta: "启用图片生成",
+      secondaryCta: "生成测试图片",
       requiredEnv: ["OPENAI_API_KEY"],
       testActionRef: "openwork.imageGen.testGenerate",
     },
     resources: [
       { type: "secret", id: "openai-api-key", envKey: "OPENAI_API_KEY", required: true },
-      { type: "local-service", id: "openai-image-generation-service", label: "OpenAI image generation", required: true },
-      { type: "tool", id: "openai-image-generate", label: "Image generation", required: true },
+      { type: "local-service", id: "openai-image-generation-service", label: "OpenAI 图片生成服务", required: true },
+      { type: "tool", id: "openai-image-generate", label: "图片生成", required: true },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.imageGen.settings", location: "settings-detail" },
-      { type: "test-action", ref: "openwork.imageGen.testGenerate", label: "Generate test image" },
-      { type: "composer-prompt", prompt: "Use the OpenAI Image Gen extension to ", location: "composer" },
+      { type: "test-action", ref: "openwork.imageGen.testGenerate", label: "生成测试图片" },
+      { type: "composer-prompt", prompt: "使用图片生成功能", location: "composer" },
     ],
     enablement: [
-      { type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API key" },
+      { type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API 密钥" },
     ],
     lifecycle: { reload: ["config"], detection: ["env:OPENAI_API_KEY"] },
   },
   {
     schemaVersion: 1,
     id: "openwork-voice",
-    name: "Voice Mode",
-    description: "Talk to OpenWork through a Realtime voice panel that drives the same semantic UI controls as OpenWork UI MCP.",
+    name: "语音模式",
+    description: "通过实时语音面板与 FoxWork 对话并操作界面。",
     preview: true,
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/openwork-mark.svg" },
-    composer: { prompt: "Use Voice Mode to " },
+    composer: { prompt: "使用语音模式" },
     setup: {
-      instructions: "Voice Mode uses OpenAI Realtime. Save an OpenAI API key in OpenWork env vars, then open the session rail panel and speak or send a typed voice command.",
-      primaryCta: "Save OpenAI key",
-      secondaryCta: "Test Realtime",
+      instructions: "语音模式使用 OpenAI Realtime。保存 OpenAI API 密钥后，在会话侧栏打开语音面板即可说话或输入语音指令。",
+      primaryCta: "保存 OpenAI 密钥",
+      secondaryCta: "测试实时语音",
       requiredEnv: ["OPENAI_REALTIME_API_KEY", "OPENAI_API_KEY"],
       testActionRef: "openwork.voice.testRealtime",
     },
     resources: [
       { type: "secret", id: "openai-realtime-api-key", envKey: "OPENAI_REALTIME_API_KEY", required: false },
       { type: "secret", id: "openai-api-key", envKey: "OPENAI_API_KEY", required: true },
-      { type: "local-service", id: "openwork-voice-realtime-session", label: "Realtime client-secret minting", required: true },
+      { type: "local-service", id: "openwork-voice-realtime-session", label: "实时语音连接服务", required: true },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.voice.settings", location: "settings-detail" },
       { type: "session-side-panel", ref: "openwork.voice.panel", location: "session-right-pane" },
-      { type: "session-rail-item", ref: "openwork.voice.rail", label: "Voice Mode", location: "session-rail" },
+      { type: "session-rail-item", ref: "openwork.voice.rail", label: "语音模式", location: "session-rail" },
       { type: "server-route", ref: "POST /voice/realtime/session", location: "server" },
       { type: "control-actions", ref: "openwork.voice.controlActions" },
-      { type: "test-action", ref: "openwork.voice.testRealtime", label: "Test Realtime" },
-      { type: "composer-prompt", prompt: "Use Voice Mode to ", location: "composer" },
+      { type: "test-action", ref: "openwork.voice.testRealtime", label: "测试实时语音" },
+      { type: "composer-prompt", prompt: "使用语音模式", location: "composer" },
     ],
     enablement: [
-      { type: "toggle-enabled", ref: "openwork-voice", label: "Enabled" },
-      { type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API key" },
+      { type: "toggle-enabled", ref: "openwork-voice", label: "已启用" },
+      { type: "env-set", ref: "OPENAI_API_KEY", label: "OpenAI API 密钥" },
     ],
     lifecycle: { reload: ["config"], detection: ["env:OPENAI_REALTIME_API_KEY", "env:OPENAI_API_KEY"] },
   },
   {
     schemaVersion: 1,
     id: "google-workspace",
-    name: "Google Workspace",
-    description: "Let OpenWork help with meetings, selected Drive files, and Gmail drafts.",
+    name: "Google Workspace 办公套件",
+    description: "让 AI 协助处理会议、指定的云端文件和 Gmail 草稿。",
     preview: true,
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { simpleIconSlug: "google" },
-    composer: { prompt: "Use Google Workspace to " },
+    composer: { prompt: "使用 Google Workspace" },
     setup: {
-      instructions: "Connect your Google account to use Calendar, Drive, and Gmail drafts in OpenWork.",
-      primaryCta: "Connect Google Workspace",
-      secondaryCta: "Test connection",
+      instructions: "连接 Google 账号后，即可在 FoxWork 中使用日历、云端文件和 Gmail 草稿。",
+      primaryCta: "连接 Google Workspace",
+      secondaryCta: "测试连接",
       testActionRef: "openwork.googleWorkspace.testConnection",
     },
     resources: [
-      { type: "provider", id: "google-oauth", label: "Google account", providerId: "google-workspace", required: true },
-      { type: "local-service", id: "google-workspace-connector", label: "Secure local connection", required: true },
-      { type: "tool", id: "google-calendar-read", label: "Calendar", required: true },
-      { type: "tool", id: "google-gmail-drafts", label: "Gmail drafts", required: true },
-      { type: "tool", id: "google-drive-selected-files", label: "Selected Drive files", required: true },
-      { type: "tool", id: "google-gmail-read", label: "Gmail read (opt-in)", required: false },
-      { type: "tool", id: "google-drive-full", label: "Full Drive access (opt-in)", required: false },
-      { type: "tool", id: "google-calendar-events", label: "Calendar events (opt-in)", required: false },
-      { type: "tool", id: "google-chat", label: "Google Chat (opt-in)", required: false },
+      { type: "provider", id: "google-oauth", label: "Google 账号", providerId: "google-workspace", required: true },
+      { type: "local-service", id: "google-workspace-connector", label: "安全本地连接", required: true },
+      { type: "tool", id: "google-calendar-read", label: "日历", required: true },
+      { type: "tool", id: "google-gmail-drafts", label: "Gmail 草稿", required: true },
+      { type: "tool", id: "google-drive-selected-files", label: "指定的云端文件", required: true },
+      { type: "tool", id: "google-gmail-read", label: "读取 Gmail（可选）", required: false },
+      { type: "tool", id: "google-drive-full", label: "访问全部云端文件（可选）", required: false },
+      { type: "tool", id: "google-calendar-events", label: "日历事件（可选）", required: false },
+      { type: "tool", id: "google-chat", label: "Google Chat（可选）", required: false },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.googleWorkspace.settings", location: "settings-detail" },
-      { type: "test-action", ref: "openwork.googleWorkspace.testConnection", label: "Test Google Workspace" },
-      { type: "composer-prompt", prompt: "Use Google Workspace to ", location: "composer" },
+      { type: "test-action", ref: "openwork.googleWorkspace.testConnection", label: "测试 Google Workspace" },
+      { type: "composer-prompt", prompt: "使用 Google Workspace", location: "composer" },
     ],
     lifecycle: { reload: ["config"], detection: ["provider:google-workspace"] },
   },
   {
     schemaVersion: 1,
     id: "ollama",
-    name: "Ollama",
-    description: "Local model provider at http://localhost:11434.",
+    name: "Ollama 本地模型",
+    description: "连接运行在 http://localhost:11434 的本地模型服务。",
     source: { format: "openwork-builtin", origin: "builtin", trusted: true },
     icon: { src: "/ext-ollama.svg" },
-    composer: { prompt: "Use the Ollama extension to " },
+    composer: { prompt: "使用 Ollama 本地模型" },
     setup: {
-      instructions: "Run Ollama locally, choose or pull a model, then add it as an OpenCode provider.",
-      primaryCta: "Add Ollama model",
-      secondaryCta: "Pull model",
+      instructions: "在本机运行 Ollama，选择或下载模型后，将它添加为本地模型服务。",
+      primaryCta: "添加 Ollama 模型",
+      secondaryCta: "下载模型",
     },
     resources: [
-      { type: "local-service", id: "ollama-api", label: "Ollama API", description: "http://localhost:11434", required: true },
+      { type: "local-service", id: "ollama-api", label: "Ollama API 服务", description: "http://localhost:11434", required: true },
       { type: "provider", id: "ollama", providerId: "ollama", packageName: "@ai-sdk/openai-compatible", required: true },
     ],
     contributions: [
       { type: "settings-panel", ref: "openwork.ollama.settings", location: "settings-detail" },
-      { type: "test-action", ref: "openwork.ollama.listModels", label: "Check local models" },
-      { type: "composer-prompt", prompt: "Use the Ollama extension to ", location: "composer" },
+      { type: "test-action", ref: "openwork.ollama.listModels", label: "检查本地模型" },
+      { type: "composer-prompt", prompt: "使用 Ollama 本地模型", location: "composer" },
     ],
     enablement: [
-      { type: "provider-connected", ref: "ollama", label: "Ollama provider" },
+      { type: "provider-connected", ref: "ollama", label: "Ollama 模型服务" },
     ],
     lifecycle: { reload: ["config"], detection: ["provider:ollama"] },
   },

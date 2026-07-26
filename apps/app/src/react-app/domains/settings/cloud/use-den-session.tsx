@@ -22,6 +22,7 @@ import {
 import { clearDesktopBootstrapConfig } from "@/app/lib/desktop";
 import { isFoxWorkDesktopProtocol } from "@/app/lib/foxwork-brand";
 import { exchangeHandoffAndSignIn } from "@/app/lib/den-handoff";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   denSessionUpdatedEvent,
   dispatchDenSessionUpdated,
@@ -286,7 +287,7 @@ export function useDenSession({
         baseUrl: persisted.baseUrl,
       }, { includeBaseUrls: false });
     } catch (error) {
-      setBaseUrlError(error instanceof Error ? error.message : t("den.error_base_url"));
+      setBaseUrlError(toChineseUserMessage(error, t("den.error_base_url")));
     } finally {
       setBaseUrlBusy(false);
     }
@@ -309,7 +310,7 @@ export function useDenSession({
         baseUrl: persisted.baseUrl,
       }, { includeBaseUrls: false });
     } catch (error) {
-      setBaseUrlError(error instanceof Error ? error.message : t("den.error_base_url"));
+      setBaseUrlError(toChineseUserMessage(error, t("den.error_base_url")));
     } finally {
       setBaseUrlBusy(false);
     }
@@ -322,8 +323,7 @@ export function useDenSession({
     setBaseUrlError(null);
     setAuthError(null);
     try {
-      // Reset-to-default writes a default-pointing bootstrap file; clear removes
-      // bootstrap files entirely so an MDM-dropped config can win on next launch.
+      // 恢复默认值会写入默认启动配置；清除操作会删除启动配置，让 MDM 下发配置在下次启动时生效。
       await clearDesktopBootstrapConfig();
       const bootstrap = await initializeDenBootstrapConfig();
       const resolved = resolveDenBaseUrls(bootstrap);
@@ -343,7 +343,7 @@ export function useDenSession({
         baseUrl: resolved.baseUrl,
       }, { includeBaseUrls: false });
     } catch (error) {
-      setBaseUrlError(error instanceof Error ? error.message : t("den.error_base_url"));
+      setBaseUrlError(toChineseUserMessage(error, t("den.error_base_url")));
     } finally {
       setBaseUrlBusy(false);
     }
@@ -374,9 +374,8 @@ export function useDenSession({
         if (isDenSessionRevokedError(error)) {
           await clearSignedInState();
         }
-        // A timeout, offline state, or server failure does not invalidate the
-        // last confirmed session. Keep it available while surfacing the error.
-        setAuthError(error instanceof Error ? error.message : t("den.error_no_session"));
+        // 超时、离线或服务异常不会撤销上次确认的会话，只向员工说明当前连接问题。
+        setAuthError(toChineseUserMessage(error, t("den.error_no_session")));
       })
       .finally(() => {
         if (!cancelled) setSessionBusy(false);
@@ -403,17 +402,13 @@ export function useDenSession({
         setOrgs(response.orgs);
         const current = activeOrgId.trim();
 
-        // Determine the next org to select:
-        // - If the user already had an org selected and it still exists, keep it.
-        // - If there's exactly one org, auto-select it (no choice needed).
-        // - Otherwise, leave blank so the user is prompted to choose.
+        // 保留仍有效的当前公司；只有一家时自动选择；否则留空让员工选择。
         let next = "";
         if (current && response.orgs.some((org) => org.id === current)) {
           next = current;
         } else if (response.orgs.length === 1) {
           next = response.orgs[0].id;
         }
-        // else: leave next = "" so the org picker is shown
 
         const nextOrg = next ? (response.orgs.find((org) => org.id === next) ?? null) : null;
         setActiveOrgId(next);
@@ -424,7 +419,7 @@ export function useDenSession({
           activeOrgSlug: nextOrg?.slug ?? null,
           activeOrgName: nextOrg?.name ?? null,
         });
-        // Push to context immediately so consumers see the new org
+        // 立即更新上下文，让后续读取使用新的公司。
         if (nextOrg) {
           setActiveOrganization({ id: nextOrg.id, name: nextOrg.name, role: nextOrg.role, slug: nextOrg.slug });
         } else if (!next) {
@@ -437,7 +432,7 @@ export function useDenSession({
           toast.info(t("den.status_loaded_orgs", { count: response.orgs.length }));
         }
       } catch (error) {
-        setOrgsError(error instanceof Error ? error.message : t("den.error_load_orgs"));
+        setOrgsError(toChineseUserMessage(error, t("den.error_load_orgs")));
       } finally {
         setOrgsBusy(false);
       }
@@ -554,14 +549,12 @@ export function useDenSession({
         // 1. Sync Den server-side (cookie/session)
         await client.setActiveOrganization({ organizationId: nextOrg.id });
       } catch (error) {
-        setOrgsError(error instanceof Error ? error.message : t("den.error_load_orgs"));
+        setOrgsError(toChineseUserMessage(error, t("den.error_load_orgs")));
         setOrgsBusy(false);
         return;
       }
 
-      // 2. Persist to localStorage FIRST so any code that reads from settings
-      //    (e.g. refreshCloudOrgProviders which reads readDenSettings()) sees
-      //    the new org immediately.
+      // 先保存到本地设置，确保后续公司资源刷新立即读取新的公司。
       writeDenSettings({
         baseUrl,
         authToken: authToken ? authToken : null,

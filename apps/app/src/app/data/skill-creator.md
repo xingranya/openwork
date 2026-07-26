@@ -1,32 +1,32 @@
 ---
 name: skill-creator
-description: Guide for creating effective skills. Use when users want to create or update a skill that extends OpenCode with specialized knowledge, workflows, or tool integrations.
+description: 帮助员工创建或更新工作区技能。适用于需要沉淀专业知识、固定工作步骤或接入工具的场景。
 ---
 
-# Skill Creator
+# 技能创建指南
 
-This skill is a template + checklist for creating skills in a workspace.
+本指南用于在工作区中创建可复用的技能。完成后应直接写入技能文件，不要只把完整内容留在聊天记录里。
 
-## What is a skill?
+## 技能是什么
 
-A skill is a folder under `.opencode/skills/<skill-name>/` or `.claude/skills/<skill-name>/` anchored by `SKILL.md`.
+技能是一组面向具体工作的说明、模板和脚本，以 `SKILL.md` 为入口。FoxWork 支持以下目录：
 
-## OpenWork behavior
+- `.opencode/skills/<技能名称>/SKILL.md`
+- `.claude/skills/<技能名称>/SKILL.md`
 
-- In OpenWork, prefer creating the skill at `.opencode/skills/<skill-name>/SKILL.md`.
-- Use a file mutation tool (`write`, `edit`, or `apply_patch`) on the real skill path instead of pasting the whole skill into chat.
-- Writing the skill file lets OpenWork show the reload banner above the conversation so the user can activate the new skill immediately.
+默认使用 `.opencode/skills/<技能名称>/SKILL.md`。文件写入后，FoxWork 会提示重新加载，让新技能立即生效。
 
-## Design goals
+## 设计要求
 
-- Portable: safe to copy between machines
-- Reconstructable: can recreate any required local state
-- Self-building: can bootstrap its own config/state
-- Credential-safe: no secrets committed; graceful first-time setup
+- 可迁移：复制到其他获授权工作区后仍能使用。
+- 可重建：明确列出依赖、配置和初始化步骤。
+- 可维护：说明输入、输出、失败处理和适用边界。
+- 凭据安全：不得把密码、令牌或密钥写入技能文件。
+- 操作安全：破坏性操作必须先说明影响并取得确认。
 
-## Recommended structure
+## 推荐结构
 
-```
+```text
 .opencode/
   skills/
     my-skill/
@@ -36,43 +36,49 @@ A skill is a folder under `.opencode/skills/<skill-name>/` or `.claude/skills/<s
       scripts/
 ```
 
-## Trigger phrases (critical)
+## 触发描述
 
-The description field is how Claude decides when to use your skill.
-Include 2-3 specific phrases that should trigger it.
+`description` 决定 FoxWork 何时使用技能。写清楚实际工作场景，并列出两到三个员工会说出的具体短语。
 
-Bad example:
-"Use when working with content"
+不够明确：
 
-Good examples:
-"Use when user mentions 'content pipeline', 'add to content database', or 'schedule a post'"
-"Triggers on: 'rotate PDF', 'flip PDF pages', 'change PDF orientation'"
+```text
+处理内容时使用。
+```
 
-Quick validation:
-- Contains at least one quoted phrase
-- Uses "when" or "triggers"
-- Longer than ~50 characters
+推荐写法：
 
-## Frontmatter template
+```text
+当员工提到“整理内容排期”“加入内容库”或“安排发布”时使用。
+```
+
+快速检查：
+
+- 至少包含一个明确的工作场景。
+- 至少列出两个具体触发短语。
+- 说明技能会交付什么结果。
+- 不使用“处理相关任务”等模糊表述。
+
+## 文件头模板
 
 ```yaml
 ---
 name: my-skill
 description: |
-  [What it does in one sentence]
+  用一句话说明技能的用途和结果。
 
-  Triggers when user mentions:
-  - "[specific phrase 1]"
-  - "[specific phrase 2]"
-  - "[specific phrase 3]"
+  当员工提到以下内容时使用：
+  - "具体短语一"
+  - "具体短语二"
+  - "具体短语三"
 ---
 ```
 
-## Authoring checklist
+## 编写检查清单
 
-1. Start with a clear purpose statement: when to use it + what it outputs.
-2. Specify inputs/outputs and any required permissions.
-3. Include “Setup” steps if the skill needs local tooling.
-4. Add examples: at least 2 realistic user prompts.
-5. Keep it safe: avoid destructive defaults; ask for confirmation.
-6. In OpenWork, finish by writing the final `SKILL.md` file to `.opencode/skills/<skill-name>/SKILL.md` so the reload banner can appear.
+1. 开头说明何时使用，以及最终交付什么。
+2. 列出输入、输出和必需权限。
+3. 需要本机工具时，写清安装和首次配置步骤。
+4. 至少提供两个贴近实际工作的示例。
+5. 写明失败处理、回退方式和不可执行的边界。
+6. 将最终内容写入工作区的 `SKILL.md`，并按 FoxWork 提示重新加载。

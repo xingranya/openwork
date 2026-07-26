@@ -251,12 +251,12 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
 
   const workspaceRoot = input.workspaceRoot.trim();
   if (!workspaceRoot) {
-    throw new Error("Workspace path is unavailable; attachments could not be copied for tool access.");
+    throw new Error("当前工作区路径不可用，无法复制附件供工具使用。");
   }
 
   const workspaceId = input.endpoint.workspaceId.trim();
   if (!workspaceId) {
-    throw new Error("Workspace endpoint is unavailable; attachments could not be copied for tool access.");
+    throw new Error("当前工作区暂时不可用，无法复制附件供工具使用。");
   }
 
   const uploaded: UploadedChatAttachment[] = [];

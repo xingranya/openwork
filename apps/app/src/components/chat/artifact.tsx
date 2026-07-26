@@ -60,7 +60,7 @@ function ArtifactButton({ artifact }: ArtifactButtonProps) {
     <DescriptiveButton
       className="w-fit max-w-full flex-none items-center gap-1.5 rounded-xl px-2 py-1.5 whitespace-nowrap"
       onClick={() => previewArtifact(artifact)}
-      title={canPreview ? `Preview ${artifact.name}` : `Open ${artifact.name}`}
+      title={canPreview ? `预览 ${artifact.name}` : `打开 ${artifact.name}`}
     >
       {content}
     </DescriptiveButton>

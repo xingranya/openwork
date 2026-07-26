@@ -11,6 +11,7 @@ import type {
   ProviderListItem,
 } from "../types";
 import type { WorkspaceInfo } from "../lib/desktop";
+import { toChineseUserMessage } from "../lib/user-facing-error";
 
 export function formatModelRef(model: ModelRef) {
   return `${model.providerID}/${model.modelID}`;
@@ -29,12 +30,9 @@ export function modelEquals(a: ModelRef, b: ModelRef) {
   return a.providerID === b.providerID && a.modelID === b.modelID;
 }
 
-/**
- * Provider ID → friendly display name.
- * Used when the backend doesn't return a provider name.
- */
+/** 后端未返回供应商名称时使用的展示名称。 */
 export const FRIENDLY_PROVIDER_LABELS: Record<string, string> = {
-  opencode: "OpenCode",
+  opencode: "FoxWork 免费模型",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
@@ -106,8 +104,8 @@ export const FRIENDLY_MODEL_LABELS: [pattern: string, label: string][] = [
   ["grok-3", "Grok 3"],
   ["grok-2", "Grok 2"],
 
-  // OpenCode
-  ["big-pickle", "Big Pickle"],
+  // FoxWork 内置免费模型
+  ["big-pickle", "FoxWork 免费模型"],
 ];
 
 /**
@@ -123,9 +121,7 @@ export function resolveModelDisplayName(modelID: string): string {
   return humanizeModelLabel(modelID);
 }
 
-/**
- * Resolve a friendly display name for a provider ID.
- */
+/** 根据供应商 ID 返回适合员工查看的名称。 */
 export function resolveProviderDisplayName(providerID: string): string {
   return FRIENDLY_PROVIDER_LABELS[providerID.trim().toLowerCase()] ?? humanizeModelLabel(providerID);
 }
@@ -377,7 +373,7 @@ export function addOpencodeCacheHint(message: string) {
   ];
 
   if (cacheSignals.some((signal) => lower.includes(signal)) && lower.includes("enoent")) {
-    return `${message}\n\nOpenCode cache looks corrupted. Use Repair cache in Settings to rebuild it.`;
+    return "FoxWork 运行缓存可能已损坏，请在设置中使用“修复缓存”重新构建。";
   }
 
   return message;
@@ -444,12 +440,13 @@ export function redactTokenLikeText(value: string): string {
 
 export function getWorkspaceTaskLoadErrorDisplay(workspace: WorkspaceInfo, error?: string | null) {
   const raw = redactTokenLikeText(error?.trim() ?? "");
-  const fallbackTitle = raw || "Failed to load tasks";
+  const safeRaw = toChineseUserMessage(raw, "");
+  const fallbackTitle = safeRaw || "无法加载任务";
   if (!raw || !isSandboxWorkspace(workspace)) {
     return {
       tone: "error" as const,
-      label: "Error",
-      message: raw && workspace.workspaceType === "remote" ? raw : "Failed to load tasks",
+      label: "错误",
+      message: safeRaw || "无法加载任务",
       title: fallbackTitle,
     };
   }
@@ -463,18 +460,18 @@ export function getWorkspaceTaskLoadErrorDisplay(workspace: WorkspaceInfo, error
   if (!hasDockerHint && !(localHost && hasNetworkHint)) {
     return {
       tone: "error" as const,
-      label: "Error",
-      message: "Failed to load tasks",
+      label: "错误",
+      message: "无法加载任务",
       title: fallbackTitle,
     };
   }
 
-  const message = "Sandbox is offline. Start Docker Desktop, then test connection.";
+  const message = "沙盒当前离线。请启动 Docker Desktop，然后重新测试连接。";
   return {
     tone: "offline" as const,
-    label: "Offline",
+    label: "离线",
     message,
-    title: `${message}\n\n${raw}`,
+    title: safeRaw ? `${message}\n\n${safeRaw}` : message,
   };
 }
 
@@ -1045,7 +1042,7 @@ export function summarizeStep(part: Part): { title: string; detail?: string; isS
   if (part.type === "reasoning") {
     const record = part as any;
     const text = typeof record.text === "string" ? cleanReasoningText(record.text) : "";
-    if (!text) return { title: "Reasoning", toolCategory: "tool" };
+    if (!text) return { title: "思考过程", toolCategory: "tool" };
 
     const lines = text
       .split(/\r?\n/)
@@ -1075,20 +1072,20 @@ export function summarizeStep(part: Part): { title: string; detail?: string; isS
     }
 
     headline = headline.replace(/^(?:thinking|reasoning)\s*(?::|-|–|—)\s*/i, "").trim();
-    const title = truncateStepText(headline || "Reasoning", 96);
+    const title = truncateStepText(headline || "思考过程", 96);
     return { title, detail: detail || undefined, toolCategory: "tool" };
   }
 
   if (part.type === "step-start" || part.type === "step-finish") {
     const reason = (part as any).reason;
     return {
-      title: part.type === "step-start" ? "Step started" : "Step finished",
+      title: part.type === "step-start" ? "步骤已开始" : "步骤已完成",
       detail: reason ? String(reason) : undefined,
       toolCategory: "tool",
     };
   }
 
-  return { title: "Step", toolCategory: "tool" };
+  return { title: "步骤", toolCategory: "tool" };
 }
 
 export function deriveArtifacts(list: MessageWithParts[], options: DeriveArtifactsOptions = {}): ArtifactItem[] {

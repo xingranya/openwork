@@ -108,7 +108,7 @@ export function reconnectActionFromChatToolResult(
   // Keep the chat action concise and derived from the trusted connection
   // identity. Diagnostic operator guidance can be much longer than a button
   // label, and tool output must never get to inject arbitrary action copy.
-  return { connectionId, connectionName, label: "Reconnect" }
+  return { connectionId, connectionName, label: "重新连接" }
 }
 
 export function attributeChatToolError(errorText: string): ToolErrorAttribution | null {
@@ -128,8 +128,8 @@ export function attributeChatToolError(errorText: string): ToolErrorAttribution 
     || category === "lifecycle_deadline"
   ) {
     return confirmed(
-      "OpenWork timeout",
-      "OpenWork created this deadline. The external operation may still have completed, so verify its state before retrying.",
+      "FoxWork 等待超时",
+      "FoxWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
     )
   }
 
@@ -138,13 +138,13 @@ export function attributeChatToolError(errorText: string): ToolErrorAttribution 
     || code === "MCP_URL_BLOCKED"
     || code === "MCP_FETCH_FORBIDDEN_PORT"
   ) {
-    return confirmed("Blocked by OpenWork", "OpenWork blocked the request before it was sent.")
+    return confirmed("FoxWork 已阻止请求", "该请求在发送前已被 FoxWork 阻止。")
   }
 
   if (httpStatus !== undefined && (httpStatus < 200 || httpStatus >= 300)) {
     return confirmed(
-      `Remote MCP · HTTP ${httpStatus}`,
-      `The remote MCP returned HTTP ${httpStatus}.`,
+      `远程 MCP · HTTP ${httpStatus}`,
+      `远程 MCP 返回了 HTTP ${httpStatus}。`,
     )
   }
 
@@ -155,18 +155,18 @@ export function attributeChatToolError(errorText: string): ToolErrorAttribution 
     || providerCode !== undefined
   ) {
     return confirmed(
-      "Provider error",
+      "供应商错误",
       providerStatus === undefined
-        ? "The remote MCP responded, but the downstream provider or tool rejected the operation."
-        : `The remote MCP responded, but the downstream provider returned status ${providerStatus}.`,
+        ? "远程 MCP 已响应，但下游供应商或工具拒绝了操作。"
+        : `远程 MCP 已响应，但下游供应商返回状态 ${providerStatus}。`,
     )
   }
 
   if (/\b(?:timed out|timeout|deadline exceeded)\b/i.test(errorText)) {
     return {
-      label: "Timeout · source unclear",
+      label: "操作超时 · 来源不明",
       confidence: "Inferred",
-      description: "A timeout was reported, but the client did not receive structured evidence identifying which boundary created it.",
+      description: "已收到超时错误，但当前没有足够信息判断超时发生在哪个环节。",
     }
   }
 

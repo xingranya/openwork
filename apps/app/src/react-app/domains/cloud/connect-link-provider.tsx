@@ -13,6 +13,7 @@ import { refreshDenBootstrapConfigFromShell } from "../../../app/lib/den";
 import { connectLinkAccept, connectLinkVerify } from "../../../app/lib/desktop";
 import {
   deepLinkBridgeEvent,
+  consumePendingDeepLinks,
   drainPendingDeepLinks,
   type DeepLinkBridgeDetail,
 } from "../../../app/lib/deep-link-bridge";
@@ -67,28 +68,34 @@ export function ConnectLinkProvider({ children }: ConnectLinkProviderProps) {
       setError({ code: result.code, message: result.message });
       setPhase("error");
     }).catch(() => {
-      setError({ code: "invalid_token", message: "Could not verify the connect link." });
+      setError({ code: "invalid_token", message: "无法验证连接链接。" });
       setPhase("error");
     });
   }, []);
 
   const handleUrls = useCallback((urls: readonly string[]) => {
+    const consumedUrls: string[] = [];
+    let startedPrompt = false;
     for (const rawUrl of urls) {
       const parsed = parseConnectDeepLink(rawUrl);
-      if (!parsed || handledLinksRef.current.has(parsed.key)) continue;
+      if (!parsed) continue;
+      consumedUrls.push(rawUrl);
+      if (startedPrompt || handledLinksRef.current.has(parsed.key)) continue;
       beginVerify(parsed.rawUrl, parsed.key);
+      startedPrompt = true;
       // One prompt at a time; later links can arrive again as new deep-link
       // events after the current prompt is resolved.
-      break;
     }
+    return consumedUrls;
   }, [beginVerify]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !isDesktopRuntime()) return;
 
-    handleUrls(drainPendingDeepLinks(window));
+    handleUrls(drainPendingDeepLinks(window, (url) => parseConnectDeepLink(url) !== null));
     const handleDeepLink = (event: Event) => {
-      handleUrls(((event as CustomEvent<DeepLinkBridgeDetail>).detail?.urls ?? []) as string[]);
+      const urls = ((event as CustomEvent<DeepLinkBridgeDetail>).detail?.urls ?? []) as string[];
+      consumePendingDeepLinks(window, handleUrls(urls));
     };
 
     window.addEventListener(deepLinkBridgeEvent, handleDeepLink);
@@ -118,7 +125,7 @@ export function ConnectLinkProvider({ children }: ConnectLinkProviderProps) {
       await refreshDenBootstrapConfigFromShell();
       dismiss();
     }).catch(() => {
-      setError({ code: "invalid_token", message: "Could not apply the connect link." });
+      setError({ code: "invalid_token", message: "无法应用连接链接。" });
       setPhase("error");
     });
   }, [dismiss]);

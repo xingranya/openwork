@@ -32,5 +32,5 @@ export const OPENWORK_BUILD_IDENTIFIER = resolveOpenWorkBuildIdentifier({
 });
 
 export const OPENWORK_BUILD_IDENTIFIER_LABEL = OPENWORK_BUILD_IDENTIFIER
-  ? `OpenWork ${OPENWORK_BUILD_IDENTIFIER}`
+  ? `FoxWork ${OPENWORK_BUILD_IDENTIFIER}`
   : null;

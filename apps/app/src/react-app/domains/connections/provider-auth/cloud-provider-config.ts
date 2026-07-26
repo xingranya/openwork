@@ -7,11 +7,7 @@ import type {
 } from "../../../../app/lib/den";
 import type { CloudImportedProvider } from "../../../../app/cloud/import-state";
 
-/**
- * Pure helpers that build and reconcile the cloud-managed ("lpr_*") provider
- * block inside a workspace `opencode.jsonc`. Extracted from the provider-auth
- * store so the diff/update behaviour can be unit tested directly (#2346).
- */
+/** 构建并校准公司托管的模型配置，供连接流程和单元测试共同使用。 */
 
 const getStringList = (value: unknown): string[] =>
   Array.isArray(value)
@@ -30,7 +26,7 @@ const escapeRegExp = (value: string) =>
 const removeCloudProviderComment = (raw: string, providerId: string) =>
   raw.replace(
     new RegExp(
-      `(^[ \t]*)// OpenWork Cloud import:.*\\n\\1(?="${escapeRegExp(providerId)}":)`,
+      `(^[ \t]*)// (?:FoxWork 公司模型导入|OpenWork[ \\t]+Cloud import):.*\\n\\1(?="${escapeRegExp(providerId)}":)`,
       "m",
     ),
     "$1",
@@ -40,11 +36,8 @@ export const getCloudProviderEnv = (config: Record<string, unknown>) =>
   getStringList(config.env);
 
 /**
- * Split a connect payload's credential into the opencode auth.json entry and
- * the env vars to upsert. Multi-env providers (`apiKeys`) set every value as
- * an env var and use the first env-ordered value as the auth entry, following
- * the models.dev convention that `env[0]` is the primary credential. Legacy
- * single-credential payloads (`apiKey`) keep today's auth-only behaviour.
+ * 把连接凭据拆分为本机认证项和需要写入的环境变量。多变量模型以配置中的
+ * 第一个环境变量作为主凭据，旧版单凭据载荷继续只写认证项。
  */
 export const resolveCloudProviderCredentials = (
   provider: Pick<
@@ -70,13 +63,7 @@ export const getCloudManagedProviderId = (
   provider: Pick<DenOrgLlmProvider, "id" | "providerId" | "source">,
 ) => (provider.source === "openwork" ? "openwork" : provider.id.trim());
 
-/**
- * A provider key in `opencode.jsonc` that is owned by the cloud-import system:
- * `lpr_*` keys (org-managed providers) and the `openwork` hosted provider.
- * These keys are never hand-authored, so re-importing over an existing block
- * with one of these ids is a safe reconcile (recovers a lost import baseline)
- * rather than a clobber of a user's manual provider (#2346).
- */
+/** 判断模型配置是否由公司导入流程管理。 */
 export const isCloudManagedProviderKey = (providerId: string) =>
   /^lpr_/i.test(providerId) || providerId.trim() === "openwork";
 
@@ -101,8 +88,7 @@ export const isCloudProviderOutOfSync = (
   (importedProvider.updatedAt ?? null) !== (provider.updatedAt ?? null) ||
   !sameStringList(
     importedProvider.modelIds,
-    // Normalize both sides: raw Den ids can include whitespace/empty values,
-    // which otherwise made providers permanently out-of-sync.
+    // 两侧统一清理空白和空值，避免模型长期被误判为不同步。
     getProviderModelIds(provider),
   );
 
@@ -177,12 +163,7 @@ export const buildCloudProviderConfig = (
   return next;
 };
 
-/**
- * Build the per-key runtime provider patch for a cloud import/reconcile.
- * Sent to `PATCH /workspace/:id/config` where record values upsert and
- * explicit `null` deletes (`mergeRuntimeProviderUpdate`) — no client-side
- * read-modify-write of the user's `opencode.jsonc` at all.
- */
+/** 为公司模型的导入或校准生成按键更新；空值用于删除旧模型项。 */
 export const buildRuntimeProviderPatch = (
   provider: DenOrgLlmProviderConnection,
   localProviderId: string,
@@ -203,7 +184,7 @@ export const formatConfigWithoutCloudProvider = (
 ) => {
   let updated = raw.trim()
     ? raw
-    : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
+    : '{}\n';
   updated = removeCloudProviderComment(updated, providerId);
   const providerEdits = modify(updated, ["provider", providerId], undefined, {
     formattingOptions: { insertSpaces: true, tabSize: 2 },

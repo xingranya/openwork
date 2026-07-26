@@ -23,7 +23,15 @@ import {
 } from "./desktop";
 import { isDesktopRuntime } from "./runtime-env";
 import { FOXWORK_APP_NAME, FOXWORK_DEN_BASE_URL } from "./foxwork-brand";
-import type { DenOrgSkillCard, ReloadReason } from "../types";
+import type {
+  DenOrgSkillCard,
+  HubSkillCard,
+  ReloadReason,
+  SkillCatalogAudit,
+  SkillCatalogAuditEntry,
+  SkillCatalogDetail,
+  SkillCatalogPagination,
+} from "../types";
 import type {
   OpenWorkExtensionContribution,
   OpenWorkExtensionContributionType,
@@ -54,7 +62,6 @@ const BUILD_DEN_REQUIRE_SIGNIN =
     ? /^(1|true|yes|on)$/i.test(import.meta.env.VITE_DEN_REQUIRE_SIGNIN.trim())
     : false);
 
-export const HOSTED_DEFAULT_DEN_BASE_URL = "https://app.openworklabs.com";
 export const DEFAULT_DEN_BASE_URL = BUILD_DEN_BASE_URL;
 export const DEN_INFERENCE_PATH = "/dashboard/inference";
 
@@ -138,6 +145,7 @@ export type DenWorkerSummary = {
   status: string;
   instanceUrl: string | null;
   provider: string | null;
+  sandboxBackend: string | null;
   isMine: boolean;
   createdAt: string | null;
 };
@@ -148,6 +156,13 @@ export type DenWorkerTokens = {
   hostToken: string | null;
   openworkUrl: string | null;
   workspaceId: string | null;
+};
+
+export type DenWorkerCreateInput = {
+  name: string;
+  destination: "cloud";
+  sandboxBackend?: string;
+  idempotencyKey?: string;
 };
 
 export type DenMemoryContext = {
@@ -453,6 +468,11 @@ export function normalizeDenBaseUrl(input: string | null | undefined): string | 
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return null;
     }
+    const host = url.hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+    if (host === "0.0.0.0" || host === "::") {
+      // 0.0.0.0/:: 只能用于监听，不能作为客户端连接地址；本地开发统一回到 localhost。
+      url.hostname = "localhost";
+    }
     return url.toString().replace(/\/+$/, "");
   } catch {
     return null;
@@ -477,19 +497,6 @@ export function denOriginComparisonKey(input: string | null | undefined): string
   } catch {
     return normalized;
   }
-}
-
-/**
- * True when the effective Den control plane is not the hosted OpenWork Cloud
- * (app.openworklabs.com). Self-hosted deployments point the app at their own
- * control plane via VITE_DEN_BASE_URL or the desktop bootstrap config, so
- * hosted-only surfaces (e.g. OpenWork Models upsells) should stay hidden.
- */
-export function isSelfHostedControlPlane(): boolean {
-  return (
-    denOriginComparisonKey(readDenSettings().baseUrl) !==
-    denOriginComparisonKey(HOSTED_DEFAULT_DEN_BASE_URL)
-  );
 }
 
 export function getDenInferenceUrl(baseUrl?: string | null): string {
@@ -586,6 +593,11 @@ export function resolveCloudMcpResourceUrl(resource: string | null | undefined):
   try {
     const url = new URL(trimmed);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    const host = url.hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+    if (host === "0.0.0.0" || host === "::") {
+      // 服务监听地址不应进入工作区 MCP 配置；已有旧配置在读取时自动修复。
+      url.hostname = "localhost";
+    }
     if (isLegacyWebAppMcpUrl(trimmed)) {
       url.pathname = "/api/den/mcp";
     }
@@ -885,6 +897,8 @@ export function writeDenSettings(next: DenSettings, options?: { persistBootstrap
     if (
       pendingBootstrap.baseUrl !== currentBootstrap.baseUrl
     ) {
+      // 桌面交接后的会话刷新会立即读取该地址，必须先更新内存快照再异步落盘。
+      applyDesktopBootstrapConfig(pendingBootstrap);
       void setDenBootstrapConfig({
         baseUrl: pendingBootstrap.baseUrl,
         requireSignin: currentBootstrap.requireSignin,
@@ -971,24 +985,76 @@ export async function ensureDenActiveOrganization(options?: { forceServerSync?: 
   return targetOrg;
 }
 
-function getErrorMessage(payload: unknown, fallback: string): string {
-  if (typeof payload === "string" && payload.trim()) {
-    return payload.trim();
-  }
+const DEN_ERROR_TEXT_BY_KEY: Record<string, string> = {
+  email_already_exists: "这个邮箱已经注册，请直接登录。",
+  expired_token: "当前链接或凭据已过期，请重新操作。",
+  forbidden: "当前账号没有执行此操作的权限。",
+  invalid_credentials: "邮箱或密码不正确。",
+  invalid_password: "密码不正确。",
+  invalid_token: "当前链接或凭据无效，请重新操作。",
+  organization_not_found: "没有找到公司信息。",
+  payment_required: "当前服务方案不支持此操作，请联系管理员。",
+  permission_denied: "当前账号没有执行此操作的权限。",
+  rate_limit_exceeded: "操作过于频繁，请稍后再试。",
+  single_org_mode: "当前账号只能加入这一家公司。",
+  unauthorized: "登录状态已失效，请重新登录。",
+  user_already_exists: "这个邮箱已经注册，请直接登录。",
+  user_not_found: "没有找到这个账号。",
+};
 
-  if (!isRecord(payload)) {
-    return fallback;
-  }
+function localizeDenErrorText(value: string, fallback: string): string {
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  if (!trimmed) return fallback;
+  if (/[\u3400-\u9fff]/u.test(trimmed)) return trimmed;
 
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message.trim();
+  const normalized = trimmed.toLowerCase().replace(/[\s-]+/g, "_").replace(/[^a-z0-9_]/g, "");
+  const direct = DEN_ERROR_TEXT_BY_KEY[normalized];
+  if (direct) return direct;
+  if (/invalid.*credential|credential.*invalid|incorrect.*password|password.*incorrect/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.invalid_credentials;
   }
-
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error.trim();
+  if (/already.*(exist|register)|email.*taken/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.user_already_exists;
   }
-
+  if (/not.*authori[sz]ed|unauthori[sz]ed|sign.?in required/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.unauthorized;
+  }
+  if (/forbidden|permission denied|not allowed/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.forbidden;
+  }
+  if (/rate limit|too many requests/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.rate_limit_exceeded;
+  }
+  if (/single.?org|one managed organi[sz]ation/i.test(trimmed)) {
+    return DEN_ERROR_TEXT_BY_KEY.single_org_mode;
+  }
+  if (/expired/i.test(trimmed)) {
+    return "当前链接或凭据已过期，请重新操作。";
+  }
   return fallback;
+}
+
+export function getDenErrorMessage(payload: unknown, fallback: string): string {
+  const safeFallback = localizeDenErrorText(fallback, "操作失败，请重试。");
+  const candidates = typeof payload === "string"
+    ? [payload]
+    : isRecord(payload)
+      ? [payload.message, payload.error].filter((value): value is string => typeof value === "string")
+      : [];
+
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith("<!doctype") || lower.startsWith("<html") || lower.includes("<body")) {
+      return `${safeFallback} 公司服务返回了异常页面。`;
+    }
+    if (trimmed.length > 240) {
+      return `${safeFallback} 公司服务返回了无法识别的内容。`;
+    }
+    const localized = localizeDenErrorText(trimmed, "");
+    if (localized) return localized;
+  }
+  return safeFallback;
 }
 
 function getUser(payload: unknown): DenUser | null {
@@ -1060,11 +1126,25 @@ function getWorkers(payload: unknown): DenWorkerSummary[] {
         status: typeof entry.status === "string" ? entry.status : "unknown",
         instanceUrl: instance && typeof instance.url === "string" ? instance.url : null,
         provider: instance && typeof instance.provider === "string" ? instance.provider : null,
+        sandboxBackend: typeof entry.sandboxBackend === "string" ? entry.sandboxBackend : null,
         isMine: Boolean(entry.isMine),
         createdAt: typeof entry.createdAt === "string" ? entry.createdAt : null,
       } satisfies DenWorkerSummary,
     ];
   });
+}
+
+function getCreatedWorker(payload: unknown): DenWorkerSummary | null {
+  if (!isRecord(payload) || !isRecord(payload.worker)) {
+    return null;
+  }
+
+  return getWorkers({
+    workers: [{
+      ...payload.worker,
+      instance: isRecord(payload.instance) ? payload.instance : null,
+    }],
+  })[0] ?? null;
 }
 
 function getMemoryContexts(value: unknown): DenMemoryContext[] {
@@ -1167,6 +1247,137 @@ function getDenOrgSkillsFromPayload(payload: unknown): DenOrgSkillCard[] {
     const skill = isRecord(entry) ? parseDenOrgSkillRow(entry) : null;
     return skill ? [skill] : [];
   });
+}
+
+function parseSkillCatalogItem(value: unknown): HubSkillCard | null {
+  if (
+    !isRecord(value)
+    || typeof value.id !== "string"
+    || typeof value.slug !== "string"
+    || typeof value.name !== "string"
+    || typeof value.source !== "string"
+    || typeof value.installs !== "number"
+    || (value.sourceType !== "github" && value.sourceType !== "well-known")
+    || (value.installUrl !== null && typeof value.installUrl !== "string")
+    || typeof value.url !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: value.id,
+    slug: value.slug,
+    name: value.name,
+    source: value.source,
+    installs: value.installs,
+    sourceType: value.sourceType,
+    installUrl: value.installUrl,
+    url: value.url,
+  };
+}
+
+function parseSkillCatalogPagination(value: unknown): SkillCatalogPagination | null {
+  if (
+    !isRecord(value)
+    || typeof value.page !== "number"
+    || typeof value.perPage !== "number"
+    || typeof value.total !== "number"
+    || typeof value.hasMore !== "boolean"
+  ) {
+    return null;
+  }
+  return { page: value.page, perPage: value.perPage, total: value.total, hasMore: value.hasMore };
+}
+
+function parseSkillCatalogList(payload: unknown): { items: HubSkillCard[]; pagination: SkillCatalogPagination } | null {
+  if (!isRecord(payload) || !Array.isArray(payload.items)) return null;
+  const pagination = parseSkillCatalogPagination(payload.pagination);
+  if (!pagination) return null;
+  const items = payload.items.flatMap((entry) => {
+    const item = parseSkillCatalogItem(entry);
+    return item ? [item] : [];
+  });
+  return { items, pagination };
+}
+
+function parseSkillCatalogDetail(payload: unknown): SkillCatalogDetail | null {
+  if (
+    !isRecord(payload)
+    || typeof payload.id !== "string"
+    || typeof payload.source !== "string"
+    || typeof payload.slug !== "string"
+    || typeof payload.installs !== "number"
+    || (payload.hash !== null && typeof payload.hash !== "string")
+    || typeof payload.bundleHash !== "string"
+    || !Array.isArray(payload.files)
+  ) {
+    return null;
+  }
+  const files = payload.files.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.contents !== "string") return [];
+    return [{ path: entry.path, contents: entry.contents }];
+  });
+  if (files.length !== payload.files.length) return null;
+  return {
+    id: payload.id,
+    source: payload.source,
+    slug: payload.slug,
+    installs: payload.installs,
+    hash: payload.hash,
+    bundleHash: payload.bundleHash,
+    files,
+  };
+}
+
+function parseSkillCatalogAudit(payload: unknown): SkillCatalogAudit | null {
+  if (
+    !isRecord(payload)
+    || typeof payload.id !== "string"
+    || typeof payload.source !== "string"
+    || typeof payload.slug !== "string"
+    || !Array.isArray(payload.audits)
+    || !isRecord(payload.assessment)
+    || (payload.assessment.verdict !== "pass" && payload.assessment.verdict !== "warn" && payload.assessment.verdict !== "fail")
+    || typeof payload.assessment.installable !== "boolean"
+    || typeof payload.assessment.message !== "string"
+  ) {
+    return null;
+  }
+  const audits = payload.audits.flatMap((entry) => {
+    if (
+      !isRecord(entry)
+      || typeof entry.provider !== "string"
+      || typeof entry.slug !== "string"
+      || (entry.status !== "pass" && entry.status !== "warn" && entry.status !== "fail")
+      || typeof entry.summary !== "string"
+      || typeof entry.auditedAt !== "string"
+    ) return [];
+    const riskLevel = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(String(entry.riskLevel))
+      ? entry.riskLevel as "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+      : undefined;
+    return [{
+      provider: entry.provider,
+      slug: entry.slug,
+      status: entry.status as SkillCatalogAuditEntry["status"],
+      summary: entry.summary,
+      auditedAt: entry.auditedAt,
+      ...(riskLevel ? { riskLevel } : {}),
+      ...(Array.isArray(entry.categories)
+        ? { categories: entry.categories.filter((item): item is string => typeof item === "string") }
+        : {}),
+    }];
+  });
+  if (audits.length !== payload.audits.length) return null;
+  return {
+    id: payload.id,
+    source: payload.source,
+    slug: payload.slug,
+    audits,
+    assessment: {
+      verdict: payload.assessment.verdict,
+      installable: payload.assessment.installable,
+      message: payload.assessment.message,
+    },
+  };
 }
 
 function parseJsonRecord(value: unknown): Record<string, unknown> {
@@ -1878,9 +2089,9 @@ async function fetchWithTimeout(fetchImpl: FetchLike, url: string, init: Request
       try {
         controller?.abort();
       } catch {
-        // ignore
+        // 中止失败不影响超时结果。
       }
-      reject(new Error("Request timed out."));
+      reject(new DenApiError(0, "request_timeout", "连接公司服务超时，请稍后重试。"));
     }, timeoutMs);
   });
 
@@ -1911,17 +2122,23 @@ async function requestJsonRaw<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetchWithTimeout(
-    resolveFetch(url),
-    url,
-    {
-      method: options.method ?? "GET",
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      credentials: "include",
-    },
-    options.timeoutMs ?? DEFAULT_DEN_TIMEOUT_MS,
-  );
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      resolveFetch(url),
+      url,
+      {
+        method: options.method ?? "GET",
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        credentials: "include",
+      },
+      options.timeoutMs ?? DEFAULT_DEN_TIMEOUT_MS,
+    );
+  } catch (error) {
+    if (error instanceof DenApiError) throw error;
+    throw new DenApiError(0, "network_error", "无法连接公司服务，请检查网络后重试。", error);
+  }
 
   const text = await response.text();
   let json: T | null = null;
@@ -1942,7 +2159,7 @@ async function requestJson<T>(
   if (!raw.ok) {
     const payload = raw.json;
     const code = isRecord(payload) && typeof payload.error === "string" ? payload.error : "request_failed";
-    const message = getErrorMessage(payload, `Request failed with ${raw.status}.`);
+    const message = getDenErrorMessage(payload, `公司服务请求失败（${raw.status}）。`);
     throw new DenApiError(raw.status, code, message, isRecord(payload) ? payload.details : undefined);
   }
   return raw.json as T;
@@ -2021,7 +2238,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const user = getUser(payload);
       if (!user) {
-        throw new DenApiError(500, "invalid_session_payload", "Session response did not include a user.");
+        throw new DenApiError(500, "invalid_session_payload", "公司服务返回的登录信息不完整。");
       }
       return user;
     },
@@ -2032,7 +2249,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const appVersionMetadata = getDenAppVersionMetadata(payload);
       if (!appVersionMetadata) {
-        throw new DenApiError(500, "invalid_app_version_payload", "App version response was missing version details.");
+        throw new DenApiError(500, "invalid_app_version_payload", "公司服务返回的版本信息不完整。");
       }
       return appVersionMetadata;
     },
@@ -2054,7 +2271,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const snapshot = normalizeDenResourceSnapshot(payload);
       if (!snapshot) {
-        throw new DenApiError(500, "invalid_resource_snapshot_payload", "Resource snapshot response was invalid.");
+        throw new DenApiError(500, "invalid_resource_snapshot_payload", "公司服务返回的资源信息无效。");
       }
       return snapshot;
     },
@@ -2099,6 +2316,20 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       return getWorkers(payload);
     },
 
+    async createWorker(orgId: string, input: DenWorkerCreateInput): Promise<DenWorkerSummary> {
+      const payload = await requestJson<unknown>(baseUrls, "/v1/workers", {
+        method: "POST",
+        token,
+        organizationId: orgId,
+        body: input,
+      });
+      const worker = getCreatedWorker(payload);
+      if (!worker) {
+        throw new DenApiError(500, "invalid_worker_payload", "公司服务返回的远程工作区信息不完整。");
+      }
+      return worker;
+    },
+
     async listMemory(orgId: string): Promise<DenMemory[]> {
       const payload = await requestJson<unknown>(baseUrls, "/v1/memory", {
         method: "GET",
@@ -2114,11 +2345,11 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
         token,
         organizationId: orgId,
       });
-      // 404 means the memory is already gone (or not owned) — idempotent from the caller's view.
+      // 记忆不存在或不属于当前成员时，删除结果已经达成，按幂等成功处理。
       if (!result.ok && result.status !== 404) {
         const payload = result.json;
         const code = isRecord(payload) && typeof payload.error === "string" ? payload.error : "request_failed";
-        throw new DenApiError(result.status, code, getErrorMessage(payload, `Delete failed with ${result.status}.`));
+        throw new DenApiError(result.status, code, getDenErrorMessage(payload, `删除失败（${result.status}）。`));
       }
     },
 
@@ -2131,7 +2362,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const minted = getMcpToken(payload);
       if (!minted) {
-        throw new DenApiError(500, "invalid_mcp_token_payload", "MCP token response was missing required values.");
+        throw new DenApiError(500, "invalid_mcp_token_payload", "公司服务返回的 MCP 访问凭据不完整。");
       }
       return minted;
     },
@@ -2145,7 +2376,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const tokens = getWorkerTokens(payload);
       if (!tokens) {
-        throw new DenApiError(500, "invalid_worker_token_payload", "Worker token response was missing token values.");
+        throw new DenApiError(500, "invalid_worker_token_payload", "远程工作区返回的连接凭据不完整。");
       }
       return tokens;
     },
@@ -2175,9 +2406,59 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const id = getCreatedOrgSkillId(payload);
       if (!id) {
-        throw new DenApiError(500, "invalid_skill_payload", "Skill response was missing id.");
+        throw new DenApiError(500, "invalid_skill_payload", "公司服务返回的技能信息不完整。");
       }
       return { id };
+    },
+
+    async listSkillsCatalog(
+      orgId: string,
+      input: { query?: string; view?: "all-time" | "trending" | "hot"; page?: number; perPage?: number } = {},
+    ): Promise<{ items: HubSkillCard[]; pagination: SkillCatalogPagination }> {
+      const params = new URLSearchParams();
+      if (input.query?.trim()) params.set("q", input.query.trim());
+      if (input.view) params.set("view", input.view);
+      if (typeof input.page === "number") params.set("page", String(input.page));
+      if (typeof input.perPage === "number") params.set("perPage", String(input.perPage));
+      const query = params.size ? `?${params.toString()}` : "";
+      const payload = await requestJson<unknown>(baseUrls, `/v1/skill-catalog${query}`, {
+        method: "GET",
+        token,
+        organizationId: orgId,
+      });
+      const catalog = parseSkillCatalogList(payload);
+      if (!catalog) {
+        throw new DenApiError(500, "invalid_skill_catalog_payload", "公司服务返回的在线技能目录不完整。");
+      }
+      return catalog;
+    },
+
+    async getSkillsCatalogDetail(orgId: string, id: string): Promise<SkillCatalogDetail> {
+      const params = new URLSearchParams({ id });
+      const payload = await requestJson<unknown>(baseUrls, `/v1/skill-catalog/detail?${params.toString()}`, {
+        method: "GET",
+        token,
+        organizationId: orgId,
+      });
+      const detail = parseSkillCatalogDetail(payload);
+      if (!detail) {
+        throw new DenApiError(500, "invalid_skill_catalog_detail", "公司服务返回的技能文件不完整。");
+      }
+      return detail;
+    },
+
+    async getSkillsCatalogAudit(orgId: string, id: string): Promise<SkillCatalogAudit> {
+      const params = new URLSearchParams({ id });
+      const payload = await requestJson<unknown>(baseUrls, `/v1/skill-catalog/audit?${params.toString()}`, {
+        method: "GET",
+        token,
+        organizationId: orgId,
+      });
+      const audit = parseSkillCatalogAudit(payload);
+      if (!audit) {
+        throw new DenApiError(500, "invalid_skill_catalog_audit", "公司服务返回的安全审计结果不完整。");
+      }
+      return audit;
     },
 
     async listOrgLlmProviders(orgId: string): Promise<DenOrgLlmProvider[]> {
@@ -2201,7 +2482,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       );
       const provider = getDenOrgLlmProviderConnection(payload);
       if (!provider) {
-        throw new DenApiError(500, "invalid_llm_provider_payload", "LLM provider response was missing connection details.");
+        throw new DenApiError(500, "invalid_llm_provider_payload", "公司服务返回的模型连接信息不完整。");
       }
       return provider;
     },
@@ -2223,7 +2504,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       );
       const result = getDenMcpConnectionConnectStart(payload);
       if (!result) {
-        throw new DenApiError(500, "invalid_mcp_connection_payload", "MCP connection connect response was invalid.");
+        throw new DenApiError(500, "invalid_mcp_connection_payload", "公司服务返回的 MCP 连接信息无效。");
       }
       return result;
     },
@@ -2253,7 +2534,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       );
       const resolved = getOrgMarketplaceResolved(payload);
       if (!resolved) {
-        throw new DenApiError(500, "invalid_marketplace_payload", "Marketplace response was missing plugin details.");
+        throw new DenApiError(500, "invalid_marketplace_payload", "公司服务返回的应用市场信息不完整。");
       }
       return resolved;
     },
@@ -2283,7 +2564,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const summary = getBillingSummary(payload);
       if (!summary) {
-        throw new DenApiError(500, "invalid_billing_payload", "Billing response was missing details.");
+        throw new DenApiError(500, "invalid_billing_payload", "公司服务返回的账单信息不完整。");
       }
       return summary;
     },
@@ -2296,7 +2577,7 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       });
       const billing = getBillingSummary(payload);
       if (!billing) {
-        throw new DenApiError(500, "invalid_billing_payload", "Subscription update response was missing billing details.");
+        throw new DenApiError(500, "invalid_billing_payload", "公司服务返回的订阅更新信息不完整。");
       }
 
       return {

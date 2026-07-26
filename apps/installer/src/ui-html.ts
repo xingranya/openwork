@@ -26,37 +26,37 @@ export function renderInstallerHtml(resolution: InstallerConfigResolution | null
     ? `<img class="logo" src="${escapeHtml(config.logoUrl)}" alt="${escapeHtml(config.clientName)}" />`
     : `<div class="logo">${OPENWORK_LOGO_SVG}</div>`
   const sourceLabel = resolution ? installerConfigSourceLabel(resolution.source) : ""
-  const appName = config?.appName ?? "OpenWork"
+  const appName = config?.appName ?? "FoxWork"
   const configuredContent = config
     ? `
   ${logo}
-  <div class="title">${escapeHtml(config.appName)} Installer</div>
-  <div class="client">This sets up ${escapeHtml(config.appName)} for ${escapeHtml(config.clientName)} (${escapeHtml(config.webUrl)}).</div>
-  <div class="source">Configured via ${escapeHtml(sourceLabel)}.</div>
+  <div class="title">安装 ${escapeHtml(config.appName)}</div>
+  <div class="client">为 ${escapeHtml(config.clientName)} 安装并连接 ${escapeHtml(config.appName)}（${escapeHtml(config.webUrl)}）。</div>
+  <div class="source">配置来源：${escapeHtml(sourceLabel)}</div>
   <div class="bar" id="bar"><div id="bar-fill"></div></div>
   <div class="buttons">
-    <button class="primary" id="action">Install</button>
-    <button id="exit">Exit</button>
+    <button class="primary" id="action">安装</button>
+    <button id="exit">退出</button>
   </div>
   <div class="status" id="status"></div>`
     : `
   <div class="logo">${OPENWORK_LOGO_SVG}</div>
-  <div class="title">Paste your OpenWork install link</div>
-  <div class="client">Your organization admin can copy this link from the Members page.</div>
+  <div class="title">粘贴 FoxWork 安装链接</div>
+  <div class="client">请向公司管理员获取安装链接。</div>
   <form class="paste" id="paste-form">
     <input id="install-link" type="url" placeholder="https://.../install?token=..." autocomplete="off" required />
-    <button class="primary" id="continue" type="submit">Continue</button>
+    <button class="primary" id="continue" type="submit">继续</button>
   </form>
   <div class="buttons single">
-    <button id="exit">Exit</button>
+    <button id="exit">退出</button>
   </div>
   <div class="status" id="status"></div>`
 
   return `<!doctype html>
-<html>
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>${escapeHtml(appName)} Installer</title>
+<title>${escapeHtml(appName)} 安装程序</title>
 <style>
   :root { color-scheme: light; }
   html, body { height: 100%; margin: 0; }
@@ -109,13 +109,18 @@ ${configuredContent}
 
   async function api(path) {
     const response = await fetch(path, { method: "POST", headers: { "x-installer-token": TOKEN } });
-    if (!response.ok) throw new Error("request failed: " + response.status);
+    if (!response.ok) throw new Error("安装程序请求失败（" + response.status + "）。");
     return response.json();
+  }
+
+  function userMessage(value, fallback) {
+    const message = typeof value === "string" ? value.trim() : "";
+    return /[\u3400-\u9fff]/u.test(message) ? message : fallback;
   }
 
   function closeWindow() {
     if (window.openworkInstallerExit) {
-      // Native webview: the bound function terminates the window run loop.
+      // 原生窗口通过绑定函数结束事件循环。
       window.openworkInstallerExit();
       return;
     }
@@ -132,21 +137,21 @@ ${configuredContent}
     statusEl.classList.toggle("done", status.state === "done");
 
     if (status.state === "running") {
-      statusEl.textContent = status.message;
+      statusEl.textContent = userMessage(status.message, "正在准备安装…");
       actionBtn.disabled = true;
       return;
     }
     if (polling) { clearInterval(polling); polling = null; }
     if (status.state === "done") {
       installed = true;
-      statusEl.textContent = "Successfully Installed";
-      actionBtn.textContent = "Launch";
+      statusEl.textContent = "安装完成";
+      actionBtn.textContent = "打开 FoxWork";
       actionBtn.disabled = false;
       return;
     }
     if (status.state === "error") {
-      statusEl.textContent = status.message + " " + (status.error ?? "");
-      actionBtn.textContent = "Retry";
+      statusEl.textContent = userMessage(status.message, "安装失败，请检查网络后重试。");
+      actionBtn.textContent = "重试";
       actionBtn.disabled = false;
     }
   }
@@ -156,7 +161,7 @@ ${configuredContent}
       event.preventDefault();
       continueBtn.disabled = true;
       statusEl.classList.remove("error");
-      statusEl.textContent = "Checking install link...";
+      statusEl.textContent = "正在检查安装链接…";
       try {
         const response = await fetch("/api/resolve-link", {
           method: "POST",
@@ -164,10 +169,11 @@ ${configuredContent}
           body: JSON.stringify({ installLink: installLinkInput.value })
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.message || "Install link could not be resolved.");
+        if (!response.ok) throw new Error(payload.message || "无法识别安装链接，请检查后重试。");
         window.location.reload();
       } catch (error) {
-        statusEl.textContent = error.message || "Install link could not be resolved.";
+        const message = error instanceof Error ? error.message : "";
+        statusEl.textContent = userMessage(message, "无法识别安装链接，请检查网络和链接后重试。");
         statusEl.classList.add("error");
         continueBtn.disabled = false;
       }
@@ -190,7 +196,7 @@ ${configuredContent}
         } catch {}
       }, 400);
     } catch (error) {
-      statusEl.textContent = "Could not start install: " + error.message;
+      statusEl.textContent = "无法开始安装，请稍后重试。";
       statusEl.classList.add("error");
       actionBtn.disabled = false;
     }

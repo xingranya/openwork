@@ -1,4 +1,5 @@
 import { desktopNotificationShow } from "@/app/lib/desktop";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { isDesktopRuntime } from "@/app/utils";
 import {
   DEFAULT_DESKTOP_NOTIFICATION_PREFERENCE,
@@ -56,26 +57,26 @@ function copyForEvent(event: DesktopNotificationEvent): NotificationCopy {
   switch (event.type) {
     case "task.completed":
       return {
-        title: "Task completed",
-        body: "The session finished running.",
+        title: "任务已完成",
+        body: "会话已完成运行。",
         importance: "routine",
       };
     case "task.failed":
       return {
-        title: "Task failed",
-        body: event.errorText?.trim() || "The session stopped with an error.",
+        title: "任务运行失败",
+        body: toChineseUserMessage(event.errorText, "会话因错误停止运行。"),
         importance: "important",
       };
     case "permission.asked":
       return {
-        title: "Permission needed",
-        body: event.detail?.trim() || "A session is waiting for permission before it can continue.",
+        title: "需要授权",
+        body: event.detail?.trim() || "会话正在等待授权，授权后才能继续。",
         importance: "important",
       };
     case "question.asked":
       return {
-        title: "Question needs your answer",
-        body: event.question?.trim() || "A session is waiting for your answer.",
+        title: "有问题等待回答",
+        body: event.question?.trim() || "会话正在等待你的回答。",
         importance: "important",
       };
   }

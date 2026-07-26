@@ -7,7 +7,7 @@ export async function saveInstalledSkillToOpenWorkOrg(input: {
   const settings = readDenSettings();
   const token = settings.authToken?.trim() ?? "";
   if (!token) {
-    throw new Error("Sign in to OpenWork Cloud in Settings to share with your team.");
+    throw new Error("请先在设置中登录公司账号，再将技能共享给团队。");
   }
 
   const cloudClient = createDenClient({ baseUrl: settings.baseUrl, token });
@@ -21,7 +21,7 @@ export async function saveInstalledSkillToOpenWorkOrg(input: {
       ? response.orgs.find((org) => org.id === orgId)
       : response.orgs.find((org) => org.slug === orgSlug) ?? response.orgs[0];
     if (!match) {
-      throw new Error("Choose an organization in Settings -> Cloud before sharing with your team.");
+      throw new Error("请先在设置中选择公司，再将技能共享给团队。");
     }
     orgId = match.id;
     orgSlug = match.slug;

@@ -128,7 +128,8 @@ const SPOTLIGHT_TIMING_MS = Object.freeze({
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function describeError(error: unknown) {
-  return error instanceof Error ? error.message : String(error || "Unknown error");
+  if (error instanceof Error && /[\u3400-\u9fff]/.test(error.message)) return error.message;
+  return "操作失败，请稍后重试。";
 }
 
 function returnedActionError(result: unknown) {
@@ -137,7 +138,7 @@ function returnedActionError(result: unknown) {
   if (payload.ok !== false) return null;
   return typeof payload.error === "string" && payload.error.trim()
     ? payload.error
-    : "Action returned an error.";
+    : "操作未能完成。";
 }
 
 function isBrowser() {
@@ -188,7 +189,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
   const [version, setVersion] = useState(0);
   const [enabledState, setEnabledState] = useState(false);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
-  const [narration, setNarration] = useState("Control mode is off.");
+  const [narration, setNarration] = useState("界面控制已关闭。");
   const [spotlight, setSpotlight] = useState<SpotlightState>({ visible: false, phase: "target", rect: null });
   const busyActionIdRef = useRef<string | null>(null);
   const spotlightRunRef = useRef(0);
@@ -276,13 +277,13 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
   const executeAction = useCallback(async (actionId: string, args?: unknown): Promise<OpenworkControlResult> => {
     const registered = actionsRef.current.get(actionId);
     const action = registered?.ref.current;
-    if (!registered || !action) return { ok: false, actionId, error: `Unknown action: ${actionId}` };
-    if (action.disabled) return { ok: false, actionId, error: `Action is disabled: ${action.label}` };
-    if (busyActionIdRef.current) return { ok: false, actionId, error: `Already acting: ${busyActionIdRef.current}` };
+    if (!registered || !action) return { ok: false, actionId, error: `未知操作：${actionId}` };
+    if (action.disabled) return { ok: false, actionId, error: `当前无法执行：${action.label}` };
+    if (busyActionIdRef.current) return { ok: false, actionId, error: `已有操作正在执行：${busyActionIdRef.current}` };
 
     if (action.requiresConfirmation && isBrowser()) {
-      const confirmed = window.confirm(`Allow Control Mode to ${action.label}?`);
-      if (!confirmed) return { ok: false, actionId, error: "User cancelled action." };
+      const confirmed = window.confirm(`允许控制模式执行“${action.label}”吗？`);
+      if (!confirmed) return { ok: false, actionId, error: "用户已取消操作。" };
     }
 
     const runId = spotlightRunRef.current + 1;
@@ -290,22 +291,22 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     busyActionIdRef.current = action.id;
     setEnabled(true);
     setBusyActionId(action.id);
-    setNarration(`Moving to ${action.label}…`);
+    setNarration(`正在定位：${action.label}…`);
 
     try {
       await playTargetChoreography(action, runId);
-      setNarration(`Running ${action.label}…`);
+      setNarration(`正在执行：${action.label}…`);
       const effectiveArgs = args === undefined ? action.previewArgs : args;
       const result = await action.execute(effectiveArgs, { setNarration });
       const resultError = returnedActionError(result);
       if (resultError) {
-        setNarration(`Could not ${action.label}: ${resultError}`);
+        setNarration(`无法完成“${action.label}”：${resultError}`);
         if (spotlightRunRef.current === runId) {
           setSpotlight({ visible: false, phase: "target", rect: null });
         }
         return { ok: false, actionId, error: resultError };
       }
-      setNarration(`Done: ${action.label}`);
+      setNarration(`已完成：${action.label}`);
       await wait(SPOTLIGHT_TIMING_MS.done);
       if (spotlightRunRef.current === runId) {
         setSpotlight({ visible: false, phase: "target", rect: null });
@@ -313,7 +314,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
       return { ok: true, actionId, result };
     } catch (error) {
       const message = describeError(error);
-      setNarration(`Could not ${action.label}: ${message}`);
+      setNarration(`无法完成“${action.label}”：${message}`);
       if (spotlightRunRef.current === runId) {
         setSpotlight({ visible: false, phase: "target", rect: null });
       }
@@ -338,9 +339,9 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!enabled) {
-      setNarration("Control mode is off.");
-    } else if (narration === "Control mode is off.") {
-      setNarration("Ready. A controller can inspect and run visible actions.");
+      setNarration("界面控制已关闭。");
+    } else if (narration === "界面控制已关闭。") {
+      setNarration("界面控制已就绪，可以查看并执行当前页面提供的操作。");
     }
   }, [enabled, narration]);
 
@@ -405,16 +406,14 @@ export function useControlAction(action: OpenworkControlAction | null | false | 
 }
 
 /**
- * Register a dynamic list of control actions. Unlike calling useControlAction
- * per item, this scales to an arbitrary, changing number of actions without
- * violating the rules of hooks. Each action is tracked by its stable id; the
- * latest closure for that id is always used, and removed ids are unregistered.
+ * 注册可动态变化的控制操作列表。每项操作使用稳定 ID 跟踪，执行时读取最新闭包，
+ * 已移除的操作会自动注销，同时避免在循环中调用 Hook。
  */
 export function useControlActions(actions: readonly OpenworkControlAction[]) {
   const control = useOpenworkControl();
   const registerAction = control?.registerAction;
 
-  // One ref per action id, so executeAction always sees the freshest closure.
+  // 每个操作 ID 使用独立引用，确保执行时读取最新闭包。
   const refsById = useRef<Map<string, { current: OpenworkControlAction | null }>>(new Map());
   for (const action of actions) {
     const existing = refsById.current.get(action.id);
@@ -430,7 +429,7 @@ export function useControlActions(actions: readonly OpenworkControlAction[]) {
   useEffect(() => {
     if (!registerAction) return undefined;
     const liveIds = new Set(actions.map((action) => action.id));
-    // Drop refs for ids that no longer exist.
+    // 清理已经不在列表中的操作引用。
     for (const id of Array.from(refsById.current.keys())) {
       if (!liveIds.has(id)) refsById.current.delete(id);
     }
@@ -455,50 +454,50 @@ export function OpenworkRouteControlActions() {
   const actions = useMemo<OpenworkControlAction[]>(() => [
     {
       id: "route.session",
-      label: "Open sessions",
-      description: "Navigate to the main session view.",
+      label: "打开会话",
+      description: "进入主会话页面。",
       sideEffect: "navigation",
       execute: () => navigate("/session"),
     },
     {
       id: "route.settings.general",
-      label: "Open general settings",
-      description: "Navigate to general settings.",
+      label: "打开常规设置",
+      description: "进入常规设置页面。",
       sideEffect: "navigation",
       execute: () => navigate("/settings/general"),
     },
     {
       id: "route.settings.skills",
-      label: "Open skills settings",
-      description: "Navigate to skills settings.",
+      label: "打开技能设置",
+      description: "进入技能设置页面。",
       sideEffect: "navigation",
       execute: () => navigate("/settings/skills"),
     },
     {
       id: "route.settings.providers",
-      label: "Open provider settings",
-      description: "Navigate to AI provider settings.",
+      label: "打开模型设置",
+      description: "进入模型和供应商设置页面。",
       sideEffect: "navigation",
       execute: () => navigate("/settings/ai"),
     },
     {
       id: "route.settings.authorized_folders",
-      label: "Open authorized folder settings",
-      description: "Navigate to authorized folders and file access settings.",
+      label: "打开文件授权设置",
+      description: "进入文件夹和文件访问授权页面。",
       sideEffect: "navigation",
       execute: () => navigate("/settings/permissions"),
     },
     {
       id: "route.settings.appearance",
-      label: "Open appearance settings",
-      description: "Navigate to appearance settings.",
+      label: "打开外观设置",
+      description: "进入外观设置页面。",
       sideEffect: "navigation",
       execute: () => navigate("/settings/appearance"),
     },
     {
       id: "settings.panel.open",
-      label: "Open a settings panel",
-      description: "Navigate to a specific settings panel by tab id.",
+      label: "打开指定设置页",
+      description: "根据页面标识进入指定设置页面。",
       sideEffect: "navigation",
       requiresArgs: true,
       args: [
@@ -507,7 +506,7 @@ export function OpenworkRouteControlActions() {
           type: "string",
           required: true,
           description:
-            "Settings tab: general | ai | preferences | permissions | shell | extensions | skills | environment | advanced | appearance | updates | recovery | debug | cloud-account | cloud-providers | cloud-marketplaces",
+            "设置页标识：general | ai | preferences | permissions | shell | extensions | skills | environment | advanced | appearance | updates | recovery | debug | cloud-account | cloud-providers | cloud-marketplaces",
         },
       ],
       previewArgs: { panel: "ai" },
@@ -517,7 +516,7 @@ export function OpenworkRouteControlActions() {
         if (!SETTINGS_TABS.has(panel)) {
           return {
             ok: false,
-            error: `Unknown settings panel: ${panel || "(empty)"}. Expected one of ${Array.from(SETTINGS_TABS).join(", ")}.`,
+            error: `未知设置页：${panel || "未填写"}。可用值：${Array.from(SETTINGS_TABS).join("、")}。`,
           };
         }
         navigate(`/settings/${panel}`);
@@ -526,37 +525,37 @@ export function OpenworkRouteControlActions() {
     },
     {
       id: "route.back",
-      label: "Go back",
-      description: "Navigate back one entry in history.",
+      label: "返回上一页",
+      description: "返回浏览历史中的上一页。",
       sideEffect: "navigation",
       execute: () => navigate(-1),
     },
     {
       id: "route.forward",
-      label: "Go forward",
-      description: "Navigate forward one entry in history.",
+      label: "前往下一页",
+      description: "前往浏览历史中的下一页。",
       sideEffect: "navigation",
       execute: () => navigate(1),
     },
     {
       id: "help.capabilities",
-      label: "What can OpenWork do?",
-      description: "List the main capabilities of OpenWork.",
+      label: "查看 FoxWork 能力",
+      description: "列出 FoxWork 当前提供的主要能力。",
       sideEffect: "none",
       execute: () => ({
         capabilities: [
-          { id: "browse", label: "Browse the web", description: "Control a browser to navigate, scrape, and automate web tasks." },
-          { id: "providers", label: "AI model providers", description: "Connect Anthropic, OpenAI, Google, OpenRouter, Ollama, or other LLM providers." },
-          { id: "extensions", label: "MCP extensions", description: "Add MCP servers for Google Workspace, GitHub, databases, and more." },
-          { id: "voice", label: "Voice mode", description: "Talk to OpenWork with real-time voice using OpenAI Realtime." },
-          { id: "files", label: "File management", description: "Read, write, and organize files in your workspace." },
-          { id: "code", label: "Write and run code", description: "Generate, edit, and execute code with full tool access." },
-          { id: "computer-use", label: "Computer use", description: "Control your computer with screenshots and mouse/keyboard actions." },
-          { id: "skills", label: "Skills", description: "Install specialized skill packs for specific workflows." },
-          { id: "automations", label: "Automations", description: "Schedule recurring tasks and background agents." },
-          { id: "sharing", label: "Share sessions", description: "Share workspace sessions with collaborators via OpenWork Cloud." },
+          { id: "browse", label: "浏览器", description: "打开网页、提取内容并自动完成网页任务。" },
+          { id: "providers", label: "模型", description: "使用公司共享模型或配置获准的自定义模型服务。" },
+          { id: "extensions", label: "MCP 扩展", description: "使用公司下发或当前工作区配置的 MCP 服务。" },
+          { id: "voice", label: "语音对话", description: "通过实时语音与 FoxWork 对话。" },
+          { id: "files", label: "文件管理", description: "在获授权的工作区中读取、写入和整理文件。" },
+          { id: "code", label: "代码与命令", description: "在当前工作区权限范围内生成、编辑和运行代码。" },
+          { id: "computer-use", label: "电脑操作", description: "经本机授权后使用截图、鼠标和键盘完成操作。" },
+          { id: "skills", label: "技能", description: "安装适合具体工作流程的技能。" },
+          { id: "automations", label: "自动任务", description: "安排重复任务和后台智能体。" },
+          { id: "sharing", label: "会话协作", description: "在公司权限范围内与同事协作处理工作区会话。" },
         ],
-        hint: "Use settings.panel.open to configure any of these. For example: settings.panel.open({panel:'ai'}) for providers, settings.panel.open({panel:'extensions'}) for MCPs.",
+        hint: "可使用 settings.panel.open 打开相应设置页。例如，panel 设为 ai 可配置模型，设为 extensions 可管理 MCP。",
       }),
     },
   ], [navigate]);

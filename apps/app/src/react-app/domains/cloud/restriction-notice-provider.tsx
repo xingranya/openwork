@@ -70,7 +70,7 @@ export function RestrictionNoticeProvider({ children }: RestrictionNoticeProvide
       {children}
       <RestrictionNoticeModal
         open={notice !== null}
-        title={notice?.title ?? "Restriction"}
+        title={notice?.title ?? "使用限制"}
         message={notice?.message ?? ""}
         onClose={dismiss}
       />

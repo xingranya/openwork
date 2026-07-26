@@ -45,6 +45,12 @@ describe("resolveDenBaseUrls", () => {
     const resolved = resolveDenBaseUrls({ baseUrl: "https://app.openworklabs.com" });
     expect(resolved.apiBaseUrl).toBe("https://app.openworklabs.com/api/den");
   });
+
+  test("将监听通配地址规范化为本地客户端地址", () => {
+    const resolved = resolveDenBaseUrls({ baseUrl: "http://0.0.0.0:3005" });
+    expect(resolved.baseUrl).toBe("http://localhost:3005");
+    expect(resolved.apiBaseUrl).toBe("http://localhost:3005/api/den");
+  });
 });
 
 describe("getDenMcpUrl", () => {
@@ -92,6 +98,9 @@ describe("resolveCloudMcpResourceUrl", () => {
     );
     expect(resolveCloudMcpResourceUrl("http://127.0.0.1:8787/mcp")).toBe(
       "http://127.0.0.1:8787/mcp",
+    );
+    expect(resolveCloudMcpResourceUrl("http://0.0.0.0:8790/mcp")).toBe(
+      "http://localhost:8790/mcp",
     );
   });
 

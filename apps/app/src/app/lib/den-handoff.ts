@@ -1,5 +1,6 @@
 import {
   createDenClient,
+  getDenErrorMessage,
   writeDenSettings,
   type DenDesktopHandoffExchange,
 } from "./den";
@@ -14,13 +15,13 @@ export type HandoffActiveOrg = {
 };
 
 export type ExchangeHandoffOptions = {
-  /** Den base URL to exchange against (and persist on success). */
+  /** 用于交换凭据并在成功后保存的 Den 地址。 */
   baseUrl: string;
-  /** Pre-built client to reuse. When omitted, a default client for `baseUrl` is created. */
+  /** 可复用的 Den 客户端；未提供时根据 baseUrl 创建。 */
   client?: DenClient;
-  /** Optional active org to select on sign-in (bootstrap prepares this). */
+  /** 登录后要选择的公司，由启动配置预先提供。 */
   activeOrg?: HandoffActiveOrg | null;
-  /** Message used when the exchange fails without a specific Error message. */
+  /** 无具体错误信息时使用的中文回退文案。 */
   fallbackErrorMessage?: string;
 };
 
@@ -29,19 +30,14 @@ export type ExchangeHandoffResult =
   | { ok: false; error: string };
 
 /**
- * Single source of truth for the desktop handoff sign-in sequence:
- * exchange a one-time grant, persist the resulting session (and optional active
- * org) into Den settings, then broadcast `denSessionUpdated`.
- *
- * Used by every handoff entry point (deep link, manual paste, control action,
- * and the agent-first prepared bootstrap) so the exchange/persist/dispatch
- * logic is not re-implemented per call site.
+ * 桌面交接登录的统一实现：交换一次性凭据，保存会话和公司信息，
+ * 再广播会话更新。深链、手动粘贴和启动配置都复用这一条路径。
  */
 export async function exchangeHandoffAndSignIn(
   grant: string,
   options: ExchangeHandoffOptions,
 ): Promise<ExchangeHandoffResult> {
-  const fallback = options.fallbackErrorMessage ?? "Failed to sign in to OpenWork Cloud.";
+  const fallback = options.fallbackErrorMessage ?? "登录公司账号失败，请重试。";
   const client = options.client ?? createDenClient({ baseUrl: options.baseUrl });
 
   try {
@@ -68,7 +64,7 @@ export async function exchangeHandoffAndSignIn(
 
     return { ok: true, exchange, baseUrl: options.baseUrl };
   } catch (error) {
-    const message = error instanceof Error ? error.message : fallback;
+    const message = getDenErrorMessage(error instanceof Error ? error.message : error, fallback);
     dispatchDenSessionUpdated({ status: "error", message });
     return { ok: false, error: message };
   }

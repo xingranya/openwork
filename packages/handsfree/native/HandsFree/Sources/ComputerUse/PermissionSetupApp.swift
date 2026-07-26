@@ -17,7 +17,7 @@ struct ComputerUsePermissionStatus {
 }
 
 enum ComputerUsePermissions {
-    /// Non-prompting check — safe to call on a timer / from HTTP polling.
+    /// 只检查当前权限，不触发系统授权弹窗，可供定时器或接口轮询调用。
     static func status() -> ComputerUsePermissionStatus {
         ComputerUsePermissionStatus(
             accessibility: AXIsProcessTrusted(),
@@ -25,7 +25,7 @@ enum ComputerUsePermissions {
         )
     }
 
-    /// Prompting request — only call when the user explicitly clicks "Grant".
+    /// 请求系统授权，只能在用户主动点击授权按钮后调用。
     static func request(_ target: ComputerUsePermissionTarget) {
         switch target {
         case .accessibility:
@@ -37,7 +37,7 @@ enum ComputerUsePermissions {
     }
 }
 
-// MARK: - App delegate
+// MARK: - 应用代理
 
 @MainActor
 final class PermissionSetupAppDelegate: NSObject, NSApplicationDelegate {
@@ -56,7 +56,7 @@ final class PermissionSetupAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
-// MARK: - Window
+// MARK: - 窗口
 
 private final class PermissionSetupWindow: NSWindow {
     init() {
@@ -66,7 +66,7 @@ private final class PermissionSetupWindow: NSWindow {
             backing: .buffered,
             defer: false
         )
-        title = "OpenWork Computer Use"
+        title = "FoxWork 电脑控制"
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = true
@@ -77,7 +77,7 @@ private final class PermissionSetupWindow: NSWindow {
     }
 }
 
-// MARK: - View controller
+// MARK: - 视图控制器
 
 @MainActor
 final class PermissionSetupViewController: NSViewController {
@@ -92,7 +92,7 @@ final class PermissionSetupViewController: NSViewController {
     deinit { timer?.invalidate() }
 
     override func loadView() {
-        // Liquid glass: NSVisualEffectView blending with content behind the window
+        // 使用系统材质，让窗口内容随深浅色模式自然变化。
         let blur = NSVisualEffectView()
         blur.material = .underWindowBackground
         blur.blendingMode = .behindWindow
@@ -121,11 +121,11 @@ final class PermissionSetupViewController: NSViewController {
         iconView.widthAnchor.constraint(equalToConstant: 52).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 52).isActive = true
 
-        let titleField = textField("Computer Use Setup", size: 20, weight: .semibold)
+        let titleField = textField("电脑控制权限", size: 20, weight: .semibold)
         titleField.alignment = .center
 
         let subtitleField = wrappingField(
-            "Grant two permissions so agents can see and control apps in the background.",
+            "允许 FoxWork 在你授权后查看并操作其他应用。",
             size: 13
         )
         subtitleField.textColor = .secondaryLabelColor
@@ -136,7 +136,7 @@ final class PermissionSetupViewController: NSViewController {
         let axCard = makeAccessibilityCard()
         let srCard = makeScreenRecordingCard()
 
-        let doneBtn = NSButton(title: "Done — Return to OpenWork", target: self, action: #selector(done))
+        let doneBtn = NSButton(title: "完成，返回 FoxWork", target: self, action: #selector(done))
         doneBtn.bezelStyle = .rounded
         doneBtn.controlSize = .large
         doneBtn.keyEquivalent = "\r"
@@ -157,18 +157,18 @@ final class PermissionSetupViewController: NSViewController {
         ])
     }
 
-    // MARK: Accessibility card
+    // MARK: 辅助功能权限卡片
 
     private func makeAccessibilityCard() -> NSView {
         let step = StepCircle(number: "1")
-        let title = textField("Accessibility", size: 15, weight: .semibold)
+        let title = textField("辅助功能", size: 15, weight: .semibold)
         let body = wrappingField(
-            "Allows agents to interact with UI controls, click buttons, and type text entirely in the background.",
+            "允许 FoxWork 点击按钮、填写内容并操作应用界面。",
             size: 13
         )
         body.textColor = .secondaryLabelColor
 
-        let btn = NSButton(title: "Grant Accessibility", target: self, action: #selector(grantAccessibility))
+        let btn = NSButton(title: "授权辅助功能", target: self, action: #selector(grantAccessibility))
         btn.bezelStyle = .rounded
         btn.controlSize = .regular
         axGrantButton = btn
@@ -180,25 +180,25 @@ final class PermissionSetupViewController: NSViewController {
         return glassCard(inner)
     }
 
-    // MARK: Screen Recording card
+    // MARK: 屏幕录制权限卡片
 
     private func makeScreenRecordingCard() -> NSView {
         let step = StepCircle(number: "2")
-        let title = textField("Screen Recording", size: 15, weight: .semibold)
+        let title = textField("屏幕录制", size: 15, weight: .semibold)
         let body = wrappingField(
-            "Lets agents see what is on screen. If macOS does not prompt automatically, drag the app icon below into the Screen Recording list.",
+            "允许 FoxWork 查看屏幕内容。如果 macOS 没有自动弹出授权，请按下方提示手动添加。",
             size: 13
         )
         body.textColor = .secondaryLabelColor
 
         let dragFlow = makeDragFlowView()
 
-        let reqBtn = NSButton(title: "Request Screen Recording", target: self, action: #selector(requestScreenRecording))
+        let reqBtn = NSButton(title: "申请屏幕录制权限", target: self, action: #selector(requestScreenRecording))
         reqBtn.bezelStyle = .rounded
         reqBtn.controlSize = .regular
         srGrantButton = reqBtn
 
-        let openBtn = NSButton(title: "Open Privacy & Security", target: self, action: #selector(openPrivacySecurity))
+        let openBtn = NSButton(title: "打开“隐私与安全性”", target: self, action: #selector(openPrivacySecurity))
         openBtn.bezelStyle = .rounded
         openBtn.controlSize = .small
 
@@ -211,10 +211,10 @@ final class PermissionSetupViewController: NSViewController {
         return glassCard(inner)
     }
 
-    // MARK: Drag flow visualization
+    // MARK: 拖放授权指引
 
     private func makeDragFlowView() -> NSView {
-        // Large draggable app icon
+        // 可拖动的应用图标。
         let iconView = DraggableAppIconView(frame: .zero)
         iconView.image = NSApplication.shared.applicationIconImage
         iconView.imageScaling = .scaleProportionallyUpOrDown
@@ -222,7 +222,7 @@ final class PermissionSetupViewController: NSViewController {
         iconView.widthAnchor.constraint(equalToConstant: 56).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 56).isActive = true
 
-        let dragHint = textField("Drag me", size: 10)
+        let dragHint = textField("拖动此图标", size: 10)
         dragHint.textColor = .tertiaryLabelColor
         dragHint.alignment = .center
 
@@ -241,7 +241,7 @@ final class PermissionSetupViewController: NSViewController {
         row.distribution = NSStackView.Distribution.fill
 
         let hint = wrappingField(
-            "Drag this icon into the Screen Recording list in Privacy & Security, then enable it.",
+            "将图标拖到“隐私与安全性”中的“屏幕录制”列表，然后开启权限。",
             size: 11
         )
         hint.textColor = .secondaryLabelColor
@@ -262,7 +262,7 @@ final class PermissionSetupViewController: NSViewController {
         return wrapper
     }
 
-    // MARK: Refresh
+    // MARK: 状态刷新
 
     private func refresh() {
         let status = ComputerUsePermissions.status()
@@ -272,7 +272,7 @@ final class PermissionSetupViewController: NSViewController {
         srGrantButton?.isEnabled = !status.screenRecording
     }
 
-    // MARK: Actions
+    // MARK: 用户操作
 
     @objc private func grantAccessibility() {
         ComputerUsePermissions.request(.accessibility)
@@ -293,7 +293,7 @@ final class PermissionSetupViewController: NSViewController {
         NSApplication.shared.terminate(nil)
     }
 
-    // MARK: Builder helpers
+    // MARK: 界面构建辅助方法
 
     private func glassCard(_ content: NSView) -> GlassCardView {
         let card = GlassCardView()
@@ -337,10 +337,10 @@ final class PermissionSetupViewController: NSViewController {
     }
 }
 
-// MARK: - Glass card
+// MARK: - 毛玻璃卡片
 
-/// NSView container with an NSVisualEffectView inside for the glass effect.
-/// Uses updateLayer() so the border color responds to appearance changes.
+/// 内部使用系统视觉效果视图的卡片容器。
+/// 通过 updateLayer() 让边框颜色响应深浅色模式变化。
 final class GlassCardView: NSView {
     private let blur: NSVisualEffectView
 
@@ -387,9 +387,9 @@ final class GlassCardView: NSView {
     }
 }
 
-// MARK: - Status badge
+// MARK: - 权限状态
 
-/// Pill badge showing Granted/Needed with adaptive color.
+/// 使用自适应颜色显示已授权或待授权状态。
 @MainActor
 final class StatusBadge: NSView {
     private let dot = NSView()
@@ -430,7 +430,7 @@ final class StatusBadge: NSView {
     func update(granted: Bool) {
         isGranted = granted
         applyColors()
-        label.stringValue = granted ? "Granted" : "Needed"
+        label.stringValue = granted ? "已授权" : "待授权"
         label.textColor = granted ? .systemGreen : .systemOrange
     }
 
@@ -447,7 +447,7 @@ final class StatusBadge: NSView {
     override func updateLayer() { applyColors() }
 }
 
-// MARK: - Step circle
+// MARK: - 步骤序号
 
 private final class StepCircle: NSView {
     init(number: String) {
@@ -479,10 +479,10 @@ private final class StepCircle: NSView {
     }
 }
 
-// MARK: - Inner tint (drag flow background)
+// MARK: - 拖放指引背景
 
-/// Subtle tinted background for the drag-flow visualization.
-/// Adapts to light/dark appearance via updateLayer().
+/// 为拖放指引提供轻量背景色。
+/// 通过 updateLayer() 适配深浅色模式。
 private final class InnerTintView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -501,14 +501,14 @@ private final class InnerTintView: NSView {
     }
 }
 
-// MARK: - Privacy drop zone
+// MARK: - 隐私设置放置区
 
-/// Dashed rounded rect showing where the user should drop the app icon.
+/// 用虚线圆角区域提示用户放置应用图标的位置。
 final class PrivacyDropZoneView: NSView {
     private let label: NSTextField
 
     override init(frame: NSRect) {
-        label = NSTextField(labelWithString: "Screen Recording\nlist")
+        label = NSTextField(labelWithString: "屏幕录制\n列表")
         super.init(frame: frame)
         label.font = .systemFont(ofSize: 11)
         label.textColor = .tertiaryLabelColor
@@ -538,10 +538,9 @@ final class PrivacyDropZoneView: NSView {
     }
 }
 
-// MARK: - Draggable app icon
+// MARK: - 可拖动应用图标
 
-/// NSImageView that initiates a drag session carrying the app bundle URL,
-/// so it can be dropped into System Settings > Privacy & Security > Screen Recording.
+/// 发起携带应用地址的拖放操作，便于将图标放入系统设置的屏幕录制授权列表。
 final class DraggableAppIconView: NSImageView, NSDraggingSource {
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -589,5 +588,3 @@ final class DraggableAppIconView: NSImageView, NSDraggingSource {
         .copy
     }
 }
-
-

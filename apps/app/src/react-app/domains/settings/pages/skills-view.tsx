@@ -16,6 +16,8 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
+  SquareArrowOutUpRight,
   Sparkles,
   Trash2,
   Upload,
@@ -34,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { t } from "@/i18n";
 import { saveInstalledSkillToOpenWorkOrg } from "@/app/lib/den-skills";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   buildDenAuthUrl,
   DEFAULT_DEN_BASE_URL,
@@ -97,14 +100,14 @@ export type SkillsExtensionsStore = {
   ensureHubSkillsFresh: () => void | Promise<void>;
   ensureCloudOrgSkillsFresh: () => void | Promise<void>;
   refreshSkills: (options?: { force?: boolean }) => void | Promise<void>;
-  refreshHubSkills: (options?: { force?: boolean }) => void | Promise<void>;
+  refreshHubSkills: (options?: { force?: boolean; query?: string }) => void | Promise<void>;
   refreshCloudOrgSkills: (options?: { force?: boolean }) => void | Promise<void>;
   setHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
   addHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
   removeHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
   installSkillCreator: () => Promise<InstallResult>;
   installCloudOrgSkill: (skill: DenOrgSkillCard) => Promise<InstallResult>;
-  installHubSkill: (name: string) => Promise<InstallResult>;
+  installHubSkill: (skill: HubSkillCard) => Promise<InstallResult>;
   importLocalSkill: () => void | Promise<void>;
   revealSkillsFolder: () => void | Promise<void>;
   readSkill: (name: string) => Promise<{ content: string } | null>;
@@ -132,11 +135,6 @@ type SkillsViewLocalState = {
   uninstallTarget: SkillCard | null;
   searchQuery: string;
   activeFilter: SkillsFilter;
-  customRepoOpen: boolean;
-  customRepoOwner: string;
-  customRepoName: string;
-  customRepoRef: string;
-  customRepoError: string | null;
   shareTarget: SkillCard | null;
   cloudSessionNonce: number;
   shareTeamBusy: boolean;
@@ -164,11 +162,6 @@ const initialSkillsViewLocalState: SkillsViewLocalState = {
   uninstallTarget: null,
   searchQuery: "",
   activeFilter: "all",
-  customRepoOpen: false,
-  customRepoOwner: "",
-  customRepoName: "",
-  customRepoRef: "main",
-  customRepoError: null,
   shareTarget: null,
   cloudSessionNonce: 0,
   shareTeamBusy: false,
@@ -238,11 +231,6 @@ export function SkillsView(props: SkillsViewProps) {
     uninstallTarget,
     searchQuery,
     activeFilter,
-    customRepoOpen,
-    customRepoOwner,
-    customRepoName,
-    customRepoRef,
-    customRepoError,
     shareTarget,
     cloudSessionNonce,
     shareTeamBusy,
@@ -266,11 +254,6 @@ export function SkillsView(props: SkillsViewProps) {
   const setUninstallTarget = (value: SetStateAction<SkillCard | null>) => setLocal("uninstallTarget", value);
   const setSearchQuery = (value: SetStateAction<string>) => setLocal("searchQuery", value);
   const setActiveFilter = (value: SetStateAction<SkillsFilter>) => setLocal("activeFilter", value);
-  const setCustomRepoOpen = (value: SetStateAction<boolean>) => setLocal("customRepoOpen", value);
-  const setCustomRepoOwner = (value: SetStateAction<string>) => setLocal("customRepoOwner", value);
-  const setCustomRepoName = (value: SetStateAction<string>) => setLocal("customRepoName", value);
-  const setCustomRepoRef = (value: SetStateAction<string>) => setLocal("customRepoRef", value);
-  const setCustomRepoError = (value: SetStateAction<string | null>) => setLocal("customRepoError", value);
   const setShareTeamBusy = (value: SetStateAction<boolean>) => setLocal("shareTeamBusy", value);
   const setShareTeamError = (value: SetStateAction<string | null>) => setLocal("shareTeamError", value);
   const setShareTeamSuccess = (value: SetStateAction<string | null>) => setLocal("shareTeamSuccess", value);
@@ -285,8 +268,7 @@ export function SkillsView(props: SkillsViewProps) {
   const setInstallingCloudSkillId = (value: SetStateAction<string | null>) => setLocal("installingCloudSkillId", value);
 
   const maskError = useCallback(
-    (value: unknown) =>
-      value instanceof Error ? value.message : t("common.something_went_wrong"),
+    (value: unknown) => toChineseUserMessage(value, t("common.something_went_wrong")),
     [],
   );
 
@@ -296,6 +278,7 @@ export function SkillsView(props: SkillsViewProps) {
     const onDenSession = () => {
       dispatchLocal({ type: "denSessionUpdated" });
       void extensions.refreshCloudOrgSkills({ force: true });
+      void extensions.refreshHubSkills({ force: true });
     };
     window.addEventListener("openwork-den-session-updated", onDenSession);
     return () => window.removeEventListener("openwork-den-session-updated", onDenSession);
@@ -336,8 +319,6 @@ export function SkillsView(props: SkillsViewProps) {
   const hubSkills = extensions.hubSkills();
   const cloudOrgSkills = extensions.cloudOrgSkills();
   const importedCloudSkills = extensions.importedCloudSkills();
-  const hubRepo = extensions.hubRepo();
-  const hubRepos = extensions.hubRepos();
   const skillsStatus = extensions.skillsStatus();
   const hubSkillsStatus = extensions.hubSkillsStatus();
   const cloudOrgSkillsStatus = extensions.cloudOrgSkillsStatus();
@@ -359,19 +340,8 @@ export function SkillsView(props: SkillsViewProps) {
   const installedNames = useMemo(() => new Set(skills.map((skill) => skill.name)), [skills]);
 
   const filteredHubSkills = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const items = hubSkills.filter((skill) => !installedNames.has(skill.name));
-    if (!query) return items;
-    return items.filter((skill) => {
-      const description = skill.description ?? "";
-      const trigger = skill.trigger ?? "";
-      return (
-        skill.name.toLowerCase().includes(query) ||
-        description.toLowerCase().includes(query) ||
-        trigger.toLowerCase().includes(query)
-      );
-    });
-  }, [hubSkills, installedNames, searchQuery]);
+    return hubSkills.filter((skill) => !installedNames.has(skill.slug));
+  }, [hubSkills, installedNames]);
 
   const filteredCloudOrgSkills = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -431,20 +401,19 @@ export function SkillsView(props: SkillsViewProps) {
 
   const shareModalSubtitle = t("skills.share_subtitle_team");
 
-  const activeHubRepoLabel = useMemo(
-    () => (hubRepo ? `${hubRepo.owner}/${hubRepo.repo}@${hubRepo.ref}` : t("skills.no_hub_repo_label")),
-    [hubRepo],
-  );
-
-  const hasDefaultHubRepo = useMemo(
-    () => hubRepos.some((repo) => `${repo.owner}/${repo.repo}@${repo.ref}` === "different-ai/openwork-hub@main"),
-    [hubRepos],
-  );
-
   const showInstalledSection = activeFilter === "all" || activeFilter === "installed";
   const showCloudSection = activeFilter === "all" || activeFilter === "cloud";
   const showHubSection = activeFilter === "all" || activeFilter === "hub";
   const canCreateInChat = !props.busy && (props.canInstallSkillCreator || props.canUseDesktopTools);
+
+  useEffect(() => {
+    if (!showHubSection) return;
+    const query = searchQuery.trim();
+    const timer = window.setTimeout(() => {
+      void extensions.refreshHubSkills({ force: true, query: query.length >= 2 ? query : "" });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [extensions, searchQuery, showHubSection]);
 
   const resolveSharePermission = () => {
     const choice = sharePermissionChoice.trim();
@@ -471,9 +440,9 @@ export function SkillsView(props: SkillsViewProps) {
   const refreshCatalogs = useCallback(() => {
     if (props.busy) return;
     void extensions.refreshSkills({ force: true });
-    void extensions.refreshHubSkills({ force: true });
+    void extensions.refreshHubSkills({ force: true, query: searchQuery.trim() });
     void extensions.refreshCloudOrgSkills({ force: true });
-  }, [extensions, props.busy]);
+  }, [extensions, props.busy, searchQuery]);
 
   const installSkillCreator = useCallback(async () => {
     if (props.busy || installingSkillCreator) return;
@@ -521,11 +490,12 @@ export function SkillsView(props: SkillsViewProps) {
   const installFromHub = useCallback(
     async (skill: HubSkillCard) => {
       if (props.busy || installingHubSkill) return;
-      setInstallingHubSkill(skill.name);
-      toast.info(`${t("skills.installing_prefix")} ${skill.name}...`);
+      setInstallingHubSkill(skill.id);
+      toast.info(t("skills.online_install_checking", undefined, { name: skill.name }));
       try {
-        const result = await extensions.installHubSkill(skill.name);
-        toast.success(result.message);
+        const result = await extensions.installHubSkill(skill);
+        if (result.ok) toast.success(result.message);
+        else toast.error(result.message);
       } catch (error) {
         toast.error(maskError(error));
       } finally {
@@ -545,7 +515,7 @@ export function SkillsView(props: SkillsViewProps) {
 
   const openCloudSignIn = useCallback(() => {
     const base = readDenSettings().baseUrl?.trim() || DEFAULT_DEN_BASE_URL;
-    // Label stays "Sign in"; opens the sign-up tab (returning users can toggle).
+    // 注册页也允许已有员工切换到登录，因此统一从公司账号入口打开。
     props.onOpenLink(buildDenAuthUrl(base, "sign-up"));
   }, [props]);
 
@@ -570,7 +540,7 @@ export function SkillsView(props: SkillsViewProps) {
     setShareTeamSuccess(null);
     try {
       const skill = await extensions.readSkill(shareTarget.name);
-      if (!skill) throw new Error("Failed to load skill");
+      if (!skill) throw new Error("无法读取该技能，请刷新后重试。");
       const sharing = resolveSharePermission();
       const { orgName, orgId } = await saveInstalledSkillToOpenWorkOrg({
         skillText: skill.content,
@@ -630,43 +600,6 @@ export function SkillsView(props: SkillsViewProps) {
       setSelectedError(maskError(error));
     }
   }, [extensions, maskError, selectedContent, selectedDirty, selectedSkill]);
-
-  const selectHubRepo = useCallback(
-    (repo: HubSkillRepo) => {
-      void Promise.resolve(extensions.setHubRepo(repo)).then(() => {
-        void extensions.refreshHubSkills({ force: true });
-      });
-    },
-    [extensions],
-  );
-
-  const openCustomRepoModal = useCallback(() => {
-    if (props.busy) return;
-    setCustomRepoOpen(true);
-    setCustomRepoOwner(hubRepo?.owner ?? "");
-    setCustomRepoName(hubRepo?.repo ?? "");
-    setCustomRepoRef(hubRepo?.ref || "main");
-    setCustomRepoError(null);
-  }, [hubRepo, props.busy]);
-
-  const closeCustomRepoModal = useCallback(() => {
-    setCustomRepoOpen(false);
-    setCustomRepoError(null);
-  }, []);
-
-  const saveCustomRepo = useCallback(() => {
-    const owner = customRepoOwner.trim();
-    const repo = customRepoName.trim();
-    const ref = customRepoRef.trim() || "main";
-    if (!owner || !repo) {
-      setCustomRepoError(t("skills.owner_repo_required"));
-      return;
-    }
-    void Promise.resolve(extensions.addHubRepo({ owner, repo, ref })).then(() => {
-      void extensions.refreshHubSkills({ force: true });
-    });
-    closeCustomRepoModal();
-  }, [closeCustomRepoModal, customRepoName, customRepoOwner, customRepoRef, extensions]);
 
   const isOpenworkInjectedSkill = (skill: SkillCard) => {
     const normalizedName = skill.name.trim().toLowerCase();
@@ -991,76 +924,18 @@ export function SkillsView(props: SkillsViewProps) {
         <div className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h3 className={sectionTitleClass}>{t("skills.available_from_hub")}</h3>
-              <p className="mt-1 text-[13px] text-dls-secondary">{t("skills.hub_desc")}</p>
+              <h3 className={sectionTitleClass}>{t("skills.online_title")}</h3>
+              <p className="mt-1 text-[13px] text-dls-secondary">{t("skills.online_desc")}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  void Promise.resolve(extensions.addHubRepo({ owner: "different-ai", repo: "openwork-hub", ref: "main" })).then(() => {
-                    void extensions.refreshHubSkills({ force: true });
-                  });
-                }}
-                className={pillGhostClass}
-                disabled={props.busy || hasDefaultHubRepo}
-              >
-                <Plus size={14} />
-                {t("skills.add_openwork_hub")}
-              </button>
-              <button type="button" onClick={openCustomRepoModal} disabled={props.busy} className={pillSecondaryClass}>
-                <Plus size={14} />
-                {t("skills.add_git_repo")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void extensions.refreshHubSkills({ force: true })}
-                disabled={props.busy}
-                className={pillSecondaryClass}
-              >
-                <RefreshCw size={14} />
-                {t("skills.refresh_hub")}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-[20px] border border-dls-border bg-dls-surface p-4">
-            <div className="text-[12px] text-dls-secondary">
-              {t("skills.source_label")}: <span className="font-mono text-dls-text">{activeHubRepoLabel}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {hubRepos.map((repo) => {
-                const key = `${repo.owner}/${repo.repo}@${repo.ref}`;
-                const active = hubRepo ? key === `${hubRepo.owner}/${hubRepo.repo}@${hubRepo.ref}` : false;
-                return (
-                  <div key={key} className="inline-flex items-center overflow-hidden rounded-full border border-dls-border bg-dls-surface">
-                    <button
-                      type="button"
-                      onClick={() => selectHubRepo(repo)}
-                      className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                        active ? "bg-dls-accent text-[var(--dls-accent-fg)]" : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                      }`}
-                      disabled={props.busy}
-                    >
-                      {key}
-                    </button>
-                    <button
-                      type="button"
-                      className="px-2 py-1.5 text-[12px] text-dls-secondary transition-colors hover:bg-dls-hover hover:text-red-11"
-                      onClick={() => {
-                        void Promise.resolve(extensions.removeHubRepo(repo)).then(() => {
-                          void extensions.refreshHubSkills({ force: true });
-                        });
-                      }}
-                      disabled={props.busy}
-                      title={t("skills.remove_saved_repo")}
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => void extensions.refreshHubSkills({ force: true, query: searchQuery.trim() })}
+              disabled={props.busy}
+              className={pillSecondaryClass}
+            >
+              <RefreshCw size={14} />
+              {t("skills.online_refresh")}
+            </button>
           </div>
 
           {hubSkillsStatus ? (
@@ -1071,49 +946,57 @@ export function SkillsView(props: SkillsViewProps) {
 
           {filteredHubSkills.length === 0 ? (
             <div className="rounded-[20px] border border-dashed border-dls-border bg-dls-surface px-5 py-8 text-[14px] text-dls-secondary">
-              {hubRepo ? t("skills.no_hub_skills") : t("skills.no_hub_repo_selected")}
+              {t("skills.online_empty")}
             </div>
           ) : (
             <div className="rounded-[24px] bg-dls-hover p-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filteredHubSkills.map((skill) => (
-                  <div key={`${skill.source.owner}/${skill.source.repo}/${skill.name}`} className={`${panelCardClass} flex flex-col gap-4 text-left`}>
+                  <div key={skill.id} className={`${panelCardClass} flex flex-col gap-4 text-left`}>
                     <div className="flex min-w-0 gap-4">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-dls-border bg-dls-hover">
                         <Package size={20} className="text-dls-secondary" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="truncate text-[14px] font-semibold text-dls-text">{skill.name}</h4>
-                        <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-dls-secondary">
-                          {skill.description || t("skills.from_repo", undefined, { owner: skill.source.owner, repo: skill.source.repo })}
-                        </p>
+                        <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-dls-secondary">{skill.source}</p>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-dls-secondary">
-                          <span className={`${tagClass} font-mono`}>{skill.source.owner}/{skill.source.repo}</span>
-                          {skill.trigger ? (
-                            <span className={tagClass} title={t("skills.trigger_label", undefined, { trigger: skill.trigger })}>
-                              {t("skills.trigger_label", undefined, { trigger: skill.trigger })}
-                            </span>
-                          ) : null}
+                          <span className={tagClass}>{t("skills.online_install_count", undefined, { count: skill.installs })}</span>
+                          <span className={tagClass}>{t("skills.online_verified_source")}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between gap-3 border-t border-dls-border pt-4">
-                      <span className={tagClass}>{t("skills.hub_label")}</span>
-                      <button
+                      <span className={`${tagClass} inline-flex items-center gap-1`}>
+                        <ShieldCheck size={12} />
+                        {t("skills.online_audit_before_install")}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={pillGhostClass}
+                          onClick={() => props.onOpenLink(skill.url)}
+                          disabled={props.busy}
+                          title={t("skills.online_view_source")}
+                        >
+                          <SquareArrowOutUpRight size={14} />
+                        </button>
+                        <button
                         type="button"
-                        className={installingHubSkill === skill.name ? pillSecondaryClass : pillPrimaryClass}
+                        className={installingHubSkill === skill.id ? pillSecondaryClass : pillPrimaryClass}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
                           void installFromHub(skill);
                         }}
-                        disabled={props.busy || installingHubSkill === skill.name}
+                        disabled={props.busy || installingHubSkill === skill.id}
                         title={t("skills.install_name_title", undefined, { name: skill.name })}
                       >
-                        {installingHubSkill === skill.name ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        {installingHubSkill === skill.name ? t("skills.installing") : t("common.add")}
-                      </button>
+                        {installingHubSkill === skill.id ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        {installingHubSkill === skill.id ? t("skills.installing") : t("skills.install")}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1259,71 +1142,6 @@ export function SkillsView(props: SkillsViewProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={customRepoOpen}
-        onOpenChange={(open) => {
-          if (!open) closeCustomRepoModal();
-        }}
-      >
-        <DialogContent showCloseButton={false} className="w-full max-w-lg overflow-hidden sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{t("skills.add_custom_repo")}</DialogTitle>
-              <DialogDescription>{t("skills.github_repo_hint")}</DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="space-y-1">
-                  <div className="text-xs font-semibold uppercase tracking-widest text-dls-secondary">{t("skills.owner_label")}</div>
-                  <input
-                    type="text"
-                    value={customRepoOwner}
-                    onChange={(event) => setCustomRepoOwner(event.currentTarget.value)}
-                    placeholder="公司 GitHub 账号"
-                    className="w-full rounded-lg border border-dls-border bg-dls-hover px-3 py-2 text-xs font-mono text-dls-text focus:outline-none"
-                    spellCheck={false}
-                  />
-                </label>
-                <label className="space-y-1">
-                  <div className="text-xs font-semibold uppercase tracking-widest text-dls-secondary">{t("skills.repo_label")}</div>
-                  <input
-                    type="text"
-                    value={customRepoName}
-                    onChange={(event) => setCustomRepoName(event.currentTarget.value)}
-                    placeholder="公司 Skills 仓库"
-                    className="w-full rounded-lg border border-dls-border bg-dls-hover px-3 py-2 text-xs font-mono text-dls-text focus:outline-none"
-                    spellCheck={false}
-                  />
-                </label>
-              </div>
-
-              <label className="space-y-1">
-                <div className="text-xs font-semibold uppercase tracking-widest text-dls-secondary">{t("skills.ref_label")}</div>
-                <input
-                  type="text"
-                  value={customRepoRef}
-                  onChange={(event) => setCustomRepoRef(event.currentTarget.value)}
-                  placeholder="默认分支名称"
-                  className="w-full rounded-lg border border-dls-border bg-dls-hover px-3 py-2 text-xs font-mono text-dls-text focus:outline-none"
-                  spellCheck={false}
-                />
-              </label>
-
-              {customRepoError ? <div className="rounded-xl border border-red-7/20 bg-red-1/40 px-4 py-3 text-xs text-red-12">{customRepoError}</div> : null}
-            </div>
-            <DialogFooter>
-              <DialogClose
-                disabled={props.busy}
-                render={<Button variant="outline" disabled={props.busy} />}
-              >
-                {t("common.cancel")}
-              </DialogClose>
-              <Button variant="secondary" onClick={saveCustomRepo} disabled={props.busy}>
-                {t("skills.save_and_load")}
-              </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

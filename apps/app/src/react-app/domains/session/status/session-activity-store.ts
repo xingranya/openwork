@@ -279,7 +279,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     set((state) => updateRecord(state, workspace, session, (record) => ({
       ...record,
       errorActive: true,
-      errorMessage: message ? message : "Session failed",
+      errorMessage: message ? message : "会话运行失败",
       runActive: false,
       assistantOutput: false,
       compacting: false,

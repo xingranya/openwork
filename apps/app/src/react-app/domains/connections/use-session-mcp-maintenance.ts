@@ -7,6 +7,7 @@ import {
   type DenSettings,
 } from "../../../app/lib/den";
 import { recordInspectorEvent } from "../../../app/lib/app-inspector";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import type {
   OpenworkCloudMcpFailure,
   OpenworkCloudMcpHealth,
@@ -82,8 +83,24 @@ function genericCloudMcpMaintenanceIssue(input?: {
     code: input?.code ?? "cloud_mcp_maintenance_failed",
     stage: "engine_delivery",
     retryable: input?.retryable ?? true,
-    recommendedAction: "Retry, then open Settings → Connect if the problem continues.",
-    message: input?.message ?? "OpenWork could not verify connected service tools for this workspace.",
+    recommendedAction: "请重试；如果问题仍然存在，请前往“设置 > 公司连接”检查。",
+    message: toChineseUserMessage(input?.message, "FoxWork 无法确认当前工作区可以使用公司工具。"),
+  };
+}
+
+function localizeCloudMcpMaintenanceIssue(
+  issue: CloudMcpMaintenanceIssue,
+): CloudMcpMaintenanceIssue {
+  return {
+    ...issue,
+    recommendedAction: toChineseUserMessage(
+      issue.recommendedAction,
+      "请重试；如果问题仍然存在，请前往“设置 > 公司连接”检查。",
+    ),
+    message: toChineseUserMessage(
+      issue.message,
+      "FoxWork 无法确认当前工作区可以使用公司工具。",
+    ),
   };
 }
 
@@ -97,7 +114,9 @@ function failedCloudMcpBackgroundSync(input: {
     outcome: "failed",
     status: "failed",
     health: input.health,
-    issue: input.issue ?? genericCloudMcpMaintenanceIssue({ code: input.code, message: input.message }),
+    issue: input.issue
+      ? localizeCloudMcpMaintenanceIssue(input.issue)
+      : genericCloudMcpMaintenanceIssue({ code: input.code, message: input.message }),
   };
 }
 
@@ -132,6 +151,7 @@ export async function runSessionMcpMaintenanceTask(input: {
   targetKey: string;
   task: () => Promise<void>;
   timeoutMs?: number;
+  onTimeout?: () => void;
 }): Promise<boolean> {
   if (maintenanceInFlight.has(input.targetKey)) return false;
   const runToken = Symbol("session-mcp-maintenance-run");
@@ -159,6 +179,7 @@ export async function runSessionMcpMaintenanceTask(input: {
     ]);
     if (settled.kind === "timed_out") {
       recordCloudMcpMaintenanceOutcome(input.targetKey, { status: "timed_out" });
+      input.onTimeout?.();
     } else if (settled.kind === "error") {
       recordCloudMcpMaintenanceOutcome(input.targetKey, { status: "error", detail: settled.detail });
     } else {
@@ -258,7 +279,7 @@ export async function syncCloudControlMcpInBackground(input: {
       return failedCloudMcpBackgroundSync({
         health: result.health,
         code: "cloud_mcp_token_mint_failed",
-        message: "OpenWork could not refresh Cloud authentication for connected service tools.",
+        message: "FoxWork 无法刷新公司工具的登录状态。",
       });
     }
   }
@@ -351,10 +372,13 @@ export function useSessionMcpMaintenance(input: {
     const directory = input.directory.trim();
     const client = input.client;
     const opencodeClient = input.opencodeClient;
-    if (!client || !opencodeClient || !workspaceId || !directory) {
+    const canSyncCompanyTools = Boolean(input.cloudSignedIn && client && workspaceId);
+    const canHealRuntimeTools = Boolean(client && opencodeClient && workspaceId && directory);
+    if (!canSyncCompanyTools && !canHealRuntimeTools) {
       setCloudMcpState(IDLE_CLOUD_MCP_MAINTENANCE_STATE);
       return;
     }
+    if (!client || !workspaceId) return;
     const settings = readDenSettings();
     const targetKey = getSessionMcpMaintenanceTargetKey({
       client,
@@ -416,6 +440,18 @@ export function useSessionMcpMaintenance(input: {
       if (cancelled) return;
       const started = await runSessionMcpMaintenanceTask({
         targetKey,
+        onTimeout: () => {
+          if (cancelled || !input.cloudSignedIn) return;
+          setCloudMcpState({
+            status: "failed",
+            issue: genericCloudMcpMaintenanceIssue({
+              code: "cloud_mcp_maintenance_timeout",
+              message: "检查公司工具超时，请检查网络或公司服务状态后重试。",
+            }),
+            attempt: 1,
+            maxAttempts: 1,
+          });
+        },
         task: async () => {
           if (input.cloudSignedIn) {
             await runCloudMcpMaintenanceWithRetry({
@@ -427,15 +463,17 @@ export function useSessionMcpMaintenance(input: {
               onAttempt: recordCloudAttempt,
             });
           }
-          await healWorkspaceMcpInBackground({
-            client,
-            workspaceId,
-            opencodeClient,
-            directory,
-          }).catch(() => {
-            recordInspectorEvent("mcp.session_reauth_failed", { workspaceId });
-            return false;
-          });
+          if (opencodeClient && directory) {
+            await healWorkspaceMcpInBackground({
+              client,
+              workspaceId,
+              opencodeClient,
+              directory,
+            }).catch(() => {
+              recordInspectorEvent("mcp.session_reauth_failed", { workspaceId });
+              return false;
+            });
+          }
         },
       });
       if (!started) scheduleBusyRetry();

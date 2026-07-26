@@ -69,7 +69,7 @@ function ContextMenuSurface({
     >
       <ContextMenuContent
         role="menu"
-        aria-label={`${request.source} context menu`}
+        aria-label={`${request.source} 右键菜单`}
         className="w-full"
       >
         {request.items.map((item) => {

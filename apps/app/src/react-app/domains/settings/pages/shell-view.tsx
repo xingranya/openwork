@@ -280,7 +280,7 @@ export function ShellCustomizationView() {
           <Alert>
             <Info />
             <AlertDescription>
-              {brandAppName === "OpenWork" ? "公司尚未设置应用名称。" : "应用名称由公司统一管理。"}
+              {brandAppName === "FoxWork" ? "应用名称由公司统一管理。" : "应用名称由公司统一管理。"}
             </AlertDescription>
           </Alert>
         </LayoutSectionItem>

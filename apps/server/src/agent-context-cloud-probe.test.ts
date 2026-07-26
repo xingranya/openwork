@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   probeOpenworkCloudCatalog,
@@ -8,7 +8,7 @@ import {
 } from "./agent-context-cloud-probe.js";
 
 const TOKEN = "Bearer ow_diagnostics_token_abcdefghijklmnopqrstuvwxyz";
-const ENDPOINT = "https://app.openworklabs.com/api/den/mcp/agent";
+const ENDPOINT = "https://den.foxwork.test/mcp/agent";
 const SESSION_ID = "diagnostics-session-id";
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -111,6 +111,10 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 
 afterEach(() => {
   delete process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS;
+});
+
+beforeEach(() => {
+  process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS = "https://den.foxwork.test";
 });
 
 describe("OpenWork Cloud catalog probe", () => {

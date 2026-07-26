@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
-import { ArrowLeft, ArrowRight, Cloud, Columns2, FileText, Globe, Mic2, Settings2, TextSearch, X, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Cloud, Columns2, FileText, Globe, Mic2, Settings2, Sparkles, TextSearch, X, Zap } from "lucide-react";
 
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { t } from "../../../../i18n";
@@ -42,6 +42,7 @@ import { AppSidebar } from "../sidebar/app-sidebar";
 import { useSessionManagementStore } from "../sidebar/session-management-store";
 import { SessionSurface, type SessionSurfaceProps } from "../surface/session-surface";
 import { useSessionFindStore } from "../surface/find-store";
+import { shouldShowDelayedSessionLoading } from "../status/session-readiness";
 import {
   SidebarInset,
   SidebarProvider,
@@ -208,8 +209,10 @@ export type SessionPageProps = {
   onDeleteSession?: (sessionId: string) => Promise<void> | void;
   onArchiveSession?: (sessionId: string, archived: boolean) => Promise<void> | void;
   onAccessibleTargetsChange?: (targets: OpenTarget[]) => void;
-  /** Settings content rendered inside the right pane when the settings rail icon is active. */
-  settingsSlot?: React.ReactNode;
+  /** 点击技能入口时在右侧显示的技能页面。 */
+  skillsSlot?: React.ReactNode;
+  /** 点击扩展入口时在右侧显示的扩展页面。 */
+  extensionsSlot?: React.ReactNode;
   terminalOpen?: boolean;
   onTerminalOpenChange?: (open: boolean) => void;
   onSessionTabsChange?: (tabs: OpenSessionTab[]) => void;
@@ -342,7 +345,9 @@ export function SessionPage(props: SessionPageProps) {
   const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
   const sidePanelOpen = activeSidePanel !== null;
   const panelRailActive = activeSidePanel === "panel";
+  const skillsRailActive = activeSidePanel === "skills";
   const extensionsRailActive = activeSidePanel === "extensions";
+  const capabilityRailActive = skillsRailActive || extensionsRailActive;
   const voiceRailActive = activeSidePanel === "voice";
   const voiceExtension = useMemo(
     () => OPENWORK_EXTENSION_CATALOG.find((entry) => getExtensionId(entry) === "openwork-voice") ?? null,
@@ -609,6 +614,9 @@ export function SessionPage(props: SessionPageProps) {
   const openExtensionsRailPane = useCallback(() => {
     toggleCurrentSidePanel("extensions");
   }, [toggleCurrentSidePanel]);
+  const openSkillsRailPane = useCallback(() => {
+    toggleCurrentSidePanel("skills");
+  }, [toggleCurrentSidePanel]);
   const openVoiceRailPane = useCallback(() => {
     toggleCurrentSidePanel("voice");
   }, [toggleCurrentSidePanel]);
@@ -688,7 +696,7 @@ export function SessionPage(props: SessionPageProps) {
     } : null
   ), [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
   useControlAction(closeVoicePanelControlAction);
-  const [showDelayedSessionLoadingState, setShowDelayedSessionLoadingState] = useState(false);
+  const [sessionLoadingDelayElapsed, setSessionLoadingDelayElapsed] = useState(false);
 
   const selectedSessionTitle = useMemo(
     () => sessionTitleForId(props.sidebar.workspaceSessionGroups, props.selectedSessionId),
@@ -770,6 +778,10 @@ export function SessionPage(props: SessionPageProps) {
     props.startupPhase !== "ready";
   const showSessionLoadingState =
     Boolean(props.selectedSessionId) && props.sessionLoadingById(props.selectedSessionId) && !showWorkspaceSetupEmptyState;
+  const showDelayedSessionLoadingState = shouldShowDelayedSessionLoading({
+    delayElapsed: sessionLoadingDelayElapsed,
+    sessionLoading: showSessionLoadingState,
+  });
   const sidebarInitialLoading = useMemo(() => getSidebarInitialLoading(props.sidebar), [props.sidebar]);
   // Derive the main-pane error from the same data the sidebar uses so the two
   // panes can never disagree. We check (in priority order):
@@ -793,10 +805,16 @@ export function SessionPage(props: SessionPageProps) {
     selectedWorkspaceGroupError ||
     "";
   const showSelectedWorkspaceError = Boolean(selectedWorkspaceErrorMessage);
-  const selectedWorkspaceErrorTitle =
-    props.selectedWorkspaceDisplay.workspaceType === "remote"
-      ? "Remote workspace unavailable"
-      : "OpenCode unavailable";
+  const isSelectedWorkspaceRemote = props.selectedWorkspaceDisplay.workspaceType === "remote";
+  const selectedWorkspaceErrorTitle = isSelectedWorkspaceRemote
+    ? "远程工作区暂时不可用"
+    : "工作区运行环境暂时不可用";
+  const selectedWorkspaceErrorDescription = toChineseUserMessage(
+    selectedWorkspaceErrorMessage,
+    isSelectedWorkspaceRemote
+      ? "无法连接远程工作区，请检查连接地址与访问权限后重试。"
+      : "无法连接此工作区，请检查本机服务后重试。",
+  );
 
   const reactSessionBaseUrl = props.opencodeBaseUrl?.trim() ?? "";
   const reactSessionToken =
@@ -870,11 +888,11 @@ export function SessionPage(props: SessionPageProps) {
 
   useEffect(() => {
     if (!showSessionLoadingState) {
-      setShowDelayedSessionLoadingState(false);
+      setSessionLoadingDelayElapsed(false);
       return;
     }
     const id = window.setTimeout(() => {
-      setShowDelayedSessionLoadingState(true);
+      setSessionLoadingDelayElapsed(true);
     }, 1000);
     return () => window.clearTimeout(id);
   }, [showSessionLoadingState]);
@@ -1273,7 +1291,7 @@ export function SessionPage(props: SessionPageProps) {
                       <div className="mx-auto max-w-lg rounded-2xl border border-red-7/35 bg-red-1/40 p-5 text-left shadow-[var(--dls-card-shadow)]">
                         <div className="text-sm font-medium text-red-11">{selectedWorkspaceErrorTitle}</div>
                         <p className="mt-2 whitespace-pre-wrap wrap-anywhere text-sm leading-6 text-red-11/90">
-                          {selectedWorkspaceErrorMessage}
+                          {selectedWorkspaceErrorDescription}
                         </p>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <Button
@@ -1436,14 +1454,18 @@ export function SessionPage(props: SessionPageProps) {
                 <ResizableHandle withHandle className="hidden lg:flex" />
                 <ResizablePanel
                   panelRef={browserPanelRef}
-                  defaultSize={`${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
-                  minSize={activeSidePanel === "extensions" ? "420px" : "320px"}
+                  defaultSize={`${capabilityRailActive ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
+                  minSize={capabilityRailActive ? "420px" : "320px"}
                   maxSize="70%"
                   className="min-h-0 overflow-hidden lg:flex lg:flex-col"
                 >
-                  {activeSidePanel === "extensions" && props.settingsSlot ? (
+                  {activeSidePanel === "skills" && props.skillsSlot ? (
                     <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
-                      {props.settingsSlot}
+                      {props.skillsSlot}
+                    </div>
+                  ) : activeSidePanel === "extensions" && props.extensionsSlot ? (
+                    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+                      {props.extensionsSlot}
                     </div>
                   ) : activeSidePanel === "voice" ? (
                     <VoicePanel
@@ -1524,9 +1546,23 @@ export function SessionPage(props: SessionPageProps) {
               size="icon-sm"
               className={cn(
                 "rounded-xl transition-colors hover:bg-muted hover:text-foreground",
+                skillsRailActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+              )}
+              onClick={props.skillsSlot ? openSkillsRailPane : props.onOpenSettings}
+              title="技能"
+              aria-label="技能"
+              aria-pressed={skillsRailActive}
+            >
+              <Sparkles size={17} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={cn(
+                "rounded-xl transition-colors hover:bg-muted hover:text-foreground",
                 extensionsRailActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
               )}
-              onClick={props.settingsSlot ? openExtensionsRailPane : props.onOpenSettings}
+              onClick={props.extensionsSlot ? openExtensionsRailPane : props.onOpenSettings}
               title="扩展"
               aria-label="扩展"
               aria-pressed={extensionsRailActive}

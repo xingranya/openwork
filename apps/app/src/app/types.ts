@@ -299,12 +299,53 @@ export type HubSkillRepo = {
 };
 
 export type HubSkillCard = {
+  id: string;
+  slug: string;
   name: string;
-  description?: string;
-  trigger?: string;
-  source: HubSkillRepo & {
-    path: string;
+  source: string;
+  installs: number;
+  sourceType: "github" | "well-known";
+  installUrl: string | null;
+  url: string;
+};
+
+export type SkillCatalogPagination = {
+  page: number;
+  perPage: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export type SkillCatalogAuditEntry = {
+  provider: string;
+  slug: string;
+  status: "pass" | "warn" | "fail";
+  summary: string;
+  auditedAt: string;
+  riskLevel?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  categories?: string[];
+};
+
+export type SkillCatalogAudit = {
+  id: string;
+  source: string;
+  slug: string;
+  audits: SkillCatalogAuditEntry[];
+  assessment: {
+    verdict: "pass" | "warn" | "fail";
+    installable: boolean;
+    message: string;
   };
+};
+
+export type SkillCatalogDetail = {
+  id: string;
+  source: string;
+  slug: string;
+  installs: number;
+  hash: string | null;
+  bundleHash: string;
+  files: Array<{ path: string; contents: string }>;
 };
 
 /** OpenWork Cloud (Den) org skill surfaced in the Skills catalog. */

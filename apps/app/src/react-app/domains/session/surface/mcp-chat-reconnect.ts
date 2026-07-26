@@ -2,6 +2,7 @@ import type { DenExternalMcpConnection } from "@/app/lib/den"
 
 export const CHAT_MCP_RECONNECT_POLL_INTERVAL_MS = 2_000
 export const CHAT_MCP_RECONNECT_TIMEOUT_MS = 90_000
+const MCP_RECONNECT_SCOPE_CHANGED = "公司账号已发生变化，请在当前工作区重新发起连接。"
 
 export type ChatMcpReconnectScope = {
   baseUrl: string
@@ -47,22 +48,21 @@ export async function waitForFreshMcpAuthorization(input: {
 
   while (now() - startedAt < timeoutMs) {
     if (!input.isScopeCurrent()) {
-      throw new Error("The active OpenWork Cloud account changed while reconnecting. Try again in this workspace.")
+      throw new Error(MCP_RECONNECT_SCOPE_CHANGED)
     }
     try {
       const connections = await input.listConnections()
       if (!input.isScopeCurrent()) {
-        throw new Error("The active OpenWork Cloud account changed while reconnecting. Try again in this workspace.")
+        throw new Error(MCP_RECONNECT_SCOPE_CHANGED)
       }
       const connection = connections.find((entry) => entry.id === input.connectionId)
       if (connection && hasFreshMcpAuthorization(connection, input.previousConnectedAt)) return connection
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("The active OpenWork Cloud account changed")) throw error
-      // A transient list failure should not turn a successful browser callback
-      // into a false failure. Keep polling until the bounded timeout.
+      if (error instanceof Error && error.message === MCP_RECONNECT_SCOPE_CHANGED) throw error
+      // 列表接口短暂失败时继续轮询，避免把已经完成的浏览器授权误判为失败。
     }
     await sleep(intervalMs)
   }
 
-  throw new Error(`Authorization for ${input.connectionName} did not finish. Complete it in the browser, then try reconnecting again.`)
+  throw new Error(`${input.connectionName}的授权尚未完成。请在浏览器中完成授权后重新连接。`)
 }

@@ -1,13 +1,4 @@
-import en from "./locales/en";
-import ja from "./locales/ja";
 import zh from "./locales/zh";
-import vi from "./locales/vi";
-import ptBR from "./locales/pt-BR";
-import th from "./locales/th";
-import fr from "./locales/fr";
-import ca from "./locales/ca";
-import es from "./locales/es";
-import ru from "./locales/ru";
 export const LANGUAGE_PREF_KEY = "openwork.language";
 
 /** FoxWork 固定使用的语言。 */
@@ -22,29 +13,16 @@ export const LANGUAGE_OPTIONS = [
   { value: "zh" as Language, label: "简体中文", nativeName: "简体中文" },
 ] as const;
 
-const PLURAL_SUFFIX_EMPTY_LANGUAGES = new Set<Language>(["ja", "zh", "th"]);
-
-/** 中文等语言不需要英文复数后缀。 */
+/** FoxWork 固定使用中文，不生成英文复数后缀。 */
 export const pluralSuffix = (locale: Language, count: number): string => {
-  if (PLURAL_SUFFIX_EMPTY_LANGUAGES.has(locale)) {
-    return "";
-  }
-
-  return count === 1 ? "" : "s";
+  void locale;
+  void count;
+  return "";
 };
 
-/** 翻译资源。FoxWork 运行时只读取简体中文。 */
-const TRANSLATIONS: Record<Language, Record<string, string>> = {
-  en,
-  ja,
+/** 发行包只载入简体中文资源。 */
+const TRANSLATIONS: Partial<Record<Language, Record<string, string>>> = {
   zh,
-  vi,
-  "pt-BR": ptBR,
-  th,
-  fr,
-  ca,
-  es,
-  ru,
 };
 
 /** 判断输入是否为受支持的语言值。 */
@@ -77,20 +55,10 @@ const lookupEntry = (loc: Language, candidateKey: string): string | null => {
   return null;
 };
 
-const pluralRulesByLanguage: Record<Language, Intl.PluralRules> = {
-  en: new Intl.PluralRules("en"),
-  ja: new Intl.PluralRules("ja"),
-  zh: new Intl.PluralRules("zh"),
-  vi: new Intl.PluralRules("vi"),
-  "pt-BR": new Intl.PluralRules("pt-BR"),
-  th: new Intl.PluralRules("th"),
-  fr: new Intl.PluralRules("fr"),
-  ca: new Intl.PluralRules("ca"),
-  es: new Intl.PluralRules("es"),
-  ru: new Intl.PluralRules("ru"),
-};
+const chinesePluralRules = new Intl.PluralRules("zh");
 const pluralRule = (loc: Language, count: number): Intl.LDMLPluralRule => {
-  return pluralRulesByLanguage[loc].select(count);
+  void loc;
+  return chinesePluralRules.select(count);
 };
 
 /** 按数量选择对应文案；中文优先使用基础键，并兼容带数量后缀的资源。 */

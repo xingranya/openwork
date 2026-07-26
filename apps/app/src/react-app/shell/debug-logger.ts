@@ -332,8 +332,8 @@ export function startDebugLogger(opts?: { serverUrl?: () => string | Promise<str
         durationMs: gap,
         message:
           level === "hang"
-            ? `Main thread stalled ~${gap}ms`
-            : `Webview resumed after ~${Math.round(gap / 1000)}s throttled/background (NOT a hang)`,
+            ? `主线程停顿约 ${gap} 毫秒`
+            : `界面从后台恢复，后台限速约 ${Math.round(gap / 1000)} 秒（并非卡死）`,
         extra: {
           resume: level !== "hang",
           pendingFetchCount: pendingFetches.size,
@@ -357,7 +357,7 @@ export function startDebugLogger(opts?: { serverUrl?: () => string | Promise<str
     const handleVisibilityChange = () => {
       enqueue({
         level: "meta",
-        message: `visibilitychange: ${document.visibilityState}`,
+        message: `页面可见性变化：${document.visibilityState}`,
         extra: { visibility: document.visibilityState },
       });
     };
@@ -378,7 +378,7 @@ export function startDebugLogger(opts?: { serverUrl?: () => string | Promise<str
     queueSize: queue.length,
   }));
 
-  enqueue({ level: "meta", message: "debug-logger started", extra: { userAgent: navigator.userAgent } });
+  enqueue({ level: "meta", message: "调试日志已启动", extra: { userAgent: navigator.userAgent } });
 }
 
 function readMemoryUsage(): Record<string, unknown> | null {

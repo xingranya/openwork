@@ -3,6 +3,7 @@ import type {
   OpenworkCloudMcpHealth,
   OpenworkCloudMcpProviderModelContext,
 } from "../../../app/lib/openwork-server";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import type { CloudMcpUserState } from "./cloud-mcp-user-state";
 
 export const CLOUD_MCP_SUBMISSION_RETRY_DELAYS_MS = [1_000, 3_000];
@@ -102,25 +103,27 @@ function genericSubmissionIssue(input?: {
   retryable?: boolean;
   recommendedAction?: string;
 }): CloudMcpSubmissionIssue {
+  const fallbackAction = "请重试；如果问题仍然存在，请前往“设置 > 公司连接”检查。";
+  const fallbackMessage = "FoxWork 无法确认所选模型可以使用公司工具。";
   return {
     code: input?.code ?? "cloud_mcp_submission_readiness_failed",
     stage: input?.stage ?? "engine_delivery",
     retryable: input?.retryable ?? true,
-    recommendedAction: input?.recommendedAction ?? "Retry, then open Settings → Connect if the problem continues.",
-    message: input?.message ?? "OpenWork could not verify connected service tools for the selected model.",
+    recommendedAction: toChineseUserMessage(input?.recommendedAction, fallbackAction),
+    message: toChineseUserMessage(input?.message, fallbackMessage),
   };
 }
 
 function failureIssue(health: OpenworkCloudMcpHealth): CloudMcpSubmissionIssue {
   const failure = health.firstFailure;
   if (!failure) return genericSubmissionIssue();
-  return {
+  return genericSubmissionIssue({
     code: failure.code,
     stage: failure.stage,
     retryable: failure.retryable,
     recommendedAction: failure.recommendedAction,
     message: failure.message,
-  };
+  });
 }
 
 function healthShowsExplicitDisable(health: OpenworkCloudMcpHealth): boolean {
@@ -170,9 +173,9 @@ function authResolutionIssue(input?: { timedOut?: boolean }): CloudMcpSubmission
       ? "cloud_mcp_auth_resolution_timeout"
       : "cloud_mcp_auth_resolution_failed",
     message: input?.timedOut
-      ? "OpenWork timed out while restoring connected service access."
-      : "OpenWork could not finish restoring connected service access.",
-    recommendedAction: "Retry or open Settings → Connect.",
+      ? "FoxWork 恢复公司工具访问权限时超时。"
+      : "FoxWork 无法完成公司工具访问权限恢复。",
+    recommendedAction: "请重试，或前往“设置 > 公司连接”检查。",
   });
 }
 
@@ -232,7 +235,7 @@ export function assessCloudMcpSubmissionReadiness(input: {
       issue: genericSubmissionIssue({
         code: "cloud_mcp_direct_tools_unverified",
         stage: "tool_registration",
-        message: "OpenWork Cloud did not prove that search_capabilities and execute_capability are available.",
+        message: "公司服务尚未确认工具搜索和执行能力可用。",
       }),
     };
   }
@@ -248,7 +251,7 @@ export function assessCloudMcpSubmissionReadiness(input: {
       issue: genericSubmissionIssue({
         code: "cloud_mcp_submission_context_mismatch",
         stage: "provider_projection",
-        message: "Connected service tools were checked for a different provider or model.",
+        message: "公司工具的检查结果属于其他模型服务或模型。",
       }),
     };
   }
@@ -260,8 +263,8 @@ export function assessCloudMcpSubmissionReadiness(input: {
         code: "provider_tool_projection_unverified",
         stage: "provider_projection",
         retryable: false,
-        message: "The current engine cannot prove that connected service tools were injected into the selected model.",
-        recommendedAction: "Update or restart OpenWork, then Retry. Open Connect for detailed diagnostics.",
+        message: "当前运行环境无法确认公司工具已提供给所选模型。",
+        recommendedAction: "请更新或重启 FoxWork 后重试，并在“公司连接”中查看详细诊断。",
       }),
     };
   }
@@ -277,8 +280,8 @@ export function assessCloudMcpSubmissionReadiness(input: {
         code: "provider_tool_projection_missing",
         stage: "provider_projection",
         retryable: false,
-        message: "The selected model is missing search_capabilities or execute_capability.",
-        recommendedAction: "Choose a compatible model or open Settings → Connect for diagnostics.",
+        message: "所选模型缺少工具搜索或执行能力。",
+        recommendedAction: "请选择兼容模型，或前往“设置 > 公司连接”查看诊断。",
       }),
     };
   }
@@ -288,7 +291,7 @@ export function assessCloudMcpSubmissionReadiness(input: {
 function timeoutIssue(): CloudMcpSubmissionIssue {
   return genericSubmissionIssue({
     code: "cloud_mcp_submission_timeout",
-    message: "OpenWork timed out while preparing connected service tools.",
+    message: "FoxWork 准备公司工具时超时。",
   });
 }
 
@@ -314,7 +317,7 @@ function errorAssessment(error: unknown): CloudMcpSubmissionReadinessAssessment 
       ? timeoutIssue()
       : genericSubmissionIssue({
           code: "cloud_mcp_submission_check_failed",
-          message: "OpenWork could not check connected service tools before sending.",
+          message: "发送消息前，FoxWork 无法完成公司工具检查。",
         }),
   };
 }

@@ -217,44 +217,44 @@ export function verifyConnectLinkToken(input) {
 
   const parts = input.token.split(".");
   if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
-    return { ok: false, code: "invalid_token", message: "Token is not a three-part compact JWS." };
+    return { ok: false, code: "invalid_token", message: "连接凭据格式无效。" };
   }
   const [headerPart, payloadPart, signaturePart] = parts;
 
   const headerJson = base64UrlDecode(headerPart);
   if (headerJson === null) {
-    return { ok: false, code: "invalid_token", message: "Token header is not valid base64url." };
+    return { ok: false, code: "invalid_token", message: "连接凭据头部编码无效。" };
   }
   let header;
   try {
     header = JSON.parse(headerJson);
   } catch {
-    return { ok: false, code: "invalid_token", message: "Token header is not valid JSON." };
+    return { ok: false, code: "invalid_token", message: "连接凭据头部数据无效。" };
   }
   if (typeof header !== "object" || header === null) {
-    return { ok: false, code: "invalid_token", message: "Token header is not an object." };
+    return { ok: false, code: "invalid_token", message: "连接凭据头部结构无效。" };
   }
   if (header.alg !== CONNECT_LINK_ALGORITHM) {
-    return { ok: false, code: "invalid_token", message: `Token alg must be ${CONNECT_LINK_ALGORITHM}.` };
+    return { ok: false, code: "invalid_token", message: "连接凭据签名算法不受支持。" };
   }
   if ("crit" in header) {
-    return { ok: false, code: "invalid_token", message: "Token crit header is not supported." };
+    return { ok: false, code: "invalid_token", message: "连接凭据包含不受支持的关键头部。" };
   }
   if (header.typ !== undefined && header.typ !== "JWT") {
-    return { ok: false, code: "invalid_token", message: "Token typ must be JWT when present." };
+    return { ok: false, code: "invalid_token", message: "连接凭据类型无效。" };
   }
   const kid = header.kid;
   if (typeof kid !== "string" || kid.length === 0) {
-    return { ok: false, code: "invalid_token", message: "Token kid header is required." };
+    return { ok: false, code: "invalid_token", message: "连接凭据缺少密钥标识。" };
   }
 
   const publicKeyPem = input.publicKeys[kid];
   if (!publicKeyPem) {
-    return { ok: false, code: "unknown_kid", message: `No trusted key for kid ${kid}.` };
+    return { ok: false, code: "unknown_kid", message: `连接凭据使用了不受信任的密钥：${kid}` };
   }
 
   if (!BASE64URL_PATTERN.test(signaturePart)) {
-    return { ok: false, code: "invalid_token", message: "Token signature is not valid base64url." };
+    return { ok: false, code: "invalid_token", message: "连接凭据签名编码无效。" };
   }
   const signingInput = Buffer.from(`${headerPart}.${payloadPart}`, "utf8");
   const signature = Buffer.from(signaturePart, "base64url");
@@ -265,44 +265,44 @@ export function verifyConnectLinkToken(input) {
     signatureValid = false;
   }
   if (!signatureValid) {
-    return { ok: false, code: "bad_signature", message: "Token signature does not verify." };
+    return { ok: false, code: "bad_signature", message: "连接凭据签名校验失败。" };
   }
 
   const payloadJson = base64UrlDecode(payloadPart);
   if (payloadJson === null) {
-    return { ok: false, code: "invalid_token", message: "Token payload is not valid base64url." };
+    return { ok: false, code: "invalid_token", message: "连接凭据内容编码无效。" };
   }
   let payload;
   try {
     payload = JSON.parse(payloadJson);
   } catch {
-    return { ok: false, code: "invalid_token", message: "Token payload is not valid JSON." };
+    return { ok: false, code: "invalid_token", message: "连接凭据内容无效。" };
   }
   if (typeof payload !== "object" || payload === null) {
-    return { ok: false, code: "invalid_token", message: "Token payload is not an object." };
+    return { ok: false, code: "invalid_token", message: "连接凭据内容结构无效。" };
   }
   if (payload.aud !== CONNECT_LINK_AUDIENCE) {
-    return { ok: false, code: "wrong_audience", message: "Token audience is not the desktop connect audience." };
+    return { ok: false, code: "wrong_audience", message: "连接凭据不适用于 FoxWork 桌面端。" };
   }
   if (payload.v !== CONNECT_LINK_VERSION) {
-    return { ok: false, code: "wrong_version", message: "Token payload version is not supported." };
+    return { ok: false, code: "wrong_version", message: "连接凭据版本不受支持。" };
   }
 
   const claims = normalizeClaims(payload);
   if (!claims) {
-    return { ok: false, code: "malformed_claims", message: "Token claims failed validation." };
+    return { ok: false, code: "malformed_claims", message: "连接凭据内容校验失败。" };
   }
 
   if (claims.iat > now + skew) {
-    return { ok: false, code: "not_yet_valid", message: "Token is not valid yet." };
+    return { ok: false, code: "not_yet_valid", message: "连接凭据尚未生效。" };
   }
   if (claims.exp <= now - skew) {
-    return { ok: false, code: "expired", message: "Token has expired." };
+    return { ok: false, code: "expired", message: "连接凭据已过期。" };
   }
 
   const refusedUrl = findRefusedClaimUrl(claims, input.allowInsecureLoopback === true);
   if (refusedUrl) {
-    return { ok: false, code: "insecure_url", message: `Token target is not https: ${refusedUrl}` };
+    return { ok: false, code: "insecure_url", message: `连接目标未使用 HTTPS：${refusedUrl}` };
   }
 
   return { ok: true, claims, transport: "signed", kid };
@@ -322,7 +322,7 @@ export function verifyConnectLinkToken(input) {
 export function verifyConnectLinkUrl(rawUrl, options) {
   const token = extractConnectLinkToken(rawUrl);
   if (!token) {
-    return { ok: false, code: "invalid_token", message: "Not a connect deep link." };
+    return { ok: false, code: "invalid_token", message: "这不是有效的 FoxWork 连接链接。" };
   }
   return verifyConnectLinkToken({
     token,
@@ -345,12 +345,12 @@ export function verifyConnectLinkUrl(rawUrl, options) {
 export async function resolveConnectExchangeUrl(rawUrl, options) {
   const exchange = extractConnectExchange(rawUrl);
   if (!exchange) {
-    return { ok: false, code: "invalid_token", message: "Not a keyless connect deep link." };
+    return { ok: false, code: "invalid_token", message: "这不是有效的 FoxWork 免密连接链接。" };
   }
 
   const apiBaseUrl = normalizeExchangeApiBaseUrl(exchange.apiBaseUrl, options.allowInsecureLoopback === true);
   if (!apiBaseUrl) {
-    return { ok: false, code: "insecure_url", message: "Connection server must use HTTPS." };
+    return { ok: false, code: "insecure_url", message: "公司连接服务器必须使用 HTTPS。" };
   }
 
   const endpoint = new URL(apiBaseUrl);
@@ -368,33 +368,33 @@ export async function resolveConnectExchangeUrl(rawUrl, options) {
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    return { ok: false, code: "unavailable", message: "The organization server could not be reached." };
+    return { ok: false, code: "unavailable", message: "无法连接公司服务器。" };
   }
 
   if (response.status === 409) {
-    return { ok: false, code: "replayed", message: "This connect link was already used." };
+    return { ok: false, code: "replayed", message: "此连接链接已经使用。" };
   }
   if (response.status === 410) {
-    return { ok: false, code: "expired", message: "This connect link expired." };
+    return { ok: false, code: "expired", message: "此连接链接已过期。" };
   }
   if (!response.ok) {
     return response.status === 404
-      ? { ok: false, code: "invalid_token", message: "This connect link is not valid." }
-      : { ok: false, code: "unavailable", message: "The organization server refused the connection." };
+      ? { ok: false, code: "invalid_token", message: "此连接链接无效。" }
+      : { ok: false, code: "unavailable", message: "公司服务器拒绝了本次连接。" };
   }
 
   let payload;
   try {
     payload = await response.json();
   } catch {
-    return { ok: false, code: "malformed_claims", message: "The organization server returned invalid data." };
+    return { ok: false, code: "malformed_claims", message: "公司服务器返回的数据无效。" };
   }
   if (typeof payload !== "object" || payload === null || !("claims" in payload)) {
-    return { ok: false, code: "malformed_claims", message: "The organization server returned invalid data." };
+    return { ok: false, code: "malformed_claims", message: "公司服务器返回的数据无效。" };
   }
   const claims = normalizeClaims(payload.claims);
   if (!claims) {
-    return { ok: false, code: "malformed_claims", message: "Connection claims failed validation." };
+    return { ok: false, code: "malformed_claims", message: "公司连接信息校验失败。" };
   }
 
   const claimsApiBaseUrl = claims.den.apiBaseUrl
@@ -402,19 +402,19 @@ export async function resolveConnectExchangeUrl(rawUrl, options) {
     : null;
   const claimsIssuer = normalizeExchangeApiBaseUrl(claims.iss, options.allowInsecureLoopback === true);
   if (claimsApiBaseUrl !== apiBaseUrl || claimsIssuer !== apiBaseUrl) {
-    return { ok: false, code: "malformed_claims", message: "Connection server identity did not match the link." };
+    return { ok: false, code: "malformed_claims", message: "公司服务器身份与连接链接不一致。" };
   }
 
   const now = options.nowEpochSeconds ?? Math.floor(Date.now() / 1000);
   if (claims.iat > now + DEFAULT_CLOCK_SKEW_SECONDS) {
-    return { ok: false, code: "not_yet_valid", message: "Connection link is not valid yet." };
+    return { ok: false, code: "not_yet_valid", message: "连接链接尚未生效。" };
   }
   if (claims.exp <= now - DEFAULT_CLOCK_SKEW_SECONDS) {
-    return { ok: false, code: "expired", message: "Connection link expired." };
+    return { ok: false, code: "expired", message: "连接链接已过期。" };
   }
   const refusedUrl = findRefusedClaimUrl(claims, options.allowInsecureLoopback === true);
   if (refusedUrl) {
-    return { ok: false, code: "insecure_url", message: `Connection target is not https: ${refusedUrl}` };
+    return { ok: false, code: "insecure_url", message: `连接目标未使用 HTTPS：${refusedUrl}` };
   }
 
   return { ok: true, claims, transport: "exchange", kid: null };

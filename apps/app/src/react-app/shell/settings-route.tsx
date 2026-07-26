@@ -18,7 +18,10 @@ import {
   type OpenworkServerClient,
   type OpenworkWorkspaceInfo,
 } from "@/app/lib/openwork-server";
-import { resolveWorkspaceEndpoint } from "@/app/lib/workspace-endpoint";
+import {
+  resolveWorkspaceEndpoint,
+  shouldActivateWorkspaceEndpoint,
+} from "@/app/lib/workspace-endpoint";
 import { buildOpenworkEnvRuntimeKey } from "@/app/lib/openwork-env-runtime";
 import {
   collectAgentContextDiagnosticObservations,
@@ -129,13 +132,6 @@ import { useCheckDesktopRestriction, useDesktopConfig } from "@/react-app/domain
 import { useRestrictionNotice } from "@/react-app/domains/cloud/restriction-notice-provider";
 import { useCloudProviderAutoSync } from "@/react-app/domains/cloud/use-cloud-provider-auto-sync";
 import {
-  hasOpenWorkModelsProvider,
-  hideOpenWorkModelsPromo,
-  useOpenWorkModelsPromoEligibility,
-  isOpenWorkModelsPromoHidden,
-  openWorkModelsPromoChangedEvent,
-} from "@/react-app/domains/cloud/openwork-models-promo";
-import {
   isDesktopRuntime,
   isElectronRuntime,
   isMacPlatform,
@@ -168,7 +164,7 @@ import { CommandPalette } from "./command-palette";
 import { buildCommandPaletteSessions } from "./command-palette-sessions";
 import { useCommandPaletteShortcut } from "./use-shell-shortcuts";
 import { buildFeedbackUrl } from "@/app/lib/feedback";
-import { getDenInferenceUrl, type DenSettings } from "@/app/lib/den";
+import { type DenSettings } from "@/app/lib/den";
 import { FOXWORK_FEEDBACK_URL, FOXWORK_ISSUE_URL } from "@/app/lib/foxwork-brand";
 import { readActiveWorkspaceId, writeActiveWorkspaceId } from "./session-memory";
 import { workspaceSessionRoute, workspaceSettingsRoute } from "./workspace-routes";
@@ -205,16 +201,6 @@ async function reloadEngineOrRestartDesktop(
     await engineRestart({});
     await afterRestart?.();
   }
-}
-
-function isOpenWorkCloudProvider(provider: {
-  providerId?: string | null;
-  source?: string | null;
-  sourceProviderId?: string | null;
-}) {
-  return [provider.providerId, provider.source, provider.sourceProviderId].some(
-    (value) => value?.trim().toLowerCase() === "openwork",
-  );
 }
 
 function normalizeComputerUsePermissions(value: unknown) {
@@ -278,6 +264,7 @@ export function parseSettingsPath(pathname: string): {
     case "preferences":
     case "permissions":
     case "shell":
+    case "skills":
     case "advanced":
     case "appearance":
     case "environment":
@@ -296,7 +283,7 @@ export function parseSettingsPath(pathname: string): {
       return { tab: "cloud-account", redirectPath: "cloud-account" };
     case "extensions":
       if (tail === "mcp") return { tab: "extensions", redirectPath: null, extensionsSection: "mcp" };
-      if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
+      if (tail === "skills") return { tab: "skills", redirectPath: "skills" };
       if (tail === "plugins") return { tab: "extensions", redirectPath: null, extensionsSection: "plugins" };
       return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
     default:
@@ -360,6 +347,7 @@ export type SettingsSurfaceProps = {
 };
 
 function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
+  const cloudSession = useCloudSession();
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams<{ workspaceId?: string }>();
@@ -678,7 +666,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         setBusyStartedAt: () => {},
         setError: (message) => {
           if (message) {
-            toast.error(message);
+            toast.error(toChineseUserMessage(message, "操作失败，请稍后重试。"));
           }
         },
         markReloadRequired: reloadCoordinator.markReloadRequired,
@@ -730,49 +718,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     onBeforeSignedOut: cleanupCloudMcpForSignOut,
     openLink: (url) => platform.openLink(url),
   });
-  const cloudSession = useCloudSession();
-
-  const hasOpenWorkCloudProvider = useMemo(
-    () =>
-      providerAuthSnapshot.cloudOrgProviders.some(isOpenWorkCloudProvider) ||
-      Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).some(isOpenWorkCloudProvider),
-    [providerAuthSnapshot.cloudOrgProviders, providerAuthSnapshot.importedCloudProviders],
-  );
-  const [openWorkModelsPromoHidden, setOpenWorkModelsPromoHidden] = useState(isOpenWorkModelsPromoHidden);
-  const openWorkModelsPromoEligible = useOpenWorkModelsPromoEligibility();
-  const openWorkModelsConnected =
-    (cloudSession.isSignedIn && hasOpenWorkCloudProvider) ||
-    hasOpenWorkModelsProvider(providerConnectedIds);
-  const showOpenWorkModelsSubscribe = openWorkModelsPromoEligible && !openWorkModelsConnected && !openWorkModelsPromoHidden;
-  const showOpenWorkModelsConnect = openWorkModelsPromoEligible && !openWorkModelsConnected && openWorkModelsPromoHidden;
-
-  useEffect(() => {
-    const handlePromoChanged = () => setOpenWorkModelsPromoHidden(isOpenWorkModelsPromoHidden());
-    window.addEventListener(openWorkModelsPromoChangedEvent, handlePromoChanged);
-    return () => window.removeEventListener(openWorkModelsPromoChangedEvent, handlePromoChanged);
-  }, []);
-
-  const dismissOpenWorkModelsPromo = useCallback(() => {
-    hideOpenWorkModelsPromo();
-    setOpenWorkModelsPromoHidden(true);
-  }, []);
-
-  const subscribeToOpenWorkModels = useCallback(() => {
-    providerAuthStore.closeProviderAuthModal();
-    const accountPath = selectedWorkspaceId
-      ? workspaceSettingsRoute(selectedWorkspaceId, "cloud-account")
-      : "/settings/cloud-account";
-    navigate(accountPath);
-    window.setTimeout(() => {
-      platform.openLink(getDenInferenceUrl(cloudSession.baseUrl));
-    }, 0);
-  }, [cloudSession.baseUrl, navigate, platform, providerAuthStore, selectedWorkspaceId]);
-
   const handleOpenProviderAuth = useCallback(() => {
     if (checkDesktopRestriction({ restriction: "allowCustomProviders" })) {
       restrictionNotice.show({
-        title: "Adding custom providers is disabled",
-        message: "Your organization administrator has disabled adding custom providers.",
+        title: "无法添加自定义模型供应商",
+        message: "公司管理员已停用自定义模型供应商。",
       });
       return;
     }
@@ -811,7 +761,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     selectedWorkspaceRoot,
     setRouteError: (message) => {
       if (message) {
-        toast.error(message);
+        toast.error(toChineseUserMessage(message, "操作失败，请稍后重试。"));
       }
     },
   });
@@ -835,7 +785,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         notifyAlert({
           kind: "update",
           title: t("notifications.updater_error"),
-          body: message,
+          body: toChineseUserMessage(message, "无法检查更新，请稍后重试。"),
           dedupeKey: "updater-error",
         });
       }
@@ -870,7 +820,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [opencodeClient]);
 
   const handleModelPickerLoadError = useCallback((error: unknown) => {
-    toast.error(error instanceof Error ? error.message : t("app.unknown_error"));
+    toast.error(toChineseUserMessage(error, "无法加载模型列表，请稍后重试。"));
   }, []);
   const handleModelPickerOpen = useCallback(() => {
     void providerAuthStore.runCloudProviderSync("model_picker_open");
@@ -914,7 +864,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       );
       navigate(workspaceSessionRoute(selectedWorkspaceId, session.id));
     } catch (error) {
-      toast.error(describeRouteError(error));
+      toast.error(toChineseUserMessage(error, "无法创建会话，请稍后重试。"));
     }
   }, [navigate, opencodeClient, selectedWorkspaceId, selectedWorkspaceRoot]);
   // Settings refreshes provider auth whenever the picker opens (the session
@@ -985,11 +935,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const installOpenAiImageExtension = useCallback(async (apiKey: string) => {
     const resolvedApiKey = apiKey.trim();
     if (!openworkClient) {
-      setImageExtensionError("OpenWork server is not connected.");
+      setImageExtensionError("FoxWork 服务尚未连接。");
       return;
     }
     if (!resolvedApiKey) {
-      setImageExtensionError("OpenAI API key is required.");
+      setImageExtensionError("请输入 OpenAI API 密钥。");
       return;
     }
 
@@ -999,9 +949,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     try {
       await openworkClient.upsertUserEnv([{ key: "OPENAI_API_KEY", value: resolvedApiKey }]);
       setUserEnvKeys((current) => Array.from(new Set([...current, "OPENAI_API_KEY"])));
-      setImageExtensionStatus("Saved OPENAI_API_KEY. Agents can use OpenWork extension actions for image generation.");
+      setImageExtensionStatus("API 密钥已保存，AI 现在可以使用图片生成功能。");
     } catch (error) {
-      setImageExtensionError(describeRouteError(error));
+      setImageExtensionError(toChineseUserMessage(error, "无法保存图片生成设置，请稍后重试。"));
     } finally {
       setImageExtensionBusy(false);
     }
@@ -1013,15 +963,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const apiKey = input.apiKey.trim();
     const prompt = input.prompt.trim();
     if (!client || !workspaceId) {
-      setImageGenerationError("OpenWork server is not connected for this workspace.");
+      setImageGenerationError("当前工作区尚未连接 FoxWork 服务。");
       return;
     }
     if (!apiKey) {
-      setImageGenerationError("OpenAI API key is required.");
+      setImageGenerationError("请输入 OpenAI API 密钥。");
       return;
     }
     if (!prompt) {
-      setImageGenerationError("Prompt is required.");
+      setImageGenerationError("请输入绘图要求。");
       return;
     }
 
@@ -1040,16 +990,16 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         context: { directory: selectedWorkspaceRoot || undefined },
       });
       if (!response.ok) {
-        setImageGenerationError(response.message);
+        setImageGenerationError(toChineseUserMessage(response.message, "图片生成失败，请稍后重试。"));
         return;
       }
       const result = response.result;
       const path = typeof result === "object" && result !== null && "path" in result && typeof result.path === "string"
         ? result.path
-        : "an artifact";
-      setImageGenerationStatus(`Generated ${path} with ${OPENAI_IMAGE_MODEL}.`);
+        : "生成结果";
+      setImageGenerationStatus(`已使用 ${OPENAI_IMAGE_MODEL} 生成图片：${path}`);
     } catch (error) {
-      setImageGenerationError(describeRouteError(error));
+      setImageGenerationError(toChineseUserMessage(error, "图片生成失败，请稍后重试。"));
     } finally {
       setImageGenerationBusy(false);
     }
@@ -1058,7 +1008,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const saveVoiceApiKey = useCallback(async (apiKey: string) => {
     const resolvedApiKey = apiKey.trim();
     if (!openworkClient || !resolvedApiKey) {
-      setVoiceError("OpenAI API key is required.");
+      setVoiceError("请输入 OpenAI API 密钥。");
       return;
     }
     setVoiceBusy(true);
@@ -1067,9 +1017,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     try {
       await openworkClient.upsertUserEnv([{ key: "OPENAI_API_KEY", value: resolvedApiKey }]);
       setUserEnvKeys((current) => Array.from(new Set([...current, "OPENAI_API_KEY"])));
-      setVoiceStatus("Saved OPENAI_API_KEY for Voice Mode.");
+      setVoiceStatus("语音功能的 API 密钥已保存。");
     } catch (error) {
-      setVoiceError(describeRouteError(error));
+      setVoiceError(toChineseUserMessage(error, "无法保存语音设置，请稍后重试。"));
     } finally {
       setVoiceBusy(false);
     }
@@ -1077,7 +1027,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const testVoiceSession = useCallback(async () => {
     if (!openworkClient) {
-      setVoiceError("OpenWork server is not connected.");
+      setVoiceError("FoxWork 服务尚未连接。");
       return;
     }
     setVoiceBusy(true);
@@ -1085,9 +1035,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setVoiceError(null);
     try {
       const session = await openworkClient.createVoiceRealtimeSession();
-      setVoiceStatus(`Realtime ready with ${session.model} (${session.tools.length} OpenWork tools).`);
+      setVoiceStatus(`实时语音已就绪：${session.model}，可用工具 ${session.tools.length} 个。`);
     } catch (error) {
-      setVoiceError(describeRouteError(error));
+      setVoiceError(toChineseUserMessage(error, "无法启动实时语音，请稍后重试。"));
     } finally {
       setVoiceBusy(false);
     }
@@ -1098,11 +1048,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const workspaceId = runtimeWorkspaceId?.trim() ?? "";
     const modelId = input.modelId.trim();
     if (!client || !workspaceId) {
-      setLocalProviderError("OpenWork server is not connected for this workspace.");
+      setLocalProviderError("当前工作区尚未连接 FoxWork 服务。");
       return;
     }
     if (!modelId) {
-      setLocalProviderError("Model ID is required.");
+      setLocalProviderError("请输入模型 ID。");
       return;
     }
 
@@ -1136,9 +1086,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       } catch {
         // ignore browser event dispatch failures
       }
-      setLocalProviderStatus(`Added ${input.name} with ${modelId}.`);
+      setLocalProviderStatus(`已添加 ${input.name}，模型 ID：${modelId}。`);
     } catch (error) {
-      setLocalProviderError(describeRouteError(error));
+      setLocalProviderError(toChineseUserMessage(error, "无法添加模型供应商，请稍后重试。"));
     } finally {
       setLocalProviderBusy(false);
     }
@@ -1233,14 +1183,18 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               connectionState: null as WorkspaceConnectionState | null,
             };
           } catch (error) {
-            const fallback = error instanceof Error ? error.message : t("app.unknown_error");
+            const fallback = toChineseUserMessage(error, "无法加载此工作区的会话，请稍后重试。");
             if (workspace.workspaceType === "remote") {
               const connectionState = await diagnoseRemoteWorkspaceTaskLoadFailure(workspace, fallback);
+              const connectionMessage = toChineseUserMessage(
+                connectionState.message,
+                "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+              );
               return {
                 workspaceId: workspace.id,
                 sessions: [],
-                error: connectionState.message ?? "Remote worker connection failed.",
-                connectionState,
+                error: connectionMessage,
+                connectionState: { ...connectionState, message: connectionMessage },
               };
             }
             return {
@@ -1278,7 +1232,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         return next;
       });
     } catch (error) {
-      const message = describeRouteError(error);
+      const message = toChineseUserMessage(error, "无法刷新工作区信息，请稍后重试。");
       console.error("[settings-route] refreshRouteState failed", error);
       recordInspectorEvent("route.refresh.error", {
         route: "settings",
@@ -1424,13 +1378,22 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }
       setWorkspaceConnectionOverrides((current) => ({
         ...current,
-        [workspaceId]: result.state,
+        [workspaceId]: {
+          ...result.state,
+          message: toChineseUserMessage(
+            result.state.message,
+            "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+          ),
+        },
       }));
 
       if (!result.ok) {
         setErrorsByWorkspaceId((current) => ({
           ...current,
-          [workspaceId]: result.state.message ?? "Remote worker connection failed.",
+          [workspaceId]: toChineseUserMessage(
+            result.state.message,
+            "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+          ),
         }));
         if (remoteWorkspaceCheckRunRef.current[workspaceId] === runId) {
           delete remoteWorkspaceCheckRunRef.current[workspaceId];
@@ -1467,7 +1430,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       workspace: selectedWorkspace,
       allWorkspaces: workspaces,
     }).catch((error) => {
-      const message = error instanceof Error ? error.message : describeRouteError(error);
+      const message = toChineseUserMessage(error, "无法重新连接本机服务，请稍后重试。");
       // Background auto-reconnect: alert + persistent center entry.
       notifyAlert({
         kind: "system",
@@ -1550,8 +1513,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const refreshMarketplaceAction = useMemo<OpenworkControlAction>(() => ({
     id: "extensions.refresh-marketplace",
-    label: "Refresh marketplace extensions",
-    description: "Force a fresh sync of organization marketplace plugins from the cloud.",
+    label: "刷新扩展市场",
+    description: "重新同步公司扩展市场中的插件。",
     sideEffect: "mutation",
     execute: async () => {
       await extensionsStore.refreshCloudOrgMarketplaces({ force: true });
@@ -1810,7 +1773,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       || !selectedWorkspace
       || !isAgentContextDiagnosticsWorkspaceAllowed(selectedWorkspace)
     ) {
-      throw new Error("Agent diagnostics require a connected workspace.");
+      throw new Error("请先连接一个工作区，再运行 AI 上下文诊断。");
     }
     const observations = await collectAgentContextDiagnosticObservations({
       organizationConnections: orgMcpConnections.connections,
@@ -1828,7 +1791,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   ]);
   const routeOpenworkStatus = openworkClient ? "connected" : "disconnected";
   const notFoundRouteError = !loading && routeWorkspaceId && !selectedWorkspace
-    ? "Workspace was not found. Select a new workspace from the sidebar."
+    ? "未找到该工作区，请从侧栏重新选择。"
     : null;
   useEffect(() => {
     if (notFoundRouteError) {
@@ -1896,7 +1859,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     writeActiveWorkspaceId(workspaceId);
     const workspace = workspaces.find((item) => item.id === workspaceId) ?? null;
     const endpoint = resolveWorkspaceEndpoint(workspace, { baseUrl, token });
-    if (endpoint) {
+    if (shouldActivateWorkspaceEndpoint(endpoint)) {
       void endpoint.client.activateWorkspace(endpoint.workspaceId, { persist: true }).catch(() => undefined);
     }
     if (isDesktopRuntime()) {
@@ -1957,12 +1920,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }
       return;
     }
-    throw new Error("OpenWork server is unavailable. Reconnect the server before exporting workspace config.");
+    throw new Error("FoxWork 服务暂时不可用，请重新连接后再导出工作区配置。");
   }, [baseUrl, token, workspaces]);
 
   const handleForgetWorkspace = useCallback(async (workspaceId: string) => {
     if (typeof window !== "undefined") {
-      const message = t("workspace_list.remove_confirm") || "Remove this workspace from the sidebar?";
+      const message = t("workspace_list.remove_confirm") || "确定要从侧栏移除此工作区吗？";
       if (!window.confirm(message)) return;
     }
     if (openworkClient) {
@@ -1995,7 +1958,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           .catch(() => null);
       }
       if (!list) {
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
+        throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
@@ -2038,7 +2001,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         list = await openworkClient.createRemoteWorkspace(payload).catch(() => null);
       }
       if (!list) {
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before connecting a remote workspace.");
+        throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
@@ -2049,7 +2012,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       await refreshRouteState();
       return true;
     } catch (error) {
-      setCreateWorkspaceRemoteError(error instanceof Error ? error.message : t("app.unknown_error"));
+      setCreateWorkspaceRemoteError(
+        toChineseUserMessage(error, "无法连接远程工作区，请检查连接地址与访问权限后重试。"),
+      );
       return false;
     } finally {
       setCreateWorkspaceRemoteBusy(false);
@@ -2137,10 +2102,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             cloudProviderIds={new Set(
               Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
             )}
-            showOpenWorkModelsSubscribe={showOpenWorkModelsSubscribe}
-            showOpenWorkModelsConnect={showOpenWorkModelsConnect}
-            onSubscribeOpenWorkModels={subscribeToOpenWorkModels}
-            onDismissOpenWorkModels={dismissOpenWorkModelsPromo}
             cloudProvidersView={
               <CloudProvidersView
                 embedded
@@ -2260,14 +2221,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                     : undefined
                 }
                 readConfigFile={(scope) => connectionsStore.readMcpConfigFile(scope)}
-                installedSkills={extensionItems.installedSkills}
                 installedPlugins={extensionItems.installedCloudPlugins}
                 installedOrgMcpItems={installedOrgMcpConnectionItems}
-                uninstallSkill={(name) => { void extensionsStore.uninstallSkill(name); }}
                 removeCloudPlugin={(pluginId) => { void extensionsStore.removeCloudOrgPlugin(pluginId); }}
                 orgMcpDisconnectingId={orgMcpConnections.disconnectingId}
                 disconnectOrgMcp={(connectionId) => { void orgMcpConnections.disconnect(connectionId); }}
-                readSkill={(name) => extensionsStore.readSkill(name)}
                 previewClaudePlugin={(url) => extensionsStore.previewClaudePlugin(url)}
                 installClaudePlugin={(url) => extensionsStore.installClaudePlugin(url)}
                 showHeader={false}
@@ -2378,12 +2336,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
               return next;
             })}
             opencodeDevModeEnabled={false}
-            openDebugDeepLink={async () => ({ ok: false, message: "Debug deep links are not wired into the React settings route yet." })}
+            openDebugDeepLink={async () => ({ ok: false, message: "当前版本暂不支持从设置页打开调试链接。" })}
             cloudMcpUrl={openworkCloudMcpUrl}
             canMigrateRuntimeConfig={Boolean(openworkClient && selectedWorkspaceId)}
             migrateRuntimeConfig={async () => {
               if (!openworkClient || !selectedWorkspaceId) {
-                throw new Error("Select a workspace before migrating legacy runtime config.");
+                throw new Error("请先选择工作区，再迁移旧版运行配置。");
               }
               const result = await openworkClient.migrateRuntimeConfig(selectedWorkspaceId);
               if (result.migrated) {
@@ -2394,7 +2352,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }}
             getRuntimeConfigStatus={async () => {
               if (!openworkClient || !selectedWorkspaceId) {
-                throw new Error("Select a workspace to inspect runtime config.");
+                throw new Error("请先选择工作区，再查看运行配置。");
               }
               return openworkClient.getRuntimeConfigStatus(selectedWorkspaceId);
             }}
@@ -2556,11 +2514,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         )}
         onSelect={providerAuthStore.startProviderAuth}
         onSubmitApiKey={providerAuthStore.submitProviderApiKey}
+        onSubmitLocalProvider={providerAuthStore.submitLocalProvider}
         onConnectCloudProvider={providerAuthStore.connectCloudProvider}
         onSubmitOAuth={providerAuthStore.completeProviderAuthOAuth}
         onRefreshProviders={providerAuthStore.refreshProviders}
-        showOpenWorkModelsSubscribe={showOpenWorkModelsSubscribe}
-        onSubscribeOpenWorkModels={subscribeToOpenWorkModels}
         onClose={() => providerAuthStore.closeProviderAuthModal()}
       />
       <CreateWorkspaceModal

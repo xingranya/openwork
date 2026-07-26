@@ -76,7 +76,7 @@ export async function ensureDesktopLocalOpenworkConnection(
 
     const info = await openworkServerInfo() as OpenworkServerInfo | null;
     if (!info?.baseUrl) {
-      throw new Error("OpenWork server did not report a base URL after activation.");
+      throw new Error("FoxWork 本地服务启动后未返回连接地址。");
     }
 
     writeOpenworkServerSettings({

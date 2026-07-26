@@ -13,6 +13,7 @@ import type {
 } from "@openwork/types/agent-context-diagnostics";
 
 import { Button } from "@/components/ui/button";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SettingsInset, SettingsNotice, SettingsSection } from "../settings-section";
@@ -152,6 +153,24 @@ function permissionLabel(value: AgentContextToolPermission) {
   return t(PERMISSION_LABEL_KEYS[value]);
 }
 
+function diagnosticMessage(check: AgentContextDiagnosticCheck) {
+  const fallback = check.status === "passed"
+    ? "检查通过，未发现需要处理的问题。"
+    : check.status === "skipped"
+      ? "当前条件下未执行此项检查。"
+      : check.status === "warning"
+        ? "检查结果需要关注，请按建议处理后重新检查。"
+        : "检查未通过，请按建议处理后重新检查。";
+  return toChineseUserMessage(check.message, fallback);
+}
+
+function diagnosticAction(check: AgentContextDiagnosticCheck) {
+  const fallback = check.status === "passed" || check.status === "skipped"
+    ? "无需处理。"
+    : "请检查公司连接、工作区权限和 AI 运行服务后重新诊断。";
+  return toChineseUserMessage(check.action, fallback);
+}
+
 function detailLabel(key: string) {
   return key
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -232,7 +251,9 @@ export function AgentContextDiagnosticsErrorNotice(props: { message: string }) {
       aria-live="assertive"
       aria-atomic="true"
     >
-      <SettingsNotice tone="error">{props.message}</SettingsNotice>
+      <SettingsNotice tone="error">
+        {toChineseUserMessage(props.message, "诊断未能完成，请稍后重试。")}
+      </SettingsNotice>
     </div>
   );
 }
@@ -255,7 +276,7 @@ function DiagnosticCheckRow(props: {
             </div>
             <EvidenceChip kind={props.check.evidenceKind} />
           </div>
-          <div className="break-words text-xs text-dls-secondary">{props.check.message}</div>
+          <div className="break-words text-xs text-dls-secondary">{diagnosticMessage(props.check)}</div>
         </div>
         <StatusChip status={props.check.status} label={statusLabel(props.check.status)} />
       </div>
@@ -275,7 +296,7 @@ function DiagnosticCheckRow(props: {
         </div>
         <div data-testid="agent-diagnostics-check-action" className="min-w-0 break-words">
           <span className="font-semibold text-dls-text">{t("connect.diagnostics_action_label")}: </span>
-          <span className="text-dls-secondary">{props.check.action}</span>
+          <span className="text-dls-secondary">{diagnosticAction(props.check)}</span>
         </div>
       </div>
     </div>

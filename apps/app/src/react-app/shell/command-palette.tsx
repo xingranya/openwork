@@ -181,8 +181,8 @@ export function CommandPalette(props: CommandPaletteProps) {
     ...(props.onOpenModelPicker
       ? [{
           id: "models",
-          title: "Switch model",
-          detail: "Choose the LLM that runs your next prompts",
+          title: "切换模型",
+          detail: "选择用于后续会话的模型",
           meta: props.selectedModelLabel ?? t("session.default_model"),
           icon: <BrainCircuit className="size-4 text-primary" />,
           searchText: "model models llm provider openai anthropic claude gpt gemini switch pick select default",
@@ -209,11 +209,11 @@ export function CommandPalette(props: CommandPaletteProps) {
     ...(canMoveCurrentSessionToGroup
       ? [{
           id: "move-to-group",
-          title: "Move to Group",
+          title: "移到分组",
           detail: props.currentSessionForGroupMove
-            ? `Add ${props.currentSessionForGroupMove.title} to an existing group`
-            : "Add the selected task to an existing group",
-          meta: sessionGroupCount > 0 ? `${sessionGroupCount.toLocaleString()} groups` : "No groups",
+            ? `将 ${props.currentSessionForGroupMove.title} 加入已有分组`
+            : "将所选任务加入已有分组",
+          meta: sessionGroupCount > 0 ? `${sessionGroupCount.toLocaleString()} 个分组` : "暂无分组",
           icon: <FolderInput className="size-4 text-primary" />,
           searchText: "move to group add task session folder organize",
           action: () => {
@@ -223,11 +223,11 @@ export function CommandPalette(props: CommandPaletteProps) {
       : []),
     {
       id: "accessible-items",
-      title: "Accessible items",
+      title: "可访问内容",
       detail: accessibleTargetCount > 0
-        ? `Open ${accessibleTargetCount.toLocaleString()} servers and artifacts detected in this session`
-        : "No servers or artifacts detected in this session yet",
-      meta: "Session",
+        ? `打开本会话识别到的 ${accessibleTargetCount.toLocaleString()} 个服务或成果文件`
+        : "本会话尚未识别到服务或成果文件",
+      meta: "会话",
       action: () => {
         setMode("accessible-items");
       },
@@ -342,7 +342,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         id: `accessible:${target.id}`,
         title: target.name || target.value,
         detail: target.value,
-        meta: target.kind === "url" ? "Server" : "Artifact",
+        meta: target.kind === "url" ? "服务" : "成果文件",
         icon: targetIcon(target),
         searchText: `${target.name} ${target.value} ${target.preview}`.toLowerCase(),
         action: () => {
@@ -352,9 +352,9 @@ export function CommandPalette(props: CommandPaletteProps) {
       })),
       ...targets.map((target) => ({
         id: `accessible-hide:${target.id}`,
-        title: `Stop tracking ${target.name || target.value}`,
+        title: `停止跟踪 ${target.name || target.value}`,
         detail: target.value,
-        meta: "Hide",
+        meta: "隐藏",
         icon: targetIcon(target),
         searchText: `stop tracking hide ${target.name} ${target.value} ${target.preview}`.toLowerCase(),
         action: () => {

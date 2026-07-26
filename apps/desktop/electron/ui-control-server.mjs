@@ -73,7 +73,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "snapshot") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
         control.setEnabled?.(true);
         return { ok: true, ...control.snapshot() };
       })()`);
@@ -81,7 +81,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "actions") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
         control.setEnabled?.(true);
         return { ok: true, actions: control.listActions() };
       })()`);
@@ -90,15 +90,15 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
         const input = JSON.parse(${argsJsonLiteral});
-        if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
         if (!input || typeof input.actionId !== "string" || !input.actionId.trim()) {
-          return { ok: false, error: "Missing OpenWork actionId." };
+          return { ok: false, error: "缺少 FoxWork 操作标识。" };
         }
         control.setEnabled?.(true);
         return control.execute(input.actionId, input.args ?? {});
       })()`, { focus: true });
     }
-    return { ok: false, error: `Unknown OpenWork control command: ${command}` };
+    return { ok: false, error: `无法识别 FoxWork 控制命令：${command}` };
   }
 
   async function start() {
@@ -111,7 +111,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
           return;
         }
         if (!authorizedUiControlRequest(request)) {
-          sendJsonResponse(response, 401, { ok: false, error: "Unauthorized" });
+          sendJsonResponse(response, 401, { ok: false, error: "未授权" });
           return;
         }
         if (request.method === "GET" && url.pathname === "/snapshot") {
@@ -126,7 +126,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
           sendJsonResponse(response, 200, await runOpenworkControlCommand("execute", await readJsonRequestBody(request)));
           return;
         }
-        sendJsonResponse(response, 404, { ok: false, error: "Not found" });
+        sendJsonResponse(response, 404, { ok: false, error: "请求地址不存在" });
       } catch (error) {
         sendJsonResponse(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
       }
@@ -137,7 +137,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     });
     const address = uiControlServer.address();
     const port = typeof address === "object" && address ? address.port : null;
-    if (!port) throw new Error("Could not start OpenWork UI control bridge.");
+    if (!port) throw new Error("无法启动 FoxWork 界面控制桥接服务。");
     uiControlDiscoveryPath = path.join(app.getPath("userData"), "openwork-ui-control.json");
     await writeFile(
       uiControlDiscoveryPath,

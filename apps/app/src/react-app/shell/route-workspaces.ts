@@ -7,6 +7,7 @@ import type { Session } from "@opencode-ai/sdk/v2/client";
 
 import type { OpenworkWorkspaceInfo } from "@/app/lib/openwork-server";
 import type { WorkspaceInfo } from "@/app/lib/desktop-types";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import type { WorkspaceSessionGroup } from "@/app/types";
 import {
   normalizeDirectoryPath,
@@ -116,9 +117,9 @@ export function describeWorkspaceCreateError(error: unknown) {
     lower.includes("os error 60") ||
     lower.includes("etimedout")
   ) {
-    return `${message}\n\nOpenWork could not read the workspace config before the filesystem timed out. This often happens when the folder is still syncing from iCloud Drive or another remote folder. Wait for the folder to finish downloading, move the workspace to a local folder, or try again.`;
+    return "读取工作区配置超时。文件夹可能仍在从 iCloud Drive 或其他远程位置同步，请等待下载完成、改用本地文件夹，或稍后重试。";
   }
-  return message;
+  return toChineseUserMessage(message, "无法创建工作区，请稍后重试。");
 }
 
 export function mergeRouteWorkspaces(
@@ -142,7 +143,23 @@ export function mergeRouteWorkspaces(
   const remoteDesktopIds = new Set(
     desktopWorkspaces.flatMap((workspace) => workspace.workspaceType === "remote" ? [workspace.id] : []),
   );
-  const filteredServer = serverWorkspaces.filter((workspace) => !remoteDesktopIds.has(workspace.id));
+  const remoteDesktopServerIds = new Set(
+    serverWorkspaces.flatMap((workspace) => {
+      const desktopWorkspace = desktopById.get(workspace.id);
+      if (desktopWorkspace?.workspaceType !== "remote") return [];
+      const serverWorkspaceId = (
+        desktopWorkspace.openworkWorkspaceId ?? workspace.openworkWorkspaceId ?? ""
+      ).trim();
+      return serverWorkspaceId ? [serverWorkspaceId] : [];
+    }),
+  );
+  const filteredServer = serverWorkspaces.filter((workspace) => {
+    if (remoteDesktopIds.has(workspace.id)) return false;
+    return !(
+      workspace.workspaceType === "local" &&
+      remoteDesktopServerIds.has(workspace.id)
+    );
+  });
 
   const mergedServer = filteredServer.map((workspace) => {
     const match =

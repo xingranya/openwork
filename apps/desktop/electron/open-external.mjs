@@ -10,7 +10,7 @@ function describeError(error) {
 async function defaultOpenExternal(url) {
   const electron = await import("electron");
   if (typeof electron.shell?.openExternal !== "function") {
-    throw new Error("Electron shell.openExternal is unavailable");
+    throw new Error("当前环境无法打开外部链接。");
   }
   await electron.shell.openExternal(url);
 }

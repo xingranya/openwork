@@ -38,7 +38,7 @@ type UseSessionControlActionsInput = {
 };
 
 function workspaceLabel(workspace: SessionControlWorkspace) {
-  return workspace.displayName?.trim() || workspace.name?.trim() || workspace.path?.trim() || "workspace";
+  return workspace.displayName?.trim() || workspace.name?.trim() || workspace.path?.trim() || "工作区";
 }
 
 function findSessionWorkspace(
@@ -83,8 +83,8 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const createTaskControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.create_task",
-    label: "Create a new task",
-    description: "Create a new session in the selected workspace.",
+    label: "新建任务",
+    description: "在当前工作区中新建会话。",
     sideEffect: "mutation",
     disabled: !canCreateTask || !selectedWorkspaceId,
     execute: async () => {
@@ -97,8 +97,8 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const listSessionsControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.list_sessions",
-    label: "List available sessions",
-    description: "Return the list of sessions across workspaces so the user can ask to open one by name.",
+    label: "列出可用会话",
+    description: "列出各工作区的会话，以便按名称打开。",
     sideEffect: "none",
     execute: () => {
       const out: { sessionId: string; title: string; workspace: string; updatedAt: number }[] = [];
@@ -120,14 +120,14 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const openSessionControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.open",
-    label: "Open a session by ID",
-    description: "Navigate to a specific session. Use list_sessions first to get the session ID.",
+    label: "按 ID 打开会话",
+    description: "打开指定会话，可先列出会话以取得会话 ID。",
     sideEffect: "navigation",
     requiresArgs: true,
-    args: [{ name: "sessionId", type: "string", required: true, description: "Session ID from session.list_sessions." }],
+    args: [{ name: "sessionId", type: "string", required: true, description: "会话列表返回的会话 ID。" }],
     execute: (args) => {
       const sessionId = stringArg(args, "sessionId");
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
       navigateToSession(sessionId);
       return { ok: true, navigatedTo: sessionId };
     },
@@ -136,21 +136,21 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const renameSessionControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.rename",
-    label: "Rename a session",
-    description: "Rename a session by ID. Use list_sessions first to match the title the user said.",
+    label: "重命名会话",
+    description: "按 ID 重命名会话，可先列出会话以核对名称。",
     sideEffect: "mutation",
     requiresArgs: true,
     args: [
-      { name: "sessionId", type: "string", required: true, description: "Session ID from session.list_sessions." },
-      { name: "title", type: "string", required: true, description: "New session title." },
+      { name: "sessionId", type: "string", required: true, description: "会话列表返回的会话 ID。" },
+      { name: "title", type: "string", required: true, description: "新的会话标题。" },
     ],
     disabled: !opencodeClient,
     execute: async (args) => {
       const sessionId = stringArg(args, "sessionId");
       const title = stringArg(args, "title");
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
-      if (!title) return { ok: false, error: "title is required" };
-      if (!opencodeClient) return { ok: false, error: "OpenCode client is not connected" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
+      if (!title) return { ok: false, error: "必须提供会话标题。" };
+      if (!opencodeClient) return { ok: false, error: "工作区运行环境尚未连接。" };
 
       const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
       await opencodeClient.session.update({
@@ -166,25 +166,25 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const deleteSessionControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.delete",
-    label: "Delete a session",
-    description: "Delete a session by ID. Destructive: only run after explicit user confirmation.",
+    label: "删除会话",
+    description: "按 ID 删除会话。此操作不可撤销，必须先得到用户明确确认。",
     sideEffect: "mutation",
     requiresArgs: true,
     requiresConfirmation: true,
     args: [
-      { name: "sessionId", type: "string", required: true, description: "Session ID from session.list_sessions." },
-      { name: "confirmed", type: "boolean", required: true, description: "Must be true after explicit user confirmation." },
+      { name: "sessionId", type: "string", required: true, description: "会话列表返回的会话 ID。" },
+      { name: "confirmed", type: "boolean", required: true, description: "用户明确确认后必须设为 true。" },
     ],
     disabled: !openworkClient,
     execute: async (args) => {
       const sessionId = stringArg(args, "sessionId");
       const confirmed = booleanArg(args, "confirmed");
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
-      if (!confirmed) return { ok: false, error: "Deletion requires confirmed: true after explicit user confirmation" };
-      if (!openworkClient) return { ok: false, error: "OpenWork server is not connected" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
+      if (!confirmed) return { ok: false, error: "删除前必须得到用户明确确认，并将 confirmed 设为 true。" };
+      if (!openworkClient) return { ok: false, error: "FoxWork 服务尚未连接。" };
 
       const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
-      if (!targetWorkspace) return { ok: false, error: "Session was not found in the current session list" };
+      if (!targetWorkspace) return { ok: false, error: "当前会话列表中未找到该会话。" };
       await openworkClient.deleteSession(targetWorkspace.id, sessionId);
       if (selectedSessionId === sessionId) {
         navigateToSessionRoot();
@@ -197,8 +197,8 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const modelPickerControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.model_picker.open",
-    label: "Open the model picker",
-    description: "Open the current session model picker.",
+    label: "打开模型选择器",
+    description: "打开当前会话的模型选择器。",
     sideEffect: "none",
     disabled: !selectedWorkspaceId,
     execute: openModelPicker,
@@ -230,14 +230,14 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const pinControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.pin",
-    label: "Pin or unpin a session",
-    description: "Toggle pin on a session. Pinned sessions float to the top of the sidebar.",
+    label: "置顶或取消置顶会话",
+    description: "切换会话置顶状态，置顶会话会显示在侧栏顶部。",
     sideEffect: "mutation",
     requiresArgs: true,
-    args: [{ name: "sessionId", type: "string", required: true, description: "Session ID to pin/unpin." }],
+    args: [{ name: "sessionId", type: "string", required: true, description: "要切换置顶状态的会话 ID。" }],
     execute: (args) => {
       const sessionId = stringArg(args, "sessionId");
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
       store.getState().togglePin(sessionId);
       const pinned = store.getState().pinnedIds.includes(sessionId);
       return { ok: true, sessionId, pinned };
@@ -247,20 +247,20 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const archiveControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.archive",
-    label: "Archive or unarchive a session",
-    description: "Archive a session (non-destructive, preserves context). Archived sessions move to the Archived section. Pass archived=false to unarchive.",
+    label: "归档或取消归档会话",
+    description: "归档会话但保留上下文；将 archived 设为 false 可取消归档。",
     sideEffect: "mutation",
     requiresArgs: true,
     args: [
-      { name: "sessionId", type: "string", required: true, description: "Session ID." },
-      { name: "archived", type: "boolean", required: true, description: "true to archive, false to unarchive." },
+      { name: "sessionId", type: "string", required: true, description: "会话 ID。" },
+      { name: "archived", type: "boolean", required: true, description: "true 表示归档，false 表示取消归档。" },
     ],
     disabled: !opencodeClient,
     execute: async (args) => {
       const sessionId = stringArg(args, "sessionId");
       const archived = booleanArg(args, "archived");
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
-      if (!opencodeClient) return { ok: false, error: "OpenCode client is not connected" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
+      if (!opencodeClient) return { ok: false, error: "工作区运行环境尚未连接。" };
       const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
       await setSessionArchived(opencodeClient, sessionId, archived, targetWorkspace?.path || selectedWorkspaceRoot || undefined);
       await refreshRouteState();
@@ -271,20 +271,20 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const groupCreateControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.group.create",
-    label: "Create a session group",
-    description: "Create a new group (folder/separator) in the current workspace sidebar. Sessions can then be moved into it.",
+    label: "创建会话分组",
+    description: "在当前工作区侧栏中创建分组，之后可将会话移入其中。",
     sideEffect: "mutation",
     requiresArgs: true,
     args: [
-      { name: "label", type: "string", required: true, description: "Group name (e.g. 'Done', 'In progress', 'Backlog')." },
-      { name: "workspaceId", type: "string", required: false, description: "Workspace ID. Defaults to the selected workspace." },
+      { name: "label", type: "string", required: true, description: "分组名称，例如“已完成”“进行中”“待处理”。" },
+      { name: "workspaceId", type: "string", required: false, description: "工作区 ID，默认使用当前工作区。" },
     ],
     disabled: !selectedWorkspaceId,
     execute: (args) => {
       const label = stringArg(args, "label");
       const wsId = resolveWorkspaceId(stringArg(args, "workspaceId"));
-      if (!label) return { ok: false, error: "label is required" };
-      if (!wsId) return { ok: false, error: "No workspace selected" };
+      if (!label) return { ok: false, error: "必须提供分组名称。" };
+      if (!wsId) return { ok: false, error: "尚未选择工作区。" };
       store.getState().createGroup(wsId, label);
       const created = store.getState().groupsByWorkspace[wsId];
       const newGroup = created?.groups[created.groups.length - 1];
@@ -295,22 +295,22 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const groupMoveControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.group.move",
-    label: "Move a session to a group",
-    description: "Assign a session to a group (folder). Pass groupId=null or omit to remove from current group. Use session.group.list to see available groups.",
+    label: "将会话移入分组",
+    description: "将会话分配到分组；省略 groupId 或传入 null 可移出当前分组。",
     sideEffect: "mutation",
     requiresArgs: true,
     args: [
-      { name: "sessionId", type: "string", required: true, description: "Session ID." },
-      { name: "groupId", type: "string", required: false, description: "Group ID to move into. Omit or null to ungrouped." },
-      { name: "workspaceId", type: "string", required: false, description: "Workspace ID. Defaults to session's workspace." },
+      { name: "sessionId", type: "string", required: true, description: "会话 ID。" },
+      { name: "groupId", type: "string", required: false, description: "目标分组 ID，省略或传入 null 表示不分组。" },
+      { name: "workspaceId", type: "string", required: false, description: "工作区 ID，默认使用会话所在工作区。" },
     ],
     execute: (args) => {
       const sessionId = stringArg(args, "sessionId");
       const groupId = stringArg(args, "groupId") || null;
-      if (!sessionId) return { ok: false, error: "sessionId is required" };
+      if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
       const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
       const wsId = resolveWorkspaceId(stringArg(args, "workspaceId")) || targetWorkspace?.id;
-      if (!wsId) return { ok: false, error: "Could not determine workspace" };
+      if (!wsId) return { ok: false, error: "无法确定会话所在的工作区。" };
       store.getState().assignGroup(wsId, sessionId, groupId);
       return { ok: true, sessionId, groupId, workspaceId: wsId };
     },
@@ -319,24 +319,24 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const groupRemoveControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.group.remove",
-    label: "Remove a session group",
-    description: "Remove a group from the workspace. Sessions in the group become ungrouped (not deleted).",
+    label: "删除会话分组",
+    description: "从工作区移除分组，组内会话不会删除，只会变为未分组。",
     sideEffect: "mutation",
     requiresConfirmation: true,
     requiresArgs: true,
     args: [
-      { name: "groupId", type: "string", required: true, description: "Group ID to remove." },
-      { name: "workspaceId", type: "string", required: false, description: "Workspace ID. Defaults to selected." },
-      { name: "confirmed", type: "boolean", required: true, description: "Must be true." },
+      { name: "groupId", type: "string", required: true, description: "要删除的分组 ID。" },
+      { name: "workspaceId", type: "string", required: false, description: "工作区 ID，默认使用当前工作区。" },
+      { name: "confirmed", type: "boolean", required: true, description: "确认后必须设为 true。" },
     ],
     disabled: !selectedWorkspaceId,
     execute: (args) => {
       const groupId = stringArg(args, "groupId");
       const confirmed = booleanArg(args, "confirmed");
       const wsId = resolveWorkspaceId(stringArg(args, "workspaceId"));
-      if (!groupId) return { ok: false, error: "groupId is required" };
-      if (!confirmed) return { ok: false, error: "Requires confirmed: true" };
-      if (!wsId) return { ok: false, error: "No workspace selected" };
+      if (!groupId) return { ok: false, error: "必须提供 groupId。" };
+      if (!confirmed) return { ok: false, error: "必须确认操作，并将 confirmed 设为 true。" };
+      if (!wsId) return { ok: false, error: "尚未选择工作区。" };
       store.getState().removeGroup(wsId, groupId);
       return { ok: true, groupId, workspaceId: wsId };
     },
@@ -345,13 +345,13 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
 
   const groupListControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "session.group.list",
-    label: "List session groups",
-    description: "List all groups in a workspace with their IDs and labels.",
+    label: "列出会话分组",
+    description: "列出工作区中的全部分组及其 ID 和名称。",
     sideEffect: "none",
-    args: [{ name: "workspaceId", type: "string", required: false, description: "Workspace ID. Defaults to selected." }],
+    args: [{ name: "workspaceId", type: "string", required: false, description: "工作区 ID，默认使用当前工作区。" }],
     execute: (args) => {
       const wsId = resolveWorkspaceId(stringArg(args, "workspaceId"));
-      if (!wsId) return { ok: false, error: "No workspace selected" };
+      if (!wsId) return { ok: false, error: "尚未选择工作区。" };
       const state = store.getState().groupsByWorkspace[wsId];
       return {
         ok: true,

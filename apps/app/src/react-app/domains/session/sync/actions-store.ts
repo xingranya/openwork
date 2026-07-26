@@ -30,6 +30,10 @@ import type {
   ModelRef,
 } from "../../../../app/types";
 import { addOpencodeCacheHint, safeStringify } from "../../../../app/utils";
+import {
+  buildAutomaticSessionTitle,
+  shouldAutoTitleSession,
+} from "../../../../app/lib/session-title";
 import { clearSessionDraft, saveSessionDraft } from "./draft-store";
 import { firstLineLocalFileParts } from "./prompt-file-parts";
 import { composerAttachmentToFilePart } from "./attachment-file-part";
@@ -500,6 +504,13 @@ export function createSessionActionsStore(options: {
     }
     if (!sessionID) return;
 
+    const titleCandidate = resolvedDraft.mode === "prompt" && !resolvedDraft.command && !compactCommand
+      ? buildAutomaticSessionTitle(
+          content,
+          resolvedDraft.attachments.map((attachment) => attachment.name),
+        )
+      : null;
+
     options.setBusy(true);
     options.setBusyLabel("status.running");
     options.setBusyStartedAt(Date.now());
@@ -586,6 +597,21 @@ export function createSessionActionsStore(options: {
         }));
 
         options.modelConfig.clearSessionModelOverride(sessionID);
+      }
+
+      if (titleCandidate) {
+        const currentSession = options.sessions().find((session) => session.id === sessionID)
+          ?? options.selectedSession();
+        if (shouldAutoTitleSession(currentSession?.title)) {
+          await options.renameSession(sessionID, titleCandidate).then(() => {
+            options.setSessions(
+              options.sessions().map((session) => (
+                session.id === sessionID ? { ...session, title: titleCandidate } : session
+              )),
+            );
+            return options.refreshSidebarWorkspaceSessions(workspaceId);
+          }).catch(() => undefined);
+        }
       }
 
       finishPerf(perfEnabled, "session.prompt", "done", startedAt, {

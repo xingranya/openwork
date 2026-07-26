@@ -22,12 +22,13 @@ import {
   workspaceOpenworkWrite,
 } from "../../../../app/lib/desktop";
 import { OpenworkServerError } from "../../../../app/lib/openwork-server";
+import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import type {
   Client,
   ProviderListItem,
   WorkspaceDisplay,
 } from "../../../../app/types";
-import { isDesktopRuntime, safeStringify } from "../../../../app/utils";
+import { isDesktopRuntime } from "../../../../app/utils";
 import {
   compareProviders,
   filterProviderList,
@@ -68,6 +69,10 @@ import {
   isCloudProviderOutOfSync,
   resolveCloudProviderCredentials,
 } from "./cloud-provider-config";
+import {
+  buildLocalProviderConfig,
+  type LocalProviderInput,
+} from "./local-provider-config";
 import { dispatchNewProviders } from "../../../../app/lib/provider-events";
 import { updateManagedDisabledProviders } from "../managed-engine-config";
 import {
@@ -386,9 +391,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       });
       const typed = result as { ok: boolean; stderr?: string; stdout?: string };
       if (!typed.ok) {
-        throw new Error(
-          typed.stderr || typed.stdout || "Failed to write .opencode/openwork.json",
-        );
+        throw new Error(toChineseUserMessage(
+          typed.stderr || typed.stdout,
+          "无法写入工作区的公司模型配置。",
+        ));
       }
       return true;
     }
@@ -433,9 +439,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     });
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error(
-        "OpenWork server unavailable. Connect to manage imported cloud providers.",
-      );
+      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司模型供应商。");
     }
     setStateField("importedCloudProviders", nextProviders);
   };
@@ -452,7 +456,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("OpenWork server config API is unavailable for this workspace.");
+      throw new Error("FoxWork 服务无法管理当前工作区的配置。");
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
@@ -476,19 +480,25 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         content,
       ) as { ok: boolean; stderr?: string; stdout?: string };
       if (!result.ok) {
-        throw new Error(result.stderr || result.stdout || "Failed to write opencode.jsonc");
+        throw new Error(toChineseUserMessage(
+          result.stderr || result.stdout,
+          "无法写入工作区配置文件。",
+        ));
       }
       return true;
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("OpenWork server config API is unavailable for this workspace.");
+      throw new Error("FoxWork 服务无法管理当前工作区的配置。");
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
       const result = await writeOpencodeConfig("project", root, content) as { ok: boolean; stderr?: string; stdout?: string };
       if (!result.ok) {
-        throw new Error(result.stderr || result.stdout || "Failed to write opencode.jsonc");
+        throw new Error(toChineseUserMessage(
+          result.stderr || result.stdout,
+          "无法写入工作区配置文件。",
+        ));
       }
       return true;
     }
@@ -506,7 +516,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
       await resolveOpenworkConfigTarget("write");
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-      throw new Error("OpenWork server unavailable. Connect to manage cloud providers.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再管理公司模型供应商。");
     }
     await openworkClient.patchConfig(openworkWorkspaceId, {
       opencode: { provider: update },
@@ -542,7 +552,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     if (configFile) {
       const raw = configFile.content?.trim()
         ? configFile.content
-        : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
+        : '{}\n';
       const next = updater(raw);
       if (configsAreSemanticallyEqual(raw, next)) {
         return false;
@@ -597,7 +607,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const resolvedProviderId = providerId.trim();
     let updated = raw.trim()
       ? raw
-      : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
+      : '{}\n';
     const parsed = parse(updated) as Record<string, unknown> | undefined;
     const currentDisabled = normalizeDisabledProviders(parsed?.disabled_providers);
     const nextDisabled = disabled
@@ -649,7 +659,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     );
 
     if (!updatedConfig) {
-      throw new Error("Could not update opencode.jsonc for this workspace.");
+      throw new Error("无法更新当前工作区的模型配置。");
     }
 
     options.setDisabledProviders(nextDisabled);
@@ -666,7 +676,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         checkRestriction: options.checkDesktopAppRestriction,
       })
     ) {
-      throw new Error(`${providerId} is blocked by your organization desktop policy.`);
+      throw new Error(`${providerId} 已被公司桌面策略禁用。`);
     }
   };
 
@@ -743,9 +753,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         (entry) => entry.providerId === localProviderId && entry.cloudProviderId !== provider.id,
       )
     ) {
-      throw new Error(
-        `${localProviderId} is already imported from another cloud provider. Remove it before importing this one.`,
-      );
+      throw new Error(`${localProviderId} 已从其他公司模型服务导入，请先移除原有配置。`);
     }
 
     if (
@@ -753,9 +761,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       !cloudManagedKey &&
       options.providerConnectedIds().includes(localProviderId)
     ) {
-      throw new Error(
-        `${localProviderId} is already connected in this workspace. Disconnect it before importing the cloud-managed version.`,
-      );
+      throw new Error(`${localProviderId} 已在当前工作区连接，请先断开再导入公司配置。`);
     }
 
     const configFile = await readProjectConfigFile() as { content?: string } | null;
@@ -774,9 +780,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       !Array.isArray(providerSection) &&
       localProviderId in (providerSection as Record<string, unknown>)
     ) {
-      throw new Error(
-        `${localProviderId} already has a provider block in opencode.jsonc. Remove it before importing the cloud-managed version.`,
-      );
+      throw new Error(`${localProviderId} 已存在本地模型配置，请先移除再导入公司配置。`);
     }
   };
 
@@ -1000,20 +1004,19 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       return fallback;
     })();
 
-    const lines = [heading];
-    if (raw && !generic && raw !== heading) lines.push(raw);
-    if (status && !heading.includes(String(status))) lines.push(`Status: ${status}`);
-    if (provider && !heading.includes(provider)) lines.push(`Provider: ${provider}`);
-    if (code) lines.push(`Code: ${code}`);
-    if (response) lines.push(`Response: ${response}`);
+    const localizedHeading = toChineseUserMessage(heading, "模型供应商操作失败，请稍后重试。");
+    const localizedRaw = raw && !generic
+      ? toChineseUserMessage(raw, "")
+      : "";
+    const localizedResponse = response ? toChineseUserMessage(response, "") : "";
+    const lines = [localizedHeading];
+    if (localizedRaw && localizedRaw !== localizedHeading) lines.push(localizedRaw);
+    if (status && !localizedHeading.includes(String(status))) lines.push(`状态码：${status}`);
+    if (provider && !localizedHeading.includes(provider)) lines.push(`供应商：${provider}`);
+    if (code) lines.push(`错误代码：${code}`);
+    if (localizedResponse) lines.push(`响应信息：${localizedResponse}`);
     if (lines.length > 1) return lines.join("\n");
-
-    if (raw && !generic) return raw;
-    if (error && typeof error === "object") {
-      const serialized = safeStringify(error);
-      if (serialized && serialized !== "{}") return serialized;
-    }
-    return fallback;
+    return localizedHeading;
   };
 
   const buildProviderAuthMethods = (
@@ -1338,6 +1341,50 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
   }
 
+  async function submitLocalProvider(input: LocalProviderInput) {
+    setStateField("providerAuthError", null);
+    const c = options.client();
+    if (!c) {
+      throw new Error(t("providers.not_connected"));
+    }
+    if (getProviderAuthWorkerType() !== "local") {
+      throw new Error("远程工作区只能使用公司下发的模型服务。请让管理员在公司后台完成配置。");
+    }
+
+    try {
+      const resolved = buildLocalProviderConfig(input);
+      assertProviderAllowedByDesktopPolicy(resolved.providerId);
+
+      await patchRuntimeProviders({
+        [resolved.providerId]: resolved.config,
+      });
+      await c.auth.set({
+        providerID: resolved.providerId,
+        auth: { type: "api", key: resolved.apiKey },
+      });
+
+      const nextDisabledProviders = options
+        .disabledProviders()
+        .filter((id) => id !== resolved.providerId);
+      options.setDisabledProviders(nextDisabledProviders);
+      options.markOpencodeConfigReloadRequired();
+      await refreshProviders({ dispose: true });
+      refreshSnapshot();
+      emitChange();
+      return {
+        providerId: resolved.providerId,
+        message: `${resolved.name} 已连接`,
+      };
+    } catch (error) {
+      const message = describeProviderError(
+        error,
+        "保存本地模型服务失败，请检查地址、密钥和模型 ID。",
+      );
+      setStateField("providerAuthError", message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }
+
   async function connectCloudProviderInternal(
     cloudProviderId: string,
     optionsArg?: { silent?: boolean },
@@ -1354,7 +1401,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const token = settings.authToken?.trim() ?? "";
     const orgId = settings.activeOrgId?.trim() ?? "";
     if (!token || !orgId) {
-      throw new Error("Sign in to OpenWork Cloud and choose an organization first.");
+      throw new Error("请先登录公司账号并选择公司。");
     }
 
     try {
@@ -1369,7 +1416,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       const { envEntries, primaryApiKey } = resolveCloudProviderCredentials(provider);
       const env = getCloudProviderEnv(provider.providerConfig);
       if (!primaryApiKey && env.length > 0) {
-        throw new Error(`${provider.name} does not have a stored organization credential yet.`);
+        throw new Error(`${provider.name} 尚未配置公司凭据。`);
       }
 
       await assertCloudProviderImportSafe(provider);
@@ -1377,11 +1424,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       if (envEntries.length > 0) {
         const openworkClient = options.openworkServer.getSnapshot().openworkServerClient;
         if (!openworkClient) {
-          throw new Error(
-            `${provider.name} needs environment variables (${envEntries
-              .map((entry) => entry.key)
-              .join(", ")}) but the OpenWork server is not available.`,
-          );
+          throw new Error(`${provider.name} 需要环境变量 ${envEntries
+            .map((entry) => entry.key)
+            .join("、")}，但 FoxWork 本地服务尚未连接。`);
         }
         await openworkClient.upsertUserEnv(envEntries);
       }
@@ -1438,7 +1483,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       emitChange();
       return `${t("status.connected")} ${provider.name}`;
     } catch (error) {
-      const message = describeProviderError(error, "Failed to connect organization provider.");
+      const message = describeProviderError(error, "无法连接公司模型供应商，请稍后重试。");
       if (!optionsArg?.silent) {
         setStateField("providerAuthError", message);
       }
@@ -1459,7 +1504,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
     const imported = state.importedCloudProviders[cloudProviderId];
     if (!imported) {
-      throw new Error("This cloud provider has not been imported into the workspace.");
+      throw new Error("该公司模型服务尚未导入当前工作区。");
     }
 
     try {
@@ -1919,6 +1964,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     refreshProviders,
     completeProviderAuthOAuth,
     submitProviderApiKey,
+    submitLocalProvider,
     connectCloudProvider,
     removeCloudProvider,
     disconnectProvider,

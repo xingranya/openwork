@@ -32,9 +32,9 @@ export const desktopPolicyDefinitions = [
   },
   {
     id: "allowZenModel",
-    name: "启用 OpenCode Zen 模型",
-    description: "允许员工使用 OpenCode 内置模型。",
-    userNotice: "公司管理员已禁止使用 OpenCode 模型。",
+    name: "FoxWork免费模型",
+    description: "允许员工使用FoxWork随客户端提供的免费模型。",
+    userNotice: "公司管理员已禁止使用FoxWork免费模型。",
     defaultValue: true,
   },
   {

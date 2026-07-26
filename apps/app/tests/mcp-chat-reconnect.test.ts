@@ -64,7 +64,7 @@ describe("chat MCP reconnect completion", () => {
       isScopeCurrent: () => false,
       timeoutMs: 10,
       intervalMs: 1,
-    })).rejects.toThrow("active OpenWork Cloud account changed")
+    })).rejects.toThrow("公司账号已发生变化")
   })
 
   test("times out without claiming a stale connected account was repaired", async () => {
@@ -79,6 +79,6 @@ describe("chat MCP reconnect completion", () => {
       intervalMs: 1,
       now: () => now,
       sleep: async (milliseconds) => { now += milliseconds },
-    })).rejects.toThrow("did not finish")
+    })).rejects.toThrow("授权尚未完成")
   })
 })

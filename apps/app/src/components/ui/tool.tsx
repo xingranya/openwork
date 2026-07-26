@@ -145,9 +145,9 @@ function reconnectAttribution(action: ChatToolReconnectAction, label: string): T
   return {
     label,
     confidence: "Confirmed",
-    description: label === "Reconnected"
-      ? `${action.connectionName} has a fresh authorization. Retry the request when ready.`
-      : `${action.connectionName} rejected its saved authorization and needs to be reconnected.`,
+    description: label === "已重新连接"
+      ? `${action.connectionName} 已获得新的授权，可以重试刚才的请求。`
+      : `${action.connectionName} 的原有授权已失效，需要重新连接。`,
   }
 }
 
@@ -188,10 +188,11 @@ const Tool = ({
     ? chatMcpReconnectPresentation(reconnectAction, reconnectState)
     : null
   const errorAttribution = reconnectAction
-    ? reconnectAttribution(reconnectAction, reconnectPresentation?.badgeLabel ?? "Reconnect required")
+    ? reconnectAttribution(reconnectAction, reconnectPresentation?.badgeLabel ?? "需要重新连接")
     : isError && toolPart.errorText
       ? attributeChatToolError(toolPart.errorText)
       : null
+  const errorAttributionConfidenceLabel = errorAttribution?.confidence === "Confirmed" ? "已确认" : "推断"
   const label = title ?? getToolActivityLabel(toolPart)
   const hasInput = input !== null && input !== undefined
   const hasOutput = "output" in toolPart && toolPart.output !== undefined
@@ -220,7 +221,7 @@ const Tool = ({
       if (!reconnectAuthorizeUrl) {
         setReconnectRecord(reconnectKey, {
           phase: "failed",
-          error: `${reconnectAction.connectionName} sign-in is no longer pending. Try reconnecting again.`,
+          error: `${reconnectAction.connectionName} 的登录请求已失效，请重新连接。`,
           authorizeUrl: null,
         })
         return
@@ -306,8 +307,8 @@ const Tool = ({
                       ? "border-amber-7/30 bg-amber-3/50 text-amber-11"
                       : "border-border/70 text-muted-foreground",
               )}
-              title={`${errorAttribution.confidence}: ${errorAttribution.description}`}
-              aria-label={`Error attribution: ${errorAttribution.label}. ${errorAttribution.confidence}.`}
+              title={`${errorAttributionConfidenceLabel}：${errorAttribution.description}`}
+              aria-label={`错误来源：${errorAttribution.label}。${errorAttributionConfidenceLabel}。`}
             >
               {errorAttribution.label}
             </span>

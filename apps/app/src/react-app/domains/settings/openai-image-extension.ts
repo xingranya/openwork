@@ -14,7 +14,7 @@ type ProviderModelConfig = NonNullable<ProviderConfig["models"]>[string];
 
 export const OLLAMA_PROVIDER_CONFIG = {
   providerId: "ollama",
-  name: "Ollama (local)",
+  name: "Ollama 本地模型",
   baseURL: "http://localhost:11434/v1",
   defaultModelId: "qwen2.5-coder:7b",
 };

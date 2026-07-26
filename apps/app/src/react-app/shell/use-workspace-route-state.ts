@@ -22,8 +22,10 @@ import {
 import { createClient } from "@/app/lib/opencode";
 import { createOpenworkServerClient, type OpenworkServerClient } from "@/app/lib/openwork-server";
 import { isDesktopRuntime } from "@/app/lib/runtime-env";
+import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   resolveWorkspaceEndpoint,
+  shouldActivateWorkspaceEndpoint,
   type ResolvedWorkspaceEndpoint,
 } from "@/app/lib/workspace-endpoint";
 import type { WorkspaceConnectionState } from "@/app/types";
@@ -302,14 +304,18 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
           // remote workers a precise endpoint/token/workspace diagnostic.
           if (workspace.workspaceType === "remote") {
             const connectionState = await diagnoseRemoteWorkspaceTaskLoadFailure(workspace, message);
+            const connectionMessage = toChineseUserMessage(
+              connectionState.message,
+              "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+            );
             setErrorsByWorkspaceId((current) => ({
               ...current,
-              [workspace.id]: connectionState.message ?? "Remote worker connection failed.",
+              [workspace.id]: connectionMessage,
             }));
             setWorkspaceConnectionOverrides((current) => {
               return {
                 ...current,
-                [workspace.id]: connectionState,
+                [workspace.id]: { ...connectionState, message: connectionMessage },
               };
             });
           }
@@ -458,7 +464,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         launchActivatedWorkspaceIdsRef.current.add(nextWorkspaceId);
         const nextWorkspace = nextWorkspaces.find((workspace) => workspace.id === nextWorkspaceId) ?? null;
         const nextEndpoint = endpointForWorkspace(nextWorkspace);
-        if (nextEndpoint) {
+        if (shouldActivateWorkspaceEndpoint(nextEndpoint)) {
           void nextEndpoint.client.activateWorkspace(nextEndpoint.workspaceId).catch(() => undefined);
         }
       }
@@ -819,7 +825,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
             setModernRouteSessionResolution({
               key: modernRouteSessionLoadKey,
               status: "error",
-              message: "The server returned a different session.",
+              message: "公司服务返回了其他会话。",
             });
             return;
           }
@@ -865,13 +871,16 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const routeNotFoundMessage = (() => {
     if (loading) return null;
     if (routeWorkspaceId && !selectedWorkspace) {
-      return "Workspace was not found. Select a new workspace from the sidebar.";
+      return "未找到该工作区，请从侧栏重新选择。";
     }
     if (selectedSessionId && !selectedSessionKnown && activeModernRouteSessionResolution?.status === "not-found") {
-      return "Session was not found. Select a new session from the sidebar.";
+      return "未找到该会话，请从侧栏重新选择。";
     }
     if (selectedSessionId && !selectedSessionKnown && activeModernRouteSessionResolution?.status === "error") {
-      return `Session could not be loaded. ${activeModernRouteSessionResolution.message}`;
+      return toChineseUserMessage(
+        activeModernRouteSessionResolution.message,
+        "无法加载该会话，请稍后重试。",
+      );
     }
     return null;
   })();
@@ -925,13 +934,22 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       }
       setWorkspaceConnectionOverrides((current) => ({
         ...current,
-        [workspaceId]: result.state,
+        [workspaceId]: {
+          ...result.state,
+          message: toChineseUserMessage(
+            result.state.message,
+            "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+          ),
+        },
       }));
 
       if (!result.ok) {
         setErrorsByWorkspaceId((current) => ({
           ...current,
-          [workspaceId]: result.state.message ?? "Remote worker connection failed.",
+          [workspaceId]: toChineseUserMessage(
+            result.state.message,
+            "无法连接远程工作区，请检查连接地址与访问权限后重试。",
+          ),
         }));
         if (remoteWorkspaceCheckRunRef.current[workspaceId] === runId) {
           delete remoteWorkspaceCheckRunRef.current[workspaceId];

@@ -177,7 +177,7 @@ function findEndOfCentralDirectory(buffer) {
   for (let offset = buffer.length - 22; offset >= start; offset -= 1) {
     if (buffer.readUInt32LE(offset) === ZIP_END_OF_CENTRAL_DIRECTORY) return offset;
   }
-  throw new Error("Failed to find ZIP central directory.");
+  throw new Error("无法读取压缩包目录。");
 }
 
 function listZipEntries(buffer) {
@@ -188,7 +188,7 @@ function listZipEntries(buffer) {
   let cursor = centralOffset;
   for (let i = 0; i < count; i += 1) {
     if (buffer.readUInt32LE(cursor) !== ZIP_CENTRAL_DIRECTORY_HEADER) {
-      throw new Error("Invalid ZIP central directory entry.");
+      throw new Error("压缩包目录项无效。");
     }
     const method = buffer.readUInt16LE(cursor + 10);
     const compressedSize = buffer.readUInt32LE(cursor + 20);
@@ -207,7 +207,7 @@ function listZipEntries(buffer) {
 function readZipEntryData(buffer, entry) {
   const cursor = entry.localOffset;
   if (buffer.readUInt32LE(cursor) !== ZIP_LOCAL_FILE_HEADER) {
-    throw new Error(`Invalid ZIP local header for ${entry.name}.`);
+    throw new Error(`压缩包中的 ${entry.name} 文件头无效。`);
   }
   const nameLength = buffer.readUInt16LE(cursor + 26);
   const extraLength = buffer.readUInt16LE(cursor + 28);
@@ -215,7 +215,7 @@ function readZipEntryData(buffer, entry) {
   const compressed = buffer.subarray(dataStart, dataStart + entry.compressedSize);
   if (entry.method === 0) return compressed;
   if (entry.method === 8) return zlib.inflateRawSync(compressed, { finishFlush: zlib.constants.Z_SYNC_FLUSH });
-  throw new Error(`Unsupported ZIP compression method ${entry.method} for ${entry.name}.`);
+  throw new Error(`压缩包中的 ${entry.name} 使用了不支持的压缩方式 ${entry.method}。`);
 }
 
 function isSafeArchivePath(name) {
@@ -228,7 +228,7 @@ function defaultOpenworkConfig(targetDir, preset = "starter") {
   return {
     version: 1,
     workspace: {
-      name: path.basename(targetDir) || "Workspace",
+      name: path.basename(targetDir) || "工作区",
       createdAt: nowMs(),
       preset,
     },
@@ -239,15 +239,15 @@ function defaultOpenworkConfig(targetDir, preset = "starter") {
 
 export async function exportWorkspaceConfig({ workspace, outputPath }) {
   if (!workspace?.path || workspace.workspaceType === "remote") {
-    throw new Error("Workspace export is only supported for local workspaces");
+    throw new Error("只有本地工作区可以导出。");
   }
   const workspaceRoot = workspace.path;
   if (!(await pathExists(workspaceRoot))) {
-    throw new Error(`Workspace path not found: ${workspaceRoot}`);
+    throw new Error(`找不到工作区路径：${workspaceRoot}`);
   }
 
   const { entries, excluded } = await collectWorkspaceEntries(workspaceRoot);
-  if (entries.length === 0) throw new Error("No workspace config files found to export");
+  if (entries.length === 0) throw new Error("没有可导出的工作区配置文件。");
 
   const files = [];
   const included = [];
@@ -271,14 +271,14 @@ export async function exportWorkspaceConfig({ workspace, outputPath }) {
 
 export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   if (await pathExists(targetDir)) {
-    if (!(await isDirectoryEmpty(targetDir))) throw new Error("Target folder must be empty");
+    if (!(await isDirectoryEmpty(targetDir))) throw new Error("目标文件夹必须为空。");
   }
   await mkdir(targetDir, { recursive: true });
 
   const buffer = await readFile(archivePath);
   for (const entry of listZipEntries(buffer)) {
     if (entry.name === "manifest.json" || entry.name.endsWith("/")) continue;
-    if (!isSafeArchivePath(entry.name)) throw new Error("Archive contains an unsafe path");
+    if (!isSafeArchivePath(entry.name)) throw new Error("压缩包包含不安全的文件路径。");
     if (!(entry.name === "opencode.json" || entry.name.startsWith(".opencode/"))) continue;
     if (isSecretName(path.basename(entry.name))) continue;
     const outPath = path.join(targetDir, ...entry.name.split("/"));
@@ -287,7 +287,7 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   }
 
   const opencodeDir = path.join(targetDir, ".opencode");
-  if (!(await pathExists(opencodeDir))) throw new Error("Archive is missing .opencode config");
+  if (!(await pathExists(opencodeDir))) throw new Error("压缩包缺少 AI 运行配置。");
 
   const openworkPath = path.join(opencodeDir, "openwork.json");
   let preset = "starter";
@@ -315,7 +315,7 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   }
 
   return {
-    workspaceName: workspaceName || path.basename(targetDir) || "Workspace",
+    workspaceName: workspaceName || path.basename(targetDir) || "工作区",
     preset,
   };
 }

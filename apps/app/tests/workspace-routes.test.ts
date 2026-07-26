@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { classifyRouteSessionReadError } from "../src/react-app/shell/route-workspaces";
+import {
+  classifyRouteSessionReadError,
+  mergeRouteWorkspaces,
+  type RouteWorkspace,
+} from "../src/react-app/shell/route-workspaces";
 import {
   mergeWorkspaceRouteSession,
   preserveWorkspaceRouteSession,
@@ -65,5 +69,61 @@ describe("workspace route session read errors", () => {
     expect(classifyRouteSessionReadError(Object.assign(new Error("upstream"), { status: 502 }))).toBe("retryable");
     expect(classifyRouteSessionReadError(new Error("request timed out"))).toBe("retryable");
     expect(classifyRouteSessionReadError(Object.assign(new Error("forbidden"), { status: 403 }))).toBe("error");
+  });
+});
+
+function routeWorkspace(
+  id: string,
+  overrides: Partial<RouteWorkspace> = {},
+): RouteWorkspace {
+  return {
+    id,
+    name: id,
+    path: `/workspace/${id}`,
+    preset: "starter",
+    workspaceType: "local",
+    displayNameResolved: id,
+    ...overrides,
+  };
+}
+
+describe("工作区入口归一化", () => {
+  test("远程记录映射到本机服务中的同一工作区时只保留远程入口", () => {
+    const serverWorkspaces = [
+      routeWorkspace("ws_runtime"),
+      routeWorkspace("rem_ws_runtime", {
+        workspaceType: "remote",
+        remoteType: "openwork",
+        openworkWorkspaceId: "ws_runtime",
+      }),
+      routeWorkspace("ws_independent"),
+    ];
+    const desktopWorkspaces = [
+      routeWorkspace("rem_ws_runtime", {
+        name: "我的远程工作区",
+        displayName: "我的远程工作区",
+        displayNameResolved: "我的远程工作区",
+        workspaceType: "remote",
+        remoteType: "openwork",
+        openworkWorkspaceId: "ws_runtime",
+      }),
+    ];
+
+    expect(mergeRouteWorkspaces(serverWorkspaces, desktopWorkspaces).map((workspace) => workspace.id))
+      .toEqual(["ws_independent", "rem_ws_runtime"]);
+  });
+
+  test("没有对应远程服务记录时不因服务器工作区 ID 偶合而隐藏本地工作区", () => {
+    const serverWorkspaces = [routeWorkspace("ws_runtime")];
+    const desktopWorkspaces = [
+      routeWorkspace("rem_ws_runtime", {
+        workspaceType: "remote",
+        remoteType: "openwork",
+        openworkWorkspaceId: "ws_runtime",
+      }),
+    ];
+
+    expect(mergeRouteWorkspaces(serverWorkspaces, desktopWorkspaces).map((workspace) => workspace.id))
+      .toEqual(["ws_runtime", "rem_ws_runtime"]);
   });
 });

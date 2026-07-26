@@ -1,16 +1,19 @@
 {
   "name": "openwork-server",
   "version": "0.17.36",
-  "description": "Filesystem-backed API for OpenWork remote clients",
+  "description": "FoxWork 本机运行与远程工作区服务",
+  "author": {
+    "name": "Fox"
+  },
   "type": "module",
   "bin": {
     "openwork-server": "bin/openwork-server.mjs"
   },
   "scripts": {
     "dev": "OPENWORK_DEV_MODE=1 bun src/cli.ts",
-    "test": "bun test",
+    "test": "bun test src",
     "test:artifacts": "bun test src/artifact-files.e2e.test.ts src/workspace-init.test.ts src/server.normalizeWorkspaceRelativePath.test.ts",
-    "build": "tsc -p tsconfig.json && bun build src/opencode-plugins/openwork-extensions-preview.ts src/opencode-plugins/openwork-capabilities-knowledge.ts src/opencode-plugins/openwork-office-attachments.ts src/opencode-plugins/openwork-anthropic-adaptive-thinking.ts src/opencode-plugins/openwork-anthropic-tool-schema.ts --outdir dist/opencode-plugins --target node --format esm",
+    "build": "tsc -p tsconfig.json && bun build src/opencode-plugins/openwork-extensions-preview.ts src/opencode-plugins/openwork-capabilities-knowledge.ts src/opencode-plugins/openwork-office-attachments.ts src/opencode-plugins/openwork-browser-automation.ts src/opencode-plugins/openwork-anthropic-adaptive-thinking.ts src/opencode-plugins/openwork-anthropic-tool-schema.ts --outdir dist/opencode-plugins --target node --format esm",
     "build:bin": "bun build --compile src/cli.ts --outfile dist/bin/openwork-server",
     "build:bin:all": "bun ./script/build.ts --outdir dist/bin --target bun-darwin-arm64 --target bun-darwin-x64 --target bun-linux-x64 --target bun-linux-arm64 --target bun-windows-x64 --target bun-windows-arm64",
     "start": "bun dist/cli.js",
@@ -22,26 +25,14 @@
     "dist",
     "README.md"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/different-ai/openwork.git",
-    "directory": "apps/server"
-  },
-  "homepage": "https://github.com/different-ai/openwork/tree/dev/apps/server",
-  "bugs": {
-    "url": "https://github.com/different-ai/openwork/issues"
-  },
   "keywords": [
-    "openwork",
+    "foxwork",
     "server",
-    "opencode",
+    "ai-runtime",
     "headless",
     "cli"
   ],
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
   "exports": {
     ".": "./src/index.ts"
   },

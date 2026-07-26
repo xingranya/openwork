@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import type { DenDesktopConfig } from "../../../../app/lib/den";
+import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import {
   isAlphaChannelAllowedByDesktopConfig,
   isAlphaUpdateAllowed,
@@ -12,7 +13,7 @@ import {
   resolveFreshStableDesktopUpdate,
 } from "../../../../app/lib/version-gate";
 import type { ReleaseChannel } from "../../../../app/types";
-import { isElectronRuntime, safeStringify } from "../../../../app/utils";
+import { isElectronRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { useUpdateCheckRequestStore } from "./update-check-request";
 
@@ -79,10 +80,8 @@ function electronUpdaterBridge(): ElectronUpdaterBridge | null {
   return window.__OPENWORK_ELECTRON__?.updater ?? null;
 }
 
-function describeError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  const serialized = safeStringify(error);
-  return serialized && serialized !== "{}" ? serialized : String(error);
+function describeError(error: unknown, fallback: string) {
+  return toChineseUserMessage(error, fallback);
 }
 
 function releaseNotesToText(value: unknown): string | undefined {
@@ -204,7 +203,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       })
       .catch(() => {
         if (!cancelled) {
-          dispatchEnvState({ type: "unsupported", reason: "Electron updater bridge is unavailable." });
+          dispatchEnvState({ type: "unsupported", reason: "当前安装包不支持自动更新。" });
         }
       });
     return () => {
@@ -215,7 +214,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   const downloadUpdate = useCallback(async (channelOverride?: ReleaseChannel) => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.download) {
-      const message = "Electron updater downloads are available only in the Electron desktop app.";
+      const message = "只有 FoxWork 桌面版可以下载更新。";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;
@@ -228,7 +227,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     const releaseChannelResolution = await resolvePolicyReleaseChannel(
       requestedReleaseChannel,
     ).catch((error: unknown) => {
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      setUpdateStatus({ state: "error", message: describeError(error, "无法读取公司更新策略，请重试。") });
       return null;
     });
     if (!releaseChannelResolution) return;
@@ -241,8 +240,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       return;
     }
 
-    // Subscribe to incremental progress events from the main process so
-    // the UI updates in real time instead of staying stuck at 0 bytes.
+    // 订阅主进程的增量进度，避免界面一直停留在 0 字节。
     let unsubProgress: (() => void) | null = null;
     if (bridge.onDownloadProgress) {
       unsubProgress = bridge.onDownloadProgress((data) => {
@@ -264,7 +262,10 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     try {
       const result = await bridge.download();
       if (!result?.ok) {
-        setUpdateStatus({ state: "error", message: result?.reason ?? "Update download failed." });
+        setUpdateStatus({
+          state: "error",
+          message: toChineseUserMessage(result?.reason, "下载更新失败，请重试。"),
+        });
         return;
       }
       if (
@@ -285,7 +286,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         state: "ready",
       }));
     } catch (error) {
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      setUpdateStatus({ state: "error", message: describeError(error, "下载更新失败，请重试。") });
     } finally {
       unsubProgress?.();
     }
@@ -393,7 +394,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       if (result.reason === "unavailable") {
         setUpdateStatus({
           state: "idle",
-          message: "Auto-updates are available in packaged builds only.",
+          message: "自动更新仅在正式安装版中可用。",
         });
         return;
       }
@@ -435,7 +436,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         await downloadUpdate(checkedReleaseChannel);
       }
     } catch (error) {
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      setUpdateStatus({ state: "error", message: describeError(error, "检查更新失败，请重试。") });
     }
   }, [appVersion, downloadUpdate, onReleaseChannelChange, refreshDesktopConfig, releaseChannel, resolvePolicyReleaseChannel, setError, updateAutoDownload]);
 
@@ -463,7 +464,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   const installUpdateAndRestart = useCallback(async () => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.installAndRestart) {
-      const message = "Electron update install is available only in the Electron desktop app.";
+      const message = "只有 FoxWork 桌面版可以安装更新。";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;
@@ -481,10 +482,13 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       }
       const result = await bridge.installAndRestart();
       if (!result?.ok) {
-        setUpdateStatus({ state: "error", message: result?.reason ?? "Update install failed." });
+        setUpdateStatus({
+          state: "error",
+          message: toChineseUserMessage(result?.reason, "安装更新失败，请重试。"),
+        });
       }
     } catch (error) {
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      setUpdateStatus({ state: "error", message: describeError(error, "安装更新失败，请重试。") });
     }
   }, [onReleaseChannelChange, resolvePolicyReleaseChannel, setError]);
 
@@ -503,7 +507,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         }
         await checkForUpdates(state.channel ?? allowedReleaseChannel);
       } catch (error) {
-        setUpdateStatus({ state: "error", message: describeError(error) });
+        setUpdateStatus({ state: "error", message: describeError(error, "切换更新通道失败，请重试。") });
       }
     },
     [checkForUpdates, onReleaseChannelChange, resolvePolicyReleaseChannel],

@@ -665,11 +665,11 @@ function MarketplaceCard(props: {
           kind={row.entry.kind ?? "extension"}
           preview={row.entry.preview}
           connected={row.active}
-          connectedLabel={row.entry.defaultEnabled ? "Ready" : "Active"}
+          connectedLabel={row.entry.defaultEnabled ? "可使用" : "已启用"}
           connecting={actionBusy}
           disabled={props.builtInDisabled}
-          disabledReason={props.builtInDisabled ? "Disabled by organization" : null}
-          actionLabel={row.active ? "Manage" : "View setup"}
+          disabledReason={props.builtInDisabled ? "公司管理员已停用" : null}
+          actionLabel={row.active ? "管理" : "查看设置"}
           onClick={() => onOpenDetail(row)}
         />
       </div>
@@ -685,14 +685,14 @@ function MarketplaceCard(props: {
       <div ref={highlightRef} className={`space-y-2 ${highlightClass}`}>
         <ExtensionCard
           name={row.item.name}
-          description={row.item.description ?? "Available from your organization."}
+          description={row.item.description ?? "由公司提供。"}
           kind="mcp"
           url={row.connection.url}
           connected={ready}
           connectedLabel={orgMcpConnectionActionLabel(row.connection)}
           beta
           connecting={actionBusy}
-          actionLabel={actionBusy ? "Waiting for browser..." : disconnecting ? t("mcp.org_connection_disconnecting_action") : ready ? "View details" : orgMcpConnectionActionLabel(row.connection)}
+          actionLabel={actionBusy ? "正在等待浏览器…" : disconnecting ? t("mcp.org_connection_disconnecting_action") : ready ? "查看详情" : orgMcpConnectionActionLabel(row.connection)}
           onClick={() => onOpenDetail(row)}
         />
         {canDisconnect ? (
@@ -722,14 +722,14 @@ function MarketplaceCard(props: {
     <div ref={highlightRef} className={`flex flex-col gap-2 ${highlightClass}`}>
       <ExtensionCard
         name={row.plugin.name}
-        description={row.plugin.description || `Marketplace extension from ${row.marketplaceName}.`}
+        description={row.plugin.description || `来自 ${row.marketplaceName} 的扩展。`}
         iconSlug={manifest?.icon?.simpleIconSlug}
         iconSrc={manifest?.icon?.src}
         kind="extension"
         connected
-        connectedLabel={cloudBuiltIn ? "Built-in" : deliveryLabel}
+        connectedLabel={cloudBuiltIn ? "内置" : deliveryLabel}
         connecting={actionBusy}
-        actionLabel={cloudBuiltIn ? "View details" : t("extensions.marketplace_runs_in_cloud")}
+        actionLabel={cloudBuiltIn ? "查看详情" : t("extensions.marketplace_runs_in_cloud")}
         onClick={() => onOpenDetail(row)}
       />
     </div>

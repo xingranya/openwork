@@ -28,6 +28,7 @@ import {
 } from "../../../app/lib/den-session-events";
 import {
   deepLinkBridgeEvent,
+  consumePendingDeepLinks,
   drainPendingDeepLinks,
   type DeepLinkBridgeDetail,
 } from "../../../app/lib/deep-link-bridge";
@@ -51,6 +52,11 @@ export function resolveDenAuthFailureStatus(
 
 export function hasRetainedDenSession(status: DenAuthStatus): boolean {
   return status === "signed_in" || status === "unavailable";
+}
+
+/** 仅在确认没有公司会话时提供登录入口，避免检查中或已登录时重复登录。 */
+export function shouldOfferDenSignIn(status: DenAuthStatus): boolean {
+  return status === "signed_out";
 }
 
 export function shouldRetryDenAuthOnSignal(input: {
@@ -276,9 +282,12 @@ export function DenAuthProvider({ children }: DenAuthProviderProps) {
     if (typeof window === "undefined") return;
 
     const handleUrls = (urls: readonly string[]) => {
+      const consumedUrls: string[] = [];
       for (const rawUrl of urls) {
         const parsed = parseDenAuthDeepLink(rawUrl);
-        if (!parsed || handledGrantsRef.current.has(parsed.grant)) continue;
+        if (!parsed) continue;
+        consumedUrls.push(rawUrl);
+        if (handledGrantsRef.current.has(parsed.grant)) continue;
         handledGrantsRef.current.add(parsed.grant);
 
         const client = createDenClient({
@@ -291,11 +300,13 @@ export function DenAuthProvider({ children }: DenAuthProviderProps) {
           if (!result.ok) handledGrantsRef.current.delete(parsed.grant);
         });
       }
+      return consumedUrls;
     };
 
-    handleUrls(drainPendingDeepLinks(window));
+    handleUrls(drainPendingDeepLinks(window, (url) => parseDenAuthDeepLink(url) !== null));
     const handleDeepLink = (event: Event) => {
-      handleUrls(((event as CustomEvent<DeepLinkBridgeDetail>).detail?.urls ?? []) as string[]);
+      const urls = ((event as CustomEvent<DeepLinkBridgeDetail>).detail?.urls ?? []) as string[];
+      consumePendingDeepLinks(window, handleUrls(urls));
     };
 
     window.addEventListener(deepLinkBridgeEvent, handleDeepLink);

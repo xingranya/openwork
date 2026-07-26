@@ -61,17 +61,17 @@ const model: ProviderModel = {
   },
 };
 
-describe("model behavior options", () => {
-  test("uses only the raw effort values reported by the model", () => {
+describe("模型思考强度选项", () => {
+  test("只保留模型声明的原始强度值，并显示中文标签", () => {
     const options = getModelBehaviorOptions("openai", model);
 
     expect(options.map(({ value, label }) => ({ value, label }))).toEqual([
-      { value: "none", label: "None" },
-      { value: "low", label: "Low" },
-      { value: "medium", label: "Medium" },
-      { value: "high", label: "High" },
-      { value: "xhigh", label: "Xhigh" },
-      { value: "max", label: "Max" },
+      { value: "none", label: "关闭" },
+      { value: "low", label: "较轻" },
+      { value: "medium", label: "均衡" },
+      { value: "high", label: "较深" },
+      { value: "xhigh", label: "很深" },
+      { value: "max", label: "最深" },
     ]);
   });
 });

@@ -60,8 +60,8 @@ function missingContextIssue(input: {
       code: "cloud_mcp_submission_context_missing",
       stage: "engine_delivery",
       retryable: true,
-      message: "OpenWork could not resolve the workspace server before checking connected service tools.",
-      recommendedAction: "Retry after the workspace finishes loading.",
+      message: "FoxWork 无法确定当前工作区服务，暂时不能检查公司工具。",
+      recommendedAction: "请等待工作区加载完成后重试。",
     };
   }
   if (!input.providerModel) {
@@ -69,16 +69,16 @@ function missingContextIssue(input: {
       code: "cloud_mcp_submission_model_missing",
       stage: "provider_projection",
       retryable: false,
-      message: "Select a provider and model before using connected service tools.",
-      recommendedAction: "Choose a model, then Retry.",
+      message: "请先选择模型服务和模型，再使用公司工具。",
+      recommendedAction: "请选择模型后重试。",
     };
   }
   return {
     code: "cloud_mcp_submission_context_missing",
     stage: "provider_projection",
     retryable: false,
-    message: "OpenWork could not verify connected service tools for this submission.",
-    recommendedAction: "Retry or open Settings → Connect for diagnostics.",
+    message: "FoxWork 无法确认本次消息所需的公司工具是否可用。",
+    recommendedAction: "请重试，或前往“设置 > 公司连接”查看诊断。",
   };
 }
 

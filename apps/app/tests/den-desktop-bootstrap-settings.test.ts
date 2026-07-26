@@ -148,6 +148,51 @@ describe("desktop Den bootstrap settings", () => {
     expect(readDenSettings().baseUrl).toBe("https://saved.example.com");
   });
 
+  test("immediately reads a new desktop base URL while persistence is still pending", async () => {
+    await initializeDenBootstrapConfig();
+
+    let releasePersistence: (() => void) | undefined;
+    let persistenceStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      persistenceStarted = resolve;
+    });
+    const pendingPersistence = new Promise<void>((resolve) => {
+      releasePersistence = resolve;
+    });
+
+    window.__OPENWORK_ELECTRON__!.invokeDesktop = async (
+      command: string,
+      payload?: { baseUrl: string; requireSignin: boolean },
+    ) => {
+      if (command === "getDesktopBootstrapConfig") return bootstrapConfig;
+      if (command === "setDesktopBootstrapConfig" && payload) {
+        persistenceStarted?.();
+        await pendingPersistence;
+        bootstrapConfig = {
+          baseUrl: payload.baseUrl,
+          requireSignin: payload.requireSignin,
+          writtenAt: "2026-07-08T00:00:00.000Z",
+        };
+        return bootstrapConfig;
+      }
+      throw new Error(`Unexpected desktop command: ${command}`);
+    };
+
+    writeDenSettings({
+      baseUrl: "https://handoff.example.com",
+      authToken: "tok_handoff",
+      activeOrgId: "org_test",
+      activeOrgSlug: "foxwork",
+      activeOrgName: "FoxWork",
+    });
+
+    await started;
+    expect(readDenSettings().baseUrl).toBe("https://handoff.example.com");
+    expect(readDenSettings().authToken).toBe("tok_handoff");
+
+    releasePersistence?.();
+  });
+
   test("session or server changes invalidate configured Cloud MCP token markers", async () => {
     await initializeDenBootstrapConfig();
     window.localStorage.setItem(CLOUD_MCP_SYNC_MARKER_STORAGE_KEY, "stale-marker");

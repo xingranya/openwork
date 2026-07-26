@@ -14,6 +14,7 @@ import type {
   SkillCard,
 } from "../../../../app/types";
 import { addOpencodeCacheHint, isDesktopRuntime, normalizeDirectoryPath } from "../../../../app/utils";
+import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import skillCreatorTemplate from "../../../../app/data/skill-creator.md?raw";
 import {
   isPluginInstalled,
@@ -40,7 +41,6 @@ import {
 } from "../../../../app/lib/desktop";
 import type {
   OpenworkClaudePluginPreview,
-  OpenworkHubRepo,
   OpenworkServerCapabilities,
   OpenworkServerClient,
   OpenworkServerStatus,
@@ -416,6 +416,7 @@ export function createExtensionsStore(options: {
   let refreshSkillsInFlight = false;
   let refreshPluginsInFlight = false;
   let refreshHubSkillsInFlight = false;
+  let refreshHubSkillsRequestId = 0;
   let refreshCloudOrgSkillsInFlight = false;
   let refreshCloudOrgMarketplacesInFlight = false;
   let refreshCloudOrgSkillsInFlightKey = "";
@@ -639,7 +640,10 @@ export function createExtensionsStore(options: {
         config: config as never,
       })) as { ok: boolean; stderr?: string; stdout?: string };
       if (!result.ok) {
-        throw new Error(result.stderr || result.stdout || "Failed to write .opencode/openwork.json");
+        throw new Error(toChineseUserMessage(
+          result.stderr || result.stdout,
+          "无法写入工作区扩展配置。",
+        ));
       }
       return true;
     }
@@ -680,7 +684,7 @@ export function createExtensionsStore(options: {
       const previousPending = snapshot.pendingCloudPluginChanges;
       setStateField("pendingCloudPluginChanges", pending);
 
-      // Notify about newly detected plugin updates or removals.
+      // 只在首次发现插件变更时提醒员工。
       for (const [pluginId, change] of Object.entries(pending)) {
         if (previousPending[pluginId] === change) continue;
         const installed = (installedPlugins ?? snapshot.importedCloudPlugins)[pluginId];
@@ -689,18 +693,18 @@ export function createExtensionsStore(options: {
           notifyEvent({
             kind: "cloud",
             severity: "info",
-            title: "Extension update available",
-            body: `${pluginLabel} has been updated`,
+            title: "扩展有可用更新",
+            body: `${pluginLabel} 已更新`,
             dedupeKey: `plugin-update:${pluginId}`,
             action: { type: "open-extensions-marketplace" },
-            actionLabel: "View updates",
+            actionLabel: "查看更新",
           });
         } else if (change === "removed") {
           notifyEvent({
             kind: "cloud",
             severity: "warning",
-            title: "Extension removed by admin",
-            body: `${pluginLabel} is no longer available`,
+            title: "管理员已移除扩展",
+            body: `${pluginLabel} 已不可用`,
             dedupeKey: `plugin-removed:${pluginId}`,
             action: { type: "open-extensions-marketplace" },
           });
@@ -744,7 +748,7 @@ export function createExtensionsStore(options: {
     const nextConfig = withWorkspaceCloudImports(config, nextCloudImports);
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("OpenWork server unavailable. Connect to manage imported cloud marketplaces.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司扩展市场。");
     }
     setStateField("importedCloudMarketplaces", nextMarketplaces);
     void refreshPendingCloudPluginChanges();
@@ -759,7 +763,7 @@ export function createExtensionsStore(options: {
     });
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("OpenWork server unavailable. Connect to manage imported cloud skills.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司技能。");
     }
     setStateField("importedCloudSkills", nextSkills);
   };
@@ -774,7 +778,7 @@ export function createExtensionsStore(options: {
     const nextConfig = withWorkspaceCloudImports(config, nextCloudImports);
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("OpenWork server unavailable. Connect to manage imported cloud plugins.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司插件。");
     }
     setStateField("importedCloudPlugins", nextPlugins);
     void refreshPendingCloudPluginChanges(nextPlugins);
@@ -821,11 +825,11 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("OpenWork server cannot write skills for this workspace.");
+      throw new Error("FoxWork 服务无法修改当前工作区的技能。");
     }
 
     if (isRemoteWorkspace) {
-      throw new Error("OpenWork server unavailable. Connect to import skills.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再导入技能。");
     }
 
     if (!isDesktopRuntime()) {
@@ -840,7 +844,10 @@ export function createExtensionsStore(options: {
       overwrite: optionsOverride?.overwrite ?? false,
     })) as { ok: boolean; stderr?: string; stdout?: string };
     if (!result.ok) {
-      throw new Error(result.stderr || result.stdout || t("skills.install_failed"));
+      throw new Error(toChineseUserMessage(
+        result.stderr || result.stdout,
+        t("skills.install_failed"),
+      ));
     }
   };
 
@@ -880,11 +887,11 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("OpenWork server cannot remove skills for this workspace.");
+      throw new Error("FoxWork 服务无法移除当前工作区的技能。");
     }
 
     if (isRemoteWorkspace) {
-      throw new Error("OpenWork server unavailable. Connect to remove skills.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再移除技能。");
     }
 
     if (!isDesktopRuntime()) {
@@ -897,7 +904,10 @@ export function createExtensionsStore(options: {
 
     const result = (await uninstallSkillCommand(root, name)) as { ok: boolean; stderr?: string; stdout?: string };
     if (!result.ok) {
-      throw new Error(result.stderr || result.stdout || t("skills.uninstall_failed"));
+      throw new Error(toChineseUserMessage(
+        result.stderr || result.stdout,
+        t("skills.uninstall_failed"),
+      ));
     }
   };
 
@@ -1107,7 +1117,7 @@ export function createExtensionsStore(options: {
       await openworkClient.addMcp(openworkWorkspaceId, { name, config });
       return;
     }
-    throw new Error("OpenWork server unavailable. Connect to import MCP servers into this workspace.");
+    throw new Error("FoxWork 服务不可用，请重新连接后再向当前工作区导入 MCP 服务。");
   };
 
   const deletePluginMcpConfig = async (name: string) => {
@@ -1123,7 +1133,7 @@ export function createExtensionsStore(options: {
       await openworkClient.removeMcp(openworkWorkspaceId, name);
       return;
     }
-    throw new Error("OpenWork server unavailable. Connect to remove imported MCP servers from this workspace.");
+    throw new Error("FoxWork 服务不可用，请重新连接后再从当前工作区移除已导入的 MCP 服务。");
   };
 
   const pluginReloadReason = (objectType: string): ReloadReason => {
@@ -1154,7 +1164,7 @@ export function createExtensionsStore(options: {
       await openworkClient.writeWorkspaceFile(openworkWorkspaceId, { path, content, force: true });
       return;
     }
-    throw new Error("OpenWork server unavailable. Connect to import plugin files into this workspace.");
+    throw new Error("FoxWork 服务不可用，请重新连接后再向当前工作区导入插件文件。");
   };
 
   const deletePluginWorkspaceFiles = async (files: Array<{ path: string; recursive?: boolean }>) => {
@@ -1177,7 +1187,7 @@ export function createExtensionsStore(options: {
       }
       return;
     }
-    throw new Error("OpenWork server unavailable. Connect to remove imported plugin files from this workspace.");
+    throw new Error("FoxWork 服务不可用，请重新连接后再从当前工作区移除已导入的插件文件。");
   };
 
   const applyCloudOrgPluginImport = async (
@@ -1360,62 +1370,31 @@ export function createExtensionsStore(options: {
     emitChange();
   };
 
-  async function refreshHubSkills(optionsOverride?: { force?: boolean }) {
-    const root = options.selectedWorkspaceRoot().trim();
-    const repo = snapshot.hubRepo;
-    const loadKey = `${root}::${repo ? hubRepoKey(repo) : "none"}`;
-    const openworkSnapshot = getOpenworkServerSnapshot();
-    const openworkClient = openworkSnapshot.openworkServerClient;
-    const canUseOpenworkServer =
-      openworkSnapshot.openworkServerStatus === "connected" &&
-      openworkClient &&
-      openworkSnapshot.openworkServerCapabilities?.hub?.skills?.read;
+  async function refreshHubSkills(optionsOverride?: { force?: boolean; query?: string }) {
+    const settings = readDenSettings();
+    const token = settings.authToken?.trim() ?? "";
+    const orgId = settings.activeOrgId?.trim() ?? "";
+    const query = optionsOverride?.query?.trim() ?? "";
+    const effectiveQuery = query.length >= 2 ? query : "";
+    const loadKey = `${getWorkspaceContextKey()}::${orgId}::${effectiveQuery}`;
 
     if (loadKey !== hubSkillsLoadKey) {
       hubSkillsLoaded = false;
     }
 
     if (!optionsOverride?.force && hubSkillsLoaded) return;
-    if (refreshHubSkillsInFlight) return;
-
+    const requestId = ++refreshHubSkillsRequestId;
     refreshHubSkillsInFlight = true;
     refreshHubSkillsAborted = false;
 
     try {
       setStateField("hubSkillsStatus", null);
 
-      if (!repo) {
+      if (!token || !orgId) {
         mutateState((current) => ({
           ...current,
           hubSkills: [],
-          hubSkillsStatus: "No hub repo selected. Add a GitHub repo to browse skills.",
-        }));
-        hubSkillsLoaded = true;
-        hubSkillsLoadKey = loadKey;
-        return;
-      }
-
-      if (canUseOpenworkServer) {
-        const response = await openworkClient.listHubSkills({
-          repo: {
-            owner: repo.owner,
-            repo: repo.repo,
-            ref: repo.ref,
-          },
-        });
-        if (refreshHubSkillsAborted) return;
-        const next: HubSkillCard[] = Array.isArray(response?.items)
-          ? response.items.map((entry) => ({
-              name: String(entry.name ?? ""),
-              description: typeof entry.description === "string" ? entry.description : undefined,
-              trigger: typeof entry.trigger === "string" ? entry.trigger : undefined,
-              source: entry.source,
-            }))
-          : [];
-        mutateState((current) => ({
-          ...current,
-          hubSkills: next,
-          hubSkillsStatus: next.length ? null : "No hub skills found.",
+          hubSkillsStatus: "登录公司账号后即可浏览和安装在线技能。",
           hubSkillsContextKey: getWorkspaceContextKey(),
         }));
         hubSkillsLoaded = true;
@@ -1423,46 +1402,36 @@ export function createExtensionsStore(options: {
         return;
       }
 
-      const listingRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}/contents/skills?ref=${encodeURIComponent(repo.ref)}`,
-        { headers: { Accept: "application/vnd.github+json" } },
-      );
-      if (!listingRes.ok) {
-        throw new Error(`Failed to fetch hub catalog (${listingRes.status})`);
+      const client = createDenClient({ baseUrl: settings.baseUrl, token });
+      const response = await client.listSkillsCatalog(orgId, {
+        query: effectiveQuery || undefined,
+        view: "trending",
+        perPage: 50,
+      });
+      if (
+        refreshHubSkillsAborted
+        || requestId !== refreshHubSkillsRequestId
+        || loadKey !== `${getWorkspaceContextKey()}::${readDenSettings().activeOrgId?.trim() ?? ""}::${effectiveQuery}`
+      ) {
+        return;
       }
-      const listing = (await listingRes.json()) as unknown;
-      const dirs: string[] = Array.isArray(listing)
-        ? listing.flatMap((entry) => {
-            if (!entry || typeof entry !== "object" || (entry as { type?: string }).type !== "dir") return [];
-            const name = String((entry as { name?: string }).name ?? "");
-            return name ? [name] : [];
-          })
-        : [];
-
-      const next: HubSkillCard[] = dirs.map((dirName) => ({
-        name: dirName,
-        source: { owner: repo.owner, repo: repo.repo, ref: repo.ref, path: `skills/${dirName}` },
-      }));
-
-      if (refreshHubSkillsAborted) return;
-      const sorted = next.toSorted((a, b) => a.name.localeCompare(b.name));
       mutateState((current) => ({
         ...current,
-        hubSkills: sorted,
-        hubSkillsStatus: sorted.length ? null : "No hub skills found.",
+        hubSkills: response.items,
+        hubSkillsStatus: response.items.length ? null : "没有找到符合条件的在线技能。",
         hubSkillsContextKey: getWorkspaceContextKey(),
       }));
       hubSkillsLoaded = true;
       hubSkillsLoadKey = loadKey;
     } catch (error) {
-      if (refreshHubSkillsAborted) return;
+      if (refreshHubSkillsAborted || requestId !== refreshHubSkillsRequestId) return;
       mutateState((current) => ({
         ...current,
         hubSkills: [],
-        hubSkillsStatus: error instanceof Error ? error.message : "Failed to load hub skills.",
+        hubSkillsStatus: toChineseUserMessage(error, "无法加载在线技能，请稍后重试。"),
       }));
     } finally {
-      refreshHubSkillsInFlight = false;
+      if (requestId === refreshHubSkillsRequestId) refreshHubSkillsInFlight = false;
     }
   }
 
@@ -1533,8 +1502,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         cloudOrgSkills: [],
-        cloudOrgSkillsStatus:
-          error instanceof Error ? error.message : t("skills.cloud_org_load_failed"),
+        cloudOrgSkillsStatus: toChineseUserMessage(error, t("skills.cloud_org_load_failed")),
       }));
     } finally {
       if (refreshCloudOrgSkillsInFlightKey === loadKey) {
@@ -1592,9 +1560,7 @@ export function createExtensionsStore(options: {
         cloudOrgMarketplacesStatus: null,
       }));
 
-      // Notify the user about newly available marketplace plugins. On the
-      // first load we seed the seen set silently so only subsequent publishes
-      // trigger a notification.
+      // 首次加载只记录已有插件，后续新增插件才提醒员工。
       const allPluginIds = new Set<string>();
       for (const marketplace of resolved) {
         for (const plugin of marketplace.plugins ?? []) {
@@ -1602,22 +1568,22 @@ export function createExtensionsStore(options: {
         }
       }
       if (seenMarketplacePluginIds.size === 0) {
-        // First load: seed without notifying.
+        // 首次加载不发送通知。
         for (const id of allPluginIds) seenMarketplacePluginIds.add(id);
       } else {
         for (const marketplace of resolved) {
-          const marketplaceName = marketplace.marketplace?.name ?? "your marketplace";
+          const marketplaceName = marketplace.marketplace?.name ?? "公司扩展市场";
           for (const plugin of marketplace.plugins ?? []) {
             if (plugin.id && !seenMarketplacePluginIds.has(plugin.id)) {
               seenMarketplacePluginIds.add(plugin.id);
               notifyEvent({
                 kind: "cloud",
                 severity: "info",
-                title: "New extension available",
-                body: `${plugin.name ?? plugin.id} was added to ${marketplaceName}`,
+                title: "有新的公司扩展",
+                body: `${plugin.name ?? plugin.id} 已加入 ${marketplaceName}`,
                 dedupeKey: `new-marketplace-plugin:${plugin.id}`,
                 action: { type: "open-extensions-marketplace", pluginName: plugin.name ?? plugin.id },
-                actionLabel: "View in Marketplace",
+                actionLabel: "前往扩展市场查看",
               });
             }
           }
@@ -1632,8 +1598,10 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         cloudOrgMarketplaces: [],
-        cloudOrgMarketplacesStatus:
-          error instanceof Error ? error.message : "Failed to load organization marketplaces.",
+        cloudOrgMarketplacesStatus: toChineseUserMessage(
+          error,
+          "无法加载公司扩展市场，请稍后重试。",
+        ),
       }));
     } finally {
       if (refreshCloudOrgMarketplacesInFlightKey === loadKey) {
@@ -1655,7 +1623,7 @@ export function createExtensionsStore(options: {
       const settings = readDenSettings();
       const token = settings.authToken?.trim() ?? "";
       const orgId = settings.activeOrgId?.trim() ?? "";
-      if (!token || !orgId) throw new Error("Sign in to OpenWork Cloud and choose an organization first.");
+      if (!token || !orgId) throw new Error("请先登录公司账号并选择公司。");
       const client = createDenClient({ baseUrl: settings.baseUrl, token });
       const resolved = await client.getOrgPluginResolved(orgId, plugin);
       const target = await resolveWorkspaceServerTarget();
@@ -1686,7 +1654,10 @@ export function createExtensionsStore(options: {
         files: result.files,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message, warnings: [], files: [] };
     } finally {
@@ -1697,7 +1668,7 @@ export function createExtensionsStore(options: {
   async function previewClaudePlugin(url: string): Promise<OpenworkClaudePluginPreview> {
     const target = await resolveWorkspaceServerTarget();
     if (!target.openworkClient || !target.openworkWorkspaceId) {
-      throw new Error("OpenWork server unavailable. Connect to install plugins from GitHub.");
+      throw new Error("FoxWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
     }
     const result = await target.openworkClient.previewClaudePlugin(target.openworkWorkspaceId, { url });
     return result.preview;
@@ -1709,17 +1680,20 @@ export function createExtensionsStore(options: {
     try {
       const target = await resolveWorkspaceServerTarget();
       if (!target.openworkClient || !target.openworkWorkspaceId) {
-        throw new Error("OpenWork server unavailable. Connect to install plugins from GitHub.");
+        throw new Error("FoxWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
       }
       const result = await target.openworkClient.installClaudePlugin(target.openworkWorkspaceId, { url });
       await refreshSkills({ force: true });
       await refreshImportedCloudPlugins();
       return {
         ok: true,
-        message: `Installed ${result.item.name} with ${result.item.files.length} component${result.item.files.length === 1 ? "" : "s"}.`,
+        message: `已安装 ${result.item.name}，包含 ${result.item.files.length} 个组件。`,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message };
     } finally {
@@ -1741,12 +1715,12 @@ export function createExtensionsStore(options: {
         void refreshPendingCloudPluginChanges();
         return {
           ok: true,
-          message: `Removed ${result.item.name}.`,
+          message: `已移除 ${result.item.name}。`,
         };
       }
 
       const imported = snapshot.importedCloudPlugins[pluginId];
-      if (!imported) throw new Error("Marketplace package is not installed in this workspace.");
+      if (!imported) throw new Error("当前工作区尚未安装这个扩展。");
 
       const removedMcpNames: string[] = [];
       const fileDeletes: Array<{ path: string; recursive?: boolean }> = [];
@@ -1778,9 +1752,12 @@ export function createExtensionsStore(options: {
         refreshCloudOrgMarketplaces({ force: true }),
       ]);
 
-      return { ok: true, message: `Removed ${imported.name}.` };
+      return { ok: true, message: `已移除 ${imported.name}。` };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message };
     } finally {
@@ -1788,22 +1765,17 @@ export function createExtensionsStore(options: {
     }
   }
 
-  async function installHubSkill(name: string): Promise<{ ok: boolean; message: string }> {
-    const trimmed = name.trim();
-    if (!trimmed) return { ok: false, message: "Skill name is required." };
-    const repo = snapshot.hubRepo;
-    if (!repo) return { ok: false, message: "Select a hub repo before installing skills." };
-
+  async function installHubSkill(skill: HubSkillCard): Promise<{ ok: boolean; message: string }> {
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const { openworkSnapshot, openworkClient, openworkWorkspaceId, hasOpenworkTarget } =
       await resolveWorkspaceServerTarget();
     const canUseOpenworkServer =
       hasOpenworkTarget &&
-      openworkSnapshot.openworkServerCapabilities?.hub?.skills?.install !== false;
+      openworkSnapshot.openworkServerCapabilities?.skills?.write !== false;
 
     if (!canUseOpenworkServer) {
-      if (isRemoteWorkspace) return { ok: false, message: "OpenWork server unavailable. Connect to install skills." };
-      return { ok: false, message: "Hub install requires OpenWork server." };
+      if (isRemoteWorkspace) return { ok: false, message: "FoxWork 服务不可用，请重新连接后再安装技能。" };
+      return { ok: false, message: "请先连接 FoxWork 服务，再从技能中心安装。" };
     }
 
     options.setBusy(true);
@@ -1811,14 +1783,37 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
-      const repoOverride: OpenworkHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
-      if (!openworkClient || !openworkWorkspaceId) return { ok: false, message: "Hub install requires OpenWork server." };
-      const result = await openworkClient.installHubSkill(openworkWorkspaceId, trimmed, { repo: repoOverride });
+      if (!openworkClient || !openworkWorkspaceId) return { ok: false, message: "请先连接 FoxWork 服务，再从技能中心安装。" };
+      const settings = readDenSettings();
+      const token = settings.authToken?.trim() ?? "";
+      const orgId = settings.activeOrgId?.trim() ?? "";
+      if (!token || !orgId) return { ok: false, message: "请先登录公司账号，再安装在线技能。" };
+
+      const client = createDenClient({ baseUrl: settings.baseUrl, token });
+      const audit = await client.getSkillsCatalogAudit(orgId, skill.id);
+      if (!audit.assessment.installable) {
+        return { ok: false, message: audit.assessment.message };
+      }
+      const detail = await client.getSkillsCatalogDetail(orgId, skill.id);
+      if (detail.id !== skill.id || detail.slug !== skill.slug) {
+        return { ok: false, message: "在线技能身份校验失败，已停止安装。" };
+      }
+      const result = await openworkClient.installCatalogSkill(openworkWorkspaceId, skill.slug, {
+        sourceId: detail.id,
+        sourceHash: detail.hash,
+        bundleHash: detail.bundleHash,
+        files: detail.files,
+        overwrite: snapshot.skills.some((entry) => entry.name === skill.slug),
+      });
       await Promise.all([refreshSkills({ force: true }), refreshHubSkills({ force: true })]);
-      if (!result?.ok) return { ok: false, message: "Install failed." };
-      return { ok: true, message: `Installed ${trimmed}.` };
+      if (!result?.ok) return { ok: false, message: "安装失败，请稍后重试。" };
+      const auditNotice = audit.assessment.verdict === "pass" ? "" : ` ${audit.assessment.message}`;
+      return { ok: true, message: `已安装 ${skill.name}。${auditNotice}`.trim() };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message };
     } finally {
@@ -1852,7 +1847,10 @@ export function createExtensionsStore(options: {
         message: t(existingImport ? "skills.cloud_updated" : "skills.cloud_installed", { name: installName }),
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message };
     } finally {
@@ -1867,7 +1865,7 @@ export function createExtensionsStore(options: {
   async function removeCloudOrgSkill(cloudSkillId: string): Promise<{ ok: boolean; message: string; removedName: string | null }> {
     const imported = findImportedCloudSkill(cloudSkillId);
     if (!imported) {
-      return { ok: false, message: "This cloud skill has not been installed into the workspace.", removedName: null };
+      return { ok: false, message: "当前工作区尚未安装这个公司技能。", removedName: null };
     }
 
     options.setBusy(true);
@@ -1889,7 +1887,10 @@ export function createExtensionsStore(options: {
         removedName: imported.installedName,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
       return { ok: false, message, removedName: null };
     } finally {
@@ -1970,7 +1971,7 @@ export function createExtensionsStore(options: {
         mutateState((current) => ({
           ...current,
           skills: [],
-          skillsStatus: error instanceof Error ? error.message : t("skills.failed_to_load"),
+          skillsStatus: toChineseUserMessage(error, t("skills.failed_to_load")),
         }));
       } finally {
         refreshSkillsInFlight = false;
@@ -1982,7 +1983,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         skills: [],
-        skillsStatus: "OpenWork server cannot read skills for this workspace.",
+        skillsStatus: "FoxWork 服务无法读取当前工作区的技能。",
       }));
       return;
     }
@@ -2019,7 +2020,7 @@ export function createExtensionsStore(options: {
         mutateState((current) => ({
           ...current,
           skills: [],
-          skillsStatus: error instanceof Error ? error.message : t("skills.failed_to_load"),
+          skillsStatus: toChineseUserMessage(error, t("skills.failed_to_load")),
         }));
       } finally {
         refreshSkillsInFlight = false;
@@ -2032,7 +2033,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         skills: [],
-        skillsStatus: "OpenWork server unavailable. Connect to load skills.",
+        skillsStatus: "FoxWork 服务不可用，请重新连接后再加载技能。",
       }));
       return;
     }
@@ -2046,7 +2047,7 @@ export function createExtensionsStore(options: {
     try {
       setStateField("skillsStatus", null);
       const rawClient = client as unknown as { _client?: { get: (input: { url: string }) => Promise<unknown> } };
-      if (!rawClient._client) throw new Error("OpenCode client unavailable.");
+      if (!rawClient._client) throw new Error("工作区运行环境暂时不可用。");
       const result = await rawClient._client.get({ url: "/skill" }) as {
         data?: Array<{ name: string; description: string; location: string }>;
         error?: unknown;
@@ -2077,7 +2078,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         skills: [],
-        skillsStatus: error instanceof Error ? error.message : t("skills.failed_to_load"),
+        skillsStatus: toChineseUserMessage(error, t("skills.failed_to_load")),
       }));
     } finally {
       refreshSkillsInFlight = false;
@@ -2103,9 +2104,9 @@ export function createExtensionsStore(options: {
     if (scope !== "project" && !isLocalWorkspace) {
       mutateState((current) => ({
         ...current,
-        pluginStatus: "Global plugins are only available for local workers.",
+        pluginStatus: "全局插件仅支持本地工作区。",
         pluginList: [],
-        sidebarPluginStatus: "Global plugins require a local worker.",
+        sidebarPluginStatus: "全局插件需要本地工作区。",
         sidebarPluginList: [],
       }));
       refreshPluginsInFlight = false;
@@ -2116,7 +2117,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         pluginConfig: null,
-        pluginConfigPath: `opencode.json (${isRemoteWorkspace ? "remote" : "openwork"} server)`,
+        pluginConfigPath: `工作区配置（${isRemoteWorkspace ? "远程" : "本机"}服务）`,
       }));
 
       try {
@@ -2130,7 +2131,7 @@ export function createExtensionsStore(options: {
           ...current,
           pluginList: list,
           sidebarPluginList: list.map((entry) => entry.name),
-          pluginStatus: list.length ? null : "No plugins configured yet.",
+          pluginStatus: list.length ? null : "当前尚未配置插件。",
           sidebarPluginStatus: null,
           pluginsContextKey: getWorkspaceContextKey(),
         }));
@@ -2140,8 +2141,8 @@ export function createExtensionsStore(options: {
           ...current,
           pluginList: [],
           sidebarPluginList: [],
-          sidebarPluginStatus: "Failed to load plugins.",
-          pluginStatus: error instanceof Error ? error.message : "Failed to load plugins.",
+          sidebarPluginStatus: "无法加载插件。",
+          pluginStatus: toChineseUserMessage(error, "无法加载插件，请稍后重试。"),
         }));
       } finally {
         refreshPluginsInFlight = false;
@@ -2152,9 +2153,9 @@ export function createExtensionsStore(options: {
     if (scope === "project" && hasOpenworkTarget) {
       mutateState((current) => ({
         ...current,
-        pluginStatus: "OpenWork server cannot read plugins for this workspace.",
+        pluginStatus: "FoxWork 服务无法读取当前工作区的插件。",
         pluginList: [],
-        sidebarPluginStatus: "OpenWork server cannot read plugins for this workspace.",
+        sidebarPluginStatus: "FoxWork 服务无法读取当前工作区的插件。",
         sidebarPluginList: [],
       }));
       refreshPluginsInFlight = false;
@@ -2176,9 +2177,9 @@ export function createExtensionsStore(options: {
     if (!isLocalWorkspace && !canUseOpenworkServer) {
       mutateState((current) => ({
         ...current,
-        pluginStatus: "OpenWork server unavailable. Connect to manage plugins.",
+        pluginStatus: "FoxWork 服务不可用，请重新连接后再管理插件。",
         pluginList: [],
-        sidebarPluginStatus: "Connect an OpenWork server to load plugins.",
+        sidebarPluginStatus: "请连接 FoxWork 服务后再加载插件。",
         sidebarPluginList: [],
       }));
       refreshPluginsInFlight = false;
@@ -2251,7 +2252,7 @@ export function createExtensionsStore(options: {
         pluginConfig: null,
         pluginConfigPath: null,
         pluginList: [],
-        pluginStatus: error instanceof Error ? error.message : t("skills.failed_load_opencode"),
+        pluginStatus: toChineseUserMessage(error, t("skills.failed_load_opencode")),
         sidebarPluginStatus: t("skills.failed_load_active"),
         sidebarPluginList: [],
       }));
@@ -2278,7 +2279,7 @@ export function createExtensionsStore(options: {
     }
 
     if (snapshot.pluginScope !== "project" && !isLocalWorkspace) {
-      setStateField("pluginStatus", "Global plugins are only available for local workers.");
+      setStateField("pluginStatus", "全局插件仅支持本地工作区。");
       return;
     }
 
@@ -2290,13 +2291,13 @@ export function createExtensionsStore(options: {
         if (isManualInput) setStateField("pluginInput", "");
         await refreshPlugins("project");
       } catch (error) {
-        setStateField("pluginStatus", error instanceof Error ? error.message : "Failed to add plugin.");
+        setStateField("pluginStatus", toChineseUserMessage(error, "无法添加插件，请稍后重试。"));
       }
       return;
     }
 
     if (snapshot.pluginScope === "project" && hasOpenworkTarget) {
-      setStateField("pluginStatus", "OpenWork server cannot write plugins for this workspace.");
+      setStateField("pluginStatus", "FoxWork 服务无法修改当前工作区的插件。");
       return;
     }
 
@@ -2306,7 +2307,7 @@ export function createExtensionsStore(options: {
     }
 
     if (!isLocalWorkspace) {
-      setStateField("pluginStatus", "OpenWork server unavailable. Connect to manage plugins.");
+      setStateField("pluginStatus", "FoxWork 服务不可用，请重新连接后再管理插件。");
       return;
     }
 
@@ -2324,7 +2325,7 @@ export function createExtensionsStore(options: {
       const raw = config.content ?? "";
 
       if (!raw.trim()) {
-        const payload = { $schema: "https://opencode.ai/config.json", plugin: [pluginName] };
+        const payload = { plugin: [pluginName] };
         await writeOpencodeConfig(scope, targetDir, `${JSON.stringify(payload, null, 2)}\n`);
         options.markReloadRequired?.("plugins", { type: "plugin", name: triggerName, action: "added" });
         if (isManualInput) setStateField("pluginInput", "");
@@ -2347,7 +2348,7 @@ export function createExtensionsStore(options: {
       if (isManualInput) setStateField("pluginInput", "");
       await refreshPlugins(scope);
     } catch (error) {
-      setStateField("pluginStatus", error instanceof Error ? error.message : t("skills.failed_update_opencode"));
+      setStateField("pluginStatus", toChineseUserMessage(error, t("skills.failed_update_opencode")));
     }
   }
 
@@ -2357,7 +2358,7 @@ export function createExtensionsStore(options: {
     const triggerName = stripPluginVersion(name);
     const existingPlugin = snapshot.pluginList.find((entry) => entry.name === name);
     if (existingPlugin && !existingPlugin.removable) {
-      setStateField("pluginStatus", "Directory-discovered plugins are read-only.");
+      setStateField("pluginStatus", "从文件夹发现的插件为只读，无法在此移除。");
       return;
     }
 
@@ -2369,7 +2370,7 @@ export function createExtensionsStore(options: {
       openworkSnapshot.openworkServerCapabilities?.plugins?.write !== false;
 
     if (snapshot.pluginScope !== "project" && !isLocalWorkspace) {
-      setStateField("pluginStatus", "Global plugins are only available for local workers.");
+      setStateField("pluginStatus", "全局插件仅支持本地工作区。");
       return;
     }
 
@@ -2380,13 +2381,13 @@ export function createExtensionsStore(options: {
         options.markReloadRequired?.("plugins", { type: "plugin", name: triggerName, action: "removed" });
         await refreshPlugins("project");
       } catch (error) {
-        setStateField("pluginStatus", error instanceof Error ? error.message : "Failed to remove plugin.");
+        setStateField("pluginStatus", toChineseUserMessage(error, "无法移除插件，请稍后重试。"));
       }
       return;
     }
 
     if (snapshot.pluginScope === "project" && hasOpenworkTarget) {
-      setStateField("pluginStatus", "OpenWork server cannot write plugins for this workspace.");
+      setStateField("pluginStatus", "FoxWork 服务无法修改当前工作区的插件。");
       return;
     }
 
@@ -2396,7 +2397,7 @@ export function createExtensionsStore(options: {
     }
 
     if (!isLocalWorkspace) {
-      setStateField("pluginStatus", "OpenWork server unavailable. Connect to manage plugins.");
+      setStateField("pluginStatus", "FoxWork 服务不可用，请重新连接后再管理插件。");
       return;
     }
 
@@ -2412,7 +2413,7 @@ export function createExtensionsStore(options: {
       const config = (await readOpencodeConfig(scope, targetDir)) as OpencodeConfigFile;
       const raw = config.content ?? "";
       if (!raw.trim()) {
-        setStateField("pluginStatus", "No plugins configured yet.");
+        setStateField("pluginStatus", "当前尚未配置插件。");
         return;
       }
 
@@ -2420,7 +2421,7 @@ export function createExtensionsStore(options: {
       const desired = stripPluginVersion(name).toLowerCase();
       const next = plugins.filter((entry) => stripPluginVersion(entry).toLowerCase() !== desired);
       if (next.length === plugins.length) {
-        setStateField("pluginStatus", "Plugin not found.");
+        setStateField("pluginStatus", "未找到该插件。");
         return;
       }
 
@@ -2430,7 +2431,7 @@ export function createExtensionsStore(options: {
       options.markReloadRequired?.("plugins", { type: "plugin", name: triggerName, action: "removed" });
       await refreshPlugins(scope);
     } catch (error) {
-      setStateField("pluginStatus", error instanceof Error ? error.message : t("skills.failed_update_opencode"));
+      setStateField("pluginStatus", toChineseUserMessage(error, t("skills.failed_update_opencode")));
     }
   }
 
@@ -2441,7 +2442,7 @@ export function createExtensionsStore(options: {
       return;
     }
     if (!isLocalWorkspace) {
-      options.setError("只有本地工作区可以导入 Skills。");
+      options.setError("只有本地工作区可以导入技能。");
       return;
     }
     const targetDir = options.projectDir().trim();
@@ -2460,14 +2461,20 @@ export function createExtensionsStore(options: {
       const inferredName = sourceDir.split(/[\\/]/).filter(Boolean).pop();
       const result = (await importSkill(targetDir, sourceDir, { overwrite: false })) as { ok: boolean; stderr?: string; stdout?: string; status?: number };
       if (!result.ok) {
-        setStateField("skillsStatus", result.stderr || result.stdout || t("skills.import_failed").replace("{status}", String(result.status)));
+        setStateField("skillsStatus", toChineseUserMessage(
+          result.stderr || result.stdout,
+          t("skills.import_failed").replace("{status}", String(result.status)),
+        ));
       } else {
-        setStateField("skillsStatus", result.stdout || t("skills.imported"));
+        setStateField("skillsStatus", toChineseUserMessage(result.stdout, t("skills.imported")));
         options.markReloadRequired?.("skills", { type: "skill", name: inferredName, action: "added" });
       }
       await refreshSkills({ force: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
     } finally {
       options.setBusy(false);
@@ -2495,8 +2502,10 @@ export function createExtensionsStore(options: {
         await refreshSkills({ force: true });
         return { ok: true, message };
       } catch (error) {
-        const raw = error instanceof Error ? error.message : t("skills.unknown_error");
-        const message = addOpencodeCacheHint(raw);
+        const message = toChineseUserMessage(
+          addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+          t("skills.unknown_error"),
+        );
         setStateField("skillsStatus", message);
         options.setError(message);
         return { ok: false, message };
@@ -2506,13 +2515,13 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      const message = "OpenWork server cannot write skills for this workspace.";
+      const message = "FoxWork 服务无法修改当前工作区的技能。";
       setStateField("skillsStatus", message);
       return { ok: false, message };
     }
 
     if (isRemoteWorkspace) {
-      const message = "OpenWork server unavailable. Connect to install skills.";
+      const message = "FoxWork 服务不可用，请重新连接后再安装技能。";
       setStateField("skillsStatus", message);
       return { ok: false, message };
     }
@@ -2522,7 +2531,7 @@ export function createExtensionsStore(options: {
       return { ok: false, message };
     }
     if (!isLocalWorkspace) {
-      const message = "Local workers are required to install skills.";
+      const message = "只有本地工作区可以安装技能。";
       options.setError(message);
       setStateField("skillsStatus", message);
       return { ok: false, message };
@@ -2547,19 +2556,24 @@ export function createExtensionsStore(options: {
         return { ok: true, message };
       }
       if (!result.ok) {
-        const message = result.stderr || result.stdout || t("skills.install_failed");
+        const message = toChineseUserMessage(
+          result.stderr || result.stdout,
+          t("skills.install_failed"),
+        );
         setStateField("skillsStatus", message);
         await refreshSkills({ force: true });
         return { ok: false, message };
       }
-      const message = result.stdout || t("skills.skill_creator_installed");
+      const message = toChineseUserMessage(result.stdout, t("skills.skill_creator_installed"));
       setStateField("skillsStatus", message);
       options.markReloadRequired?.("skills", { type: "skill", name: "skill-creator", action: "added" });
       await refreshSkills({ force: true });
       return { ok: true, message };
     } catch (error) {
-      const raw = error instanceof Error ? error.message : t("skills.unknown_error");
-      const message = addOpencodeCacheHint(raw);
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       setStateField("skillsStatus", message);
       options.setError(message);
       return { ok: false, message };
@@ -2598,7 +2612,7 @@ export function createExtensionsStore(options: {
       if (await tryOpen(legacySkills)) return;
       await revealDesktopItemInDir(opencodeSkills);
     } catch (error) {
-      setStateField("skillsStatus", error instanceof Error ? error.message : t("skills.reveal_failed"));
+      setStateField("skillsStatus", toChineseUserMessage(error, t("skills.reveal_failed")));
     }
   }
 
@@ -2615,7 +2629,10 @@ export function createExtensionsStore(options: {
       options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "removed" });
       await refreshSkills({ force: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       setStateField("skillsStatus", message);
       options.setError(addOpencodeCacheHint(message));
     } finally {
@@ -2641,13 +2658,13 @@ export function createExtensionsStore(options: {
         const result = await openworkClient.getSkill(openworkWorkspaceId, trimmed, { includeGlobal: isLocalWorkspace });
         return { name: result.item.name, path: result.item.path, content: result.content };
       } catch (error) {
-        setStateField("skillsStatus", error instanceof Error ? error.message : t("skills.failed_to_load"));
+        setStateField("skillsStatus", toChineseUserMessage(error, t("skills.failed_to_load")));
         return null;
       }
     }
 
     if (hasOpenworkTarget) {
-      setStateField("skillsStatus", "OpenWork server cannot read skills for this workspace.");
+      setStateField("skillsStatus", "FoxWork 服务无法读取当前工作区的技能。");
       return null;
     }
 
@@ -2657,7 +2674,7 @@ export function createExtensionsStore(options: {
     }
 
     if (isRemoteWorkspace) {
-      setStateField("skillsStatus", "OpenWork server unavailable. Connect to view skills.");
+      setStateField("skillsStatus", "FoxWork 服务不可用，请重新连接后再查看技能。");
       return null;
     }
     if (!isDesktopRuntime()) {
@@ -2665,7 +2682,7 @@ export function createExtensionsStore(options: {
       return null;
     }
     if (!isLocalWorkspace) {
-      setStateField("skillsStatus", "Local workers are required to view skills.");
+      setStateField("skillsStatus", "只有本地工作区可以查看技能。");
       return null;
     }
 
@@ -2674,7 +2691,7 @@ export function createExtensionsStore(options: {
       const result = (await readLocalSkill(root, trimmed)) as { path: string; content: string };
       return { name: trimmed, path: result.path, content: result.content };
     } catch (error) {
-      setStateField("skillsStatus", error instanceof Error ? error.message : t("skills.failed_to_load"));
+      setStateField("skillsStatus", toChineseUserMessage(error, t("skills.failed_to_load")));
       return null;
     }
   }
@@ -2703,9 +2720,12 @@ export function createExtensionsStore(options: {
         });
         options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "updated" });
         await refreshSkills({ force: true });
-        setStateField("skillsStatus", "Saved.");
+        setStateField("skillsStatus", "已保存。");
       } catch (error) {
-        const message = error instanceof Error ? error.message : t("skills.unknown_error");
+        const message = toChineseUserMessage(
+          addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+          t("skills.unknown_error"),
+        );
         options.setError(addOpencodeCacheHint(message));
       } finally {
         options.setBusy(false);
@@ -2714,7 +2734,7 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      setStateField("skillsStatus", "OpenWork server cannot write skills for this workspace.");
+      setStateField("skillsStatus", "FoxWork 服务无法修改当前工作区的技能。");
       return;
     }
 
@@ -2724,7 +2744,7 @@ export function createExtensionsStore(options: {
     }
 
     if (isRemoteWorkspace) {
-      setStateField("skillsStatus", "OpenWork server unavailable. Connect to edit skills.");
+      setStateField("skillsStatus", "FoxWork 服务不可用，请重新连接后再编辑技能。");
       return;
     }
     if (!isDesktopRuntime()) {
@@ -2732,7 +2752,7 @@ export function createExtensionsStore(options: {
       return;
     }
     if (!isLocalWorkspace) {
-      setStateField("skillsStatus", "Local workers are required to edit skills.");
+      setStateField("skillsStatus", "只有本地工作区可以编辑技能。");
       return;
     }
 
@@ -2742,14 +2762,20 @@ export function createExtensionsStore(options: {
     try {
       const result = (await writeLocalSkill(root, trimmed, input.content)) as { ok: boolean; stderr?: string; stdout?: string };
       if (!result.ok) {
-        setStateField("skillsStatus", result.stderr || result.stdout || t("skills.unknown_error"));
+        setStateField("skillsStatus", toChineseUserMessage(
+          result.stderr || result.stdout,
+          t("skills.unknown_error"),
+        ));
       } else {
-        setStateField("skillsStatus", result.stdout || "Saved.");
+        setStateField("skillsStatus", toChineseUserMessage(result.stdout, "已保存。"));
         options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "updated" });
       }
       await refreshSkills({ force: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("skills.unknown_error");
+      const message = toChineseUserMessage(
+        addOpencodeCacheHint(error instanceof Error ? error.message : ""),
+        t("skills.unknown_error"),
+      );
       options.setError(addOpencodeCacheHint(message));
     } finally {
       options.setBusy(false);
@@ -2825,7 +2851,7 @@ export function createExtensionsStore(options: {
         ...current,
         hubRepo: nextRepos[0] ?? null,
         hubSkills: nextRepos.length ? current.hubSkills : [],
-        hubSkillsStatus: nextRepos.length ? current.hubSkillsStatus : "No hub repo selected. Add a GitHub repo to browse skills.",
+        hubSkillsStatus: nextRepos.length ? current.hubSkillsStatus : "尚未选择技能仓库，请先添加 GitHub 仓库。",
       }));
       hubSkillsLoaded = false;
       if (!nextRepos.length) {

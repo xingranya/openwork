@@ -6,6 +6,7 @@ import {
   writeOpenworkServerSettings,
 } from "../../../app/lib/openwork-server";
 import { t } from "../../../i18n";
+import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 
 export type RemoteAccessRestartPhase =
   | "idle"
@@ -53,7 +54,7 @@ export function useRemoteAccessRestart(options: UseRemoteAccessRestartOptions) {
       } catch (caught) {
         writeOpenworkServerSettings(previous);
         options.onSettingsChanged();
-        setError(caught instanceof Error ? caught.message : t("app.error_remote_access"));
+        setError(toChineseUserMessage(caught, t("app.error_remote_access")));
         setPhase("failed");
       }
     },
@@ -73,23 +74,23 @@ export function useRemoteAccessRestart(options: UseRemoteAccessRestartOptions) {
     phase,
     reset,
     save,
-    status: statusForPhase(phase, options.isEnabled()),
+    status: remoteAccessStatusForPhase(phase, options.isEnabled()),
   };
 }
 
-function statusForPhase(phase: RemoteAccessRestartPhase, enabled: boolean) {
+export function remoteAccessStatusForPhase(phase: RemoteAccessRestartPhase, enabled: boolean) {
   switch (phase) {
     case "restarting":
-      return "Restarting worker…";
+      return "正在重启本机服务...";
     case "reconnecting":
-      return "Reconnecting to worker…";
+      return "正在重新连接本机服务...";
     case "failed":
       return enabled
-        ? "Remote access may still be on. Check connection details or retry."
-        : "Remote access is still off. You can retry when ready.";
+        ? "远程访问可能仍处于开启状态，请检查连接信息后重试。"
+        : "远程访问仍处于关闭状态，准备好后可以重试。";
     default:
       return enabled
-        ? "Remote access is currently enabled."
-        : "Remote access is currently disabled.";
+        ? "远程访问已开启。"
+        : "远程访问已关闭。";
   }
 }

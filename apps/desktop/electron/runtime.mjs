@@ -205,13 +205,13 @@ function redactedExecutionSnapshot(command, args, cwd, injectedEnv) {
 
 function assertOpenworkServerReady(snapshot) {
   if (!snapshot?.running) {
-    throw new Error("OpenWork server did not stay running after startup.");
+    throw new Error("FoxWork 本机服务启动后未能持续运行。");
   }
   if (!snapshot.baseUrl) {
-    throw new Error("OpenWork server did not report a base URL after startup.");
+    throw new Error("FoxWork 本机服务启动后未返回访问地址。");
   }
   if (!snapshot.ownerToken && !snapshot.clientToken) {
-    throw new Error("OpenWork server did not report an access token after startup.");
+    throw new Error("FoxWork 本机服务启动后未返回访问凭据。");
   }
   return snapshot;
 }
@@ -407,7 +407,7 @@ async function findFreePort(host = "127.0.0.1") {
     server.listen({ host, port: 0 }, () => {
       const address = server.address();
       if (!address || typeof address === "string") {
-        server.close(() => reject(new Error("Failed to allocate a free port.")));
+        server.close(() => reject(new Error("无法分配可用的本机端口。")));
         return;
       }
       const { port } = address;
@@ -418,7 +418,7 @@ async function findFreePort(host = "127.0.0.1") {
 
 async function waitForHttpOk(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
-  let lastError = "Request did not succeed.";
+  let lastError = "服务请求未成功。";
 
   while (Date.now() < deadline) {
     try {
@@ -908,7 +908,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     }
 
     throw new Error(
-      `Failed to run docker: ${errors.join("; ")} (Set OPENWORK_DOCKER_BIN to your docker binary if needed)`,
+      `无法运行 Docker：${errors.join("；")}。如需指定程序位置，请设置 OPENWORK_DOCKER_BIN。`,
     );
   }
 
@@ -938,7 +938,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const result = runDockerCommandDetailed(["ps", "-a", "--format", "{{.Names}}"], 8000);
     if (result.status !== 0) {
       const combined = `${result.stdout.trim()}\n${result.stderr.trim()}`.trim();
-      throw new Error(combined || `docker ps -a failed (status ${result.status})`);
+      throw new Error(combined || `读取 Docker 容器列表失败，状态码 ${result.status}`);
     }
     return result.stdout
       .split(/\r?\n/)
@@ -973,7 +973,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         resolvedSource: null,
         version: null,
         supportsServe: false,
-        notes: ["OpenCode binary not found in bundled sidecars or PATH."],
+        notes: ["在安装包和系统 PATH 中均未找到 AI 运行引擎。"],
         serveHelpStatus: null,
         serveHelpStdout: null,
         serveHelpStderr: null,
@@ -982,12 +982,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
     const versionResult = spawnSync(resolved.path, ["--version"], { encoding: "utf8" });
     const helpResult = spawnSync(resolved.path, ["serve", "--help"], { encoding: "utf8" });
-    const notes = [`Using ${resolved.source}: ${resolved.path}`];
+    const notes = [`当前使用 ${resolved.source}：${resolved.path}`];
     if (versionResult.status !== 0) {
-      notes.push("OpenCode version probe failed.");
+      notes.push("读取 AI 运行引擎版本失败。");
     }
     if (helpResult.status !== 0) {
-      notes.push("OpenCode serve --help probe failed.");
+      notes.push("检查 AI 运行引擎服务能力失败。");
     }
 
     return {
@@ -1002,16 +1002,6 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       serveHelpStdout: helpResult.stdout?.trim() || null,
       serveHelpStderr: helpResult.stderr?.trim() || null,
     };
-  }
-
-  async function pinnedOpencodeInstallCommand() {
-    const constantsPath = path.resolve(desktopRoot, "../../constants.json");
-    const payload = JSON.parse(await readFile(constantsPath, "utf8"));
-    const version = String(payload?.opencodeVersion ?? "").trim().replace(/^v/, "");
-    if (!version) {
-      throw new Error("constants.json is missing opencodeVersion");
-    }
-    return `curl -fsSL https://opencode.ai/install | bash -s -- --version ${version} --no-modify-path`;
   }
 
   function spawnManagedChild(state, program, args, options = {}) {
@@ -1119,7 +1109,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     await mkdir(projectDir, { recursive: true });
     await writeFile(
       jsoncPath,
-      `${JSON.stringify({ $schema: "https://opencode.ai/config.json" }, null, 2)}\n`,
+      `${JSON.stringify({}, null, 2)}\n`,
       "utf8",
     );
   }
@@ -1137,7 +1127,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
           "Content-Type": "application/json",
           "X-OpenWork-Host-Token": hostToken,
         },
-        body: JSON.stringify({ scope: "owner", label: "OpenWork desktop owner token" }),
+        body: JSON.stringify({ scope: "owner", label: "FoxWork 桌面所有者凭据" }),
       },
       5000,
     );
@@ -1198,7 +1188,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       : [...packagedPaths, devPath];
     const embeddedPath = candidates.find((candidate) => existsSync(candidate));
     if (!embeddedPath) {
-      throw new Error(`Cannot find OpenWork embedded server bundle. Checked: ${candidates.join(", ")}`);
+      throw new Error(`找不到 FoxWork 内置服务。已检查：${candidates.join("，")}`);
     }
     const { startEmbeddedServer } = await import(embeddedServerImportUrl(embeddedPath));
     // startEmbeddedServer falls back to an OS-assigned port if `port` races
@@ -1275,7 +1265,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
           engineState.childExited = false;
         }
       } catch (error) {
-        appendOutput(openworkServerState, "lastStderr", `OpenWork server workspace probe: ${error instanceof Error ? error.message : String(error)}\n`);
+        appendOutput(openworkServerState, "lastStderr", `FoxWork 本机服务检查工作区失败：${error instanceof Error ? error.message : String(error)}\n`);
       }
     }
     if (!portSelection.preferredPort || boundPort === portSelection.preferredPort) {
@@ -1291,7 +1281,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const stateFile = await readOrchestratorStateFile(orchestratorState.dataDir || orchestratorDataDir());
     const baseUrl = stateFile?.daemon?.baseUrl?.trim();
     if (!baseUrl) {
-      throw new Error("orchestrator daemon is not running");
+      throw new Error("FoxWork 编排服务尚未运行。");
     }
     return baseUrl;
   }
@@ -1305,12 +1295,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
     const orchestratorProgram = resolveBinary("openwork-orchestrator") ?? resolveBinary("openwork");
     if (!orchestratorProgram) {
-      throw new Error("Failed to locate openwork-orchestrator.");
+      throw new Error("找不到 FoxWork 编排服务组件，请重新安装 FoxWork。");
     }
 
     const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
     if (!opencodeBinary?.path) {
-      throw new Error("Failed to locate opencode.");
+      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
     }
 
     const env = await buildChildEnv({
@@ -1356,7 +1346,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const health = await waitForHttpOk(`${orchestratorState.baseUrl}/health`, 180_000).then((response) => response.json());
     const opencode = health?.opencode;
     if (!opencode?.port) {
-      throw new Error("Orchestrator did not report OpenCode status.");
+      throw new Error("FoxWork 编排服务未返回 AI 运行引擎状态。");
     }
 
     engineState.runtime = ORCHESTRATOR_RUNTIME;
@@ -1375,7 +1365,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function startDirectRuntime(projectDir, options = {}) {
     const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
     if (!opencodeBinary?.path) {
-      throw new Error("Failed to locate opencode.");
+      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
     }
 
     const port = await findFreePort("127.0.0.1");
@@ -1453,7 +1443,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         opencodeBinPath: options.opencodeBinPath,
       });
     } catch (error) {
-      appendOutput(engineState, "lastStderr", `OpenWork server: ${error instanceof Error ? error.message : String(error)}\n`);
+      appendOutput(engineState, "lastStderr", `FoxWork 本机服务：${error instanceof Error ? error.message : String(error)}\n`);
       throw error;
     }
 
@@ -1463,7 +1453,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function engineStart(projectDir, options = {}) {
     const safeProjectDir = String(projectDir ?? "").trim();
     if (!safeProjectDir) {
-      throw new Error("projectDir is required");
+      throw new Error("必须提供项目文件夹。");
     }
 
     // Reuse a healthy server instead of tearing it down. During boot the
@@ -1529,7 +1519,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function engineRestart(options = {}) {
     const projectDir = engineState.projectDir;
     if (!projectDir) {
-      throw new Error("OpenCode is not configured for a local workspace");
+      throw new Error("当前本地工作区尚未配置 AI 运行引擎。");
     }
     const openworkRemoteAccess = typeof options.openworkRemoteAccess === "boolean"
       ? options.openworkRemoteAccess
@@ -1579,7 +1569,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const engine = snapshotEngineState(engineState);
     const openworkServer = snapshotOpenworkServerState(openworkServerState);
     const workspaces = engine.projectDir
-      ? [{ id: normalizeWorkspaceKey(engine.projectDir), path: engine.projectDir, name: path.basename(engine.projectDir) || "Workspace" }]
+      ? [{ id: normalizeWorkspaceKey(engine.projectDir), path: engine.projectDir, name: path.basename(engine.projectDir) || "工作区" }]
       : [];
     return {
       running: engine.running,
@@ -1603,7 +1593,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function orchestratorWorkspaceActivate(input) {
     const workspacePath = String(input?.workspacePath ?? "").trim();
     if (!workspacePath) {
-      throw new Error("workspacePath is required");
+      throw new Error("必须提供工作区路径。");
     }
     const resolved = path.resolve(workspacePath);
     if (normalizeWorkspaceKey(engineState.projectDir) !== normalizeWorkspaceKey(resolved)) {
@@ -1615,7 +1605,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     return {
       id: normalizeWorkspaceKey(resolved),
       path: resolved,
-      name: input?.name ?? (path.basename(resolved) || "Workspace"),
+      name: input?.name ?? (path.basename(resolved) || "工作区"),
     };
   }
 
@@ -1627,27 +1617,11 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   }
 
   async function engineInstall() {
-    if (process.platform === "win32") {
-      return {
-        ok: false,
-        status: -1,
-        stdout: "",
-        stderr:
-          "Guided install is not supported on Windows yet. Install the OpenWork-pinned OpenCode version manually, then restart OpenWork.",
-      };
-    }
-
-    const installDir = path.join(app.getPath("home"), ".opencode", "bin");
-    const command = await pinnedOpencodeInstallCommand();
-    const result = await runShellCommand("bash", ["-lc", command], {
-      env: { ...(await buildChildEnv()), OPENCODE_INSTALL_DIR: installDir },
-      timeoutMs: 180_000,
-    });
     return {
-      ok: result.status === 0,
-      status: result.status,
-      stdout: result.stdout,
-      stderr: result.stderr,
+      ok: false,
+      status: -1,
+      stdout: "",
+      stderr: "AI 运行引擎随 FoxWork 安装包提供。若组件缺失，请重新安装或更新 FoxWork。",
     };
   }
 
@@ -1655,15 +1629,15 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const safeProjectDir = String(projectDir ?? "").trim();
     const safeServerName = String(serverName ?? "").trim();
     if (!safeProjectDir) {
-      throw new Error("project_dir is required");
+      throw new Error("必须提供项目文件夹。");
     }
     if (!safeServerName) {
-      throw new Error("server_name is required");
+      throw new Error("必须提供 MCP 服务名称。");
     }
 
     const program = resolveBinary("opencode");
     if (!program) {
-      throw new Error("Failed to locate opencode.");
+      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
     }
 
     const result = await runShellCommand(program, ["mcp", "auth", safeServerName], {
@@ -1720,7 +1694,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         ready: false,
         clientVersion: null,
         serverVersion: null,
-        error: `docker --version failed (status ${version.status}): ${version.stderr.trim()}`,
+        error: `读取 Docker 版本失败，状态码 ${version.status}：${version.stderr.trim()}`,
         debug,
       };
     }
@@ -1771,7 +1745,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       ready: false,
       clientVersion,
       serverVersion: null,
-      error: `${info.stdout.trim()}\n${info.stderr.trim()}`.trim() || `docker info failed (status ${info.status})`,
+      error: `${info.stdout.trim()}\n${info.stderr.trim()}`.trim() || `读取 Docker 状态失败，状态码 ${info.status}`,
       debug,
     };
   }
@@ -1779,13 +1753,13 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function sandboxStop(containerName) {
     const name = String(containerName ?? "").trim();
     if (!name) {
-      throw new Error("containerName is required");
+      throw new Error("必须提供容器名称。");
     }
     if (!name.startsWith("openwork-orchestrator-")) {
-      throw new Error("Refusing to stop container: expected name starting with 'openwork-orchestrator-'");
+      throw new Error("已拒绝停止容器：容器名称不属于 FoxWork 管理范围。");
     }
     if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
-      throw new Error("containerName contains invalid characters");
+      throw new Error("容器名称包含无效字符。");
     }
     const result = runDockerCommandDetailed(["stop", name], 15_000);
     return {
@@ -1822,12 +1796,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function orchestratorStartDetached(options = {}) {
     const workspacePath = String(options.workspacePath ?? "").trim();
     if (!workspacePath) {
-      throw new Error("workspacePath is required");
+      throw new Error("必须提供工作区路径。");
     }
 
     const sandboxBackend = String(options.sandboxBackend ?? "none").trim().toLowerCase();
     if (!["none", "docker", "microsandbox"].includes(sandboxBackend)) {
-      throw new Error("sandboxBackend must be one of: none, docker, microsandbox");
+      throw new Error("沙箱类型只能是 none、docker 或 microsandbox。");
     }
 
     const wantsDockerSandbox = sandboxBackend === "docker" || sandboxBackend === "microsandbox";
@@ -1839,7 +1813,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const openworkUrl = `http://127.0.0.1:${port}`;
     const program = resolveBinary("openwork-orchestrator") ?? resolveBinary("openwork");
     if (!program) {
-      throw new Error("Failed to locate openwork orchestrator.");
+      throw new Error("找不到 FoxWork 编排服务组件，请重新安装 FoxWork。");
     }
 
     const args = [
