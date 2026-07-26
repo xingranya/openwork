@@ -33,8 +33,9 @@ jobs:
             artifact: foxwork-mac-arm64
             target: aarch64-apple-darwin
             builder_args: --mac --arm64
-          # macos-13 是 Intel Runner，用于产出真正的 x64 包
-          - os: macos-13
+          # macos-15-intel 是当前受支持的 Intel Runner。macos-13 已被 GitHub
+          # 退役，指定它会导致作业永远排队且分配不到 Runner。
+          - os: macos-15-intel
             label: macOS x64
             artifact: foxwork-mac-x64
             target: x86_64-apple-darwin
