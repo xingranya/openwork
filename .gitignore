@@ -71,3 +71,8 @@ transcript-analysis
 evals/results/
 .playwright-mcp/
 .vscode/
+
+# 本地代码索引与浏览器自动化缓存（不进入发布分支）
+.codegraph/
+.playwright-cli/
+.serena/
