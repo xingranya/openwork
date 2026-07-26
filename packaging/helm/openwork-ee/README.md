@@ -35,7 +35,7 @@ config:
     singleOrgName: "OpenWork"
     singleOrgSlug: "default"
     ownerEmails: "admin@example.com"
-    allowPublicSignup: "false"
+    allowPublicSignup: "true"
     requireEmailVerification: "false"
   public:
     webOrigin: "https://openwork.example.com"
@@ -144,6 +144,10 @@ The existing Secret must contain the keys listed under `secret.keys`, especially
 - `DEN_DB_ENCRYPTION_KEY`
 
 Set `DAYTONA_API_KEY` when `config.provisioner.mode` is `daytona`. Set `POLAR_ACCESS_TOKEN` when Polar feature gating is enabled. Set `OPENROUTER_MANAGEMENT_API_KEY` when enabling OpenWork Models management.
+
+在线技能目录默认通过 Den 访问魔搭官方 API。若公司网络需要统一出口，可将
+`config.skillsCatalog.apiBaseUrl` 改为兼容魔搭响应格式的公司代理；FoxWork
+客户端始终只访问 Den，不直接访问外部目录。
 
 ## Custom CA certificates
 
@@ -516,7 +520,7 @@ config:
     singleOrgName: "OpenWork"
     singleOrgSlug: "default"
     ownerEmails: "admin@example.com"
-    allowPublicSignup: "false"
+    allowPublicSignup: "true"
     requireEmailVerification: "false"
 ```
 
@@ -564,9 +568,9 @@ organization does not exist yet, Den creates it with `singleOrgName` and
 
 Later users are attached to the same singleton organization. They do not see an
 organization creation step, and attempts to create another organization return a
-single-org-mode error. If no `ownerEmails` are configured, the first user who
-reaches the deployment can claim the owner role, so production deployments
-should set `ownerEmails` explicitly.
+single-org-mode error. If `ownerEmails` is empty, bootstrap is intentionally
+blocked: no arbitrary first registrant can claim the owner role. Configure at
+least one break-glass administrator email before enabling public signup.
 
 For most production installs, use this first owner account as the break-glass
 setup path, then configure SAML/OIDC SSO and SCIM from the organization

@@ -61,6 +61,26 @@ app.kubernetes.io/component: {{ .component }}
 {{ include "openwork-ee.fullname" . }}-den-web
 {{- end -}}
 
+{{- define "openwork-ee.serviceAccountName" -}}
+{{- default (include "openwork-ee.fullname" .) .Values.serviceAccount.name -}}
+{{- end -}}
+
+{{- define "openwork-ee.denApiImage" -}}
+{{- if .Values.denApi.image.digest -}}
+{{- printf "%s@%s" .Values.denApi.image.repository .Values.denApi.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.denApi.image.repository (default .Values.image.tag .Values.denApi.image.tag) -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "openwork-ee.denWebImage" -}}
+{{- if .Values.denWeb.image.digest -}}
+{{- printf "%s@%s" .Values.denWeb.image.repository .Values.denWeb.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.denWeb.image.repository (default .Values.image.tag .Values.denWeb.image.tag) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "openwork-ee.inferenceServiceName" -}}
 {{ include "openwork-ee.fullname" . }}-inference
 {{- end -}}

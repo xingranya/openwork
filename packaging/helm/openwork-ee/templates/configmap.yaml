@@ -17,6 +17,7 @@ data:
   DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP: {{ .Values.config.tenancy.allowPublicSignup | quote }}
   DEN_REQUIRE_EMAIL_VERIFICATION: {{ .Values.config.tenancy.requireEmailVerification | quote }}
   DEN_PASSWORD_BREACH_SCREENING_ENABLED: {{ .Values.config.auth.passwordBreachScreeningEnabled | quote }}
+  DEN_SKILLS_CATALOG_API_BASE_URL: {{ .Values.config.skillsCatalog.apiBaseUrl | quote }}
   GITHUB_CONNECTOR_APP_ID: {{ .Values.config.githubConnector.appId | quote }}
   GITHUB_CONNECTOR_APP_CLIENT_ID: {{ .Values.config.githubConnector.clientId | quote }}
   BETTER_AUTH_URL: {{ .Values.config.public.webOrigin | quote }}
@@ -37,6 +38,7 @@ data:
   CORS_ORIGINS: {{ .Values.config.public.corsOrigins | quote }}
   DEN_CORS_ORIGINS: {{ .Values.config.public.corsOrigins | quote }}
   DEN_API_PUBLIC_URL: {{ .Values.config.public.apiOrigin | quote }}
+  DEN_ALLOW_INSECURE_HTTP: {{ .Values.config.public.allowInsecureHttp | quote }}
   DEN_DESKTOP_DEN_BASE_URL: {{ .Values.config.public.desktopDenBaseUrl | quote }}
   {{ if .Values.config.public.installerReleaseTag }}
   OPENWORK_INSTALLER_RELEASE_TAG: {{ .Values.config.public.installerReleaseTag | quote }}
@@ -49,6 +51,22 @@ data:
   WORKER_PROVISIONING_RECONCILE_STALE_MS: {{ .Values.config.provisioner.reconcileStaleMs | quote }}
   WORKER_PROVISIONING_RECONCILE_BATCH_SIZE: {{ .Values.config.provisioner.reconcileBatchSize | quote }}
   WORKER_URL_TEMPLATE: {{ .Values.config.provisioner.workerUrlTemplate | quote }}
+  KUBERNETES_NAMESPACE: {{ .Values.config.kubernetes.namespace | quote }}
+  KUBERNETES_WORKER_IMAGE: {{ .Values.config.kubernetes.workerImage | quote }}
+  KUBERNETES_WORKER_DOMAIN_SUFFIX: {{ .Values.config.kubernetes.workerDomainSuffix | quote }}
+  KUBERNETES_WORKER_URL_SCHEME: {{ .Values.config.kubernetes.workerUrlScheme | quote }}
+  KUBERNETES_INGRESS_CLASS_NAME: {{ .Values.config.kubernetes.ingressClassName | quote }}
+  KUBERNETES_TLS_SECRET_NAME: {{ .Values.config.kubernetes.tlsSecretName | quote }}
+  KUBERNETES_STORAGE_CLASS_NAME: {{ .Values.config.kubernetes.storageClassName | quote }}
+  KUBERNETES_STORAGE_SIZE: {{ .Values.config.kubernetes.storageSize | quote }}
+  KUBERNETES_CPU_REQUEST: {{ .Values.config.kubernetes.cpuRequest | quote }}
+  KUBERNETES_CPU_LIMIT: {{ .Values.config.kubernetes.cpuLimit | quote }}
+  KUBERNETES_MEMORY_REQUEST: {{ .Values.config.kubernetes.memoryRequest | quote }}
+  KUBERNETES_MEMORY_LIMIT: {{ .Values.config.kubernetes.memoryLimit | quote }}
+  KUBERNETES_OPENWORK_PORT: {{ .Values.config.kubernetes.openworkPort | quote }}
+  KUBERNETES_OPENCODE_PORT: {{ .Values.config.kubernetes.opencodePort | quote }}
+  KUBERNETES_HEALTHCHECK_TIMEOUT_MS: {{ .Values.config.kubernetes.healthcheckTimeoutMs | quote }}
+  KUBERNETES_POLL_INTERVAL_MS: {{ .Values.config.kubernetes.pollIntervalMs | quote }}
   {{ if or .Values.inference.enabled .Values.config.internal.inferenceProxyBaseUrl }}
   INFERENCE_PROXY_BASE_URL: {{ include "openwork-ee.inferenceInternalUrl" . | quote }}
   {{ end }}

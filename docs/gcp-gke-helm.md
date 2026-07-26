@@ -477,8 +477,9 @@ config:
 
 Open `https://openwork.example.com` and sign up with the owner email. OpenWork
 creates the singleton organization and makes that user the owner. Later users
-join the same organization. If `ownerEmails` is blank, the first user to reach
-the deployment can claim ownership, which is not recommended for production.
+join the same organization. If `ownerEmails` is blank, bootstrap is blocked;
+an arbitrary first registrant cannot claim ownership. Configure the break-glass
+administrator email before enabling public signup.
 
 ## 10. Configure SSO with a test IdP
 

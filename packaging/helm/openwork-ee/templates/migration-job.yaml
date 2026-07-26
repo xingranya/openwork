@@ -37,7 +37,7 @@ spec:
       {{- end }}
       containers:
         - name: migrate
-          image: "{{ .Values.denApi.image.repository }}:{{ default .Values.image.tag .Values.denApi.image.tag }}"
+          image: {{ include "openwork-ee.denApiImage" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.customCa.enabled }}
           volumeMounts:

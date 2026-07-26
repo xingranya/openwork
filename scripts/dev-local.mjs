@@ -4,6 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
+import { validateDevSingleOrgConfig } from "./dev-single-org-config.mjs"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, "..")
@@ -36,7 +37,6 @@ function detectWebOrigins() {
   const origins = new Set([
     `http://localhost:${webPort}`,
     `http://127.0.0.1:${webPort}`,
-    `http://0.0.0.0:${webPort}`,
     `http://localhost:${appPort}`,
     `http://127.0.0.1:${appPort}`,
   ])
@@ -167,6 +167,15 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 async function main() {
+  const singleOrgConfigError = validateDevSingleOrgConfig({
+    orgMode: process.env.DEN_ORG_MODE,
+    ownerEmails: process.env.DEN_SINGLE_ORG_OWNER_EMAILS,
+    bootstrapAdminEmails: process.env.DEN_BOOTSTRAP_ADMIN_EMAILS,
+  })
+  if (singleOrgConfigError) {
+    throw new Error(singleOrgConfigError)
+  }
+
   for (const [name, port] of [["den-web", webPort], ["den-api", apiPort], ["den-worker-proxy", workerProxyPort], ["inference", inferencePort]]) {
     const available = await canListenOnPort(Number(port))
     if (!available) {
@@ -222,7 +231,7 @@ async function main() {
         DATABASE_URL: databaseUrl,
         DEN_DB_ENCRYPTION_KEY: dbEncryptionKey,
         BETTER_AUTH_URL: process.env.BETTER_AUTH_URL?.trim() || `http://localhost:${webPort}`,
-        DEN_MCP_RESOURCE_URL: process.env.DEN_MCP_RESOURCE_URL?.trim() || `http://127.0.0.1:${apiPort}/mcp`,
+        DEN_MCP_RESOURCE_URL: process.env.DEN_MCP_RESOURCE_URL?.trim() || `http://localhost:${apiPort}/mcp`,
         DEN_BETTER_AUTH_TRUSTED_ORIGINS: process.env.DEN_BETTER_AUTH_TRUSTED_ORIGINS?.trim() || webOrigins,
         CORS_ORIGINS: process.env.CORS_ORIGINS?.trim() || webOrigins,
         DEN_API_PORT: apiPort,

@@ -50,6 +50,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- if eq .Values.config.provisioner.mode "kubernetes" }}
+      serviceAccountName: {{ include "openwork-ee.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -81,7 +85,7 @@ spec:
       {{- end }}
       containers:
         - name: den-api
-          image: "{{ .Values.denApi.image.repository }}:{{ default .Values.image.tag .Values.denApi.image.tag }}"
+          image: {{ include "openwork-ee.denApiImage" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http

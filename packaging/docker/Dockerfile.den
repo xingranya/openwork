@@ -5,8 +5,6 @@ RUN corepack enable
 
 WORKDIR /app
 
-ARG DEN_API_VERSION=dev
-ENV DEN_API_VERSION=${DEN_API_VERSION}
 ENV PORT=8788
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
@@ -38,6 +36,8 @@ RUN pnpm --dir /app/packages/install-config run build
 RUN pnpm --dir /app/packages/connect-link run build
 RUN pnpm --dir /app/ee/packages/utils run build
 RUN pnpm --dir /app/ee/packages/den-db run build
+ARG DEN_API_VERSION=dev
+ENV DEN_API_VERSION=${DEN_API_VERSION}
 # Source-map upload is build-only; runtime Sentry still requires its own backend and DSN configuration.
 ARG DEN_UPLOAD_SENTRY_SOURCEMAPS=0
 ARG DEN_SENTRY_UPLOAD_BUILD_ID=disabled

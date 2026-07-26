@@ -22,7 +22,7 @@ config:
     singleOrgName: "REPLACE_COMPANY_NAME"
     singleOrgSlug: "REPLACE_COMPANY_SLUG"
     ownerEmails: "REPLACE_ADMIN_EMAIL"
-    allowPublicSignup: "false"
+    allowPublicSignup: "true"
     requireEmailVerification: "false"
   auth:
     passwordBreachScreeningEnabled: "false"

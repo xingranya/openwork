@@ -14,19 +14,24 @@ config:
   denApiNodeOptions: ""
   tenancy:
     mode: single_org
-    singleOrgName: OpenWork
+    singleOrgName: FoxWork 公司
     singleOrgSlug: default
+    # 单组织首次初始化必须配置真实的受控管理员邮箱；留空会阻止首个账号注册。
     ownerEmails: ""
-    allowPublicSignup: "false"
+    allowPublicSignup: "true"
     requireEmailVerification: "false"
   auth:
     passwordBreachScreeningEnabled: "false"
+  skillsCatalog:
+    # 默认直连魔搭官方 API；也可指向公司部署的兼容代理。
+    apiBaseUrl: https://modelscope.cn/api
   githubConnector:
     appId: ""
     clientId: ""
   public:
     webOrigin: https://openwork.example.com
     apiOrigin: https://api.openwork.example.com
+    allowInsecureHttp: "false"
     mcpResourceUrl: https://api.openwork.example.com/mcp
     mcpAdditionalResources: ""
     mcpClaimNamespace: ""
@@ -52,6 +57,23 @@ config:
     reconcileStaleMs: "1200000"
     reconcileBatchSize: "10"
     workerUrlTemplate: ""
+  kubernetes:
+    namespace: openwork-workers
+    workerImage: ""
+    workerDomainSuffix: workers.openwork.example.com
+    workerUrlScheme: https
+    ingressClassName: ""
+    tlsSecretName: ""
+    storageClassName: ""
+    storageSize: 10Gi
+    cpuRequest: 500m
+    cpuLimit: "2"
+    memoryRequest: 1Gi
+    memoryLimit: 4Gi
+    openworkPort: "8787"
+    opencodePort: "4096"
+    healthcheckTimeoutMs: "300000"
+    pollIntervalMs: "2000"
   daytona:
     apiUrl: ""
     target: ""
@@ -171,6 +193,9 @@ secret:
     githubConnectorAppPrivateKey: ""
     githubConnectorAppWebhookSecret: ""
     connectLinkPrivateKey: ""
+serviceAccount:
+  create: true
+  name: ""
 
 installerArtifacts:
   enabled: false
@@ -183,6 +208,7 @@ denApi:
   image:
     repository: ghcr.io/different-ai/openwork-den-api
     tag: ""
+    digest: ""
   service:
     type: ClusterIP
     port: 8788
@@ -211,6 +237,7 @@ denWeb:
   image:
     repository: ghcr.io/different-ai/openwork-den-web
     tag: ""
+    digest: ""
   service:
     type: ClusterIP
     port: 3005

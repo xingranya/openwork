@@ -44,7 +44,7 @@ config:
     mode: single_org
     singleOrgName: OpenWork
     singleOrgSlug: default
-    ownerEmails: ""
+    ownerEmails: "admin@example.com"
     allowPublicSignup: "false"
     requireEmailVerification: "false"
 ```
@@ -87,8 +87,10 @@ The server can create the singleton organization idempotently from env/config.
 If no owner exists:
 
 1. If owner emails are configured, only those emails can claim owner.
-2. If no owner emails are configured, dev/local may allow first user owner.
-3. Production Helm should strongly prefer explicit owner emails or a setup token.
+2. If no owner emails are configured, bootstrap is blocked; the first arbitrary
+   registrant must never become owner.
+3. Production Helm must set explicit owner emails; an empty list leaves bootstrap
+   locked until an operator configures the deployment.
 
 The first owner lands on a setup checklist:
 
@@ -216,14 +218,14 @@ Tasks:
 1. Add idempotent singleton org resolver.
 2. Use fixed unique slug and duplicate-key re-query to handle concurrent first
    requests.
-3. Create the first eligible owner, then attach later users as members.
+3. Create the first configured owner, then attach later users as members.
 4. Ensure default desktop policy and dynamic roles are seeded.
 5. Ensure session creation and org middleware always resolve the singleton for
    eligible users.
 
 Validation:
 
-- first eligible user becomes owner
+- only a configured owner email becomes owner
 - second eligible user becomes member
 - concurrent singleton creation does not create two orgs
 - stale session active org is repaired
@@ -436,8 +438,8 @@ validating worker output.
 
 ## Open Decisions
 
-1. Should Helm require explicit owner emails in production, or allow first user
-   owner with a warning?
+1. Explicit owner emails are required for bootstrap; an unconfigured deployment
+   must reject the first signup rather than grant owner access.
 2. Should single-org mode allow email/password member signup after SSO is
    configured, or make SSO mandatory except break-glass owners?
 3. Should `POST /v1/org` in single-org mode return 403, 409, or the singleton
