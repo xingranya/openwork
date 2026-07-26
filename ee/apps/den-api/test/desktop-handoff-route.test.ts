@@ -9,8 +9,19 @@ let consumed = false
 let insertedGrant: Record<string, unknown> | null = null
 let transactionSelectCount = 0
 
+// `mock.module` 在同一测试进程内是全局替换，不能只提供本用例需要的少量字段：
+// 否则其他测试文件读取被剥离的配置时会得到 undefined。这里基于真实解析结果
+// 派生，只覆盖桌面交接需要的三项。
+process.env.DATABASE_URL = process.env.DATABASE_URL ?? "mysql://root:password@127.0.0.1:3306/openwork_test"
+process.env.DEN_DB_ENCRYPTION_KEY = process.env.DEN_DB_ENCRYPTION_KEY ?? "x".repeat(32)
+process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "y".repeat(32)
+process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:8790"
+
+const { env: parsedEnv } = await import("../src/env.js")
+
 mock.module("../src/env.js", () => ({
   env: {
+    ...parsedEnv,
     webAppHosts: ["localhost"],
     desktopDenBaseUrl: "http://localhost:8790/api/den",
     betterAuthUrl: "http://localhost:8790",
