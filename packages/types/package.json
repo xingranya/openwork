@@ -58,6 +58,11 @@
       "types": "./src/connect-link.ts",
       "development": "./src/connect-link.ts",
       "default": "./src/connect-link.ts"
+    },
+    "./model-reasoning": {
+      "types": "./src/model-reasoning.ts",
+      "development": "./src/model-reasoning.ts",
+      "default": "./src/model-reasoning.ts"
     }
   },
   "files": [

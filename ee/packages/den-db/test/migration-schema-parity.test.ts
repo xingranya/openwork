@@ -20,7 +20,6 @@ import {
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..")
 const migrationsFolder = join(packageDir, "drizzle")
 const mysqlUrl = process.env.DEN_DB_MYSQL_TEST_URL?.trim()
-const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -86,7 +85,14 @@ function sqlFromDrizzleKitExport(stdout: string) {
 }
 
 function exportCurrentSchemaSql() {
-  const result = spawnSync(pnpmCommand, ["exec", "drizzle-kit", "export", "--config", "drizzle.config.ts"], {
+  const result = spawnSync(process.execPath, [
+    "--import",
+    "tsx",
+    join(packageDir, "node_modules", "drizzle-kit", "bin.cjs"),
+    "export",
+    "--config",
+    "drizzle.config.ts",
+  ], {
     cwd: packageDir,
     encoding: "utf8",
     env: {
@@ -182,8 +188,10 @@ function statementForSeed(statement: string) {
   }
 
   return statement
+    .replace(/\n\s*`idempotency_key` varchar\(128\),/i, "")
     .replace(/\n\s*`last_heartbeat_at` timestamp\(3\),/i, "")
     .replace(/\n\s*`last_active_at` timestamp\(3\),/i, "")
+    .replace(/,\n\s*CONSTRAINT `worker_org_user_idempotency_key` UNIQUE\(`org_id`,`created_by_user_id`,`idempotency_key`\)/i, "")
 }
 
 function seedShouldSkipIndex(statement: string) {
@@ -196,10 +204,9 @@ async function seedNonMigrationOwnedTables(
   nonMigrationOwnedTables: Set<string>,
   migrationCreatedIndexes: Set<string>,
 ) {
-  // The committed migrations start after the original auth/system schema. They do not
-  // create the export tables in nonMigrationOwnedTables, so those tables are seeded
-  // before replay. The worker table is seeded from export with the two columns that
-  // 0002 adds removed, letting the full migration chain replay deterministically.
+  // 已提交迁移从原始认证和系统表之后开始，因此先从当前 Schema 补齐迁移链
+  // 不负责创建的表。worker 表需要移除 0002 和 0045 后续添加的列与约束，
+  // 才能从真实基线确定性地回放完整迁移链。
   for (const statement of exportStatements) {
     const tableName = createTableName(statement)
     if (tableName && nonMigrationOwnedTables.has(tableName)) {

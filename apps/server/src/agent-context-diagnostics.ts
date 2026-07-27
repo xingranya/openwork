@@ -9,6 +9,11 @@ import type {
   AgentContextMcpEvidence,
   AgentContextToolPermission,
 } from "@openwork/types/agent-context-diagnostics";
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 import {
   AGENT_CONTEXT_DIAGNOSTICS_SCHEMA_VERSION,
@@ -49,12 +54,14 @@ import type { McpItem, ServerConfig, WorkspaceInfo } from "./types.js";
 import { exists } from "./utils.js";
 import { opencodeConfigPath } from "./workspace-files.js";
 
-const OPENWORK_CLOUD_MCP_NAME = "openwork-cloud";
+const OPENWORK_CLOUD_MCP_NAME = FOXWORK_COMPANY_MCP_NAME;
 const CLOUD_MCP_TERMINAL_PATH = "/mcp/agent";
 const REQUIRED_CLOUD_TOOL_IDS = ["search_capabilities", "execute_capability"] as const;
-const REQUIRED_CLOUD_AGENT_TOOL_IDS = REQUIRED_CLOUD_TOOL_IDS.map(
-  (toolId) => `${OPENWORK_CLOUD_MCP_NAME}_${toolId}`,
-);
+const REQUIRED_CLOUD_AGENT_TOOL_IDS = [...FOXWORK_COMPANY_MCP_EXPECTED_TOOLS];
+
+function isCompanyMcpName(name: string): boolean {
+  return name === OPENWORK_CLOUD_MCP_NAME || name === LEGACY_OPENWORK_CLOUD_MCP_NAME;
+}
 
 export type McpRegistrationStatus =
   | "connected"
@@ -363,7 +370,7 @@ function cloudTerminalPathEvidence(
   config: Record<string, unknown>,
 ): AgentContextMcpEvidence["path"] {
   if (
-    name !== OPENWORK_CLOUD_MCP_NAME
+    !isCompanyMcpName(name)
     || (source !== "config.remote" && source !== "engine.config")
     || typeof config.url !== "string"
   ) return null;
@@ -979,7 +986,9 @@ export async function runAgentContextDiagnostics(input: {
       googleWorkspace: { legacyConfigured: false },
     };
   }
-  const selectedCloudMcpPresent = Object.hasOwn(runtimeMcpMap(runtime), OPENWORK_CLOUD_MCP_NAME);
+  const runtimeMcp = runtimeMcpMap(runtime);
+  const selectedCloudMcpPresent = Object.hasOwn(runtimeMcp, OPENWORK_CLOUD_MCP_NAME)
+    || Object.hasOwn(runtimeMcp, LEGACY_OPENWORK_CLOUD_MCP_NAME);
   const branch = expectedConnectBranch(connectSnapshot);
   const crossWorkspaceSteeringDrift = connectSnapshot.cloudMcpPresent && !selectedCloudMcpPresent;
 
@@ -993,7 +1002,7 @@ export async function runAgentContextDiagnostics(input: {
   const engineConfigItems = effectiveEngine?.mcps.map((item) => ({
     ...item,
     source: "engine.config" as const,
-    disabledByTools: item.name === OPENWORK_CLOUD_MCP_NAME
+    disabledByTools: isCompanyMcpName(item.name)
       ? assessEffectiveToolPolicy(effectiveEngine).status === "denied" || undefined
       : undefined,
   }));
@@ -1001,7 +1010,7 @@ export async function runAgentContextDiagnostics(input: {
   const combinedInventoryItems = [...inventory.items, ...(engineConfigItems ?? [])];
   const inventoryItems = combinedInventoryItems.slice(0, 200);
   const runtimeCloudItem = combinedInventoryItems.find((item) =>
-    item.source === "config.remote" && item.name === OPENWORK_CLOUD_MCP_NAME,
+    item.source === "config.remote" && isCompanyMcpName(item.name),
   );
   if (
     runtimeCloudItem
@@ -1010,9 +1019,14 @@ export async function runAgentContextDiagnostics(input: {
   ) {
     inventoryItems[199] = runtimeCloudItem;
   }
-  const managedMcpNames = new Set(Object.keys(runtimeMcpMap(runtime)));
+  const managedMcpNames = new Set(Object.keys(runtimeMcp));
   const mcps = inventoryItems.map((item) => mcpEvidence(item, input.inspectRegistration, managedMcpNames));
-  const runtimeCloudConfig = runtimeMcpMap(runtime)[OPENWORK_CLOUD_MCP_NAME] ?? null;
+  const runtimeCloudConfig = runtimeMcp[OPENWORK_CLOUD_MCP_NAME]
+    ?? runtimeMcp[LEGACY_OPENWORK_CLOUD_MCP_NAME]
+    ?? null;
+  const runtimeCloudName = Object.hasOwn(runtimeMcp, OPENWORK_CLOUD_MCP_NAME)
+    ? OPENWORK_CLOUD_MCP_NAME
+    : LEGACY_OPENWORK_CLOUD_MCP_NAME;
   const staticallyDeniedCloudAgentToolIds = new Set(inventory.toolPolicy.deniedToolIds);
   const effectiveToolPolicy = assessEffectiveToolPolicy(effectiveEngine);
   const cloudToolPolicyStatus = effectiveEngine
@@ -1059,7 +1073,7 @@ export async function runAgentContextDiagnostics(input: {
         ? "passive-static-subset"
         : "unavailable",
     registrationStatus: runtimeCloudConfig
-      ? input.inspectRegistration(OPENWORK_CLOUD_MCP_NAME, runtimeCloudConfig)
+      ? input.inspectRegistration(runtimeCloudName, runtimeCloudConfig)
       : "not-recorded",
     requestId: runId,
     fetchImpl,

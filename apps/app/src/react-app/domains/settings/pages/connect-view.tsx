@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
+import { FOXWORK_COMPANY_MCP_EXPECTED_TOOLS } from "@openwork/types/den/mcp-connection-action";
 
 import type { DenExternalMcpConnection, DenOrgPlugin } from "@/app/lib/den";
 import { mintCloudControlMcpToken, readDenSettings } from "@/app/lib/den";
@@ -292,8 +293,8 @@ function AgentAccessCard(props: {
   const canRun = Boolean(props.client && context && signedIn);
   const readyTools = readyCloudMcpToolIds(health);
   const readyToolLabels = readyTools.map((tool) => {
-    if (tool === "openwork-cloud_search_capabilities") return "搜索公司能力";
-    if (tool === "openwork-cloud_execute_capability") return "调用公司能力";
+    if (tool === FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]) return "搜索公司能力";
+    if (tool === FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[1]) return "调用公司能力";
     return "公司授权能力";
   });
 

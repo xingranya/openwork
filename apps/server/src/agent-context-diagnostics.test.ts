@@ -18,6 +18,10 @@ import {
   agentContextDiagnosticsReportSchema,
   type AgentContextDiagnosticsRequest,
 } from "@openwork/types/agent-context-diagnostics";
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  FOXWORK_COMPANY_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 import {
   expectedConnectBranch,
@@ -83,7 +87,7 @@ function diagnosticRuntimeConfig(): RuntimeOpencodeConfig {
     default_agent: `openwork ${DYNAMIC_BEARER_CANARY}`,
     plugin: [`audit-label ${DYNAMIC_SECRET_ASSIGNMENT_CANARY}`],
     mcp: {
-      "openwork-cloud": cloudConfig(),
+      [FOXWORK_COMPANY_MCP_NAME]: cloudConfig(),
       "non-cloud-canary": {
         type: "remote",
         url: "https://non-cloud.invalid/mcp?token=CANARY_QUERY_SECRET",
@@ -123,12 +127,12 @@ function effectiveEngineInspection(
     hidden?: boolean;
     prompt?: string;
     pluginSpecs?: string[];
-    decisions?: Partial<Record<"openwork-cloud_search_capabilities" | "openwork-cloud_execute_capability", "allow" | "ask" | "deny">>;
+    decisions?: Partial<Record<(typeof FOXWORK_COMPANY_MCP_EXPECTED_TOOLS)[number], "allow" | "ask" | "deny">>;
   },
 ): InspectAgentDiagnosticsEngine {
   const decisions = {
-    "openwork-cloud_search_capabilities": "allow" as const,
-    "openwork-cloud_execute_capability": "allow" as const,
+    [FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]]: "allow" as const,
+    [FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[1]]: "allow" as const,
     ...options?.decisions,
   };
   const canonicalConfig = buildOpenworkRuntimeConfigObjectFromSnapshot(runtime);
@@ -295,8 +299,8 @@ function startRecordingServer() {
           mode: "primary",
           prompt: canonicalAgents.openwork?.prompt,
           permission: [
-            { permission: "openwork-cloud_search_capabilities", pattern: "*", action: "allow" },
-            { permission: "openwork-cloud_execute_capability", pattern: "*", action: "allow" },
+            { permission: FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0], pattern: "*", action: "allow" },
+            { permission: FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[1], pattern: "*", action: "allow" },
           ],
           options: {},
         }]);
@@ -521,7 +525,7 @@ describe("agent context diagnostics analyzer", () => {
     expect(report.overall).toBe("warning");
     expect(report.firstFailedCheck).toBeNull();
     expect(report.observedCloudToolIds).toEqual(["search_capabilities", "execute_capability"]);
-    expect(report.mcps.find((mcp) => mcp.name === "openwork-cloud")?.path).toBe("/mcp/agent");
+    expect(report.mcps.find((mcp) => mcp.name === FOXWORK_COMPANY_MCP_NAME)?.path).toBe("/mcp/agent");
     expect(report.workspace.name).toBe("[redacted-sensitive-label]");
     expect(report.agent.evidenceSource).toBe("effective-engine");
     expect(report.agent.defaultAgent).toBe("openwork");
@@ -543,12 +547,12 @@ describe("agent context diagnostics analyzer", () => {
       name: "[redacted-sensitive-label]",
     }));
     expect(report.mcps).toContainEqual(expect.objectContaining({
-      name: "openwork-cloud",
+      name: FOXWORK_COMPANY_MCP_NAME,
       source: "config.remote",
       syncStatus: "connected",
     }));
     expect(report.mcps).toContainEqual(expect.objectContaining({
-      name: "openwork-cloud",
+      name: FOXWORK_COMPANY_MCP_NAME,
       source: "engine.config",
       syncStatus: "not-applicable",
     }));
@@ -576,7 +580,7 @@ describe("agent context diagnostics analyzer", () => {
     expect(agentContextDiagnosticsReportSchema.safeParse({
       ...report,
       mcps: report.mcps.filter((mcp) =>
-        !(mcp.source === "config.remote" && mcp.name === "openwork-cloud"),
+        !(mcp.source === "config.remote" && mcp.name === FOXWORK_COMPANY_MCP_NAME),
       ),
     }).success).toBe(false);
     expect(fetchCalls).toHaveLength(3);
@@ -662,7 +666,7 @@ describe("agent context diagnostics analyzer", () => {
         url: `https://bounded-${index}.invalid/mcp`,
       };
     }
-    manyMcps["openwork-cloud"] = cloudConfig();
+    manyMcps[FOXWORK_COMPANY_MCP_NAME] = cloudConfig();
     runtime.mcp = manyMcps;
     const fixture = await createFixture({ runtime });
     const fetchCalls: CatalogFetchCall[] = [];
@@ -680,7 +684,7 @@ describe("agent context diagnostics analyzer", () => {
 
     expect(report.mcps).toHaveLength(200);
     expect(report.mcps).toContainEqual(expect.objectContaining({
-      name: "openwork-cloud",
+      name: FOXWORK_COMPANY_MCP_NAME,
       source: "config.remote",
       path: "/mcp/agent",
       syncStatus: "connected",
@@ -709,7 +713,7 @@ describe("agent context diagnostics analyzer", () => {
       dependencies: {
         fetchImpl: catalogFetch(["search_capabilities", "execute_capability"], fetchCalls),
         inspectEffectiveEngine: effectiveEngineInspection(diagnosticRuntimeConfig(), {
-          decisions: { "openwork-cloud_search_capabilities": "deny" },
+          decisions: { [FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]]: "deny" },
         }),
       },
     });
@@ -730,7 +734,7 @@ describe("agent context diagnostics analyzer", () => {
       details: { requestPerformed: false },
     });
     expect(report.mcps.find(
-      (mcp) => mcp.name === "openwork-cloud" && mcp.source === "engine.config",
+      (mcp) => mcp.name === FOXWORK_COMPANY_MCP_NAME && mcp.source === "engine.config",
     )).toMatchObject({
       source: "engine.config",
       disabledByTools: true,
@@ -750,7 +754,7 @@ describe("agent context diagnostics analyzer", () => {
       dependencies: {
         fetchImpl: catalogFetch(["search_capabilities", "execute_capability"], fetchCalls),
         inspectEffectiveEngine: effectiveEngineInspection(diagnosticRuntimeConfig(), {
-          decisions: { "openwork-cloud_search_capabilities": "ask" },
+          decisions: { [FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]]: "ask" },
         }),
       },
     }));
@@ -818,7 +822,7 @@ describe("agent context diagnostics analyzer", () => {
 
     const disabled = await createFixture({
       runtime: {
-        mcp: { "openwork-cloud": { ...cloudConfig(), enabled: false } },
+        mcp: { [FOXWORK_COMPANY_MCP_NAME]: { ...cloudConfig(), enabled: false } },
       },
     });
     const disabledReport = await runAgentContextDiagnostics({
@@ -1167,7 +1171,7 @@ describe("agent context diagnostics analyzer", () => {
   test("reports a missing credential without putting authorization-shaped text in the report", async () => {
     const runtime = diagnosticRuntimeConfig();
     if (!runtime.mcp) throw new Error("Expected the diagnostics MCP fixture.");
-    runtime.mcp["openwork-cloud"] = { ...cloudConfig(), headers: {} };
+    runtime.mcp[FOXWORK_COMPANY_MCP_NAME] = { ...cloudConfig(), headers: {} };
     const fixture = await createFixture({ runtime });
     const fetchCalls: CatalogFetchCall[] = [];
 
@@ -1194,12 +1198,12 @@ describe("agent context diagnostics analyzer", () => {
     const fixture = await createFixture();
     await writeFile(join(fixture.workspaceRoot, "opencode.jsonc"), JSON.stringify({
       permission: {
-        "openwork-cloud_*": "allow",
+        [`${FOXWORK_COMPANY_MCP_NAME}_*`]: "allow",
       },
       agent: {
         openwork: {
           permission: {
-            "openwork-cloud_search_capabilities": "deny",
+            [FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]]: "deny",
           },
         },
       },
@@ -1238,7 +1242,7 @@ describe("agent context diagnostics analyzer", () => {
       details: { requestPerformed: false },
     });
     expect(report.mcps.find((mcp) => (
-      mcp.name === "openwork-cloud" && mcp.source === "config.remote"
+      mcp.name === FOXWORK_COMPANY_MCP_NAME && mcp.source === "config.remote"
     ))?.disabledByTools).toBe(true);
     expect(report.safety.cloudCatalogToolsListPerformed).toBe(false);
     expect(fetchCalls).toEqual([]);
@@ -1248,7 +1252,7 @@ describe("agent context diagnostics analyzer", () => {
     const fixture = await createFixture();
     await writeFile(join(fixture.workspaceRoot, "opencode.jsonc"), JSON.stringify({
       permission: {
-        "openwork-cloud_*": ["deny"],
+        [`${FOXWORK_COMPANY_MCP_NAME}_*`]: ["deny"],
       },
     }), "utf8");
     const fetchCalls: CatalogFetchCall[] = [];
@@ -1450,14 +1454,14 @@ describe("agent context diagnostics analyzer", () => {
     await startOpenwork(fixture.config);
     await syncAllWorkspacesRuntimeMcpToEngine(fixture.config);
 
-    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, "openwork-cloud", exact)).toBe("connected");
-    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, "openwork-cloud", {
+    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, FOXWORK_COMPANY_MCP_NAME, exact)).toBe("connected");
+    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, FOXWORK_COMPANY_MCP_NAME, {
       headers: { Authorization: CLOUD_BEARER },
       enabled: true,
       url: CLOUD_ENDPOINT,
       type: "remote",
     })).toBe("connected");
-    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, "openwork-cloud", {
+    expect(inspectEngineMcpRegistration(fixture.config, fixture.workspace, FOXWORK_COMPANY_MCP_NAME, {
       ...exact,
       headers: { Authorization: "Bearer CHANGED_TOKEN" },
     })).toBe("not-recorded");
@@ -1490,7 +1494,7 @@ describe("agent context diagnostics route", () => {
     expect(inspectEngineMcpRegistration(
       fixture.config,
       fixture.workspace,
-      "openwork-cloud",
+      FOXWORK_COMPANY_MCP_NAME,
       cloudConfig(),
     )).toBe("connected");
     const engineRequestCountBeforeDiagnostics = engine.requests.length;

@@ -5,6 +5,7 @@ import { db } from "../db.js"
 import { tokenize } from "./search.js"
 import type { CapabilityMatch } from "./search.js"
 import type { McpMemberIdentity } from "./external-capabilities.js"
+import { serializeSkillCapabilityBundle } from "./skill-capability-bundle.js"
 
 const SKILL_CAPABILITY_PREFIX = "skill:"
 
@@ -21,6 +22,8 @@ type SkillSearchRow = {
 }
 
 type SkillReadRow = SkillSearchRow & {
+  bundleFilesJson: Array<{ path: string; contents: string }> | null
+  bundleHash: string | null
   skillText: string
 }
 
@@ -147,6 +150,8 @@ async function getAccessibleSkill(input: {
       shared: SkillTable.shared,
       createdByOrgMembershipId: SkillTable.createdByOrgMembershipId,
       updatedAt: SkillTable.updatedAt,
+      bundleFilesJson: SkillTable.bundleFilesJson,
+      bundleHash: SkillTable.bundleHash,
       skillText: SkillTable.skillText,
     })
     .from(SkillTable)
@@ -190,7 +195,15 @@ export async function searchSkillCapabilities(input: {
 }
 
 export type SkillCapabilityExecuteResult =
-  | { ok: true; skill: { id: SkillId; title: string; description: string | null; skillText: string; updatedAt: Date } }
+  | { ok: true; skill: {
+      id: SkillId
+      title: string
+      description: string | null
+      skillText: string
+      bundleHash: string
+      files: Array<{ path: string; contents: string }>
+      updatedAt: Date
+    } }
   | { ok: false; error: "unknown_capability" | "forbidden"; message: string }
 
 export async function executeSkillCapability(input: {
@@ -205,13 +218,16 @@ export async function executeSkillCapability(input: {
   if (!skill) {
     return { ok: false, error: "unknown_capability", message: `No accessible skill "${input.skillId}" in this organization.` }
   }
+  const bundle = serializeSkillCapabilityBundle(skill)
   return {
     ok: true,
     skill: {
       id: skill.id,
       title: skill.title,
       description: skill.description,
-      skillText: skill.skillText,
+      skillText: bundle.skillText,
+      bundleHash: bundle.bundleHash,
+      files: bundle.files,
       updatedAt: skill.updatedAt,
     },
   }

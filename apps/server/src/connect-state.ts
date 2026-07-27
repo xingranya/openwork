@@ -1,6 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
+import {
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 import {
   readOpenworkCloudMcpHealth,
@@ -21,7 +25,7 @@ import { ensureDir } from "./utils.js";
 const CONNECT_STATE_FILE = "connect-state.json";
 const CONNECT_STATE_MAX_BYTES = 16 * 1024;
 const CONNECT_SNAPSHOT_MAX_RUNTIME_ROWS = 100;
-const OPENWORK_CLOUD_MCP_NAME = "openwork-cloud";
+const OPENWORK_CLOUD_MCP_NAME = FOXWORK_COMPANY_MCP_NAME;
 type WorkspaceOpencodeClient = ReturnType<typeof createOpencodeClient>;
 
 type PersistedConnectState = {
@@ -95,14 +99,14 @@ function normalizeConnectState(value: Record<string, unknown>): PersistedConnect
 export function googleWorkspaceConnectGuidance(cloudHealthOrReady: CloudMcpHealth | boolean | null): string {
   const usable = typeof cloudHealthOrReady === "boolean" ? cloudHealthOrReady : cloudHealthOrReady?.usable === true;
   if (usable) {
-    return "Google Workspace is available through the OpenWork Cloud connection: call search_capabilities to find the capability, then execute_capability to run it. Do not tell the user to reconfigure extensions; the relevant settings surface is Settings > Connect.";
+    return "Google Workspace 已通过公司服务开放。先调用 search_capabilities 查找能力，再调用 execute_capability 执行；不要让员工重新配置扩展，相关入口位于“设置 > 公司连接”。";
   }
   if (cloudHealthOrReady && typeof cloudHealthOrReady !== "boolean" && cloudHealthOrReady.desired.present) {
     const failure = cloudHealthOrReady.firstFailure;
-    const suffix = failure ? ` Current health check: ${failure.code}.` : "";
-    return `Google Workspace is connected through OpenWork Connect, but agent access needs attention for this workspace. Direct the user to Settings > Connect.${suffix}`;
+    const suffix = failure ? ` 当前检查结果：${failure.code}。` : "";
+    return `Google Workspace 已连接，但当前工作区的 AI 使用权限需要处理。请引导员工打开“设置 > 公司连接”。${suffix}`;
   }
-  return "Google Workspace is not connected on this device. Direct the user to Settings > Connect to connect their account. Do not direct them to Settings > Extensions.";
+  return "当前设备尚未连接 Google Workspace。请引导员工打开“设置 > 公司连接”完成授权，不要引导到“扩展”。";
 }
 
 export async function readConnectState(config: ServerConfig): Promise<PersistedConnectState> {
@@ -310,7 +314,11 @@ async function inspectConnectRuntime(
     if (inspection.status === "unreadable" || inspection.status === "invalid-row") {
       return { cloudMcpPresent: false, complete: false };
     }
-    if (Object.hasOwn(runtimeMcpMap(inspection.config), OPENWORK_CLOUD_MCP_NAME)) {
+    const runtimeMcp = runtimeMcpMap(inspection.config);
+    if (
+      Object.hasOwn(runtimeMcp, OPENWORK_CLOUD_MCP_NAME)
+      || Object.hasOwn(runtimeMcp, LEGACY_OPENWORK_CLOUD_MCP_NAME)
+    ) {
       return { cloudMcpPresent: true, complete: true };
     }
     if (inspection.status === "database-missing" || inspection.status === "table-missing") {

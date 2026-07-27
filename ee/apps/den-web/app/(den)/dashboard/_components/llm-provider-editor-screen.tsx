@@ -79,6 +79,36 @@ function getLockMemberId(
     return provider?.createdByOrgMembershipId ?? currentMemberId;
 }
 
+function DefaultAccessToggle({
+    checked,
+    onChange,
+}: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            aria-label="默认对所有成员启用"
+            onClick={() => onChange(!checked)}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#0f172a]/20 focus:ring-offset-2 ${
+                checked
+                    ? "border-[#0f172a] bg-[#0f172a]"
+                    : "border-gray-200 bg-gray-200"
+            }`}
+        >
+            <span
+                aria-hidden="true"
+                className={`inline-block h-5 w-5 rounded-full bg-white shadow-[0_2px_6px_-1px_rgba(15,23,42,0.3)] transition-transform ${
+                    checked ? "translate-x-6" : "translate-x-1"
+                }`}
+            />
+        </button>
+    );
+}
+
 export function LlmProviderEditorScreen({
     llmProviderId,
 }: {
@@ -138,6 +168,7 @@ export function LlmProviderEditorScreen({
     const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({});
     const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
     const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+    const [defaultEnabled, setDefaultEnabled] = useState(true);
     const [saveBusy, setSaveBusy] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [verifyBusy, setVerifyBusy] = useState(false);
@@ -189,6 +220,7 @@ export function LlmProviderEditorScreen({
             setSelectedTeamIds(
                 provider.access.teams.map((entry) => entry.teamId),
             );
+            setDefaultEnabled(provider.defaultEnabled);
             setCustomConfigText(
                 provider.source === "custom"
                     ? buildEditableCustomProviderText(provider)
@@ -227,6 +259,7 @@ export function LlmProviderEditorScreen({
             orgContext?.currentMember.id ? [orgContext.currentMember.id] : [],
         );
         setSelectedTeamIds([]);
+        setDefaultEnabled(true);
         setCustomConfigText(buildCustomProviderTemplate());
         setCustomMode("form");
         setCustomProtocol("openai");
@@ -665,6 +698,7 @@ export function LlmProviderEditorScreen({
             const body: Record<string, unknown> = {
                 name: providerName.trim(),
                 source,
+                defaultEnabled,
                 memberIds: [...new Set(selectedMemberIds)],
                 teamIds: [...new Set(selectedTeamIds)],
             };
@@ -1385,8 +1419,23 @@ export function LlmProviderEditorScreen({
                         配置使用权限
                     </h2>
                     <p className="mt-2 text-[15px] text-gray-500">
-                        选择可以使用此模型服务的团队和成员。
+                        设置全员默认策略，并保留下方明确授权作为关闭默认策略后的使用范围。
                     </p>
+                </div>
+
+                <div className="mt-8 flex items-start justify-between gap-6 rounded-[24px] border border-gray-200 bg-gray-50 px-5 py-5">
+                    <div>
+                        <p className="text-[15px] font-medium text-gray-900">
+                            默认对所有成员启用
+                        </p>
+                        <p className="mt-1 text-[13px] leading-5 text-gray-500">
+                            开启后，当前员工和以后加入公司的员工都能使用。关闭时不会删除下方已明确授权的成员或团队。
+                        </p>
+                    </div>
+                    <DefaultAccessToggle
+                        checked={defaultEnabled}
+                        onChange={setDefaultEnabled}
+                    />
                 </div>
 
                 <div className="mt-8 grid w-80 grid-cols-2 rounded-xl bg-gray-200 p-1 text-[13px] font-medium text-gray-500">

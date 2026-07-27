@@ -4,6 +4,7 @@ export type CloudImportedSkill = {
   title: string;
   description: string | null;
   shared: "org" | "public" | null;
+  bundleHash: string | null;
   updatedAt: string | null;
   importedAt: number | null;
 };
@@ -114,6 +115,9 @@ export function readWorkspaceCloudImports(value: unknown): WorkspaceCloudImports
         title,
         description: typeof entry.description === "string" ? entry.description.trim() || null : null,
         shared: entry.shared === "org" || entry.shared === "public" ? entry.shared : null,
+        bundleHash: typeof entry.bundleHash === "string" && /^[a-f0-9]{64}$/iu.test(entry.bundleHash.trim())
+          ? entry.bundleHash.trim().toLowerCase()
+          : null,
         updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt.trim() || null : null,
         importedAt: typeof entry.importedAt === "number" && Number.isFinite(entry.importedAt)
           ? entry.importedAt

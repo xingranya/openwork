@@ -337,7 +337,7 @@ describe("testRemoteWorkspaceConnection", () => {
     expect(result.state.message).toContain("公司管理员");
   });
 
-  test("redacts token-like values from diagnostic error messages", async () => {
+  test("连接诊断将英文认证错误转换为中文且不泄露令牌", async () => {
     const result = await testRemoteWorkspaceConnection(workspace(), {
       createClient: () =>
         client({
@@ -348,8 +348,9 @@ describe("testRemoteWorkspaceConnection", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.state.message).toContain("Bearer [redacted]");
-    expect(result.state.message).toContain("?token=[redacted]");
+    expect(result.state.message).toContain("远程工作区认证失败");
+    expect(result.state.message).not.toContain("Bearer");
+    expect(result.state.message).not.toContain("?token=");
     expect(result.state.message).not.toContain("owt_live_secret");
     expect(result.state.message).not.toContain("abc123");
   });
@@ -378,7 +379,7 @@ describe("remote diagnostic identity", () => {
 });
 
 describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
-  test("keeps the task load error when the worker itself is reachable", async () => {
+  test("远程服务可连接时保留中文可操作的任务错误", async () => {
     const state = await diagnoseRemoteWorkspaceTaskLoadFailure(
       workspace(),
       "Session list failed",
@@ -390,7 +391,7 @@ describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
 
     expect(state).toEqual({
       status: "error",
-      message: "远程工作环境可以连接，但任务加载失败：Session list failed",
+      message: "远程工作环境可以连接，但任务加载失败：远程工作区返回了未识别错误，请重试；仍失败时请联系公司管理员。",
       checkedAt: 456,
     });
   });
@@ -413,7 +414,7 @@ describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
     expect(state.message).toContain("无法连接 worker.example.com");
   });
 
-  test("redacts token-like values from task load fallbacks", async () => {
+  test("任务加载失败时转换为中文认证提示且不泄露令牌", async () => {
     const state = await diagnoseRemoteWorkspaceTaskLoadFailure(
       workspace(),
       "Session failed with bearer owt_live_secret and ?token=abc123",
@@ -422,22 +423,25 @@ describe("diagnoseRemoteWorkspaceTaskLoadFailure", () => {
       },
     );
 
-    expect(state.message).toContain("bearer [redacted]");
-    expect(state.message).toContain("?token=[redacted]");
+    expect(state.message).toContain("远程工作区认证失败");
+    expect(state.message).not.toContain("bearer");
+    expect(state.message).not.toContain("?token=");
     expect(state.message).not.toContain("owt_live_secret");
     expect(state.message).not.toContain("abc123");
   });
 });
 
 describe("getWorkspaceTaskLoadErrorDisplay", () => {
-  test("redacts remote worker task load errors before rendering", () => {
+  test("渲染远程任务错误时保留可操作原因且不显示英文内部错误", () => {
     const display = getWorkspaceTaskLoadErrorDisplay(
       workspace(),
       "failed with Authorization: Bearer owt_live_secret and ?token=abc123",
     );
 
-    expect(display.message).toContain("Authorization: Bearer [redacted]");
-    expect(display.message).toContain("?token=[redacted]");
+    expect(display.message).toContain("远程工作区认证失败");
+    expect(display.title).toContain("远程工作区认证失败");
+    expect(display.message).not.toContain("Authorization");
+    expect(display.message).not.toContain("?token=");
     expect(display.message).not.toContain("owt_live_secret");
     expect(display.message).not.toContain("abc123");
   });

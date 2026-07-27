@@ -1,3 +1,5 @@
+import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning";
+
 /**
  * Den 管理后台的自定义模型服务引导配置。
  *
@@ -18,7 +20,6 @@ const GUIDED_PROVIDER_NPM_PACKAGES = new Set([
 ]);
 
 const GUIDED_PROVIDER_CONFIG_KEYS = new Set(["id", "name", "npm", "env", "api", "doc"]);
-const GUIDED_MODEL_KEYS = new Set(["id", "name"]);
 
 export type GuidedCustomProviderFields = {
     providerId: string;
@@ -47,6 +48,21 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function asString(value: unknown): string | null {
     return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function sameJsonValue(left: unknown, right: unknown): boolean {
+    if (Object.is(left, right)) return true;
+    if (Array.isArray(left) || Array.isArray(right)) {
+        return Array.isArray(left)
+            && Array.isArray(right)
+            && left.length === right.length
+            && left.every((entry, index) => sameJsonValue(entry, right[index]));
+    }
+    if (!isRecord(left) || !isRecord(right)) return false;
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return leftKeys.length === rightKeys.length
+        && leftKeys.every((key) => key in right && sameJsonValue(left[key], right[key]));
 }
 
 export function slugifyProviderId(value: string): string {
@@ -121,15 +137,21 @@ export function buildGuidedCustomProviderConfig(input: {
     const envNames = (input.envNames ?? [])
         .map((entry) => entry.trim())
         .filter(Boolean);
+    const npm = input.npm && GUIDED_PROVIDER_NPM_PACKAGES.has(input.npm)
+        ? input.npm
+        : guidedProviderNpmForProtocol(input.protocol ?? "openai");
     return {
         id: providerId,
         name: input.name.trim() || providerId,
-        npm: input.npm && GUIDED_PROVIDER_NPM_PACKAGES.has(input.npm)
-            ? input.npm
-            : guidedProviderNpmForProtocol(input.protocol ?? "openai"),
+        npm,
         env: envNames.length > 0 ? envNames : [buildGuidedProviderEnvName(providerId)],
         api: input.baseUrl.trim().replace(/\/+$/, ""),
-        models: input.modelIds.map((modelId) => ({ id: modelId, name: modelId })),
+        models: input.modelIds.map((modelId) =>
+            applyModelReasoningDefaults({
+                modelId,
+                npm,
+                config: { id: modelId, name: modelId },
+            })),
     };
 }
 
@@ -196,10 +218,18 @@ export function readGuidedCustomProviderFields(
         if (name !== null && name !== id) {
             return null;
         }
-        for (const key of Object.keys(model)) {
-            if (!GUIDED_MODEL_KEYS.has(key)) {
-                return null;
-            }
+        const normalizedModel = {
+            ...model,
+            id,
+            name: name ?? id,
+        };
+        const generatedModel = applyModelReasoningDefaults({
+            modelId: id,
+            npm,
+            config: { id, name: id },
+        });
+        if (!sameJsonValue(normalizedModel, generatedModel)) {
+            return null;
         }
         modelIds.push(id);
     }

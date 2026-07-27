@@ -1,4 +1,5 @@
 import {
+  createDenClient,
   DEFAULT_DEN_BASE_URL,
   normalizeDenBaseUrl,
   readDenBootstrapConfig,
@@ -6,6 +7,19 @@ import {
   setDenBootstrapConfig,
   writeDenSettings,
 } from "@/app/lib/den";
+
+export type ControlPlaneConnection = {
+  baseUrl: string;
+  apiBaseUrl: string;
+};
+
+type SaveControlPlaneUrlOptions = {
+  probe?: (connection: ControlPlaneConnection) => Promise<void>;
+};
+
+async function probeControlPlaneConnection(connection: ControlPlaneConnection) {
+  await createDenClient({ baseUrl: connection.baseUrl }).getAppVersionMetadata();
+}
 
 export function isValidControlPlaneUrl(value: string) {
   return normalizeDenBaseUrl(value) !== null;
@@ -32,11 +46,16 @@ export function formatControlPlaneHost(value: string) {
   }
 }
 
-export async function saveControlPlaneUrl(value: string) {
+export async function saveControlPlaneUrl(
+  value: string,
+  options: SaveControlPlaneUrlOptions = {},
+) {
   const normalized = normalizeDenBaseUrl(value);
   if (!normalized) return null;
 
   const resolved = resolveDenBaseUrls(normalized);
+  await (options.probe ?? probeControlPlaneConnection)(resolved);
+
   const bootstrap = readDenBootstrapConfig();
   const persisted = await setDenBootstrapConfig({
     baseUrl: resolved.baseUrl,

@@ -40,6 +40,7 @@ export type ExternalMcpRequiredBy = {
 export type ExternalMcpConnection = {
   id: string;
   name: string;
+  description?: string | null;
   url: string;
   authType: ExternalMcpAuthType;
   credentialMode: ExternalMcpCredentialMode;
@@ -467,6 +468,7 @@ async function fetchConnections(scope: ExternalMcpConnectionScope, orgId: string
   const record = payload as { connections?: ExternalMcpConnection[] };
   return (record.connections ?? []).map((connection) => ({
     ...connection,
+    description: typeof connection.description === "string" ? connection.description : null,
     requiredBy: parseRequiredBy(connection.requiredBy),
     identityManagedBy: parseRequiredBy(connection.identityManagedBy),
     updatedAt: typeof connection.updatedAt === "string" ? connection.updatedAt : null,
@@ -519,6 +521,7 @@ export type McpConnectionAccessInput = {
 
 export type CreateMcpConnectionInput = {
   name: string;
+  description?: string;
   url: string;
   authType: ExternalMcpAuthType;
   credentialMode: ExternalMcpCredentialMode;
@@ -536,6 +539,7 @@ export type UpdateMcpConnectionInput = {
   connectionId: string;
   expectedUpdatedAt: string;
   name: string;
+  description?: string;
   url: string;
   authType: ExternalMcpAuthType;
   credentialMode: ExternalMcpCredentialMode;

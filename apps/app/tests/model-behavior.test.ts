@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import type { ProviderListItem } from "../src/app/types";
-import { getModelBehaviorOptions } from "../src/app/lib/model-behavior";
+import {
+  getModelBehaviorOptions,
+  getModelBehaviorSummary,
+} from "../src/app/lib/model-behavior";
 
 type ProviderModel = ProviderListItem["models"][string];
 
@@ -72,6 +75,34 @@ describe("模型思考强度选项", () => {
       { value: "high", label: "较深" },
       { value: "xhigh", label: "很深" },
       { value: "max", label: "最深" },
+    ]);
+  });
+
+  test("公司下发的 Anthropic 模型按运行时协议显示扩展思考", () => {
+    const companyClaude: ProviderModel = {
+      ...model,
+      providerID: "lpr_company-anthropic",
+      api: {
+        ...model.api,
+        npm: "@ai-sdk/anthropic",
+      },
+      variants: {
+        high: {},
+        max: {},
+      },
+    };
+
+    const summary = getModelBehaviorSummary(
+      "lpr_company-anthropic",
+      companyClaude,
+      null,
+      "公司模型",
+    );
+
+    expect(summary.title).toBe("扩展思考");
+    expect(summary.options.map((option) => option.description)).toEqual([
+      "使用标准扩展思考预算。",
+      "使用最大的扩展思考预算。",
     ]);
   });
 });

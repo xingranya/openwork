@@ -84,7 +84,16 @@ describe("buildGuidedCustomProviderConfig", () => {
             env: ["AZURE_FOUNDRY_API_KEY"],
             api: "https://my-resource.openai.azure.com/openai/v1",
             models: [
-                { id: "gpt-5.2", name: "gpt-5.2" },
+                {
+                    id: "gpt-5.2",
+                    name: "gpt-5.2",
+                    reasoning: true,
+                    variants: {
+                        low: { reasoningEffort: "low" },
+                        medium: { reasoningEffort: "medium" },
+                        high: { reasoningEffort: "high" },
+                    },
+                },
                 { id: "my-deployment", name: "my-deployment" },
             ],
         });
@@ -113,6 +122,91 @@ describe("buildGuidedCustomProviderConfig", () => {
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_REGION",
+        ]);
+    });
+
+    test("为 OpenAI GPT-5.2 公司模型生成运行时推理强度", () => {
+        const config = buildGuidedCustomProviderConfig({
+            providerId: "company-openai",
+            name: "公司 OpenAI 网关",
+            baseUrl: "https://models.example.com/v1",
+            modelIds: ["gpt-5.2"],
+            npm: "@ai-sdk/openai",
+        });
+
+        expect(config.models).toEqual([
+            {
+                id: "gpt-5.2",
+                name: "gpt-5.2",
+                reasoning: true,
+                variants: {
+                    none: {
+                        reasoningEffort: "none",
+                        reasoningSummary: "auto",
+                        include: ["reasoning.encrypted_content"],
+                    },
+                    low: {
+                        reasoningEffort: "low",
+                        reasoningSummary: "auto",
+                        include: ["reasoning.encrypted_content"],
+                    },
+                    medium: {
+                        reasoningEffort: "medium",
+                        reasoningSummary: "auto",
+                        include: ["reasoning.encrypted_content"],
+                    },
+                    high: {
+                        reasoningEffort: "high",
+                        reasoningSummary: "auto",
+                        include: ["reasoning.encrypted_content"],
+                    },
+                    xhigh: {
+                        reasoningEffort: "xhigh",
+                        reasoningSummary: "auto",
+                        include: ["reasoning.encrypted_content"],
+                    },
+                },
+            },
+        ]);
+    });
+
+    test("为 Claude Opus 4.7 公司模型生成自适应扩展思考强度", () => {
+        const config = buildGuidedCustomProviderConfig({
+            providerId: "company-anthropic",
+            name: "公司 Anthropic 网关",
+            baseUrl: "https://anthropic.example.com/v1",
+            modelIds: ["claude-opus-4-7"],
+            protocol: "anthropic",
+        });
+
+        expect(config.models).toEqual([
+            {
+                id: "claude-opus-4-7",
+                name: "claude-opus-4-7",
+                reasoning: true,
+                variants: {
+                    low: {
+                        thinking: { type: "adaptive", display: "summarized" },
+                        effort: "low",
+                    },
+                    medium: {
+                        thinking: { type: "adaptive", display: "summarized" },
+                        effort: "medium",
+                    },
+                    high: {
+                        thinking: { type: "adaptive", display: "summarized" },
+                        effort: "high",
+                    },
+                    xhigh: {
+                        thinking: { type: "adaptive", display: "summarized" },
+                        effort: "xhigh",
+                    },
+                    max: {
+                        thinking: { type: "adaptive", display: "summarized" },
+                        effort: "max",
+                    },
+                },
+            },
         ]);
     });
 });

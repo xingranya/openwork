@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Loader2, Minus, MoreHorizontal, Pencil, Plug, Puzzle, RefreshCw, Search, Server, Trash2, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Loader2, Minus, MoreHorizontal, Pencil, Plug, RefreshCw, Search, Server, Trash2, Users, Wrench } from "lucide-react";
 import { buttonVariants, DenButton } from "../../_components/ui/button";
 import { DenInput } from "../../_components/ui/input";
 import { DenNotice } from "../../_components/ui/notice";
@@ -1436,6 +1436,9 @@ function ConnectionRow({
                 </span>
               ) : null}
             </div>
+            {connection.description ? (
+              <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-gray-600">{connection.description}</p>
+            ) : null}
             <p className="mt-0.5 truncate text-[12px] text-gray-500">
               {connection.url}{setupRequired ? "" : ` · ${formatMcpConnectedTimestamp(connection.connectedAt)}`}{creatorAttribution ? ` · ${creatorAttribution}` : ""}
             </p>
@@ -1813,6 +1816,7 @@ function EditConnectionDialog({
   const { runtimeConfig } = useDenFlow();
   const { orgContext } = useOrgDashboard();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
   const [authType, setAuthType] = useState<ExternalMcpAuthType>("oauth");
   const [credentialMode, setCredentialMode] = useState<ExternalMcpCredentialMode>("shared");
@@ -1829,6 +1833,7 @@ function EditConnectionDialog({
   useEffect(() => {
     if (!connection) return;
     setName(connection.name);
+    setDescription(connection.description ?? "");
     setUrl(connection.url);
     setAuthType(connection.authType);
     setCredentialMode(connection.credentialMode);
@@ -1891,6 +1896,7 @@ function EditConnectionDialog({
       connectionId: connection.id,
       expectedUpdatedAt: connection.updatedAt,
       name: name.trim(),
+      description: description.trim(),
       url: url.trim(),
       authType,
       credentialMode: proposedCredentialMode,
@@ -1940,9 +1946,26 @@ function EditConnectionDialog({
         ) : null}
 
         <div className="mt-5 space-y-4">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <p className="text-[12px] font-semibold text-blue-900">连接类型</p>
+            <p className="mt-1 text-[13px] font-medium text-blue-900">远程 HTTP（Streamable HTTP）</p>
+            <p className="mt-1 text-[11px] leading-5 text-blue-700">公司服务器只连接远程 MCP 服务，不会运行本地命令。</p>
+          </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</label>
             <DenInput value={name} onChange={(event) => setName(event.target.value)} data-testid="edit-mcp-name" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">连接说明</label>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="说明这个连接提供什么能力，以及适合哪些工作场景"
+              data-testid="edit-mcp-description"
+              className="w-full resize-y rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-medium text-gray-700">服务地址</label>
@@ -2188,9 +2211,7 @@ function AddConnectionDialog({
   const { orgContext } = useOrgDashboard();
   const discoverRequirements = useDiscoverMcpConnectionRequirements();
   const resolveConnection = useResolveMcpConnection();
-  // Preset quick-add cards land in their prefilled form. The generic MCP
-  // action opens directly on URL discovery.
-  const [view, setView] = useState<"smart" | "advanced">(preset ? "advanced" : "smart");
+  const [view, setView] = useState<"smart" | "advanced">("advanced");
   const [smartQuery, setSmartQuery] = useState("");
   const [smartState, setSmartState] = useState<"idle" | "waiting" | "resolving" | "done" | "error">("idle");
   const [smartError, setSmartError] = useState<unknown>(null);
@@ -2199,6 +2220,7 @@ function AddConnectionDialog({
   const smartRequestId = useRef(0);
   const smartResolveDelayRef = useRef(SMART_RESOLVE_DELAY_MS);
   const [name, setName] = useState(preset?.displayName ?? "");
+  const [description, setDescription] = useState(preset?.description ?? "");
   const [url, setUrl] = useState(preset?.url ?? "");
   const [authType, setAuthType] = useState<ExternalMcpAuthType>(preset?.authType ?? "oauth");
   const [credentialMode, setCredentialMode] = useState<ExternalMcpCredentialMode>("per_member");
@@ -2218,7 +2240,7 @@ function AddConnectionDialog({
 
   useEffect(() => {
     if (!open) return;
-    setView(preset ? "advanced" : "smart");
+    setView("advanced");
     setSmartQuery("");
     setSmartState("idle");
     setSmartError(null);
@@ -2227,6 +2249,7 @@ function AddConnectionDialog({
     smartRequestId.current += 1;
     smartResolveDelayRef.current = SMART_RESOLVE_DELAY_MS;
     setName(preset?.displayName ?? "");
+    setDescription(preset?.description ?? "");
     setUrl(preset?.url ?? "");
     setAuthType(preset?.authType ?? "oauth");
     setCredentialMode("per_member");
@@ -2379,6 +2402,7 @@ function AddConnectionDialog({
     discoveryRequestId.current += 1;
     if (smartMatch) {
       setName(smartName.trim() || smartMatch.suggestedName);
+      setDescription(resolution?.preset?.description ?? "");
       setUrl(smartMatch.url);
       if (resolution?.preset) {
         setAuthType(resolution.preset.authType);
@@ -2388,6 +2412,7 @@ function AddConnectionDialog({
       }
     } else if (resolution?.preset) {
       setName(resolution.preset.displayName);
+      setDescription(resolution.preset.description);
       setUrl(resolution.preset.url);
       setAuthType(resolution.preset.authType);
       setShowOAuthClient(Boolean(resolution.preset.requiresOAuthClient));
@@ -2403,7 +2428,10 @@ function AddConnectionDialog({
   async function submitSmart() {
     if (!smartOneClick) return;
     try {
-      await onSubmit(smartOneClick.input, {
+      await onSubmit({
+        ...smartOneClick.input,
+        description: resolution?.preset?.description ?? "",
+      }, {
         startOAuth: smartOneClick.input.authType === "oauth" && smartOneClick.input.credentialMode === "shared",
       });
     } catch {
@@ -2424,6 +2452,7 @@ function AddConnectionDialog({
     const trimmedClientSecret = oauthClientSecret.trim();
     const input: CreateMcpConnectionInput = {
       name: name.trim(),
+      description: description.trim(),
       url: url.trim(),
       authType,
       credentialMode: authType === "oauth" ? credentialMode : "shared",
@@ -2602,18 +2631,38 @@ function AddConnectionDialog({
             onClick={() => setView("smart")}
             className="mb-2 flex items-center gap-1 text-[12px] font-medium text-gray-500 transition hover:text-gray-900"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            MCP 服务
+            <Search className="h-3.5 w-3.5" />
+            按名称查找服务
           </button>
         ) : null}
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
           {preset ? `添加 ${preset.displayName}` : "添加自定义 MCP 服务"}
         </h2>
+        <p className="mt-1.5 text-[13px] leading-5 text-gray-500">填写服务信息并完成连接测试，再设置认证方式和使用范围。</p>
 
         <div className="mt-5 space-y-4">
           <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">步骤 1 · 服务信息</p>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <p className="text-[12px] font-semibold text-blue-900">连接类型</p>
+              <p className="mt-1 text-[13px] font-medium text-blue-900">远程 HTTP（Streamable HTTP）</p>
+              <p className="mt-1 text-[11px] leading-5 text-blue-700">公司服务器只连接远程 MCP 服务，不会运行本地命令。</p>
+            </div>
+          </div>
+          <div>
             <label className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</label>
             <DenInput value={name} onChange={(event) => setName(event.target.value)} placeholder="notion" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">连接说明</label>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="说明这个连接提供什么能力，以及适合哪些工作场景"
+              className="w-full resize-y rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] leading-5 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-medium text-gray-700">服务地址</label>
@@ -2631,21 +2680,35 @@ function AddConnectionDialog({
               placeholder="https://mcp.example.com/mcp"
               disabled={Boolean(preset)}
             />
-            {discoveryState === "waiting" || discoveryState === "checking" ? (
-              <p className="mt-2 flex items-center gap-2 text-[12px] text-gray-500" role="status">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                正在检查...
-              </p>
-            ) : null}
-            {discoveryState === "error" ? (
-              <div className="mt-2 flex items-start justify-between gap-3 text-[12px] text-red-600" role="alert">
-                <p>{discoveryError instanceof Error ? discoveryError.message : "无法识别此服务的认证要求。"}</p>
-                <button type="button" className="shrink-0 font-medium underline underline-offset-2" onClick={retryDiscovery}>
-                  重试
-                </button>
-              </div>
-            ) : null}
           </div>
+          <div>
+            <label className="mb-1.5 block text-[12px] font-medium text-gray-700">连接测试</label>
+            {discoveryState === "waiting" || discoveryState === "checking" ? (
+              <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-[12px] text-gray-600" role="status">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                正在测试连接...
+              </div>
+            ) : discoveryState === "ready" ? (
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-800" role="status">
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-emerald-900"><Check className="h-3.5 w-3.5" />连接测试通过</p>
+                  <p className="mt-1 leading-5">已识别远程 MCP 服务{requirements?.server.protocolVersion ? `，协议版本 ${requirements.server.protocolVersion}` : ""}。</p>
+                </div>
+                <button type="button" className="shrink-0 font-medium underline underline-offset-2" onClick={retryDiscovery}>重新测试</button>
+              </div>
+            ) : discoveryState === "error" ? (
+              <div className="flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700" role="alert">
+                <div>
+                  <p className="font-semibold text-red-800">连接测试失败</p>
+                  <p className="mt-1 leading-5">{discoveryError instanceof Error ? discoveryError.message : "无法识别此服务的认证要求。"}</p>
+                </div>
+                <button type="button" className="shrink-0 font-medium underline underline-offset-2" onClick={retryDiscovery}>重新测试</button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-[12px] leading-5 text-gray-500">填写有效的 HTTP 或 HTTPS 地址后会自动测试。</div>
+            )}
+          </div>
+          <p className="pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">步骤 2 · 身份认证</p>
           {!preset ? (
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-gray-700">认证方式</label>
@@ -2805,6 +2868,7 @@ function AddConnectionDialog({
           ) : null}
 
           <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">步骤 3 · 使用范围</p>
             <label className="mb-1.5 block text-[12px] font-medium text-gray-700">谁可以使用？</label>
             <SegmentedControl options={ACCESS_MODE_OPTIONS} value={accessMode} onChange={setAccessMode} />
             {accessMode === "teams" ? (

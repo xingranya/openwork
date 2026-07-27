@@ -110,7 +110,9 @@ describe("员工个人远程工作区", () => {
       idempotencyKey: PERSONAL_REMOTE_WORKSPACE_IDEMPOTENCY_KEY,
     }]);
     expect(createdPayloads[0]).toMatchObject({
+      baseUrl: "https://worker.company.test",
       displayName: PERSONAL_REMOTE_WORKSPACE_NAME,
+      openworkHostUrl: "https://worker.company.test",
       openworkToken: "client-token",
       openworkClientToken: "client-token",
       openworkWorkspaceId: "ws_personal",
@@ -123,6 +125,7 @@ describe("员工个人远程工作区", () => {
   test("已存在的个人工作区只更新 Den 下发的连接信息", async () => {
     let createCount = 0;
     let updateCount = 0;
+    let updatedPayload: Record<string, unknown> | null = null;
     const existing = {
       id: "rem_ws_personal",
       name: "旧名称",
@@ -156,6 +159,7 @@ describe("员工个人远程工作区", () => {
       },
       updateRemoteWorkspace: async (payload) => {
         updateCount += 1;
+        updatedPayload = payload;
         return {
           workspaces: [{ ...existing, ...payload }],
         };
@@ -165,6 +169,10 @@ describe("员工个人远程工作区", () => {
     expect(result.status).toBe("ready");
     expect(createCount).toBe(0);
     expect(updateCount).toBe(1);
+    expect(updatedPayload).toMatchObject({
+      baseUrl: "https://worker.company.test",
+      openworkHostUrl: "https://worker.company.test",
+    });
   });
 
   test("Worker 尚未就绪时等待后台准备，不弹出手动连接流程", async () => {

@@ -79,6 +79,7 @@ function decryptDatabaseValue(value: string) {
 }
 
 type EncryptedColumnOptions<TData> = {
+  dataType?: "text" | "mediumtext"
   serialize: (value: TData) => string
   deserialize: (value: string) => TData
 }
@@ -89,7 +90,7 @@ export function encryptedColumn<TData>(
 ) {
   return customType<{ data: TData; driverData: string }>({
     dataType() {
-      return "text"
+      return options.dataType ?? "text"
     },
     toDriver(value) {
       return encryptDatabaseValue(options.serialize(value))

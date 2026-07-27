@@ -5,6 +5,10 @@ import type {
   AgentContextDiagnosticsReport,
   AgentContextDiagnosticsRequest,
 } from "@openwork/types/agent-context-diagnostics";
+import {
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 // Keep runtime validation local: Electron imports the compiled server with Node,
 // while the shared types workspace intentionally exports source for app builds.
@@ -534,7 +538,7 @@ export const agentContextDiagnosticsReportSchema = z.object({
   if (value.safety.cloudCatalogToolsListPerformed) {
     const runtimeCloudMcp = value.mcps.find((mcp) =>
       mcp.source === "config.remote"
-      && mcp.name === "openwork-cloud"
+      && (mcp.name === FOXWORK_COMPANY_MCP_NAME || mcp.name === LEGACY_OPENWORK_CLOUD_MCP_NAME)
       && mcp.path === "/mcp/agent"
       && mcp.syncStatus === "connected",
     );

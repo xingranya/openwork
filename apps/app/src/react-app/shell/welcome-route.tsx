@@ -26,11 +26,17 @@ import {
   useOpenWorkModelsPromoEligibility,
   markOpenWorkModelsStartupPromoShown,
 } from "../domains/cloud/openwork-models-promo";
-import { shouldOfferDenSignIn, useDenAuth } from "../domains/cloud/den-auth-provider";
+import { useDenAuth, type DenAuthStatus } from "../domains/cloud/den-auth-provider";
 import { resolveOpenworkConnection } from "./openwork-connection";
 import { buildOpenworkWorkspaceBaseUrl, createOpenworkServerClient } from "../../app/lib/openwork-server";
 import { captureAnalyticsEvent } from "../../app/lib/analytics";
-import { buildDenAuthUrl, clearDenSession, DEFAULT_DEN_BASE_URL, readDenSettings } from "../../app/lib/den";
+import {
+  buildDenAuthUrl,
+  clearDenSession,
+  DEFAULT_DEN_BASE_URL,
+  normalizeDenBaseUrl,
+  readDenSettings,
+} from "../../app/lib/den";
 import { toChineseUserMessage } from "../../app/lib/user-facing-error";
 import {
   denSettingsChangedEvent,
@@ -87,6 +93,22 @@ const initialWelcomeState: WelcomeState = {
   pendingWorkspaceId: null,
   pendingSessionId: null,
 };
+
+export type WelcomePrimaryAction =
+  | "configure_company"
+  | "sign_in"
+  | "wait_for_company"
+  | "choose_workspace";
+
+export function resolveWelcomePrimaryAction(
+  organizationServerUrl: string,
+  authStatus: DenAuthStatus,
+): WelcomePrimaryAction {
+  if (!normalizeDenBaseUrl(organizationServerUrl)) return "configure_company";
+  if (authStatus === "signed_in") return "choose_workspace";
+  if (authStatus === "signed_out") return "sign_in";
+  return "wait_for_company";
+}
 
 function welcomeReducer(state: WelcomeState, action: WelcomeAction): WelcomeState {
   switch (action.type) {
@@ -156,6 +178,7 @@ export function WelcomeRoute() {
       clearDenSession({ includeBaseUrls: false });
       dispatchDenSessionUpdated({ status: "signed_out", baseUrl: persisted.baseUrl });
       setOrganizationServerUrl(persisted.baseUrl);
+      platform.openLink(buildDenAuthUrl(persisted.baseUrl, "sign-in"));
       return true;
     } catch (error) {
       setOrganizationServerError(
@@ -165,7 +188,7 @@ export function WelcomeRoute() {
     } finally {
       setOrganizationServerBusy(false);
     }
-  }, []);
+  }, [platform]);
 
   const handleCreateWorkspace = useCallback(
     async (_preset: string, folder: string | null, options?: CreateWorkspaceOptions) => {
@@ -353,6 +376,23 @@ export function WelcomeRoute() {
     platform.openLink(buildDenAuthUrl(settings.baseUrl || DEFAULT_DEN_BASE_URL, "sign-in"));
   }, [platform]);
 
+  const welcomePrimaryAction = resolveWelcomePrimaryAction(
+    organizationServerUrl,
+    denAuth.status,
+  );
+  const handleWelcomePrimaryAction = welcomePrimaryAction === "choose_workspace"
+    ? handleGetStarted
+    : welcomePrimaryAction === "sign_in"
+      ? handleTeamSignIn
+      : () => undefined;
+  const welcomePrimaryLabel = welcomePrimaryAction === "configure_company"
+    ? "请先连接公司服务器"
+    : welcomePrimaryAction === "sign_in"
+      ? "登录公司账号"
+      : welcomePrimaryAction === "wait_for_company"
+        ? "正在检查公司连接"
+        : t("welcome.pick_folder");
+
   const finishOnboarding = useCallback((route?: string) => {
     markOnboardingComplete();
     navigate(route ?? state.pendingRoute ?? "/session", { replace: true });
@@ -362,15 +402,17 @@ export function WelcomeRoute() {
   return (
     <>
       <WelcomePage
-        onGetStarted={handleGetStarted}
-        getStartedLabel={t("welcome.pick_folder")}
+        onGetStarted={handleWelcomePrimaryAction}
+        getStartedLabel={welcomePrimaryLabel}
+        getStartedDisabled={welcomePrimaryAction === "configure_company" || welcomePrimaryAction === "wait_for_company"}
         busy={state.createBusy}
         error={state.createError}
         manualFolder={manualFolder}
         onManualFolderChange={setManualFolder}
         onUseManualFolder={handleUseManualFolder}
         showManualFolder={import.meta.env.DEV && isDesktopRuntime()}
-        onTeamSignIn={shouldOfferDenSignIn(denAuth.status) ? handleTeamSignIn : undefined}
+        companyConfigured={welcomePrimaryAction !== "configure_company"}
+        companySignedIn={denAuth.status === "signed_in"}
         organizationServerBusy={organizationServerBusy}
         organizationServerError={organizationServerError}
         organizationServerUrl={organizationServerUrl}

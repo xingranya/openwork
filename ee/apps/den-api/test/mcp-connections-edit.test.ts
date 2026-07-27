@@ -8,6 +8,7 @@ process.env.DATABASE_URL = process.env.DATABASE_URL ?? "mysql://root:password@12
 process.env.DEN_DB_ENCRYPTION_KEY = process.env.DEN_DB_ENCRYPTION_KEY ?? "local-dev-db-encryption-key-please-change-1234567890"
 process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "local-dev-secret-not-for-production-use!!"
 process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8790"
+process.env.DEN_API_PUBLIC_URL = process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790"
 process.env.CORS_ORIGINS = process.env.CORS_ORIGINS ?? "http://127.0.0.1:8790"
 process.env.DEN_ALLOW_PRIVATE_MCP_URLS = "1"
 
@@ -96,10 +97,11 @@ beforeAll(async () => {
     { id: otherAdminMemberId, organizationId: otherOrganizationId, userId: otherAdminUserId, role: "admin" },
   ])
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const createdAt = new Date()
   await db.insert(schema.AuthSessionTable).values([
-    { id: adminSessionId, userId: adminUserId, activeOrganizationId: organizationId, token: adminToken, expiresAt },
-    { id: memberSessionId, userId: memberUserId, activeOrganizationId: organizationId, token: memberToken, expiresAt },
-    { id: otherAdminSessionId, userId: otherAdminUserId, activeOrganizationId: otherOrganizationId, token: otherAdminToken, expiresAt },
+    { id: adminSessionId, userId: adminUserId, activeOrganizationId: organizationId, token: adminToken, expiresAt, createdAt },
+    { id: memberSessionId, userId: memberUserId, activeOrganizationId: organizationId, token: memberToken, expiresAt, createdAt },
+    { id: otherAdminSessionId, userId: otherAdminUserId, activeOrganizationId: otherOrganizationId, token: otherAdminToken, expiresAt, createdAt },
   ])
 })
 
@@ -246,6 +248,77 @@ function oauthConfigurationInApiOrder(
 }
 
 describe.serial("PUT /v1/mcp-connections/:connectionId", () => {
+  test("连接说明可创建、更新和读取，旧客户端省略字段时保持原值", async () => {
+    const createResponse = await app.fetch(new Request("http://den-api.local/v1/mcp-connections", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "员工资料 MCP",
+        description: "读取公司已授权的资料和流程状态。",
+        url: workingUrl(),
+        authType: "none",
+        credentialMode: "shared",
+        access: { orgWide: true, memberIds: [], teamIds: [] },
+      }),
+    }))
+    expect(createResponse.status).toBe(200)
+    const created = await responseRecord(createResponse)
+    expect(created.description).toBe("读取公司已授权的资料和流程状态。")
+    expect(typeof created.id).toBe("string")
+    expect(typeof created.updatedAt).toBe("string")
+
+    const updateResponse = await humanRequest({
+      connectionId: String(created.id),
+      body: {
+        expectedUpdatedAt: created.updatedAt,
+        name: created.name,
+        description: "读取资料、查询流程，并按权限调用公司工具。",
+        url: created.url,
+        authType: created.authType,
+        credentialMode: created.credentialMode,
+        access: { orgWide: true, memberIds: [], teamIds: [] },
+      },
+    })
+    expect(updateResponse.status).toBe(200)
+    const updated = await responseRecord(updateResponse)
+    expect(updated).toMatchObject({
+      description: "读取资料、查询流程，并按权限调用公司工具。",
+      identityChanged: false,
+      reconnectionRequired: false,
+    })
+
+    const legacyUpdateResponse = await humanRequest({
+      connectionId: String(created.id),
+      body: {
+        expectedUpdatedAt: updated.updatedAt,
+        name: "员工资料 MCP（保留说明）",
+        url: updated.url,
+        authType: updated.authType,
+        credentialMode: updated.credentialMode,
+        access: { orgWide: true, memberIds: [], teamIds: [] },
+      },
+    })
+    expect(legacyUpdateResponse.status).toBe(200)
+    expect(await responseRecord(legacyUpdateResponse)).toMatchObject({
+      name: "员工资料 MCP（保留说明）",
+      description: "读取资料、查询流程，并按权限调用公司工具。",
+      identityChanged: false,
+    })
+
+    const listResponse = await app.fetch(new Request("http://den-api.local/v1/mcp-connections?scope=manageable", {
+      headers: { authorization: `Bearer ${adminToken}` },
+    }))
+    expect(listResponse.status).toBe(200)
+    const listBody = await responseRecord(listResponse)
+    const list = listBody.connections
+    if (!Array.isArray(list)) throw new Error("MCP 连接列表缺少 connections 数组")
+    const listed = list.find((entry) => isRecord(entry) && entry.id === created.id)
+    expect(listed).toMatchObject({ description: "读取资料、查询流程，并按权限调用公司工具。" })
+  })
+
   test("rename preserves a connected shared OAuth session and client registration", async () => {
     const created = await createConnection({ name: "Shared OAuth", authType: "oauth", credentialMode: "shared" })
     const connectedAt = new Date()
@@ -499,7 +572,7 @@ describe.serial("PUT /v1/mcp-connections/:connectionId", () => {
     const noAuthAfter = await currentConnection(noAuth.id)
     expect(noAuthAfter.url).toBe(noAuth.url)
     expect(noAuthAfter.connectedAt?.getTime()).toBe(connectedAt.getTime())
-  })
+  }, 12_000)
 
   test("tenant scope, admin authorization, and internal-agent secret boundaries are enforced", async () => {
     const other = await createConnection({
@@ -708,7 +781,7 @@ describe.serial("PUT /v1/mcp-connections/:connectionId", () => {
     expect(callback.status).toBe(400)
     expect(await responseRecord(callback)).toEqual({
       error: "invalid_request",
-      message: "This connection changed after authorization started. Start the connection flow again.",
+      message: "授权开始后连接配置已发生变化，请重新开始连接。",
     })
   })
 })

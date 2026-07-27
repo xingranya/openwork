@@ -4,7 +4,8 @@ import { MCP_QUICK_CONNECT } from "../src/app/constants";
 
 describe("built-in OpenWork MCP visibility", () => {
   test("hides internal OpenWork MCPs and omits the retired admin connector", () => {
-    expect(MCP_QUICK_CONNECT.find((entry) => entry.serverName === "openwork-cloud")?.defaultHidden).toBe(true);
+    expect(MCP_QUICK_CONNECT.find((entry) => entry.serverName === "foxwork-company")?.defaultHidden).toBe(true);
+    expect(MCP_QUICK_CONNECT.some((entry) => entry.serverName === "openwork-cloud")).toBe(false);
     expect(MCP_QUICK_CONNECT.find((entry) => entry.serverName === "openwork-admin")).toBeUndefined();
     expect(MCP_QUICK_CONNECT.find((entry) => entry.serverName === "openwork-ui")?.defaultHidden).toBe(true);
   });

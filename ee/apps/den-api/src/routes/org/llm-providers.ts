@@ -71,8 +71,9 @@ const llmProviderWriteSchema = z.object({
   customConfig: z.unknown().optional(),
   apiKey: z.string().trim().max(65535).optional(),
   apiKeys: z.record(z.string().trim().min(1).max(255), z.string().trim().max(65535)).optional(),
-  memberIds: z.array(denTypeIdSchema("member")).max(500).optional().default([]),
-  teamIds: z.array(denTypeIdSchema("team")).max(500).optional().default([]),
+  defaultEnabled: z.boolean().optional(),
+  memberIds: z.array(denTypeIdSchema("member")).max(500).optional(),
+  teamIds: z.array(denTypeIdSchema("team")).max(500).optional(),
 }).superRefine((value, ctx) => {
   if (value.source === "models_dev") {
     if (!value.providerId) {
@@ -177,6 +178,20 @@ async function canAccessLlmProvider(input: {
   currentMemberId: MemberId
   memberTeams: Array<{ id: TeamId }>
 }) {
+  const defaultProviders = await db
+    .select({ id: LlmProviderTable.id })
+    .from(LlmProviderTable)
+    .where(and(
+      eq(LlmProviderTable.id, input.llmProviderId),
+      eq(LlmProviderTable.organizationId, input.organizationId),
+      eq(LlmProviderTable.defaultEnabled, true),
+    ))
+    .limit(1)
+
+  if (defaultProviders.length > 0) {
+    return true
+  }
+
   const access = await listAccessibleProviderAccess({
     organizationId: input.organizationId,
     currentMemberId: input.currentMemberId,
@@ -184,6 +199,20 @@ async function canAccessLlmProvider(input: {
   })
 
   return access.some((entry) => entry.llmProviderId === input.llmProviderId)
+}
+
+async function listDefaultProviderIds(
+  organizationId: typeof LlmProviderTable.$inferSelect.organizationId,
+) {
+  const rows = await db
+    .select({ id: LlmProviderTable.id })
+    .from(LlmProviderTable)
+    .where(and(
+      eq(LlmProviderTable.organizationId, organizationId),
+      eq(LlmProviderTable.defaultEnabled, true),
+    ))
+
+  return rows.map((row) => row.id)
 }
 
 function parseLlmProviderId(value: string) {
@@ -400,13 +429,21 @@ async function loadLlmProviders(input: {
   isAdmin: boolean
   scope: "usable" | "manageable"
 }) {
-  const accessibleAccess = await listAccessibleProviderAccess({
-    organizationId: input.organizationId,
-    currentMemberId: input.currentMemberId,
-    memberTeams: input.memberTeams,
-  })
+  const [accessibleAccess, defaultProviderIds] = await Promise.all([
+    listAccessibleProviderAccess({
+      organizationId: input.organizationId,
+      currentMemberId: input.currentMemberId,
+      memberTeams: input.memberTeams,
+    }),
+    listDefaultProviderIds(input.organizationId),
+  ])
 
-  const accessibleProviderIds = [...new Set(accessibleAccess.map((entry) => entry.llmProviderId))]
+  const accessibleProviderIds = [
+    ...new Set([
+      ...defaultProviderIds,
+      ...accessibleAccess.map((entry) => entry.llmProviderId),
+    ]),
+  ]
   if (input.scope === "usable" && accessibleProviderIds.length === 0) {
     return []
   }
@@ -794,6 +831,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
         201: jsonResponse("Organization LLM provider created successfully.", llmProviderResponseSchema),
         400: jsonResponse("The provider creation request was invalid.", invalidRequestSchema),
         401: jsonResponse("The caller must be signed in to create organization LLM providers.", unauthorizedSchema),
+        403: jsonResponse("Only organization admins can enable a provider for every member.", forbiddenSchema),
         404: jsonResponse("A referenced provider, model, member, or team could not be found.", notFoundSchema),
       },
     }),
@@ -803,15 +841,22 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
       const payload = c.get("organizationContext")
       const input = c.req.valid("json")
 
+      if (input.defaultEnabled === true) {
+        const permission = ensureOrganizationAdmin(c, "只有公司管理员可以把模型默认开放给所有成员。")
+        if (!permission.ok) {
+          return c.json(permission.response, orgAccessFailureStatus(permission.response))
+        }
+      }
+
       try {
         const normalized = await normalizeLlmProviderInput(input)
         const memberIds = await resolveMemberIds({
           organizationId: payload.organization.id,
-          values: input.memberIds,
+          values: input.memberIds ?? [],
         })
         const teamIds = await resolveTeamIds({
           organizationId: payload.organization.id,
-          values: input.teamIds,
+          values: input.teamIds ?? [],
         })
 
         const llmProviderId = createDenTypeId("llmProvider")
@@ -828,6 +873,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
             name: normalized.name,
             providerConfig: normalized.providerConfig,
             apiKey: normalized.apiKey,
+            defaultEnabled: input.defaultEnabled ?? false,
             createdAt: now,
             updatedAt: now,
           })
@@ -876,6 +922,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
             providerId: normalized.providerId,
             name: normalized.name,
             providerConfig: normalized.providerConfig,
+            defaultEnabled: input.defaultEnabled ?? false,
             hasApiKey: Boolean(normalized.apiKey),
             configuredEnvKeys: listConfiguredEnvKeys(normalized.apiKey, readProviderEnvNames(normalized.providerConfig)),
             createdAt: now,
@@ -942,6 +989,17 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
         }, 403)
       }
 
+      if (
+        input.defaultEnabled !== undefined &&
+        input.defaultEnabled !== provider.defaultEnabled &&
+        !isOrganizationAdmin(payload)
+      ) {
+        return c.json({
+          error: "forbidden",
+          message: "只有公司管理员可以修改模型的默认全员启用策略。",
+        }, 403)
+      }
+
       if (isOrganizationAdmin(payload)) {
         const permission = ensureOrganizationAdmin(c, "只有模型服务创建者或公司管理员可以修改模型服务。")
         if (!permission.ok) {
@@ -951,15 +1009,29 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
 
       try {
         const normalized = await normalizeLlmProviderInput(input, provider)
-        const memberIds = await resolveMemberIds({
-          organizationId: payload.organization.id,
-          values: input.memberIds,
-        })
-        const teamIds = await resolveTeamIds({
-          organizationId: payload.organization.id,
-          values: input.teamIds,
-        })
+        const existingAccessRows = input.memberIds === undefined || input.teamIds === undefined
+          ? await db
+              .select({
+                orgMembershipId: LlmProviderAccessTable.orgMembershipId,
+                teamId: LlmProviderAccessTable.teamId,
+              })
+              .from(LlmProviderAccessTable)
+              .where(eq(LlmProviderAccessTable.llmProviderId, provider.id))
+          : []
+        const memberIds = input.memberIds === undefined
+          ? existingAccessRows.flatMap((row) => row.orgMembershipId ? [row.orgMembershipId] : [])
+          : await resolveMemberIds({
+              organizationId: payload.organization.id,
+              values: input.memberIds,
+            })
+        const teamIds = input.teamIds === undefined
+          ? existingAccessRows.flatMap((row) => row.teamId ? [row.teamId] : [])
+          : await resolveTeamIds({
+              organizationId: payload.organization.id,
+              values: input.teamIds,
+            })
         const protectedMemberIds = [...new Set([provider.createdByOrgMembershipId, ...memberIds])]
+        const defaultEnabled = input.defaultEnabled ?? provider.defaultEnabled
         const updatedAt = new Date()
 
         await db.transaction(async (tx) => {
@@ -971,6 +1043,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
               name: normalized.name,
               providerConfig: normalized.providerConfig,
               apiKey: normalized.apiKey,
+              defaultEnabled,
               updatedAt,
             })
             .where(eq(LlmProviderTable.id, provider.id))
@@ -1020,6 +1093,7 @@ export function registerOrgLlmProviderRoutes<T extends { Variables: OrgRouteVari
             providerId: normalized.providerId,
             name: normalized.name,
             providerConfig: normalized.providerConfig,
+            defaultEnabled,
             apiKey: undefined,
             hasApiKey: Boolean(normalized.apiKey),
             configuredEnvKeys: listConfiguredEnvKeys(normalized.apiKey, readProviderEnvNames(normalized.providerConfig)),

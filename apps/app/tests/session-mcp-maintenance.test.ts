@@ -40,7 +40,7 @@ function cloudHealth(usable: boolean): OpenworkCloudMcpHealth {
     workspace: { id: WORKSPACE_ID, type: "local", directory: "/workspace", path: "/workspace" },
     desired: {
       present: usable,
-      name: "openwork-cloud",
+      name: "foxwork-company",
       revision: usable ? "rev_ready" : null,
       config: null,
       token: { present: usable, metadata: {} },
@@ -55,14 +55,14 @@ function cloudHealth(usable: boolean): OpenworkCloudMcpHealth {
     },
     engine: { status: usable ? "connected" : "not_checked" },
     tools: {
-      expected: ["openwork-cloud_search_capabilities", "openwork-cloud_execute_capability"],
-      present: usable ? ["openwork-cloud_search_capabilities", "openwork-cloud_execute_capability"] : [],
-      missing: usable ? [] : ["openwork-cloud_search_capabilities", "openwork-cloud_execute_capability"],
+      expected: ["foxwork-company_search_capabilities", "foxwork-company_execute_capability"],
+      present: usable ? ["foxwork-company_search_capabilities", "foxwork-company_execute_capability"] : [],
+      missing: usable ? [] : ["foxwork-company_search_capabilities", "foxwork-company_execute_capability"],
       providerProjection: {
         checked: usable,
         provider: "openwork",
         model: "gpt-5",
-        present: usable ? ["openwork-cloud_search_capabilities", "openwork-cloud_execute_capability"] : [],
+        present: usable ? ["foxwork-company_search_capabilities", "foxwork-company_execute_capability"] : [],
         missing: [],
       },
     },
@@ -72,7 +72,7 @@ function cloudHealth(usable: boolean): OpenworkCloudMcpHealth {
       code: "cloud_desired_missing",
       stage: "desired",
       retryable: false,
-      recommendedAction: "Connect OpenWork Cloud",
+      recommendedAction: "重新连接公司能力",
       message: "missing",
     },
     checkedAt: new Date(NOW).toISOString(),
@@ -129,7 +129,7 @@ describe("session MCP maintenance", () => {
       workspaceId: WORKSPACE_ID,
       payload: {
         workspaceId: WORKSPACE_ID,
-        name: "openwork-cloud",
+        name: "foxwork-company",
         config: {
           type: "remote",
           enabled: true,
@@ -170,7 +170,7 @@ describe("session MCP maintenance", () => {
       baseUrl: "https://worker.openwork.test",
       listMcp: async () => ({
         items: [{
-          name: "openwork-cloud",
+          name: "foxwork-company",
           config: { type: "remote", enabled: true, url: "https://api.openwork.test/mcp/agent" },
         }],
       }),
@@ -220,7 +220,7 @@ describe("session MCP maintenance", () => {
       baseUrl: "https://worker.openwork.test",
       listMcp: async () => ({
         items: [{
-          name: "openwork-cloud",
+          name: "foxwork-company",
           config: { type: "remote", enabled: true, url: "https://api.openwork.test/mcp/agent" },
         }],
       }),
@@ -264,7 +264,7 @@ describe("session MCP maintenance", () => {
       baseUrl: "https://worker.openwork.test",
       listMcp: async () => ({
         items: [{
-          name: "openwork-cloud",
+          name: "foxwork-company",
           config: { type: "remote", enabled: true, url: "https://api.openwork.test/mcp/agent" },
         }],
       }),
@@ -318,7 +318,7 @@ describe("session MCP maintenance", () => {
       baseUrl,
       listMcp: async () => ({
         items: [{
-          name: "openwork-cloud",
+          name: "foxwork-company",
           config: { type: "remote", enabled: true, url: "https://api.openwork.test/mcp/agent" },
         }],
       }),
@@ -414,11 +414,13 @@ describe("session MCP maintenance", () => {
     });
     events.push("auth-cleared");
 
-    expect(events.slice(0, 2).sort()).toEqual([
+    expect(events.slice(0, 4).sort()).toEqual([
+      "disconnect:/workspace/exact:foxwork-company",
       "disconnect:/workspace/exact:openwork-cloud",
+      `remove:${WORKSPACE_ID}:foxwork-company`,
       `remove:${WORKSPACE_ID}:openwork-cloud`,
     ].sort());
-    expect(events[2]).toBe("auth-cleared");
+    expect(events[4]).toBe("auth-cleared");
   });
 
   test("deduplicates the same target without blocking another workspace", async () => {

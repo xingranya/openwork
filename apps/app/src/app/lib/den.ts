@@ -206,6 +206,7 @@ export type DenOrgLlmProvider = {
   name: string;
   providerConfig: Record<string, unknown>;
   hasApiKey: boolean;
+  defaultEnabled: boolean;
   models: DenOrgLlmProviderModel[];
   createdAt: string | null;
   updatedAt: string | null;
@@ -1224,7 +1225,26 @@ function getMcpToken(payload: unknown): DenMcpToken | null {
 }
 
 function parseDenOrgSkillRow(record: Record<string, unknown>): DenOrgSkillCard | null {
-  if (typeof record.id !== "string" || typeof record.title !== "string" || typeof record.skillText !== "string") {
+  if (
+    typeof record.id !== "string"
+    || typeof record.title !== "string"
+    || typeof record.skillText !== "string"
+    || typeof record.bundleHash !== "string"
+    || !/^[a-f0-9]{64}$/iu.test(record.bundleHash)
+    || !Array.isArray(record.files)
+  ) {
+    return null;
+  }
+  const files = record.files.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.contents !== "string") {
+      return [];
+    }
+    return [{ path: entry.path, contents: entry.contents }];
+  });
+  if (
+    files.length !== record.files.length
+    || !files.some((file) => file.path === "SKILL.md" && file.contents === record.skillText)
+  ) {
     return null;
   }
   const description = typeof record.description === "string" ? record.description : null;
@@ -1234,19 +1254,22 @@ function parseDenOrgSkillRow(record: Record<string, unknown>): DenOrgSkillCard |
     title: record.title,
     description,
     skillText: record.skillText,
+    bundleHash: record.bundleHash.toLowerCase(),
+    files,
     shared,
     updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : null,
   };
 }
 
-function getDenOrgSkillsFromPayload(payload: unknown): DenOrgSkillCard[] {
+function getDenOrgSkillsFromPayload(payload: unknown): DenOrgSkillCard[] | null {
   if (!isRecord(payload) || !Array.isArray(payload.skills)) {
-    return [];
+    return null;
   }
-  return payload.skills.flatMap((entry) => {
+  const skills = payload.skills.flatMap((entry) => {
     const skill = isRecord(entry) ? parseDenOrgSkillRow(entry) : null;
     return skill ? [skill] : [];
   });
+  return skills.length === payload.skills.length ? skills : null;
 }
 
 function parseSkillCatalogItem(value: unknown): HubSkillCard | null {
@@ -1424,6 +1447,7 @@ function parseDenOrgLlmProvider(value: unknown): DenOrgLlmProvider | null {
     name: value.name,
     providerConfig: parseJsonRecord(value.providerConfig),
     hasApiKey: value.hasApiKey === true,
+    defaultEnabled: value.defaultEnabled === true,
     models: Array.isArray(value.models)
       ? value.models.flatMap((model) => {
           const parsed = parseDenOrgLlmProviderModel(model);
@@ -2387,7 +2411,11 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
         token,
         organizationId: orgId,
       });
-      return getDenOrgSkillsFromPayload(payload);
+      const skills = getDenOrgSkillsFromPayload(payload);
+      if (!skills) {
+        throw new DenApiError(500, "invalid_skill_payload", "公司服务返回的技能文件不完整，请联系管理员更新公司服务。");
+      }
+      return skills;
     },
 
     async createOrgSkill(

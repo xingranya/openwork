@@ -63,10 +63,13 @@ import {
   SelectMenu,
   type SelectMenuOption,
 } from "@/react-app/design-system/select-menu";
+import {
+  getCompanySkillInstallState,
+  type CompanySkillInstallState,
+} from "../state/company-skill-sync";
 
 type InstallResult = { ok: boolean; message: string };
 type SkillsFilter = "all" | "installed" | "cloud" | "hub";
-type CloudSkillInstallState = "available" | "installed" | "update" | "missing_local";
 
 const pageTitleClass = "text-[28px] font-semibold tracking-[-0.5px] text-dls-text";
 const sectionTitleClass = "text-[15px] font-medium tracking-[-0.2px] text-dls-text";
@@ -84,6 +87,7 @@ const OPENWORK_DEFAULT_SKILL_NAMES = new Set([
 
 export type ImportedCloudSkillRecord = {
   installedName: string;
+  bundleHash?: string | null;
   updatedAt?: string | null;
 };
 
@@ -356,21 +360,8 @@ export function SkillsView(props: SkillsViewProps) {
   }, [cloudOrgSkills, searchQuery]);
 
   const cloudSkillInstallState = useCallback(
-    (skill: DenOrgSkillCard): CloudSkillInstallState => {
-      const imported = importedCloudSkills[skill.id];
-      if (!imported) return "available";
-      if (!installedNames.has(imported.installedName)) return "missing_local";
-
-      const remoteUpdatedAt = skill.updatedAt ? Date.parse(skill.updatedAt) : Number.NaN;
-      const importedUpdatedAt = imported.updatedAt ? Date.parse(imported.updatedAt) : Number.NaN;
-      if (
-        Number.isFinite(remoteUpdatedAt) &&
-        (!Number.isFinite(importedUpdatedAt) || remoteUpdatedAt > importedUpdatedAt)
-      ) {
-        return "update";
-      }
-      return "installed";
-    },
+    (skill: DenOrgSkillCard): CompanySkillInstallState =>
+      getCompanySkillInstallState(skill, importedCloudSkills[skill.id], installedNames),
     [importedCloudSkills, installedNames],
   );
 
@@ -952,7 +943,7 @@ export function SkillsView(props: SkillsViewProps) {
             <div className="rounded-[24px] bg-dls-hover p-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filteredHubSkills.map((skill) => (
-                  <div key={skill.id} className={`${panelCardClass} flex flex-col gap-4 text-left`}>
+                  <div key={skill.id} className={`${panelCardClass} flex min-w-0 flex-col gap-4 text-left`}>
                     <div className="flex min-w-0 gap-4">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-dls-border bg-dls-hover">
                         <Package size={20} className="text-dls-secondary" />
@@ -967,34 +958,35 @@ export function SkillsView(props: SkillsViewProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 border-t border-dls-border pt-4">
-                      <span className={`${tagClass} inline-flex items-center gap-1`}>
+                    <div className="flex min-w-0 flex-wrap items-center gap-3 border-t border-dls-border pt-4">
+                      <span className={`${tagClass} shrink-0 gap-1 whitespace-nowrap`}>
                         <ShieldCheck size={12} />
                         {t("skills.online_audit_before_install")}
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="ml-auto flex shrink-0 items-center gap-2">
                         <button
                           type="button"
-                          className={pillGhostClass}
+                          className={`${pillGhostClass} shrink-0`}
                           onClick={() => props.onOpenLink(skill.url)}
                           disabled={props.busy}
                           title={t("skills.online_view_source")}
+                          aria-label={t("skills.online_view_source")}
                         >
                           <SquareArrowOutUpRight size={14} />
                         </button>
                         <button
-                        type="button"
-                        className={installingHubSkill === skill.id ? pillSecondaryClass : pillPrimaryClass}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          void installFromHub(skill);
-                        }}
-                        disabled={props.busy || installingHubSkill === skill.id}
-                        title={t("skills.install_name_title", undefined, { name: skill.name })}
-                      >
-                        {installingHubSkill === skill.id ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        {installingHubSkill === skill.id ? t("skills.installing") : t("skills.install")}
+                          type="button"
+                          className={`${installingHubSkill === skill.id ? pillSecondaryClass : pillPrimaryClass} shrink-0 whitespace-nowrap`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void installFromHub(skill);
+                          }}
+                          disabled={props.busy || installingHubSkill === skill.id}
+                          title={t("skills.install_name_title", undefined, { name: skill.name })}
+                        >
+                          {installingHubSkill === skill.id ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                          {installingHubSkill === skill.id ? t("skills.installing") : t("skills.install")}
                         </button>
                       </div>
                     </div>

@@ -27,6 +27,7 @@ import {
   getPluginPartsSummary,
   usePlugins,
 } from "./plugin-data";
+import { CompanySkillsPanel } from "./company-skills-panel";
 
 type PluginView = "plugins" | "skills" | "agents" | "commands" | "hooks" | "mcps";
 
@@ -269,20 +270,23 @@ export function PluginsScreen() {
           </div>
         )
       ) : activeView === "skills" ? (
-        <PrimitiveList
-          icon={FileText}
-          emptyLabel="插件目录中还没有技能"
-          emptyDescriptionEmpty="插件提供的技能会显示在这里。"
-          emptyDescriptionFiltered="没有找到匹配的技能。"
-          unfilteredCount={allSkills.length}
-          rows={filteredSkills.map((skill) => ({
-            id: skill.id,
-            title: skill.name,
-            description: skill.description,
-            pluginName: skill.pluginName,
-            href: getPluginRoute(orgSlug, skill.pluginId),
-          }))}
-        />
+        <>
+          <CompanySkillsPanel />
+          <PrimitiveList
+            icon={FileText}
+            emptyLabel="插件目录中还没有技能"
+            emptyDescriptionEmpty="插件提供的技能会显示在这里。"
+            emptyDescriptionFiltered="没有找到匹配的技能。"
+            unfilteredCount={allSkills.length}
+            rows={filteredSkills.map((skill) => ({
+              id: skill.id,
+              title: skill.name,
+              description: skill.description,
+              pluginName: skill.pluginName,
+              href: getPluginRoute(orgSlug, skill.pluginId),
+            }))}
+          />
+        </>
       ) : activeView === "agents" ? (
         <PrimitiveList
           icon={Users}

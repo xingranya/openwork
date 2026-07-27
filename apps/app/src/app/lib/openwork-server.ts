@@ -1,4 +1,5 @@
 import type { Message, Part, Session, Todo } from "@opencode-ai/sdk/v2/client";
+import { FOXWORK_COMPANY_MCP_NAME } from "@openwork/types/den/mcp-connection-action";
 import {
   agentContextDiagnosticsReportSchema,
   agentContextDiagnosticsRequestSchema,
@@ -499,7 +500,7 @@ export type OpenworkCloudMcpHealth = {
   };
   desired: {
     present: boolean;
-    name: "openwork-cloud";
+    name: typeof FOXWORK_COMPANY_MCP_NAME;
     revision: string | null;
     config: Record<string, unknown> | null;
     token: {
@@ -553,7 +554,7 @@ export type OpenworkCloudMcpHealth = {
 
 export type OpenworkCloudMcpReconcilePayload = {
   workspaceId: string;
-  name: "openwork-cloud";
+  name: typeof FOXWORK_COMPANY_MCP_NAME;
   config: Record<string, unknown>;
   tokenMetadata?: Record<string, string | number | boolean | null>;
   org?: Record<string, string | number | boolean | null>;
@@ -857,6 +858,35 @@ export function parseOpenworkWorkspaceIdFromUrl(input: string) {
       return match[1];
     }
   }
+}
+
+/**
+ * 将工作区挂载地址还原为服务器主机地址。
+ *
+ * Den Worker 会下发 `/w/<id>` 地址，当前服务端统一使用
+ * `/workspace/<id>`。客户端创建主机级 API 客户端前必须去掉这两种挂载，
+ * 否则 `/workspaces`、`/sessions` 等请求会被错误拼到工作区路径之后。
+ */
+export function stripOpenworkWorkspaceMount(input: string) {
+  const normalized = normalizeOpenworkServerUrl(input) ?? "";
+  if (!normalized) return "";
+
+  try {
+    const url = new URL(normalized);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const workspaceIndex = segments.indexOf("workspace");
+    const legacyIndex = segments.indexOf("w");
+    const mountIndex = workspaceIndex >= 0 ? workspaceIndex : legacyIndex;
+    if (mountIndex >= 0 && segments[mountIndex + 1]) {
+      const prefix = segments.slice(0, mountIndex).join("/");
+      url.pathname = prefix ? `/${prefix}` : "/";
+      return url.toString().replace(/\/+$/, "");
+    }
+  } catch {
+    // 标准化地址仍无法解析时，保留原值供上层连接校验给出明确错误。
+  }
+
+  return normalized;
 }
 
 export function buildOpenworkWorkspaceBaseUrl(hostUrl: string, workspaceId?: string | null) {
@@ -1818,14 +1848,14 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       const suffix = query.size ? `?${query.toString()}` : "";
       return requestJson<OpenworkCloudMcpHealth>(
         baseUrl,
-        `/workspace/${encodeURIComponent(workspaceId)}/mcp/openwork-cloud/health${suffix}`,
+        `/workspace/${encodeURIComponent(workspaceId)}/mcp/company/health${suffix}`,
         { token, hostToken, timeoutMs: timeouts.cloudMcpHealth },
       );
     },
     reconcileOpenworkCloudMcp: (workspaceId: string, payload: OpenworkCloudMcpReconcilePayload) =>
       requestJson<OpenworkCloudMcpHealth>(
         baseUrl,
-        `/workspace/${encodeURIComponent(workspaceId)}/mcp/openwork-cloud/reconcile`,
+        `/workspace/${encodeURIComponent(workspaceId)}/mcp/company/reconcile`,
         {
           token,
           hostToken,

@@ -32,6 +32,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { usePlatform } from "../../../kernel/platform";
@@ -81,6 +87,19 @@ import {
   type ConversationTabHistory,
   type ConversationHistoryDirection,
 } from "./conversation-tab-history";
+import {
+  addOpenSessionTab,
+  closeAllOpenSessionTabs,
+  closeOpenSessionTab,
+  closeOtherOpenSessionTabs,
+  readOpenSessionTabs,
+  reconcileOpenSessionTabs,
+  writeOpenSessionTabs,
+  type OpenSessionTab,
+} from "./session-tab-state";
+import { writeLastSessionFor } from "../../../shell/session-memory";
+
+export type { OpenSessionTab } from "./session-tab-state";
 
 const STARTUP_SKELETON_ROWS = [
   { id: "intro", titleWidth: "42%", bodyWidth: "88%" },
@@ -90,10 +109,15 @@ const STARTUP_SKELETON_ROWS = [
 const GLOBAL_VOICE_SIDE_PANEL_KEY = "__openwork_voice__";
 const EMPTY_TRANSCRIPT_TARGETS: OpenTarget[] = [];
 
-export type OpenSessionTab = {
-  workspaceId: string;
-  sessionId: string;
-};
+function openSessionTabKey(workspaceId: string, sessionId: string) {
+  return `${workspaceId}\u0000${sessionId}`;
+}
+
+function hasSameSessionTabs(left: readonly OpenSessionTab[], right: readonly OpenSessionTab[]) {
+  return left.length === right.length && left.every((tab, index) => (
+    tab.workspaceId === right[index]?.workspaceId && tab.sessionId === right[index]?.sessionId
+  ));
+}
 
 type PendingConversationHistoryNavigation = {
   history: ConversationTabHistory;
@@ -132,7 +156,7 @@ export type SessionPageSidebarProps = {
   sidebarHydratedFromCache: boolean;
   startupPhase: BootPhase;
   onSelectWorkspace: (workspaceId: string) => Promise<boolean> | boolean | void;
-  onOpenSession: (workspaceId: string, sessionId: string) => void;
+  onOpenSession: (workspaceId: string, sessionId: string | null) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onCreateTaskInWorkspace: (workspaceId: string, groupId?: string) => void;
   onCreateTaskWithPrompt?: (workspaceId: string, prompt: string) => void;
@@ -376,7 +400,14 @@ export function SessionPage(props: SessionPageProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [sessionActionId, setSessionActionId] = useState<string | null>(null);
-  const [sessionTabs, setSessionTabs] = useState<OpenSessionTab[]>([]);
+  const [sessionTabs, setSessionTabs] = useState<OpenSessionTab[]>(readOpenSessionTabs);
+  const sessionTabsRef = useRef(sessionTabs);
+  const suppressedSessionTabKeysRef = useRef(new Set<string>());
+  const previousSelectedSessionTabKeyRef = useRef(
+    props.selectedSessionId
+      ? openSessionTabKey(props.selectedWorkspaceId, props.selectedSessionId)
+      : "",
+  );
   const [conversationHistory, setConversationHistory] = useState(() => (
     createConversationTabHistory(props.selectedWorkspaceId, props.selectedSessionId)
   ));
@@ -387,6 +418,13 @@ export function SessionPage(props: SessionPageProps) {
   const [createGroupWorkspaceId, setCreateGroupWorkspaceId] = useState<string | null>(null);
   const browserPanelRef = usePanelRef();
   const preserveSidePanelOnPanelOpenRef = useRef(false);
+
+  const commitSessionTabs = useCallback((next: OpenSessionTab[]) => {
+    if (hasSameSessionTabs(sessionTabsRef.current, next)) return;
+    sessionTabsRef.current = next;
+    setSessionTabs(next);
+    writeOpenSessionTabs(next);
+  }, []);
 
   const setCurrentSidePanel = useCallback((panel: SidePanelItem | null) => {
     setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, panel === "voice" ? "voice" : null);
@@ -735,17 +773,28 @@ export function SessionPage(props: SessionPageProps) {
     return () => window.clearTimeout(id);
   }, [pendingConversationHistoryNavigation]);
   useEffect(() => {
-    setSessionTabs((current) => {
-      const currentWorkspaceTabs = current.filter((tab) => tab.workspaceId === props.selectedWorkspaceId);
-      const next = props.selectedSessionId && !currentWorkspaceTabs.some((tab) => tab.sessionId === props.selectedSessionId)
-        ? [...currentWorkspaceTabs, { workspaceId: props.selectedWorkspaceId, sessionId: props.selectedSessionId }]
-        : currentWorkspaceTabs;
-      return next.filter((tab) => (
-        tab.sessionId === props.selectedSessionId ||
-        sessionExistsInWorkspace(props.sidebar.workspaceSessionGroups, tab.workspaceId, tab.sessionId)
-      ));
-    });
-  }, [props.selectedSessionId, props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
+    const selectedTabKey = props.selectedSessionId
+      ? openSessionTabKey(props.selectedWorkspaceId, props.selectedSessionId)
+      : "";
+    const previousSelectedTabKey = previousSelectedSessionTabKeyRef.current;
+    if (previousSelectedTabKey && previousSelectedTabKey !== selectedTabKey) {
+      suppressedSessionTabKeysRef.current.delete(previousSelectedTabKey);
+    }
+    previousSelectedSessionTabKeyRef.current = selectedTabKey;
+
+    const next = reconcileOpenSessionTabs(
+      sessionTabsRef.current,
+      props.sidebar.workspaceSessionGroups.map((group) => ({
+        workspaceId: group.workspace.id,
+        status: group.status,
+        sessionIds: group.sessions.map((session) => session.id),
+      })),
+      props.selectedWorkspaceId,
+      props.selectedSessionId,
+      Array.from(suppressedSessionTabKeysRef.current),
+    );
+    commitSessionTabs(next);
+  }, [commitSessionTabs, props.selectedSessionId, props.selectedWorkspaceId, props.sidebar.workspaceSessionGroups]);
   useEffect(() => {
     props.onSessionTabsChange?.(sessionTabs);
   }, [sessionTabs, props.onSessionTabsChange]);
@@ -843,30 +892,63 @@ export function SessionPage(props: SessionPageProps) {
     props.selectedSessionId,
     "forward",
   );
+  const visibleSessionTabs = useMemo(
+    () => sessionTabs.filter((tab) => tab.workspaceId === props.selectedWorkspaceId),
+    [props.selectedWorkspaceId, sessionTabs],
+  );
 
   const openSessionTab = useCallback((workspaceId: string, sessionId: string) => {
-    setSessionTabs((current) => {
-      const next = current.filter((tab) => tab.workspaceId === workspaceId);
-      if (next.some((tab) => tab.sessionId === sessionId)) return next;
-      return [...next, { workspaceId, sessionId }];
-    });
+    suppressedSessionTabKeysRef.current.delete(openSessionTabKey(workspaceId, sessionId));
+    commitSessionTabs(addOpenSessionTab(sessionTabsRef.current, workspaceId, sessionId));
     props.sidebar.onOpenSession(workspaceId, sessionId);
-  }, [props.sidebar]);
+  }, [commitSessionTabs, props.sidebar]);
 
   const closeSessionTab = useCallback((sessionId: string) => {
-    const nextTab = sessionTabs.find((tab) => tab.sessionId !== sessionId && tab.workspaceId === props.selectedWorkspaceId);
-    setSessionTabs((current) => current.filter((tab) => tab.sessionId !== sessionId));
+    const result = closeOpenSessionTab(sessionTabsRef.current, props.selectedWorkspaceId, sessionId);
+    if (sessionId === props.selectedSessionId) {
+      suppressedSessionTabKeysRef.current.add(openSessionTabKey(props.selectedWorkspaceId, sessionId));
+    }
+    commitSessionTabs(result.tabs);
     setSplitSessionId((current) => current === sessionId ? null : current);
     setPendingConversationHistoryNavigation(null);
     setConversationHistory((current) => removeConversationHistoryEntry(current, props.selectedWorkspaceId, sessionId));
     if (sessionId !== props.selectedSessionId) return;
 
-    if (nextTab) {
-      props.sidebar.onOpenSession(nextTab.workspaceId, nextTab.sessionId);
+    if (result.nextTab) {
+      writeLastSessionFor(result.nextTab.workspaceId, result.nextTab.sessionId);
+      props.sidebar.onOpenSession(result.nextTab.workspaceId, result.nextTab.sessionId);
       return;
     }
-    props.sidebar.onSelectWorkspace(props.selectedWorkspaceId);
-  }, [props.selectedSessionId, props.selectedWorkspaceId, props.sidebar, sessionTabs]);
+    writeLastSessionFor(props.selectedWorkspaceId, null);
+    props.sidebar.onOpenSession(props.selectedWorkspaceId, null);
+  }, [commitSessionTabs, props.selectedSessionId, props.selectedWorkspaceId, props.sidebar]);
+
+  const closeOtherSessionTabs = useCallback((sessionId: string) => {
+    const result = closeOtherOpenSessionTabs(sessionTabsRef.current, props.selectedWorkspaceId, sessionId);
+    if (props.selectedSessionId && props.selectedSessionId !== sessionId) {
+      suppressedSessionTabKeysRef.current.add(openSessionTabKey(props.selectedWorkspaceId, props.selectedSessionId));
+    }
+    commitSessionTabs(result.tabs);
+    setSplitSessionId(null);
+    setPendingConversationHistoryNavigation(null);
+    writeLastSessionFor(props.selectedWorkspaceId, sessionId);
+    if (props.selectedSessionId !== sessionId) {
+      props.sidebar.onOpenSession(props.selectedWorkspaceId, sessionId);
+    }
+  }, [commitSessionTabs, props.selectedSessionId, props.selectedWorkspaceId, props.sidebar]);
+
+  const closeAllSessionTabs = useCallback(() => {
+    const result = closeAllOpenSessionTabs(sessionTabsRef.current, props.selectedWorkspaceId);
+    if (props.selectedSessionId) {
+      suppressedSessionTabKeysRef.current.add(openSessionTabKey(props.selectedWorkspaceId, props.selectedSessionId));
+    }
+    commitSessionTabs(result.tabs);
+    setSplitSessionId(null);
+    setPendingConversationHistoryNavigation(null);
+    setConversationHistory(createConversationTabHistory(props.selectedWorkspaceId, null));
+    writeLastSessionFor(props.selectedWorkspaceId, null);
+    props.sidebar.onOpenSession(props.selectedWorkspaceId, null);
+  }, [commitSessionTabs, props.selectedSessionId, props.selectedWorkspaceId, props.sidebar]);
 
   const navigateConversationHistory = useCallback((direction: ConversationHistoryDirection) => {
     if (!canNavigateSelectedConversationHistory(
@@ -1121,7 +1203,7 @@ export function SessionPage(props: SessionPageProps) {
 
               {!showDelayedSessionLoadingState && canRenderReactSurface ? (
                 <div className="flex h-full min-h-0 flex-col">
-                  {sessionTabs.length > 0 ? (
+                  {visibleSessionTabs.length > 0 ? (
                     <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-2 mac:backdrop-blur-xl">
                       <div className="flex shrink-0 items-center gap-0.5 pr-1" role="group" aria-label="对话历史导航">
                         <Tooltip>
@@ -1164,51 +1246,70 @@ export function SessionPage(props: SessionPageProps) {
                         </Tooltip>
                       </div>
                       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-                        {sessionTabs.map((tab) => {
+                        {visibleSessionTabs.map((tab) => {
                           const title = sessionTitleForId(props.sidebar.workspaceSessionGroups, tab.sessionId) || t("session.default_title");
                           const active = tab.sessionId === props.selectedSessionId;
                           const split = tab.sessionId === splitSessionId;
                           return (
-                            <div
-                              key={tab.sessionId}
-                              data-session-tab-id={tab.sessionId}
-                              data-session-tab-active={active ? "true" : undefined}
-                              className={cn(
-                                "group flex max-w-56 shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors",
-                                active
-                                  ? "border-border bg-dls-surface text-dls-text"
-                                  : "border-transparent text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-                                split && "border-primary/30 bg-primary/10 text-primary",
-                              )}
-                            >
-                              <button
-                                type="button"
-                                className="min-w-0 flex-1 truncate text-left"
-                                onClick={() => props.sidebar.onOpenSession(tab.workspaceId, tab.sessionId)}
-                                title={title}
-                              >
-                                {title}
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded p-0.5 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-40"
-                                onClick={() => setSplitSessionId(split ? null : tab.sessionId)}
-                                disabled={active}
-                                title={split ? "关闭分屏" : "在分屏中打开"}
-                                aria-label={split ? "关闭分屏" : "在分屏中打开"}
-                              >
-                                <Columns2 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded p-0.5 text-dls-secondary opacity-80 hover:bg-dls-hover hover:text-dls-text group-hover:opacity-100"
-                                onClick={() => closeSessionTab(tab.sessionId)}
-                                title="关闭标签页"
-                                aria-label="关闭标签页"
-                              >
-                                <X size={13} />
-                              </button>
-                            </div>
+                            <ContextMenu key={`${tab.workspaceId}:${tab.sessionId}`}>
+                              <ContextMenuTrigger
+                                render={
+                                  <div
+                                    data-session-tab-id={tab.sessionId}
+                                    data-session-tab-active={active ? "true" : undefined}
+                                    className={cn(
+                                      "group flex max-w-56 shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors",
+                                      active
+                                        ? "border-border bg-dls-surface text-dls-text"
+                                        : "border-transparent text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+                                      split && "border-primary/30 bg-primary/10 text-primary",
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="min-w-0 flex-1 truncate text-left"
+                                      onClick={() => props.sidebar.onOpenSession(tab.workspaceId, tab.sessionId)}
+                                      title={title}
+                                    >
+                                      {title}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded p-0.5 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-40"
+                                      onClick={() => setSplitSessionId(split ? null : tab.sessionId)}
+                                      disabled={active}
+                                      title={split ? "关闭分屏" : "在分屏中打开"}
+                                      aria-label={split ? "关闭分屏" : "在分屏中打开"}
+                                    >
+                                      <Columns2 size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded p-0.5 text-dls-secondary opacity-80 hover:bg-dls-hover hover:text-dls-text group-hover:opacity-100"
+                                      onClick={() => closeSessionTab(tab.sessionId)}
+                                      title="关闭标签页"
+                                      aria-label="关闭标签页"
+                                    >
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                }
+                              />
+                              <ContextMenuContent className="w-48">
+                                <ContextMenuItem onClick={() => closeSessionTab(tab.sessionId)}>
+                                  关闭标签页
+                                </ContextMenuItem>
+                                <ContextMenuItem
+                                  disabled={visibleSessionTabs.length <= 1}
+                                  onClick={() => closeOtherSessionTabs(tab.sessionId)}
+                                >
+                                  关闭其他标签页
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={closeAllSessionTabs}>
+                                  关闭全部标签页
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
                           );
                         })}
                       </div>

@@ -7,6 +7,7 @@ import {
   catalogDiagnosticError,
   createExternalMcpDiagnosticFetch,
   externalMcpDiagnosticForLog,
+  externalMcpDiagnosticForResponse,
   safeExternalMcpEndpointForLog,
   safeExternalMcpCauseChain,
 } from "../src/capability-sources/external-mcp-diagnostics.js"
@@ -645,6 +646,32 @@ describe("external MCP diagnostics", () => {
       jsonRpcCode: -32001,
       providerErrorMessage: "MCP error -32001: synthetic provider detail",
       providerErrorData: '{"provider_detail":"must-not-surface"}',
+    })
+  })
+
+  test("员工响应和服务日志不包含上游返回的原始错误文本或数据", () => {
+    const tracker = new ExternalMcpDiagnosticTracker("req_external_surface")
+    tracker.begin("MCP_TOOL_EXECUTION")
+    const providerError = new Error("provider-catalog-secret must never leave diagnostics")
+    Object.defineProperty(providerError, "code", { value: -32050, enumerable: true })
+    Object.defineProperty(providerError, "data", {
+      value: { access_token: "secret-token", tenant: "private-tenant" },
+      enumerable: true,
+    })
+    const error = tracker.error(providerError)
+
+    const response = externalMcpDiagnosticForResponse(error, "ignored", "MCP_TOOL_EXECUTION")
+    const log = externalMcpDiagnosticForLog(error, "ignored", "MCP_TOOL_EXECUTION")
+    for (const value of [response, log]) {
+      const serialized = JSON.stringify(value)
+      expect(serialized).not.toContain("provider-catalog-secret")
+      expect(serialized).not.toContain("secret-token")
+      expect(serialized).not.toContain("private-tenant")
+    }
+    expect(response).toMatchObject({
+      referenceId: "req_external_surface",
+      code: "MCP_PROVIDER_DECLARED_ERROR",
+      jsonRpcCode: -32050,
     })
   })
 

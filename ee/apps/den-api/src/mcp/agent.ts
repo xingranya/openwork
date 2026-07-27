@@ -103,23 +103,23 @@ export const SEARCH_CAPABILITIES_OUTPUT_SCHEMA = z.object({
 })
 
 export const AGENT_MCP_INSTRUCTIONS = [
-  "This OpenWork Cloud connection intentionally exposes exactly two tools: search_capabilities and execute_capability.",
-  "Capabilities include native Google Workspace operations (Gmail read/search, Calendar list/create, Drive search/read, and Gmail draft creation) executed with the signed-in member's organization credentials, plus any MCP connections the organization has added.",
-  "Allowlisted platform admins can also discover namespaced OpenWork Admin capabilities through this same connection; other members cannot discover or execute them.",
-  "Always call search_capabilities first with 2-4 keyword variants before concluding something is unavailable. Use execute_capability only with exact names returned by search_capabilities.",
-  "For a request to add a public GitHub plugin to an organization marketplace, search for the marketplace list, GitHub plugin import preview, GitHub plugin marketplace import, and resolved marketplace detail capabilities. Preview first; do not recreate the plugin by hand.",
-  "Before importing, confirm the target marketplace, selected skill/server keys, and who can use them. Do not choose one authentication type for every server: the import route resolves known presets and plugin declarations, while the request authType is only a fallback for unknown servers.",
-  "After importing, retrieve the resolved marketplace detail and report each plugin's cloudReadiness. An import or plugin binding is not proof that an MCP connection is usable. Relay needs_admin_setup or needs_signin as the next human action instead of claiming the connection is ready.",
-  "Do not invent OAuth-client, credential, or local-extension setup. Organization connections are managed in the OpenWork Cloud dashboard / Settings > Connect. When a returned connection or marketplace readiness state requires administrator setup or member sign-in, relay that exact action.",
-  "A successful search_capabilities call proves this OpenWork Cloud MCP connection is authorized. Never tell the user to reconnect OpenWork Cloud because a downstream connector failed.",
-  "External MCP matches include the provider-advertised argumentsSchema, schemaDigest, and invocation.argumentsField. Put an object matching argumentsSchema in execute_capability.body and copy schemaDigest into execute_capability.schemaDigest.",
-  "OpenWork always attempts the downstream provider call when local schema checks find a mismatch. schemaGuidance is advisory and appears alongside the provider result: if the provider succeeded, accept that result and do not retry solely because of the warning; if it failed, use the warning to correct the arguments or search again.",
-  "If the provider returns invalid_capability_arguments, correct the listed issues and retry once with changed arguments; never retry the same arguments unchanged. If it returns unknown_capability, call search_capabilities again before retrying.",
-  "When a match has kind connection_status, name connectionStatus.connectionName and relay connectionStatus.action exactly. Distinguish the member's Your Connections page, the organization Connections dashboard, and the provider's own admin console.",
-  "Connection probes are live. After the requested human fixes that connector, search again in the same task; otherwise do not retry unchanged or improvise workarounds through other tools.",
+  "公司能力连接只开放两个工具：search_capabilities 和 execute_capability。",
+  "能力包括使用当前成员公司身份执行的 Google Workspace 操作，以及公司管理员添加并授权给该成员的 MCP 和 Skill。",
+  "白名单内的平台管理员还可发现带命名空间的管理能力，普通成员不能发现或执行这些能力。",
+  "判断能力不可用前，必须先用 2 至 4 组关键词调用 search_capabilities；execute_capability 只能使用检索结果返回的准确名称。",
+  "如需导入公开 GitHub 插件，先检索能力市场、导入预览、正式导入和导入结果详情；必须先预览，不要手工重建插件。",
+  "导入前确认目标能力市场、选中的 Skill 或服务键，以及可用成员范围。不要为所有服务强行选择同一种认证方式。",
+  "导入后读取完整详情并报告每个插件的 cloudReadiness。导入或绑定成功不代表 MCP 已可用；needs_admin_setup 和 needs_signin 必须作为下一步人工操作说明。",
+  "不要编造 OAuth 客户端、凭据或本地扩展配置。公司连接由管理员后台和 FoxWork 的“公司连接”管理；需要管理员设置或成员登录时，准确转述返回的操作。",
+  "search_capabilities 调用成功只证明公司能力连接已授权。下游连接失败时，不要让员工重新连接整个公司服务。",
+  "外部 MCP 结果包含 argumentsSchema、schemaDigest 和 invocation.argumentsField。execute_capability.body 必须符合 argumentsSchema，并把 schemaDigest 原样传入 execute_capability.schemaDigest。",
+  "即使本地 Schema 检查发现不一致，FoxWork 仍会尝试调用下游供应商。schemaGuidance 仅作提示；供应商成功时直接接受结果，失败时再按提示修正参数或重新检索。",
+  "如果返回 invalid_capability_arguments，修正问题后只重试一次，不能用相同参数重复调用；如果返回 unknown_capability，必须先重新检索。",
+  "当结果 kind 为 connection_status 时，准确说明 connectionStatus.connectionName 和 connectionStatus.action，并区分员工个人连接、公司管理员后台和供应商后台。",
+  "连接检查使用实时状态。人工修复后在同一任务中重新检索；未发生变化时不要重复调用，也不要绕到其他工具编造替代流程。",
 ].join("\n")
 
-const EXECUTE_CAPABILITY_TIMEOUT_MESSAGE = `The capability call exceeded ${EXECUTE_CAPABILITY_TIMEOUT_MS / 1_000}s. Retry once; if it times out again, narrow the request (fewer results, tighter query) and tell the user the service is slow — do NOT tell them to reconfigure or reconnect.`
+const EXECUTE_CAPABILITY_TIMEOUT_MESSAGE = `能力调用超过 ${EXECUTE_CAPABILITY_TIMEOUT_MS / 1_000} 秒。可以重试一次；再次超时时请缩小请求范围，并说明服务响应较慢，不要让员工重新配置或重新连接。`
 
 export type ExecuteCapabilityToolResult = {
   isError?: boolean
@@ -167,7 +167,7 @@ export function capabilitySearchToolResult<T extends CapabilityMatch>(matches: T
 function unknownCapabilityText(name: string): string {
   return JSON.stringify({
     error: "unknown_capability",
-    message: `No capability named "${name}". Call search_capabilities to find a valid name.`,
+    message: `没有名为“${name}”的能力，请先调用 search_capabilities 获取有效名称。`,
   })
 }
 
@@ -320,20 +320,19 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
     server.registerTool(
       SEARCH_CAPABILITIES_TOOL_NAME,
       {
-        title: "Search capabilities",
+        title: "搜索公司能力",
         description: [
-          "Search for a capability by keyword. This connection only exposes this tool and execute_capability —",
-          "there is no list of individually-named tools to browse. Always search first.",
-          "Search covers native Google Workspace capabilities (Gmail, Calendar, Drive, Gmail drafts), org-connected external MCPs, and namespaced OpenWork Admin tools for allowlisted platform admins.",
-          "Try 2-4 keyword variants before deciding a capability is unavailable.",
-          "Native API matches include pathParams, queryParams, hasBody, and bodySchema. External MCP matches include argumentsSchema, schemaDigest, and invocation.argumentsField.",
-          "Skill matches use method SKILL and return stored SKILL.md content when executed.",
+          "按关键词搜索公司能力。该连接只开放本工具和 execute_capability，没有可直接浏览的独立工具列表，因此必须先搜索。",
+          "搜索范围包括 Google Workspace、公司外部 MCP、公司 Skill，以及白名单平台管理员可用的管理能力。",
+          "判断能力不可用前，请尝试 2 至 4 组关键词。",
+          "原生 API 结果会返回 pathParams、queryParams、hasBody 和 bodySchema；外部 MCP 会返回 argumentsSchema、schemaDigest 和 invocation.argumentsField。",
+          "Skill 结果的 method 为 SKILL，执行后返回公司保存的 SKILL.md 内容。",
         ].join(" "),
         annotations: SEARCH_CAPABILITIES_ANNOTATIONS,
         inputSchema: z.object({
-          query: z.string().min(1).describe("Keywords describing the capability you need, e.g. \"create organization\" or \"list workers\"."),
-          limit: z.number().int().min(1).max(20).optional().describe("Max number of matches to return. Defaults to 5."),
-          type: searchCapabilityTypeSchema.optional().describe("Optional source filter. all searches every available source; api searches Den API capabilities; admin searches allowlisted platform-admin tools; mcp searches connected external MCP tools; marketplace searches marketplace plugin capabilities; skills searches native skills and marketplace skill objects. Defaults to all."),
+          query: z.string().min(1).describe("描述所需能力的关键词，例如“创建组织”或“列出 Worker”。"),
+          limit: z.number().int().min(1).max(20).optional().describe("最多返回多少条结果，默认 5 条。"),
+          type: searchCapabilityTypeSchema.optional().describe("可选来源过滤。all 搜索全部来源；api 搜索 Den API；admin 搜索白名单管理能力；mcp 搜索公司 MCP；marketplace 搜索能力市场；skills 搜索公司 Skill。默认 all。"),
         }),
         outputSchema: SEARCH_CAPABILITIES_OUTPUT_SCHEMA,
       },
@@ -390,21 +389,21 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
     server.registerTool(
       EXECUTE_CAPABILITY_TOOL_NAME,
       {
-        title: "Execute capability",
+        title: "调用公司能力",
         description: [
-          "Call a capability found via search_capabilities, by its exact name.",
-          "Pass path/query/body only as described by that match's pathParams/queryParams/hasBody.",
-          "For external MCP capabilities, provider-advertised schema mismatches are returned as advisory schemaGuidance alongside the provider result; they do not block the downstream call.",
-          "For skill:<id> matches, this returns that skill's stored SKILL.md content.",
-          "Returns unknown_capability if name doesn't match a current capability — call search_capabilities again.",
+          "按 search_capabilities 返回的准确名称调用能力。",
+          "path、query 和 body 必须严格依据结果中的 pathParams、queryParams 和 hasBody。",
+          "外部 MCP 的 Schema 不一致会以 schemaGuidance 提示，但不会阻断下游调用。",
+          "执行 skill:<id> 结果时，会返回公司保存的 SKILL.md 内容。",
+          "如果名称不再有效，将返回 unknown_capability，此时必须重新调用 search_capabilities。",
         ].join(" "),
         annotations: EXECUTE_CAPABILITY_ANNOTATIONS,
         inputSchema: z.object({
-          name: z.string().min(1).describe("The exact tool name returned by search_capabilities."),
-          schemaDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional().describe("For an external MCP match, copy the exact schemaDigest returned by search_capabilities so schema drift can be reported as advisory guidance without blocking the provider call."),
-          path: z.union([z.record(z.string(), z.unknown()), z.string()]).optional().describe("Path parameters, only if the match's pathParams is non-empty."),
-          query: z.union([z.record(z.string(), z.unknown()), z.string()]).optional().describe("Query parameters, only if the match's queryParams is non-empty."),
-          body: z.unknown().optional().describe("For native API capabilities, the JSON body. For external MCP capabilities, the arguments object matching argumentsSchema."),
+          name: z.string().min(1).describe("search_capabilities 返回的准确能力名称。"),
+          schemaDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional().describe("外部 MCP 结果中的 schemaDigest，用于提示 Schema 变化，不会阻断供应商调用。"),
+          path: z.union([z.record(z.string(), z.unknown()), z.string()]).optional().describe("路径参数，仅在结果的 pathParams 非空时填写。"),
+          query: z.union([z.record(z.string(), z.unknown()), z.string()]).optional().describe("查询参数，仅在结果的 queryParams 非空时填写。"),
+          body: z.unknown().optional().describe("原生 API 使用 JSON 请求体；外部 MCP 使用符合 argumentsSchema 的参数对象。"),
         }),
       },
       async ({ name, schemaDigest, path, query, body }) => {
@@ -486,6 +485,8 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
                     title: result.skill.title,
                     description: result.skill.description,
                     skillText: result.skill.skillText,
+                    bundleHash: result.skill.bundleHash,
+                    files: result.skill.files,
                     updatedAt: result.skill.updatedAt,
                   },
                 }, null, 2)),

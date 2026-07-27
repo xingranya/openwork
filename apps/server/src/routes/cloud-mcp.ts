@@ -1,6 +1,7 @@
 import type { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 import {
   OPENWORK_CLOUD_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_NAME,
   readOpenworkCloudMcpHealth,
   reconcileOpenworkCloudMcp,
   type CloudMcpServerMetadata,
@@ -69,8 +70,12 @@ function assertStrictBody(body: Record<string, unknown>, workspace: WorkspaceInf
   if (typeof body.workspaceId === "string" && body.workspaceId.trim() !== workspace.id) {
     throw new ApiError(400, "workspace_id_mismatch", "workspaceId must match the route workspace");
   }
-  if (typeof body.name === "string" && body.name.trim() !== OPENWORK_CLOUD_MCP_NAME) {
-    throw new ApiError(400, "invalid_mcp_name", "Only openwork-cloud can be reconciled by this endpoint");
+  if (
+    typeof body.name === "string" &&
+    body.name.trim() !== OPENWORK_CLOUD_MCP_NAME &&
+    body.name.trim() !== LEGACY_OPENWORK_CLOUD_NAME
+  ) {
+    throw new ApiError(400, "invalid_mcp_name", "这里只能配置公司的 AI 能力服务");
   }
 }
 
@@ -89,7 +94,7 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
     serverMetadata,
   } = options;
 
-  addRoute(routes, "GET", "/workspace/:id/mcp/openwork-cloud/health", "client", async (ctx) => {
+  const healthHandler = async (ctx: RequestContext) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     assertExactWorkspace(ctx.params.id, workspace);
     const health = await readOpenworkCloudMcpHealth({
@@ -102,9 +107,9 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
       createWorkspaceOpencodeClient,
     });
     return jsonResponse(health);
-  });
+  };
 
-  addRoute(routes, "POST", "/workspace/:id/mcp/openwork-cloud/reconcile", "client", async (ctx) => {
+  const reconcileHandler = async (ctx: RequestContext) => {
     ensureWritable(config);
     requireClientScope(ctx, "collaborator");
     const workspace = await resolveWorkspace(config, ctx.params.id);
@@ -125,5 +130,11 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
       registerRuntimeMcp,
     });
     return jsonResponse(health);
-  });
+  };
+
+  // 新客户端使用 company 路径；旧路径仅作为升级期间的兼容入口，不再出现在员工界面。
+  for (const prefix of ["/workspace/:id/mcp/company", "/workspace/:id/mcp/openwork-cloud"]) {
+    addRoute(routes, "GET", `${prefix}/health`, "client", healthHandler);
+    addRoute(routes, "POST", `${prefix}/reconcile`, "client", reconcileHandler);
+  }
 }

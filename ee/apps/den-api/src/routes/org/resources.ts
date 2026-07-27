@@ -103,18 +103,31 @@ async function listAccessibleLlmProviders(input: {
         eq(LlmProviderAccessTable.orgMembershipId, input.currentMemberId),
       )
 
-  const rows = await db
-    .select({
-      id: LlmProviderTable.id,
-      updatedAt: LlmProviderTable.updatedAt,
-    })
-    .from(LlmProviderAccessTable)
-    .innerJoin(LlmProviderTable, eq(LlmProviderAccessTable.llmProviderId, LlmProviderTable.id))
-    .where(accessWhere)
-    .orderBy(desc(LlmProviderTable.updatedAt), desc(LlmProviderTable.id))
+  const [accessRows, defaultRows] = await Promise.all([
+    db
+      .select({
+        id: LlmProviderTable.id,
+        updatedAt: LlmProviderTable.updatedAt,
+      })
+      .from(LlmProviderAccessTable)
+      .innerJoin(LlmProviderTable, eq(LlmProviderAccessTable.llmProviderId, LlmProviderTable.id))
+      .where(accessWhere)
+      .orderBy(desc(LlmProviderTable.updatedAt), desc(LlmProviderTable.id)),
+    db
+      .select({
+        id: LlmProviderTable.id,
+        updatedAt: LlmProviderTable.updatedAt,
+      })
+      .from(LlmProviderTable)
+      .where(and(
+        eq(LlmProviderTable.organizationId, input.organizationId),
+        eq(LlmProviderTable.defaultEnabled, true),
+      ))
+      .orderBy(desc(LlmProviderTable.updatedAt), desc(LlmProviderTable.id)),
+  ])
 
   const providers: Record<string, string> = {}
-  for (const row of rows) {
+  for (const row of [...defaultRows, ...accessRows]) {
     providers[row.id] = timestamp(row.updatedAt)
   }
   return providers

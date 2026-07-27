@@ -421,6 +421,7 @@ export type ExternalMcpAccessInput = {
 export async function createExternalMcpConnection(input: {
   organizationId: OrganizationId
   name: string
+  description?: string | null
   url: string
   authType: "oauth" | "apikey" | "none"
   credentialMode: "shared" | "per_member"
@@ -446,6 +447,7 @@ export async function createExternalMcpConnection(input: {
     id,
     organizationId: input.organizationId,
     name: input.name,
+    description: input.description ?? null,
     url: input.url,
     authType: input.authType,
     credentialMode: input.credentialMode,
@@ -939,6 +941,7 @@ export type UpdateExternalMcpConnectionInput = {
   connectionId: ExternalMcpConnectionId
   expectedUpdatedAt: Date
   name: string
+  description?: string | null
   url: string
   authType: "oauth" | "apikey" | "none"
   credentialMode: "shared" | "per_member"
@@ -1067,7 +1070,9 @@ export async function updateExternalMcpConnection(
       ? Boolean(existingClient || input.oauthClient)
       : Boolean(input.oauthClient && (!existingClient || clientIdChanged || clientSecretChanged || clientExtraChanged))
     const apiKeyChanged = input.apiKey !== undefined && existing.apiKey !== input.apiKey
+    const descriptionChanged = input.description !== undefined && existing.description !== input.description
     const rowFieldsChanged = existing.name !== input.name
+      || descriptionChanged
       || existing.url !== input.url
       || existing.authType !== input.authType
       || existing.credentialMode !== input.credentialMode
@@ -1101,6 +1106,7 @@ export async function updateExternalMcpConnection(
         .update(ExternalMcpConnectionTable)
         .set({
           name: input.name,
+          ...(input.description !== undefined ? { description: input.description } : {}),
           url: input.url,
           authType: input.authType,
           credentialMode: input.credentialMode,
@@ -1126,6 +1132,7 @@ export async function updateExternalMcpConnection(
         .update(ExternalMcpConnectionTable)
         .set({
           name: input.name,
+          ...(input.description !== undefined ? { description: input.description } : {}),
           url: input.url,
           authType: input.authType,
           credentialMode: input.credentialMode,

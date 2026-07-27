@@ -1,4 +1,8 @@
 import { z } from "zod"
+import {
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "./den/mcp-connection-action"
 
 export const AGENT_CONTEXT_DIAGNOSTICS_SCHEMA_VERSION = 1 as const
 
@@ -552,7 +556,7 @@ export const agentContextDiagnosticsReportSchema = z.object({
   if (value.safety.cloudCatalogToolsListPerformed) {
     const runtimeCloudMcp = value.mcps.find((mcp) =>
       mcp.source === "config.remote"
-      && mcp.name === "openwork-cloud"
+      && (mcp.name === FOXWORK_COMPANY_MCP_NAME || mcp.name === LEGACY_OPENWORK_CLOUD_MCP_NAME)
       && mcp.path === "/mcp/agent"
       && mcp.syncStatus === "connected",
     )

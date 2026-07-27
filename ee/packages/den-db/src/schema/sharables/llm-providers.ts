@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm"
 import {
+  boolean,
   index,
   json,
   mysqlEnum,
@@ -31,6 +32,7 @@ export const LlmProviderTable = mysqlTable(
       .$type<Record<string, unknown>>()
       .notNull(),
     apiKey: encryptedTextColumn("api_key"),
+    defaultEnabled: boolean("default_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { fsp: 3 }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { fsp: 3 })
       .notNull()

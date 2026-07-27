@@ -3,6 +3,7 @@ import {
   type DenMcpTokenMintContext,
   resolveCloudMcpResourceUrl,
 } from "../../../app/lib/den";
+import { FOXWORK_COMPANY_MCP_EXPECTED_TOOLS } from "@openwork/types/den/mcp-connection-action";
 import type {
   OpenworkCloudMcpFailure,
   OpenworkCloudMcpHealth,
@@ -11,6 +12,7 @@ import type {
 } from "../../../app/lib/openwork-server";
 import {
   CLOUD_MCP_SERVER_NAME,
+  LEGACY_CLOUD_MCP_SERVER_NAME,
   clearCloudMcpScopedMetadata,
   clearCloudMcpUserState,
   getCloudMcpScopeKey,
@@ -24,10 +26,7 @@ import {
   type CloudMcpUserState,
 } from "./cloud-mcp-user-state";
 
-export const OPENWORK_CLOUD_EXPECTED_TOOLS = [
-  "openwork-cloud_search_capabilities",
-  "openwork-cloud_execute_capability",
-];
+export const OPENWORK_CLOUD_EXPECTED_TOOLS = [...FOXWORK_COMPANY_MCP_EXPECTED_TOOLS];
 
 export type CloudMcpClient = {
   baseUrl: string;
@@ -450,12 +449,18 @@ export async function cleanupOpenworkCloudMcpAfterSignOut(input: {
   if (scope) clearCloudMcpScopedMetadata(scope);
 
   await Promise.all([
-    input.openworkClient && scope
-      ? input.openworkClient.removeMcp(scope.workspaceId, CLOUD_MCP_SERVER_NAME).catch(() => null)
-      : Promise.resolve(null),
-    input.opencodeClient && input.directory.trim()
-      ? input.opencodeClient.mcp.disconnect({ directory: input.directory.trim(), name: CLOUD_MCP_SERVER_NAME }).catch(() => null)
-      : Promise.resolve(null),
+    ...(input.openworkClient && scope
+      ? [
+          input.openworkClient.removeMcp(scope.workspaceId, CLOUD_MCP_SERVER_NAME).catch(() => null),
+          input.openworkClient.removeMcp(scope.workspaceId, LEGACY_CLOUD_MCP_SERVER_NAME).catch(() => null),
+        ]
+      : []),
+    ...(input.opencodeClient && input.directory.trim()
+      ? [
+          input.opencodeClient.mcp.disconnect({ directory: input.directory.trim(), name: CLOUD_MCP_SERVER_NAME }).catch(() => null),
+          input.opencodeClient.mcp.disconnect({ directory: input.directory.trim(), name: LEGACY_CLOUD_MCP_SERVER_NAME }).catch(() => null),
+        ]
+      : []),
   ]);
 }
 

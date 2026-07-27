@@ -1,4 +1,7 @@
-import { openworkCloudMcpInlineReconnectSchema } from "@openwork/types/den/mcp-connection-action"
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  openworkCloudMcpInlineReconnectSchema,
+} from "@openwork/types/den/mcp-connection-action"
 
 export type ToolErrorAttribution = {
   label: string
@@ -17,10 +20,7 @@ export type ChatToolReconnectProgress =
   | { phase: "authorization_opened"; authorizeUrl: string }
 export type ChatToolReconnectResult = "connected"
 
-const OPENWORK_CLOUD_CAPABILITY_TOOLS = new Set([
-  "openwork-cloud_search_capabilities",
-  "openwork-cloud_execute_capability",
-])
+const OPENWORK_CLOUD_CAPABILITY_TOOLS = new Set(FOXWORK_COMPANY_MCP_EXPECTED_TOOLS)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)

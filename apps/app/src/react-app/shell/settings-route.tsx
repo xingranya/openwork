@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "@/components/ui/sonner";
 
 import { SUGGESTED_PLUGINS } from "@/app/constants";
+import { FOXWORK_COMPANY_MCP_NAME } from "@openwork/types/den/mcp-connection-action";
 import type { EnablementContext } from "@/app/enablement";
 import { createClient, unwrap } from "@/app/lib/opencode";
 import { toChineseUserMessage } from "@/app/lib/user-facing-error";
@@ -1614,7 +1615,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   );
   const mcpConnectedAppsCount = connectionsSnapshot.mcpServers.length;
   const openworkCloudMcpUrl = connectionsSnapshot.mcpServers.find(
-    (server) => server.name === "openwork-cloud",
+    (server) => server.name === FOXWORK_COMPANY_MCP_NAME,
   )?.config.url ?? null;
 
   // Build enablement context from all available runtime state.

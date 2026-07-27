@@ -23,6 +23,7 @@ import type { WorkspaceInfo } from "./desktop";
 import {
   buildOpenworkWorkspaceBaseUrl,
   createOpenworkServerClient,
+  stripOpenworkWorkspaceMount,
   type OpenworkServerClient,
 } from "./openwork-server";
 
@@ -94,7 +95,8 @@ export function workspaceServerId(workspace: WorkspaceEndpointInput): string {
 
 function pickRemoteBaseUrl(workspace: WorkspaceEndpointInput): string {
   if (!workspace) return "";
-  return (workspace.baseUrl ?? workspace.openworkHostUrl ?? "").trim();
+  const savedUrl = workspace.baseUrl?.trim() || workspace.openworkHostUrl?.trim() || "";
+  return stripOpenworkWorkspaceMount(savedUrl);
 }
 
 function pickRemoteToken(workspace: WorkspaceEndpointInput): string {

@@ -1857,8 +1857,23 @@ export function createExternalMcpDiagnosticFetch(input: {
 }
 
 export function externalMcpDiagnosticForResponse(error: unknown, referenceId: string, fallbackPhase: ExternalMcpDiagnosticPhase): ExternalMcpDiagnostic {
-  if (error instanceof ExternalMcpDiagnosticError) return error.diagnostic
-  return new ExternalMcpDiagnosticTracker(referenceId).error(error, fallbackPhase).diagnostic
+  const diagnostic = error instanceof ExternalMcpDiagnosticError
+    ? error.diagnostic
+    : new ExternalMcpDiagnosticTracker(referenceId).error(error, fallbackPhase).diagnostic
+  return externalMcpDiagnosticForExternalSurface(diagnostic)
+}
+
+/**
+ * 上游 MCP 返回的文本和数据属于不可信内容，可能包含访问令牌、查询参数或业务数据。
+ * 对员工响应和服务日志只保留可分类、可关联的结构化字段；管理员需要查看原始响应时，
+ * 只能使用不持久化的手动工具检查结果。
+ */
+function externalMcpDiagnosticForExternalSurface(diagnostic: ExternalMcpDiagnostic): ExternalMcpDiagnostic {
+  const sanitized = { ...diagnostic }
+  delete sanitized.providerErrorMessage
+  delete sanitized.providerErrorData
+  sanitized.message = safeMessageFor(sanitized)
+  return sanitized
 }
 
 const OAUTH_CALLBACK_ERROR_NAMES: Record<string, string> = {
@@ -1891,7 +1906,7 @@ export function externalMcpDiagnosticForLog(error: unknown, referenceId: string,
     ? error
     : new ExternalMcpDiagnosticTracker(referenceId).error(error, fallbackPhase)
   return {
-    diagnostic: diagnosticError.diagnostic,
+    diagnostic: externalMcpDiagnosticForExternalSurface(diagnosticError.diagnostic),
     causeChain: diagnosticError.safeCauseChain,
   }
 }

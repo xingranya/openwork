@@ -19,7 +19,7 @@ import {
   PluginTable,
   type ExternalMcpOAuthConfiguration,
 } from "@openwork-ee/den-db/schema"
-import { normalizeDenTypeId, type DenTypeId } from "@openwork-ee/utils/typeid"
+import { createDenTypeId, normalizeDenTypeId, type DenTypeId } from "@openwork-ee/utils/typeid"
 import { db } from "../../db.js"
 import { env } from "../../env.js"
 import { appLogger } from "../../observability/logger.js"
@@ -242,6 +242,7 @@ const clientMetadataResponseSchema = z.object({
 
 const createConnectionBodySchema = z.object({
   name: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(1000).optional().default(""),
   url: externalMcpUrlSchema,
   authType: z.enum(["oauth", "apikey", "none"]),
   credentialMode: z.enum(["shared", "per_member"]).optional().default("shared"),
@@ -260,6 +261,7 @@ const createConnectionBodySchema = z.object({
 const updateConnectionBodySchema = z.object({
   expectedUpdatedAt: z.string().datetime(),
   name: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(1000).optional(),
   url: externalMcpUrlSchema,
   authType: z.enum(["oauth", "apikey", "none"]),
   credentialMode: z.enum(["shared", "per_member"]),
@@ -314,6 +316,7 @@ const requiredBySchema = z.object({
 const connectionResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().nullable(),
   url: z.string(),
   authType: z.enum(["oauth", "apikey", "none"]),
   credentialMode: z.enum(["shared", "per_member"]),
@@ -601,6 +604,31 @@ const connectionValidationFailedSchema = z.object({
   message: z.string(),
   diagnostic: externalMcpDiagnosticSchema,
 }).meta({ ref: "ExternalMcpConnectionValidationFailedError" })
+
+function mcpConnectionValidationMessage(category: string): string {
+  if (category.includes("dns") || category.includes("network")) {
+    return "公司服务器无法连接到该 MCP 地址，请检查域名、网络和防火墙设置"
+  }
+  if (category.includes("tls") || category.includes("certificate")) {
+    return "该 MCP 服务的 HTTPS 证书或安全连接无效"
+  }
+  if (category === "endpoint_not_found") {
+    return "该地址没有找到 MCP 服务，请检查完整路径"
+  }
+  if (category === "unexpected_html" || category === "unexpected_content_type") {
+    return "该地址返回了网页或其他内容，不是 MCP 服务响应"
+  }
+  if (category === "mcp_transport_negotiation") {
+    return "该服务不支持当前的远程 HTTP MCP 连接方式"
+  }
+  if (category.includes("throttled")) {
+    return "远程 MCP 服务正在限流，请稍后重试"
+  }
+  if (category.includes("provider_unavailable") || category === "http_failure") {
+    return "远程 MCP 服务暂时不可用或未正确响应"
+  }
+  return "远程 MCP 服务未通过连接测试"
+}
 
 function isConnectionConnected(row: ExternalMcpConnectionRow): boolean {
   if (row.credentialMode === "per_member") {
@@ -962,6 +990,7 @@ async function toConnectionResponse(
   return {
     id: row.id,
     name: row.name,
+    description: row.description,
     url: row.url,
     authType: row.authType,
     credentialMode: row.credentialMode,
@@ -1821,9 +1850,82 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         }
       }
 
+      let validatedAt: Date | undefined
+      if (body.authType === "oauth") {
+        try {
+          const discovery = await discoverConnectionRequirements({
+            serverUrl: body.url,
+            fetch: externalMcpDiscoveryFetch,
+          })
+          if (!discoveryQualifiesAsMcp(discovery, { guessed: false })) {
+            throw new Error("该地址没有返回可用的 MCP 初始化或认证信息。")
+          }
+        } catch (error) {
+          const diagnostic = externalMcpDiagnosticForResponse(error, c.get("requestId"), "MCP_INITIALIZE")
+          logger.error("external_mcp_connection_validation_failed", {
+            organization_id: payload.organization.id,
+            connection_endpoint: safeExternalMcpEndpointForLog(body.url),
+            ...externalMcpDiagnosticForLog(error, c.get("requestId"), "MCP_INITIALIZE"),
+          })
+          return c.json({
+            error: "connection_validation_failed",
+            message: `无法验证“${body.name}”：${mcpConnectionValidationMessage(diagnostic.category)}。参考编号：${diagnostic.referenceId}。`,
+            diagnostic,
+          }, 502)
+        }
+      } else {
+        const now = new Date()
+        const proposedConnection: ExternalMcpConnectionRow = {
+          id: createDenTypeId("externalMcpConnection"),
+          organizationId: payload.organization.id,
+          name: body.name,
+          description: body.description || null,
+          url: body.url,
+          authType: body.authType,
+          oauthConfiguration: null,
+          credentialMode: body.credentialMode,
+          apiKey: body.apiKey ?? null,
+          accessToken: null,
+          refreshToken: null,
+          tokenType: null,
+          scope: null,
+          expiresAt: null,
+          pendingCodeVerifier: null,
+          credentialHealth: null,
+          oauthIssuerReviewRequiredAt: null,
+          connectedAt: null,
+          createdByOrgMembershipId: payload.currentMember.id,
+          createdAt: now,
+          updatedAt: now,
+        }
+        try {
+          await connectExternalMcp(
+            proposedConnection,
+            callbackRedirectUri(proposedConnection),
+            undefined,
+            undefined,
+            c.get("requestId"),
+          )
+          validatedAt = new Date()
+        } catch (error) {
+          const diagnostic = externalMcpDiagnosticForResponse(error, c.get("requestId"), "MCP_INITIALIZE")
+          logger.error("external_mcp_connection_validation_failed", {
+            organization_id: payload.organization.id,
+            connection_endpoint: safeExternalMcpEndpointForLog(proposedConnection.url),
+            ...externalMcpDiagnosticForLog(error, c.get("requestId"), "MCP_INITIALIZE"),
+          })
+          return c.json({
+            error: "connection_validation_failed",
+            message: `无法验证“${proposedConnection.name}”：${mcpConnectionValidationMessage(diagnostic.category)}。参考编号：${diagnostic.referenceId}。`,
+            diagnostic,
+          }, 502)
+        }
+      }
+
       const created = await createExternalMcpConnection({
         organizationId: payload.organization.id,
         name: body.name,
+        description: body.description || null,
         url: body.url,
         authType: body.authType,
         credentialMode: body.credentialMode,
@@ -1859,30 +1961,8 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         })
       }
 
-      if (body.authType !== "oauth") {
-        // No OAuth dance needed — validate the server is real and reachable now.
-        try {
-          await connectExternalMcp(created, callbackRedirectUri(created), undefined, undefined, c.get("requestId"))
-          // OAuth records a successful connection while persisting tokens.
-          // A no-auth server has no token write, so retain the successful
-          // initialize probe explicitly for readiness and catalog discovery.
-          if (body.authType === "none") {
-            await markExternalMcpConnectionConnected(created.id)
-          }
-        } catch (error) {
-          const diagnostic = externalMcpDiagnosticForResponse(error, c.get("requestId"), "MCP_INITIALIZE")
-          logger.error("external_mcp_connection_validation_failed", {
-            connection_id: created.id,
-            organization_id: payload.organization.id,
-            connection_endpoint: safeExternalMcpEndpointForLog(created.url),
-            ...externalMcpDiagnosticForLog(error, c.get("requestId"), "MCP_INITIALIZE"),
-          })
-          return c.json({
-            error: "connection_validation_failed",
-            message: `无法验证“${created.name}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
-            diagnostic,
-          }, 502)
-        }
+      if (body.authType === "none" && validatedAt) {
+        await markExternalMcpConnectionConnected(created.id)
       }
 
       const refreshed = await getExternalMcpConnection({ organizationId: payload.organization.id, connectionId: created.id })
@@ -2068,7 +2148,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
           })
           return c.json({
             error: "connection_validation_failed",
-            message: `无法验证“${body.name}”：${diagnostic.message}。参考编号：${diagnostic.referenceId}。`,
+            message: `无法验证“${body.name}”：${mcpConnectionValidationMessage(diagnostic.category)}。参考编号：${diagnostic.referenceId}。`,
             diagnostic,
           }, 502)
         }
@@ -2079,6 +2159,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
         connectionId: externalMcpConnectionId,
         expectedUpdatedAt: new Date(body.expectedUpdatedAt),
         name: body.name,
+        ...(body.description !== undefined ? { description: body.description || null } : {}),
         url: body.url,
         authType: body.authType,
         credentialMode: body.credentialMode,

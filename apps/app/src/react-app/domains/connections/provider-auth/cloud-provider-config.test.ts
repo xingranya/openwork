@@ -1,6 +1,9 @@
 declare const describe: (name: string, fn: () => void) => void;
 declare const test: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => { toBe: (expected: unknown) => void };
+declare const expect: (value: unknown) => {
+  toBe: (expected: unknown) => void;
+  toEqual: (expected: unknown) => void;
+};
 
 import type {
   DenOrgLlmProvider,
@@ -11,6 +14,7 @@ import {
   getCloudManagedProviderId,
   getProviderModelIds,
   isCloudProviderOutOfSync,
+  buildCloudProviderConfig,
 } from "./cloud-provider-config";
 
 const UPDATED_AT = "2024-02-01T00:00:00.000Z";
@@ -32,6 +36,7 @@ const makeProvider = (
   name: "OpenRouter",
   providerConfig: {},
   hasApiKey: true,
+  defaultEnabled: false,
   models,
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt,
@@ -79,5 +84,43 @@ describe("isCloudProviderOutOfSync", () => {
     );
 
     expect(isCloudProviderOutOfSync(liveProvider, importedFrom(baselineProvider))).toBe(true);
+  });
+});
+
+describe("buildCloudProviderConfig", () => {
+  test("完整保留 Den 下发的推理能力和强度变体", () => {
+    const provider = makeProvider([{
+      ...makeModel("claude-company"),
+      config: {
+        reasoning: true,
+        variants: {
+          high: { thinking: { type: "enabled", budgetTokens: 16000 } },
+          max: { thinking: { type: "enabled", budgetTokens: 31999 } },
+        },
+      },
+    }]);
+    provider.providerConfig = { npm: "@ai-sdk/anthropic" };
+
+    expect(buildCloudProviderConfig({
+      ...provider,
+      apiKey: "secret",
+      apiKeys: null,
+    })).toEqual({
+      id: "openrouter",
+      name: "OpenRouter",
+      env: [],
+      npm: "@ai-sdk/anthropic",
+      models: {
+        "claude-company": {
+          id: "claude-company",
+          name: "claude-company",
+          reasoning: true,
+          variants: {
+            high: { thinking: { type: "enabled", budgetTokens: 16000 } },
+            max: { thinking: { type: "enabled", budgetTokens: 31999 } },
+          },
+        },
+      },
+    });
   });
 });

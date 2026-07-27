@@ -129,7 +129,9 @@ type WelcomePageProps = {
   onManualFolderChange?: (value: string) => void;
   onUseManualFolder?: () => void;
   showManualFolder?: boolean;
-  onTeamSignIn?: () => void;
+  getStartedDisabled?: boolean;
+  companyConfigured: boolean;
+  companySignedIn: boolean;
   organizationServerBusy: boolean;
   organizationServerError: string | null;
   organizationServerUrl: string;
@@ -165,7 +167,9 @@ export function WelcomePage({
   onManualFolderChange,
   onUseManualFolder,
   showManualFolder,
-  onTeamSignIn,
+  getStartedDisabled,
+  companyConfigured,
+  companySignedIn,
   organizationServerBusy,
   organizationServerError,
   organizationServerUrl,
@@ -196,45 +200,39 @@ export function WelcomePage({
                       开始使用
                     </h2>
                   </div>
-                  <OnboardingStep number="1" title="选择文件夹">
-                    选择电脑上的任意文件夹作为工作区。
+                  <OnboardingStep number="1" title="连接公司">
+                    {companyConfigured
+                      ? "公司服务器已经连接。"
+                      : "填写管理员提供的公司服务器地址，FoxWork 会先检查服务是否可用。"}
                   </OnboardingStep>
-                  <OnboardingStep number="2" title="开始对话">
-                    说清楚要处理的事情，FoxWork 会协助完成。
+                  <OnboardingStep number="2" title="登录账号">
+                    {companySignedIn
+                      ? "公司账号已经登录，模型、工具和技能会按权限自动加载。"
+                      : "连接成功后使用公司账号登录，不需要手动填写访问令牌。"}
                   </OnboardingStep>
-                  <OnboardingStep number="3" title="确认结果">
-                    检查结果、批准操作，再继续调整。
+                  <OnboardingStep number="3" title="开始工作">
+                    登录后可以使用公司远程工作区，也可以继续添加本地工作区。
                   </OnboardingStep>
                 </div>
 
                 <div className="space-y-2">
-                  <Button
-                    size="lg"
-                    className="w-full"
-                    onClick={onGetStarted}
-                    disabled={busy}
-                  >
-                    {busy ? t("welcome.creating_workspace") : (getStartedLabel || t("welcome.get_started"))}
-                  </Button>
                   <OrganizationServerAffordance
                     busy={organizationServerBusy}
                     error={organizationServerError
                       ? toChineseUserMessage(organizationServerError, "无法连接公司服务器，请检查地址后重试。")
                       : null}
                     onSave={onOrganizationServerSave}
+                    required={!companyConfigured}
                     url={organizationServerUrl}
                   />
-                  {onTeamSignIn ? (
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="h-auto w-full p-0 text-sm text-muted-foreground"
-                      onClick={onTeamSignIn}
-                      data-testid="welcome-team-signin"
-                    >
-                      {t("welcome.team_signin")}
-                    </Button>
-                  ) : null}
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    onClick={onGetStarted}
+                    disabled={busy || getStartedDisabled}
+                  >
+                    {busy ? t("welcome.creating_workspace") : (getStartedLabel || t("welcome.get_started"))}
+                  </Button>
                   {error ? (
                     <p className="text-center text-xs text-destructive">
                       {toChineseUserMessage(error, "无法创建工作区，请稍后重试。")}

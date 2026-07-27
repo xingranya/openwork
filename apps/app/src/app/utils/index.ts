@@ -438,16 +438,52 @@ export function redactTokenLikeText(value: string): string {
     .replace(/\bowt_[a-z0-9_-]+\b/gi, "owt_[redacted]");
 }
 
+/** 将远程工作区返回的内部错误归一为可直接展示给员工的中文说明。 */
+export function describeWorkspaceTaskLoadError(value: string): string {
+  const redacted = redactTokenLikeText(value.trim());
+  if (!redacted) return "无法加载任务";
+
+  const localized = toChineseUserMessage(redacted, "");
+  if (localized) return localized;
+
+  const normalized = redacted.toLowerCase();
+  if (
+    normalized.includes("authorization") ||
+    normalized.includes("bearer") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("invalid token") ||
+    normalized.includes("access token")
+  ) {
+    return "远程工作区认证失败，请重新登录公司账号后重试。";
+  }
+  if (normalized.includes("forbidden") || normalized.includes("permission denied") || /\b403\b/.test(normalized)) {
+    return "当前账号没有访问该远程工作区的权限，请联系公司管理员。";
+  }
+  if (normalized.includes("not found") || /\b404\b/.test(normalized)) {
+    return "远程工作区或任务不存在，请刷新工作区后重试。";
+  }
+  if (normalized.includes("too many requests") || normalized.includes("rate limit") || /\b429\b/.test(normalized)) {
+    return "远程工作区当前请求较多，请稍后重试。";
+  }
+  if (SANDBOX_NETWORK_HINTS.some((hint) => normalized.includes(hint))) {
+    return "远程工作区连接失败，请检查网络后重试。";
+  }
+
+  const errorCode = redacted.match(/\b[A-Z][A-Z0-9_]{2,63}\b/)?.[0] ?? "";
+  return errorCode
+    ? `远程工作区返回错误代码 ${errorCode}，请重试；仍失败时请联系公司管理员。`
+    : "远程工作区返回了未识别错误，请重试；仍失败时请联系公司管理员。";
+}
+
 export function getWorkspaceTaskLoadErrorDisplay(workspace: WorkspaceInfo, error?: string | null) {
   const raw = redactTokenLikeText(error?.trim() ?? "");
-  const safeRaw = toChineseUserMessage(raw, "");
-  const fallbackTitle = safeRaw || "无法加载任务";
+  const userMessage = describeWorkspaceTaskLoadError(raw);
   if (!raw || !isSandboxWorkspace(workspace)) {
     return {
       tone: "error" as const,
       label: "错误",
-      message: safeRaw || "无法加载任务",
-      title: fallbackTitle,
+      message: userMessage,
+      title: userMessage,
     };
   }
 
@@ -461,8 +497,8 @@ export function getWorkspaceTaskLoadErrorDisplay(workspace: WorkspaceInfo, error
     return {
       tone: "error" as const,
       label: "错误",
-      message: "无法加载任务",
-      title: fallbackTitle,
+      message: userMessage,
+      title: userMessage,
     };
   }
 
@@ -471,7 +507,7 @@ export function getWorkspaceTaskLoadErrorDisplay(workspace: WorkspaceInfo, error
     tone: "offline" as const,
     label: "离线",
     message,
-    title: safeRaw ? `${message}\n\n${safeRaw}` : message,
+    title: userMessage !== "无法加载任务" ? `${message}\n\n${userMessage}` : message,
   };
 }
 

@@ -94,7 +94,13 @@ import {
 } from "@/react-app/shell/route-workspaces";
 import { useLocal } from "@/react-app/kernel/local-provider";
 import { usePlatform } from "@/react-app/kernel/platform";
-import { SessionPage, type OpenSessionTab } from "@/react-app/domains/session/chat/session-page";
+import { SessionPage } from "@/react-app/domains/session/chat/session-page";
+import {
+  forgetOpenSessionTabsForWorkspace,
+  readOpenSessionTabs,
+  writeOpenSessionTabs,
+  type OpenSessionTab,
+} from "@/react-app/domains/session/chat/session-tab-state";
 import { isDesktopProviderBlocked } from "@/app/cloud/desktop-app-restrictions";
 import { useCheckDesktopRestriction } from "@/react-app/domains/cloud/desktop-config-provider";
 import { ReactSessionRuntime } from "@/react-app/domains/session/sync/runtime-sync";
@@ -110,6 +116,7 @@ import {
 } from "@/react-app/domains/session/sync/session-sync";
 import { firstLineLocalFileParts, joinWorkspaceRelativePath, toFileUrl } from "@/react-app/domains/session/sync/prompt-file-parts";
 import { composerAttachmentsToWorkspaceFileParts } from "@/react-app/domains/session/sync/attachment-file-part";
+import { buildSessionPromptRuntimeOptions } from "@/react-app/domains/session/sync/session-prompt-runtime-options";
 import { useSessionInteractions } from "@/react-app/domains/session/sync/use-session-interactions";
 import { useModelBehavior } from "@/react-app/domains/session/surface/use-model-behavior";
 import { useSessionFindStore } from "@/react-app/domains/session/surface/find-store";
@@ -128,6 +135,7 @@ import { useMcpConnectedCount } from "@/react-app/domains/connections/use-mcp-co
 import { useSessionMcpMaintenance } from "@/react-app/domains/connections/use-session-mcp-maintenance";
 import { useCloudMcpSubmitReadiness } from "@/react-app/domains/connections/use-cloud-mcp-submit-readiness";
 import type { CloudMcpSubmissionResult } from "@/react-app/domains/connections/cloud-mcp-submit-readiness";
+import { useCompanySkillAutoSync } from "@/react-app/domains/settings/state/use-company-skill-auto-sync";
 import { useRemoteAccessRestart } from "@/react-app/domains/workspace/remote-access-restart";
 import {
   PERSONAL_REMOTE_WORKSPACE_RETRY_MS,
@@ -496,6 +504,28 @@ export function SessionRoute() {
     directory: selectedWorkspaceRoot,
     engineReloadBusy: reloadCoordinator.reloadBusy,
     providerModel: cloudMcpProviderModel,
+  });
+  const handleCompanySkillsChanged = useCallback((result: {
+    restored: string[];
+    updated: string[];
+    removed: string[];
+  }) => {
+    for (const name of result.restored) {
+      reloadCoordinator.markReloadRequired("skills", { type: "skill", name, action: "added" });
+    }
+    for (const name of result.updated) {
+      reloadCoordinator.markReloadRequired("skills", { type: "skill", name, action: "updated" });
+    }
+    for (const name of result.removed) {
+      reloadCoordinator.markReloadRequired("skills", { type: "skill", name, action: "removed" });
+    }
+  }, [reloadCoordinator.markReloadRequired]);
+  useCompanySkillAutoSync({
+    authStatus: denAuth.status,
+    openworkClient: selectedWorkspaceEndpoint?.client ?? null,
+    workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? null,
+    workspaceType: selectedWorkspace?.workspaceType ?? null,
+    onSkillsChanged: handleCompanySkillsChanged,
   });
   const {
     state: cloudMcpSubmissionState,
@@ -1046,10 +1076,12 @@ export function SessionRoute() {
             const result = await opencodeClient.session.promptAsync({
               sessionID: targetSessionId,
               parts,
-              model: local.prefs.defaultModel ?? undefined,
-              agent: selectedAgent ?? undefined,
-              ...(modelVariantValue ? { variant: modelVariantValue } : {}),
-              ...(envSystemContext ? { system: envSystemContext } : {}),
+              ...buildSessionPromptRuntimeOptions({
+                model: local.prefs.defaultModel,
+                agent: selectedAgent,
+                variant: modelVariantValue,
+                system: envSystemContext,
+              }),
             });
             if (result.error) {
               throw new Error(serializeSDKError(result.error));
@@ -1273,6 +1305,7 @@ export function SessionRoute() {
         navigate(legacySessionRoute());
       }
       forgetWorkspaceMemory(workspaceId);
+      writeOpenSessionTabs(forgetOpenSessionTabsForWorkspace(readOpenSessionTabs(), workspaceId));
       sessionManagementStore.getState().forgetWorkspace(workspaceId);
       await refreshRouteState();
     },

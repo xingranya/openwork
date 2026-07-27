@@ -136,7 +136,7 @@ describe("Connect state inspection", () => {
       sqlite.query("INSERT INTO runtime_opencode_configs (workspace_id, config_json, updated_at) VALUES (?, ?, ?)")
         .run("first", JSON.stringify({ mcp: {} }), 1234);
       sqlite.query("INSERT INTO runtime_opencode_configs (workspace_id, config_json, updated_at) VALUES (?, ?, ?)")
-        .run("second", JSON.stringify({ mcp: { "openwork-cloud": { type: "remote" } } }), 1234);
+        .run("second", JSON.stringify({ mcp: { "foxwork-company": { type: "remote" } } }), 1234);
       sqlite.close();
 
       expect(await inspectConnectSnapshot(config, { maxRuntimeRows: 1 })).toMatchObject({

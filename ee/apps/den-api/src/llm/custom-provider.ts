@@ -1,4 +1,5 @@
 import { parse, type ParseError } from "jsonc-parser"
+import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning"
 import { z } from "zod"
 
 type JsonRecord = Record<string, unknown>
@@ -146,10 +147,18 @@ export function normalizeCustomProviderConfig(input: {
   return {
     providerId: customProvider.data.id,
     providerConfig,
-    models: models.map((model) => ({
-      id: model.id,
-      name: model.name,
-      config: model,
-    })),
+    models: models.map((model) => {
+      const modelProvider = isRecord(model.provider) ? model.provider : null
+      const npm = readString(modelProvider?.npm) ?? customProvider.data.npm
+      return {
+        id: model.id,
+        name: model.name,
+        config: applyModelReasoningDefaults({
+          modelId: model.id,
+          npm,
+          config: model,
+        }),
+      }
+    }),
   }
 }

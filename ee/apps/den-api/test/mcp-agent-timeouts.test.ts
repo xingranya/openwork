@@ -162,7 +162,7 @@ test("external capability failures preserve the safe MCP diagnostic envelope", (
     connectionStatus: {
       version: 1,
       kind: "connection_action",
-      source: "openwork-cloud",
+      source: "foxwork-company",
       layer: "mcp_connection",
       connectionId: "emc_test",
       connectionName: "Knowledge Hub",

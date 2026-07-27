@@ -4,6 +4,7 @@ import {
   type DenWorkerTokens,
 } from "@/app/lib/den";
 import type { WorkspaceInfo, WorkspaceList } from "@/app/lib/desktop";
+import { stripOpenworkWorkspaceMount } from "@/app/lib/openwork-server";
 
 export const PERSONAL_REMOTE_WORKSPACE_NAME = "我的远程工作区";
 export const PERSONAL_REMOTE_WORKSPACE_BACKEND = "den-worker";
@@ -88,7 +89,7 @@ function workspaceIdFromList(list: WorkspaceList, workerId: string, serverWorksp
 }
 
 function toRemoteWorkspacePayload(worker: DenWorkerSummary, tokens: DenWorkerTokens): RemoteWorkspacePayload | null {
-  const baseUrl = tokens.openworkUrl?.trim() ?? "";
+  const baseUrl = stripOpenworkWorkspaceMount(tokens.openworkUrl?.trim() ?? "");
   const clientToken = tokens.clientToken?.trim() ?? "";
   const workspaceId = tokens.workspaceId?.trim() ?? "";
   if (!baseUrl || !clientToken || !workspaceId) return null;

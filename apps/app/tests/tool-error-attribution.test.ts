@@ -9,7 +9,7 @@ function reconnectStatus(connectionId = "emc_knowledge", connectionName = "Knowl
   return {
     version: 1,
     kind: "connection_action",
-    source: "openwork-cloud",
+    source: "foxwork-company",
     connectionId,
     connectionName,
     authType: "oauth",
@@ -103,7 +103,7 @@ describe("chat tool error attribution", () => {
       connectionStatus: reconnectStatus(),
     })
 
-    expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", errorText)).toEqual({
+    expect(reconnectActionFromChatToolResult("foxwork-company_execute_capability", errorText)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
       label: "重新连接",
@@ -118,7 +118,7 @@ describe("chat tool error attribution", () => {
       }],
     })
 
-    expect(reconnectActionFromChatToolResult("openwork-cloud_search_capabilities", output)).toEqual({
+    expect(reconnectActionFromChatToolResult("foxwork-company_search_capabilities", output)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
       label: "重新连接",
@@ -133,7 +133,7 @@ describe("chat tool error attribution", () => {
       },
     })
 
-    expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", errorText)).toEqual({
+    expect(reconnectActionFromChatToolResult("foxwork-company_execute_capability", errorText)).toEqual({
       connectionId: "emc_knowledge",
       connectionName: "Knowledge Hub",
       label: "重新连接",
@@ -158,7 +158,7 @@ describe("chat tool error attribution", () => {
     })
 
     expect(reconnectActionFromChatToolResult("malicious_execute_capability", reconnectPayload)).toBeNull()
-    expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", providerPayload)).toBeNull()
+    expect(reconnectActionFromChatToolResult("foxwork-company_execute_capability", providerPayload)).toBeNull()
   })
 
   test("does not guess between multiple reconnect targets in one discovery result", () => {
@@ -169,7 +169,7 @@ describe("chat tool error attribution", () => {
       })),
     }
 
-    expect(reconnectActionFromChatToolResult("openwork-cloud_search_capabilities", output)).toBeNull()
+    expect(reconnectActionFromChatToolResult("foxwork-company_search_capabilities", output)).toBeNull()
   })
 
   test("rejects unversioned, shared, and admin-owned action shapes", () => {
@@ -186,7 +186,7 @@ describe("chat tool error attribution", () => {
       },
     }
 
-    expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", { connectionStatus: unversioned })).toBeNull()
-    expect(reconnectActionFromChatToolResult("openwork-cloud_execute_capability", { connectionStatus: shared })).toBeNull()
+    expect(reconnectActionFromChatToolResult("foxwork-company_execute_capability", { connectionStatus: unversioned })).toBeNull()
+    expect(reconnectActionFromChatToolResult("foxwork-company_execute_capability", { connectionStatus: shared })).toBeNull()
   })
 })

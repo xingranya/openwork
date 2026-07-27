@@ -11,6 +11,7 @@ import type {
   AgentContextOrganizationConnectionSummary,
   AgentContextToolPermission,
 } from "@openwork/types/agent-context-diagnostics";
+import { FOXWORK_COMPANY_MCP_NAME } from "@openwork/types/den/mcp-connection-action";
 
 import { Button } from "@/components/ui/button";
 import { toChineseUserMessage } from "@/app/lib/user-facing-error";
@@ -480,9 +481,9 @@ function CloudCatalog(props: {
 }) {
   const observed = props.report.observedCloudToolIds;
   const cloudMcp = props.report.mcps.find(
-    (mcp) => mcp.source === "config.remote" && mcp.name === "openwork-cloud" && mcp.path === "/mcp/agent",
+    (mcp) => mcp.source === "config.remote" && mcp.name === FOXWORK_COMPANY_MCP_NAME && mcp.path === "/mcp/agent",
   ) ?? props.report.mcps.find(
-    (mcp) => mcp.name === "openwork-cloud" && mcp.path === "/mcp/agent",
+    (mcp) => mcp.name === FOXWORK_COMPANY_MCP_NAME && mcp.path === "/mcp/agent",
   );
   const observedTerminalPath = cloudMcp?.path === "/mcp/agent" ? cloudMcp.path : null;
   return (

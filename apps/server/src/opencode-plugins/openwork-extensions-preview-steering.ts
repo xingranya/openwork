@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 export type OpenCodeContext = {
   agent?: string;
@@ -129,18 +134,18 @@ const connectStateResponseSchema = z.object({
 }).passthrough();
 
 export const OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION =
-  "If the user asks for something you cannot do with obvious built-in tools, check OpenWork extensions before saying the capability is unavailable. Use openwork_extension_list_actions to inspect available extension actions, then call the matching action with openwork_extension_call.";
+  "如果员工提出的任务无法直接用内置工具完成，先检查 FoxWork 扩展，再判断能力是否可用。使用 openwork_extension_list_actions 查看可用动作，再通过 openwork_extension_call 调用匹配动作。";
 
 export const OPENWORK_CLOUD_CONNECTION_INSTRUCTION =
-  "The OpenWork Cloud connection is verified ready for this exact workspace/model. For email (Gmail), calendar, Google Drive, and org-connected services such as Notion, Linear, Slack, etc., FIRST call openwork-cloud_search_capabilities with 2-4 keyword variants, then call openwork-cloud_execute_capability with an exact returned name. Search before claiming these are unavailable. OpenWork extensions (openwork_extension_list_actions / openwork_extension_call) remain available for other local actions such as image generation; use OpenWork Cloud capabilities for Google Workspace. Settings > Connect is the relevant settings surface for Google Workspace. A successful search proves OpenWork Cloud itself is authorized, so a downstream connector failure does not mean OpenWork Cloud needs to be reconnected. If a result has kind connection_status, name connectionStatus.connectionName and relay connectionStatus.action exactly: use Your Connections for the member, the organization Connections dashboard for an org admin, or the provider admin console for a provider-side failure. After the requested human fixes that connector, search again in the same task because results are live, not cached, so unchanged retries return the same error.";
+  `当前工作区和模型已经可以使用公司能力。处理邮件、日历、Google Drive 或公司连接的 Notion、Linear、Slack 等服务时，先用 ${FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]} 按 2 至 4 组关键词检索，再用 ${FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[1]} 调用返回的准确能力名称；检索前不要直接声称不可用。图片生成等本地动作仍可通过 FoxWork 扩展完成。Google Workspace 的设置入口是“设置 > 公司连接”。检索成功只代表公司能力服务已经授权，下游连接失败不等于需要重新连接公司服务。若结果包含 connection_status，请准确说明连接名称和处理动作；员工个人授权在“我的连接”处理，公司共享连接由管理员在后台处理，供应商故障由对应供应商后台处理。人工完成处理后，应在同一任务中重新检索，因为结果来自实时状态。`;
 
 export const OPENWORK_CONNECT_SIGN_IN_INSTRUCTION =
-  `${OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION} OpenWork Cloud is not signed in or no desired agent access configuration exists for this workspace. Direct the user to sign in to OpenWork and connect the service in Settings → Connect.`;
+  `${OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION} 当前尚未登录公司服务，或本工作区还没有 AI 使用权限。请引导员工登录 FoxWork，并在“设置 > 公司连接”完成连接。`;
 
 export const OPENWORK_CONNECT_DISABLED_INSTRUCTION =
-  `${OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION} OpenWork Cloud agent access is explicitly disabled for this workspace. Explain that the user can enable agent access in Settings → Connect.`;
+  `${OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION} 当前工作区的公司 AI 使用权限已关闭。请说明员工可以在“设置 > 公司连接”重新启用。`;
 
-const OPENWORK_CLOUD_MCP_NAME = "openwork-cloud";
+const OPENWORK_CLOUD_MCP_NAME = FOXWORK_COMPANY_MCP_NAME;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -240,7 +245,9 @@ function engineStatusPayload(result: unknown): unknown {
 }
 
 function readEngineMcpStatus(result: unknown): EngineMcpStatusResult {
-  const entry = getRecordProperty(engineStatusPayload(result), OPENWORK_CLOUD_MCP_NAME);
+  const payload = engineStatusPayload(result);
+  const entry = getRecordProperty(payload, OPENWORK_CLOUD_MCP_NAME)
+    ?? getRecordProperty(payload, LEGACY_OPENWORK_CLOUD_MCP_NAME);
   if (entry === undefined) return { found: false };
   if (typeof entry === "string") return { found: true, status: readString(entry) };
   return { found: true, status: readNestedString(entry, ["status"]) };

@@ -1,4 +1,4 @@
-import type { FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
+import type { FilePartInput } from "@opencode-ai/sdk/v2/client";
 
 import type { ComposerAttachment } from "../../../../app/types";
 import { joinWorkspaceRelativePath, toFileUrl } from "./prompt-file-parts";
@@ -219,16 +219,8 @@ export function workspaceInboxPath(inboxRelativePath: string) {
 }
 
 function uploadErrorMessage(filename: string, error: unknown) {
-  const detail = error instanceof Error ? error.message : String(error || "Unknown upload error");
-  return `Failed to copy attachment "${filename}" into this worker workspace: ${detail}`;
-}
-
-function attachmentPathNote(uploaded: UploadedChatAttachment[]) {
-  return `\n\n${[
-    "Attached files were copied into this worker workspace for tool access:",
-    ...uploaded.map((item) => `- ${item.filename}: ${item.workspacePath} (${item.url})`),
-    "Use these paths with Read/Bash/MCP/Docling when a tool needs the file bytes.",
-  ].join("\n")}`;
+  const detail = error instanceof Error ? error.message : String(error || "上传失败");
+  return `无法把附件“${filename}”复制到当前工作区：${detail}`;
 }
 
 function uploadedAttachmentFilePart(item: UploadedChatAttachment): FilePartInput {
@@ -246,7 +238,7 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
   sessionId: string;
   workspaceRoot: string;
   createId?: () => string;
-}): Promise<Array<TextPartInput | FilePartInput>> {
+}): Promise<FilePartInput[]> {
   if (input.attachments.length === 0) return [];
 
   const workspaceRoot = input.workspaceRoot.trim();
@@ -277,13 +269,13 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
     }
 
     if (result.ok === false) {
-      throw new Error(`Failed to copy attachment "${metadata.filename}" into this worker workspace: upload was rejected`);
+      throw new Error(`无法把附件“${metadata.filename}”复制到当前工作区：服务器拒绝了上传`);
     }
     if (!result.path.trim()) {
-      throw new Error(`Failed to copy attachment "${metadata.filename}" into this worker workspace: upload did not return a path`);
+      throw new Error(`无法把附件“${metadata.filename}”复制到当前工作区：服务器没有返回文件位置`);
     }
     if (result.bytes !== attachment.file.size) {
-      throw new Error(`Failed to copy attachment "${metadata.filename}" into this worker workspace: expected ${attachment.file.size} bytes, wrote ${result.bytes}`);
+      throw new Error(`无法把附件“${metadata.filename}”复制到当前工作区：文件大小校验失败`);
     }
 
     const workspacePath = workspaceInboxPath(result.path);
@@ -297,10 +289,7 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
     });
   }
 
-  return [
-    { type: "text", text: attachmentPathNote(uploaded) },
-    ...uploaded.map(uploadedAttachmentFilePart),
-  ];
+  return uploaded.map(uploadedAttachmentFilePart);
 }
 
 export async function composerAttachmentToFilePart(attachment: ComposerAttachment): Promise<FilePartInput> {

@@ -83,6 +83,77 @@ test("keeps accepting models.dev-style provider configs without doc", () => {
   expect(normalized.providerConfig.doc).toBeUndefined()
 })
 
+test("为非网页入口提交的 GPT-5 公司模型补齐推理强度", () => {
+  const normalized = normalizeCustomProviderConfig({
+    customConfig: {
+      id: "company-openai",
+      name: "公司 OpenAI 网关",
+      npm: "@ai-sdk/openai-compatible",
+      env: ["COMPANY_OPENAI_API_KEY"],
+      api: "https://models.example.com/v1",
+      models: [{ id: "gpt-5.4", name: "gpt-5.4" }],
+    },
+  })
+
+  expect(normalized.models[0]?.config).toEqual({
+    id: "gpt-5.4",
+    name: "gpt-5.4",
+    reasoning: true,
+    variants: {
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    },
+  })
+})
+
+test("为非网页入口提交的 Claude 别名补齐扩展思考强度", () => {
+  const normalized = normalizeCustomProviderConfig({
+    customConfig: {
+      id: "company-anthropic",
+      name: "公司 Anthropic 网关",
+      npm: "@ai-sdk/anthropic",
+      env: ["COMPANY_ANTHROPIC_API_KEY"],
+      api: "https://anthropic.example.com/v1",
+      models: [{ id: "claude-company", name: "claude-company" }],
+    },
+  })
+
+  expect(normalized.models[0]?.config).toEqual({
+    id: "claude-company",
+    name: "claude-company",
+    reasoning: true,
+    variants: {
+      high: { thinking: { type: "enabled", budgetTokens: 16000 } },
+      max: { thinking: { type: "enabled", budgetTokens: 31999 } },
+    },
+  })
+})
+
+test("管理员显式推理配置优先于自动默认值", () => {
+  const normalized = normalizeCustomProviderConfig({
+    customConfig: {
+      id: "company-openai",
+      name: "公司 OpenAI 网关",
+      npm: "@ai-sdk/openai-compatible",
+      env: ["COMPANY_OPENAI_API_KEY"],
+      models: [{
+        id: "gpt-5.4",
+        name: "gpt-5.4",
+        reasoning: false,
+        variants: { company: { reasoningEffort: "company" } },
+      }],
+    },
+  })
+
+  expect(normalized.models[0]?.config).toEqual({
+    id: "gpt-5.4",
+    name: "gpt-5.4",
+    reasoning: false,
+    variants: { company: { reasoningEffort: "company" } },
+  })
+})
+
 test("returns field paths for invalid custom provider configs", () => {
   expect(() => normalizeCustomProviderConfig({ customConfigText: JSON.stringify({ models: [] }) })).toThrow(
     new CustomProviderConfigError("id: Invalid input: expected string, received undefined; name: Invalid input: expected string, received undefined; npm: Invalid input: expected string, received undefined"),

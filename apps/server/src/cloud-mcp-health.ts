@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { createOpencodeClient, McpStatus, ToolIds, ToolList } from "@opencode-ai/sdk/v2/client";
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  FOXWORK_COMPANY_MCP_NAME,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 import { ApiError } from "./errors.js";
 import { diagnoseMcpToolDenies, type McpToolDeny } from "./mcp.js";
 import { sanitizeDiagnosticString, sanitizeDiagnosticValue } from "./diagnostic-sanitizer.js";
@@ -11,11 +16,10 @@ import { externalFetch } from "./server-fetch.js";
 import type { ServerConfig, WorkspaceInfo } from "./types.js";
 import { validateMcpConfig } from "./validators.js";
 
-export const OPENWORK_CLOUD_MCP_NAME = "openwork-cloud";
-export const OPENWORK_CLOUD_EXPECTED_TOOLS = [
-  "openwork-cloud_search_capabilities",
-  "openwork-cloud_execute_capability",
-] satisfies string[];
+/** 保留旧导出名，避免内部调用方在迁移期间分叉；实际名称已经是公司能力 MCP。 */
+export const OPENWORK_CLOUD_MCP_NAME = FOXWORK_COMPANY_MCP_NAME;
+export const OPENWORK_CLOUD_EXPECTED_TOOLS = [...FOXWORK_COMPANY_MCP_EXPECTED_TOOLS] satisfies string[];
+export const LEGACY_OPENWORK_CLOUD_NAME = LEGACY_OPENWORK_CLOUD_MCP_NAME;
 const OPENWORK_CLOUD_DIRECT_TOOL_NAMES = [
   "search_capabilities",
   "execute_capability",
@@ -793,7 +797,8 @@ async function readDesiredState(input: {
   connectCatalogEnabled?: boolean;
 }): Promise<CloudMcpDesiredState> {
   const runtimeConfig = await readRuntimeOpencodeConfig(input.config, input.workspace.id);
-  const entry = runtimeMcpMap(runtimeConfig)[OPENWORK_CLOUD_MCP_NAME];
+  const runtimeMcp = runtimeMcpMap(runtimeConfig);
+  const entry = runtimeMcp[OPENWORK_CLOUD_MCP_NAME] ?? runtimeMcp[LEGACY_OPENWORK_CLOUD_NAME];
   if (!entry) {
     const metadata = defaultDesiredMetadata(null, input.connectCatalogEnabled ?? false);
     return { present: false, revision: null, config: null, redactedConfig: null, metadata };
@@ -1545,7 +1550,8 @@ async function inspectOpenworkCloud(input: {
     };
   }
 
-  const cloudStatus = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME];
+  const cloudStatus = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME]
+    ?? statusResult.data?.[LEGACY_OPENWORK_CLOUD_NAME];
   const engine = engineStatusFromMcpStatus(cloudStatus);
   if (cloudStatus?.status !== "connected") {
     failures.push(statusFailure(cloudStatus));
@@ -1949,7 +1955,9 @@ async function persistDesiredConfig(config: ServerConfig, workspaceId: string, d
   await writeRuntimeOpencodeConfig(config, workspaceId, (current) => ({
     ...current,
     mcp: {
-      ...runtimeMcpMap(current),
+      ...Object.fromEntries(
+        Object.entries(runtimeMcpMap(current)).filter(([name]) => name !== LEGACY_OPENWORK_CLOUD_NAME),
+      ),
       [OPENWORK_CLOUD_MCP_NAME]: desiredConfig,
     },
   }));
@@ -1984,7 +1992,8 @@ async function pollConnected(input: {
       lastFailure = statusResult.failure;
       continue;
     }
-    const cloudStatus = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME];
+    const cloudStatus = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME]
+      ?? statusResult.data?.[LEGACY_OPENWORK_CLOUD_NAME];
     if (cloudStatus?.status === "connected") return null;
     lastFailure = statusFailure(cloudStatus);
     if (cloudStatus?.status === "disabled" || cloudStatus?.status === "needs_auth" || cloudStatus?.status === "needs_client_registration" || cloudStatus?.status === "failed") {
@@ -2097,7 +2106,8 @@ export async function reconcilePersistedOpenworkCloudMcp(input: {
   trigger?: string;
 }): Promise<CloudMcpHealth> {
   const runtimeConfig = await readRuntimeOpencodeConfig(input.config, input.workspace.id);
-  const desiredConfig = runtimeMcpMap(runtimeConfig)[OPENWORK_CLOUD_MCP_NAME];
+  const runtimeMcp = runtimeMcpMap(runtimeConfig);
+  const desiredConfig = runtimeMcp[OPENWORK_CLOUD_MCP_NAME] ?? runtimeMcp[LEGACY_OPENWORK_CLOUD_NAME];
   if (!desiredConfig) {
     return readOpenworkCloudMcpHealth(input);
   }

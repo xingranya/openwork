@@ -9,6 +9,7 @@ process.env.DATABASE_URL = process.env.DATABASE_URL ?? "mysql://root:password@12
 process.env.DEN_DB_ENCRYPTION_KEY = process.env.DEN_DB_ENCRYPTION_KEY ?? "local-dev-db-encryption-key-please-change-1234567890"
 process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "local-dev-secret-not-for-production-use!!"
 process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8790"
+process.env.DEN_API_PUBLIC_URL = process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790"
 process.env.CORS_ORIGINS = process.env.CORS_ORIGINS ?? "http://127.0.0.1:8790"
 process.env.DEN_ALLOW_PRIVATE_MCP_URLS = "1"
 
@@ -344,7 +345,7 @@ test("catalog inspection requires a connected credential", async () => {
   expect(response.status).toBe(409)
   expect(await response.json()).toEqual({
     error: "connection_not_ready",
-    message: "Connect this MCP before using its tools.",
+    message: "请先完成此 MCP 连接，再使用它的工具。",
   })
 })
 
@@ -498,7 +499,7 @@ test("manual tool execution rejects payloads larger than 1 MB", async () => {
   expect(response.status).toBe(413)
   expect(await response.json()).toEqual({
     error: "payload_too_large",
-    message: "Tool arguments must fit within 1 MB.",
+    message: "工具参数不能超过 1 MB。",
   })
 })
 

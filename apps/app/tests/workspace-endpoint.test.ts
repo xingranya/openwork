@@ -46,6 +46,47 @@ describe("workspace endpoint resolution", () => {
     expect(endpoint?.mountedBaseUrl).toBe("https://worker.example.test/workspace/server-workspace-b");
   });
 
+  test("旧版保存的工作区挂载地址会自动还原为 Worker 主机地址", () => {
+    const endpoint = resolveWorkspaceEndpoint({
+      id: "rem_ui-workspace-b",
+      name: "Remote",
+      path: "/workspace/server-workspace-b",
+      preset: "minimal",
+      workspaceType: "remote",
+      baseUrl: "https://worker.example.test/w/server-workspace-b",
+      openworkHostUrl: "https://worker.example.test/w/server-workspace-b",
+      openworkToken: "remote-token",
+      openworkWorkspaceId: "server-workspace-b",
+    }, {
+      baseUrl: "http://127.0.0.1:4096",
+      token: "local-token",
+    });
+
+    expect(endpoint?.baseUrl).toBe("https://worker.example.test");
+    expect(endpoint?.client.baseUrl).toBe("https://worker.example.test");
+    expect(endpoint?.mountedBaseUrl).toBe("https://worker.example.test/workspace/server-workspace-b");
+  });
+
+  test("远程工作区的 baseUrl 为空时会回退到 openworkHostUrl", () => {
+    const endpoint = resolveWorkspaceEndpoint({
+      id: "rem_ui-workspace-b",
+      name: "Remote",
+      path: "/workspace/server-workspace-b",
+      preset: "minimal",
+      workspaceType: "remote",
+      baseUrl: "",
+      openworkHostUrl: "https://worker.example.test",
+      openworkToken: "remote-token",
+      openworkWorkspaceId: "server-workspace-b",
+    }, {
+      baseUrl: "http://127.0.0.1:4096",
+      token: "local-token",
+    });
+
+    expect(endpoint?.baseUrl).toBe("https://worker.example.test");
+    expect(endpoint?.client.baseUrl).toBe("https://worker.example.test");
+  });
+
   test("remote workspace ids fall back to stripping rem_ when no explicit server id exists", () => {
     expect(workspaceServerId({
       id: "rem_workspace-c",

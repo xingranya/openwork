@@ -67,12 +67,6 @@ function uploadRecorder(workspaceId: string) {
   return { endpoint, calls };
 }
 
-function textPartText(parts: Awaited<ReturnType<typeof composerAttachmentsToWorkspaceFileParts>>) {
-  const part = parts[0];
-  if (!part || part.type !== "text") throw new Error("Expected first attachment part to be a text note");
-  return part.text;
-}
-
 function filePartUrl(parts: Awaited<ReturnType<typeof composerAttachmentsToWorkspaceFileParts>>, index: number) {
   const part = parts[index];
   if (!part || part.type !== "file") throw new Error(`Expected attachment part ${index} to be a file`);
@@ -270,7 +264,7 @@ describe("composer attachment file parts", () => {
     expect(workspaceInboxPath(inboxPath)).toBe(".opencode/openwork/inbox/chat-attachments/ses_123/nonce-abc-scan one 李.pdf");
   });
 
-  test("uploads exact bytes to the endpoint workspace id and exposes a worker file URL plus path note", async () => {
+  test("上传后只生成文件部件，不把内部路径和工具说明混入员工消息", async () => {
     const { endpoint, calls } = uploadRecorder("server-workspace-42");
     const file = new File([PDF_BYTES], "image-only scan.pdf", { type: "application/pdf" });
 
@@ -288,11 +282,10 @@ describe("composer attachment file parts", () => {
       filename: "image-only scan.pdf",
       bytes: Array.from(PDF_BYTES),
     }]);
-    expect(textPartText(parts).startsWith("\n\nAttached files were copied")).toBe(true);
-    expect(textPartText(parts)).toContain(".opencode/openwork/inbox/chat-attachments/ses_abc/nonce-a-image-only scan.pdf");
-    expect(textPartText(parts)).toContain("Read/Bash/MCP/Docling");
-    expect(filePartUrl(parts, 1)).toBe("file:///workspaces/Worker%20Root/.opencode/openwork/inbox/chat-attachments/ses_abc/nonce-a-image-only%20scan.pdf");
-    expect(parts[1]).toMatchObject({
+    expect(parts).toHaveLength(1);
+    expect(parts.some((part) => part.type === "text")).toBe(false);
+    expect(filePartUrl(parts, 0)).toBe("file:///workspaces/Worker%20Root/.opencode/openwork/inbox/chat-attachments/ses_abc/nonce-a-image-only%20scan.pdf");
+    expect(parts[0]).toMatchObject({
       type: "file",
       filename: "image-only scan.pdf",
       mime: "application/pdf",
@@ -322,8 +315,8 @@ describe("composer attachment file parts", () => {
       "chat-attachments/ses_dupes/nonce-b-scan.pdf",
     ]);
     expect(new Set(calls.map((call) => call.path)).size).toBe(2);
-    expect(filePartUrl(parts, 1)).toBe("file:///C:/Users/Ada%20Lovelace/%E5%B7%A5%E4%BD%9C%E5%8C%BA/.opencode/openwork/inbox/chat-attachments/ses_dupes/nonce-a-scan.pdf");
-    expect(filePartUrl(parts, 2)).toBe("file:///C:/Users/Ada%20Lovelace/%E5%B7%A5%E4%BD%9C%E5%8C%BA/.opencode/openwork/inbox/chat-attachments/ses_dupes/nonce-b-scan.pdf");
+    expect(filePartUrl(parts, 0)).toBe("file:///C:/Users/Ada%20Lovelace/%E5%B7%A5%E4%BD%9C%E5%8C%BA/.opencode/openwork/inbox/chat-attachments/ses_dupes/nonce-a-scan.pdf");
+    expect(filePartUrl(parts, 1)).toBe("file:///C:/Users/Ada%20Lovelace/%E5%B7%A5%E4%BD%9C%E5%8C%BA/.opencode/openwork/inbox/chat-attachments/ses_dupes/nonce-b-scan.pdf");
   });
 
   test("fails before producing prompt parts when workspace upload fails", async () => {
@@ -343,7 +336,7 @@ describe("composer attachment file parts", () => {
       sessionId: "ses_fail",
       workspaceRoot: "/workspace/a",
       createId: () => "nonce-a",
-    })).rejects.toThrow("Failed to copy attachment \"scan.pdf\" into this worker workspace: disk full");
+    })).rejects.toThrow("无法把附件“scan.pdf”复制到当前工作区：disk full");
   });
 
   test("treats an ok:false upload result as a hard failure", async () => {
@@ -365,6 +358,6 @@ describe("composer attachment file parts", () => {
       sessionId: "ses_rejected",
       workspaceRoot: "/workspace/a",
       createId: () => "nonce-a",
-    })).rejects.toThrow("Failed to copy attachment \"scan.pdf\" into this worker workspace: upload was rejected");
+    })).rejects.toThrow("无法把附件“scan.pdf”复制到当前工作区：服务器拒绝了上传");
   });
 });

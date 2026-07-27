@@ -193,7 +193,7 @@ export type ExternalConnectionStatus = {
 }
 
 const ERROR_MESSAGE_LIMIT = 300
-const LIVE_PROBE_HINT = "This is a live probe, not a cached result — repeating the same search without changing anything will return the same error."
+const LIVE_PROBE_HINT = "这是实时检查结果，不是缓存；如果没有处理连接问题，重复检索仍会得到相同错误。"
 const INVALID_REFRESH_TOKEN_PATTERN = /\binvalid[ _-]?refresh[ _-]?token\b/i
 const INVALID_GRANT_PATTERN = /\binvalid[ _-]?grant\b/i
 const UNAUTHORIZED_PATTERN = /\b(?:unauthori[sz]ed|invalid[ _-]?token|token (?:is )?expired|expired (?:access )?token)\b/i
@@ -249,7 +249,7 @@ export function upstreamErrorMessage(error: unknown): string {
     }
     if (message.trim()) return cappedErrorMessage(message)
   }
-  return "Unknown MCP provider error."
+  return "MCP 供应商返回了未知错误。"
 }
 
 export function externalMcpAuthErrorCode(
@@ -289,18 +289,18 @@ export function externalConnectionErrorHint(
   credentialMode: ExternalMcpConnectionRow["credentialMode"] = "shared",
 ): string {
   if (error instanceof ExternalMcpDiagnosticError) {
-    return `${error.diagnostic.message} Ask the named action owner to inspect this layer. ${error.diagnostic.operatorAction} Diagnostic reference: ${error.diagnostic.referenceId}. ${LIVE_PROBE_HINT}`
+    return `${error.diagnostic.message} 请由提示中的负责人检查对应环节。${error.diagnostic.operatorAction} 诊断编号：${error.diagnostic.referenceId}。${LIVE_PROBE_HINT}`
   }
   if (externalMcpAuthErrorCode(error, message)) {
     const destination = credentialMode === "per_member"
-      ? "OpenWork Cloud -> Your Connections"
-      : "the OpenWork Cloud dashboard -> Connections"
-    return `The stored credential for "${connectionName}" is invalid or expired. Reconnect "${connectionName}" from ${destination}, then search again. OpenWork Cloud itself is still connected. ${LIVE_PROBE_HINT}`
+      ? "FoxWork 的“我的连接”"
+      : "公司管理后台的“MCP 连接”"
+    return `“${connectionName}”保存的凭据无效或已过期。请在${destination}重新连接，然后再次检索。公司服务本身仍保持连接。${LIVE_PROBE_HINT}`
   }
   if (PROVIDER_ADMIN_ACTION_PATTERN.test(message)) {
-    return `The provider's server rejected the request for "${connectionName}": ${message}. A provider admin must fix it in the provider's own admin console, then search again. OpenWork Cloud itself is still connected. ${LIVE_PROBE_HINT}`
+    return `“${connectionName}”的供应商服务器拒绝了请求：${message}。请由供应商管理员在对应后台处理后再次检索。公司服务本身仍保持连接。${LIVE_PROBE_HINT}`
   }
-  return `The downstream provider for "${connectionName}" returned an error: ${message}. Ask an org admin to inspect "${connectionName}" in the OpenWork Cloud dashboard -> Connections, then search again. OpenWork Cloud itself is still connected. ${LIVE_PROBE_HINT}`
+  return `“${connectionName}”的下游供应商返回错误：${message}。请让公司管理员在管理后台检查该连接，然后再次检索。公司服务本身仍保持连接。${LIVE_PROBE_HINT}`
 }
 
 function diagnosticConnectionAction(input: {
@@ -404,7 +404,7 @@ function providerAuthorizationConnectionStatus(input: {
     actor: "member",
     action: {
       type: "connect",
-      label: "Connect your provider account",
+      label: "连接你的供应商账号",
       surface: "openwork_your_connections",
       retry: "search_capabilities",
       ...(input.diagnostic.connectUrl ? { url: input.diagnostic.connectUrl } : {}),
@@ -455,8 +455,8 @@ export function buildExternalConnectionStatus(input: {
           action: {
             type: providerAdminAction ? "fix_provider" : "inspect_connection",
             label: providerAdminAction
-              ? `Fix ${connectionName} in the provider admin console`
-              : `Inspect the ${connectionName} connection`,
+              ? `前往供应商后台处理 ${connectionName}`
+              : `检查 ${connectionName} 连接`,
             surface: providerAdminAction ? "provider_admin_console" : "openwork_organization_connections",
             retry: "search_capabilities",
           },
@@ -478,12 +478,12 @@ export function buildExternalConnectionStatus(input: {
         ? "update_credentials"
         : "inspect_connection"
   const actionVerb = actionType === "connect"
-    ? "Connect"
+    ? "连接"
     : actionType === "reconnect"
-      ? "Reconnect"
+      ? "重新连接"
       : actionType === "update_credentials"
-        ? "Update credentials for"
-        : "Inspect"
+        ? "更新凭据"
+        : "检查"
   return {
     ...actionContract,
     layer: input.layer ?? (input.diagnostic ? "mcp_connection" : "downstream_provider"),
@@ -501,7 +501,7 @@ export function buildExternalConnectionStatus(input: {
         connectionId: input.connection.id,
         action: {
           type: actionType,
-          label: `${actionVerb} ${connectionName}`,
+          label: `${actionVerb}“${connectionName}”`,
           surface,
           retry: "search_capabilities",
         },
@@ -610,7 +610,7 @@ export type ExternalMcpSearchCoverage = {
 
 export function externalMcpSearchCoverageHint(coverage: ExternalMcpSearchCoverage): string | undefined {
   if (!coverage.truncated) return undefined
-  return `External MCP search inspected ${coverage.probedConnections} of ${coverage.eligibleConnections} eligible connections. Results may be incomplete; narrow the query using a connection name and search again.`
+  return `本次只检查了 ${coverage.eligibleConnections} 个可用连接中的 ${coverage.probedConnections} 个，结果可能不完整。请加入连接名称缩小范围后再次检索。`
 }
 
 async function probeExternalMcpConnection(input: {
@@ -630,13 +630,13 @@ async function probeExternalMcpConnection(input: {
     const nameTokens = tokenize(connection.name)
     const score = scoreText(nameTokens, nameTokens, input.queryTokens)
     if (score > 0) {
-      const message = `${connection.name} is blocked until an organization admin reviews its changed OAuth issuer.`
+      const message = `“${connection.name}”的 OAuth 发行方发生变化，需要公司管理员确认后才能继续使用。`
       add(statusMatch({
         connection,
         score,
-        summary: `[${connection.name}] OAuth provider settings changed and require administrator review.`,
+        summary: `【${connection.name}】OAuth 供应商设置已变化，需要管理员确认。`,
         status: "error",
-        hint: `Ask an org admin to open OpenWork Cloud -> Connectors, review the live OAuth issuer for "${connection.name}", and reconnect if requested.`,
+        hint: `请让公司管理员在后台打开“MCP 连接”，确认“${connection.name}”当前的 OAuth 发行方；如页面提示，请重新连接。`,
         connectionStatus: buildExternalConnectionStatus({
           connection,
           state: "reauth_required",
@@ -661,13 +661,13 @@ async function probeExternalMcpConnection(input: {
       const nameTokens = tokenize(connection.name)
       const score = scoreText(nameTokens, nameTokens, input.queryTokens)
       if (score > 0) {
-        const message = `You haven't connected your ${connection.name} account yet.`
+        const message = `你还没有连接“${connection.name}”账号。`
         add(statusMatch({
           connection,
           score,
-          summary: `[${connection.name}] Available to you, but you haven't connected your ${connection.name} account yet.`,
+          summary: `【${connection.name}】已向你开放，但尚未连接个人账号。`,
           status: "needs_connection",
-          hint: `Ask the user to open OpenWork Cloud -> Your Connections and click Connect on "${connection.name}", then search again.`,
+          hint: `请在 FoxWork 的“我的连接”中连接“${connection.name}”，完成后再次检索。`,
           connectionStatus: buildExternalConnectionStatus({ connection, state: "needs_connection", errorCode: "not_connected", message }),
         }))
       }
@@ -677,13 +677,13 @@ async function probeExternalMcpConnection(input: {
     const nameTokens = tokenize(connection.name)
     const score = scoreText(nameTokens, nameTokens, input.queryTokens)
     if (score > 0) {
-      const message = `${connection.name} is not connected yet.`
+      const message = `“${connection.name}”尚未完成公司连接。`
       add(statusMatch({
         connection,
         score,
-        summary: `[${connection.name}] Available to your organization, but an admin hasn't connected it yet.`,
+        summary: `【${connection.name}】已加入公司能力目录，但管理员尚未完成连接。`,
         status: "needs_connection",
-        hint: `Ask an org admin to open the OpenWork Cloud dashboard -> Connections and connect "${connection.name}", then search again.`,
+        hint: `请让公司管理员在后台的“MCP 连接”中完成“${connection.name}”配置，然后再次检索。`,
         connectionStatus: buildExternalConnectionStatus({ connection, state: "needs_connection", errorCode: "not_connected", message }),
       }))
     }
@@ -721,7 +721,7 @@ async function probeExternalMcpConnection(input: {
       add(statusMatch({
         connection,
         score,
-        summary: `[${connection.name}] This connection is set up but returned an error (${message}).`,
+        summary: `【${connection.name}】连接已配置，但检查时返回错误（${message}）。`,
         status: "error",
         hint: externalConnectionErrorHint(connection.name, error, message, connection.credentialMode),
         connectionStatus: buildExternalConnectionStatus({
@@ -877,12 +877,12 @@ function invalidCapabilityArguments(input: {
     error: "invalid_capability_arguments",
     capability: input.capability,
     message: input.diagnostic
-      ? `The remote MCP rejected the capability arguments as invalid. Correct them using the latest argumentsSchema. Diagnostic reference: ${input.diagnostic.referenceId}.`
-      : "The capability arguments do not match the remote MCP tool's advertised argumentsSchema.",
+      ? `远程 MCP 拒绝了当前参数。请按最新 argumentsSchema 修正。诊断编号：${input.diagnostic.referenceId}。`
+      : "当前参数不符合远程 MCP 工具声明的 argumentsSchema。",
     issues: input.issues ?? [{
       path: "/",
       keyword: "schema_validation",
-      message: "The remote MCP rejected these arguments as invalid. Correct them using the latest argumentsSchema.",
+      message: "远程 MCP 拒绝了这些参数，请按最新 argumentsSchema 修正。",
     }],
     ...(input.schemaDigest ? { schemaDigest: input.schemaDigest } : {}),
     sameArgumentsRetryable: false,
@@ -905,7 +905,7 @@ function advisorySchemaGuidance(
   return {
     advisory: true,
     providerCallAttempted: true,
-    message: "OpenWork forwarded the call to the provider. These local schema checks are guidance only; use the provider result as the source of truth.",
+    message: "FoxWork 已将调用转发给供应商。本地 Schema 检查只作提示，最终以供应商返回结果为准。",
     warnings,
   }
 }
@@ -926,7 +926,7 @@ export async function executeExternalCapability(input: {
   redirectUriBase: string
 }): Promise<ExternalCapabilityExecuteResult> {
   if (!input.member) {
-    return { ok: false, error: "forbidden", message: "No active org membership for this token." }
+    return { ok: false, error: "forbidden", message: "当前登录令牌没有有效的公司成员身份。" }
   }
 
   let connection: Awaited<ReturnType<typeof getExternalMcpConnection>>
@@ -945,7 +945,7 @@ export async function executeExternalCapability(input: {
     connectionId = input.connectionId as DenTypeId<"externalMcpConnection">
   }
   if (!connection) {
-    return { ok: false, error: "unknown_capability", message: `No external MCP connection "${input.connectionId}" in this organization.` }
+    return { ok: false, error: "unknown_capability", message: `公司中不存在 MCP 连接“${input.connectionId}”。` }
   }
 
   const canUse = await memberCanUseExternalMcpConnection({
@@ -954,11 +954,11 @@ export async function executeExternalCapability(input: {
     teamIds: input.member.teamIds,
   })
   if (!canUse) {
-    return { ok: false, error: "forbidden", message: `You have not been granted access to "${connection.name}".` }
+    return { ok: false, error: "forbidden", message: `你的账号尚未获准使用“${connection.name}”。` }
   }
 
   if (connection.oauthIssuerReviewRequiredAt) {
-    const message = `"${connection.name}" is blocked until an organization admin reviews its changed OAuth issuer.`
+    const message = `“${connection.name}”的 OAuth 发行方发生变化，需要公司管理员确认后才能继续使用。`
     return {
       ok: false,
       error: "needs_connection",
@@ -974,7 +974,7 @@ export async function executeExternalCapability(input: {
   }
 
   if (input.toolName === "*") {
-    const message = `"${connection.name}" was surfaced as a connection status entry, not a callable tool. Fix the connection first (see the search hint), then search again for its real tools.`
+    const message = `“${connection.name}”当前只返回连接状态，不能直接调用。请先按检索提示修复连接，再重新检索真实工具。`
     return {
       ok: false,
       error: "needs_connection",
@@ -994,18 +994,18 @@ export async function executeExternalCapability(input: {
       return {
         ok: false,
         error: "needs_connection",
-        message: `You haven't connected your ${connection.name} account yet. Open OpenWork Cloud -> Your Connections and click Connect on "${connection.name}".`,
+        message: `你还没有连接“${connection.name}”账号。请在 FoxWork 的“我的连接”中完成连接。`,
         connectionStatus: buildExternalConnectionStatus({
           connection,
           state: "needs_connection",
           errorCode: "not_connected",
-          message: `You haven't connected your ${connection.name} account yet.`,
+          message: `你还没有连接“${connection.name}”账号。`,
         }),
       }
     }
     member = { orgMembershipId: input.member.orgMembershipId }
   } else if (!hasSharedCredential(connection)) {
-    const message = `"${connection.name}" is not connected yet.`
+    const message = `“${connection.name}”尚未完成公司连接。`
     return {
       ok: false,
       error: "connection_not_connected",
@@ -1025,7 +1025,7 @@ export async function executeExternalCapability(input: {
         ok: false,
         error: "unknown_capability",
         capability: buildExternalCapabilityName(connection.id, input.toolName),
-        message: `No current tool named "${input.toolName}" exists on "${connection.name}". Call search_capabilities again.`,
+        message: `“${connection.name}”当前没有名为“${input.toolName}”的工具，请重新调用 search_capabilities。`,
         sameArgumentsRetryable: false,
         retry: { action: "search_capabilities", searchRequired: true },
       }
@@ -1037,10 +1037,10 @@ export async function executeExternalCapability(input: {
     if (input.schemaDigest && input.schemaDigest !== schemaDigest) {
       schemaWarnings.push({
         code: "capability_schema_changed",
-        message: "The provider advertised a different capability schema after discovery, but OpenWork still forwarded the call.",
+        message: "供应商在检索后返回了不同的能力 Schema，但 FoxWork 仍已转发本次调用。",
         searchedSchemaDigest: input.schemaDigest,
         currentSchemaDigest: schemaDigest,
-        suggestedAction: "If the provider call failed, call search_capabilities again and retry with the latest argumentsSchema. Do not retry solely because of this warning when the provider call succeeded.",
+        suggestedAction: "如果供应商调用失败，请重新调用 search_capabilities，并按最新 argumentsSchema 重试；如果调用成功，无需只因本提示再次执行。",
       })
     }
 
@@ -1060,15 +1060,15 @@ export async function executeExternalCapability(input: {
     if (!validation.ok && validation.error === "invalid_arguments") {
       schemaWarnings.push({
         code: "arguments_schema_mismatch",
-        message: "The arguments do not match the provider's advertised argumentsSchema, but OpenWork still forwarded the call because the provider may accept them.",
+        message: "参数不符合供应商声明的 argumentsSchema，但供应商可能仍会接受，因此 FoxWork 已继续转发。",
         issues: validation.issues,
-        suggestedAction: "If the provider call failed, correct the listed issues and retry with changed arguments. Do not retry solely because of this warning when the provider call succeeded.",
+        suggestedAction: "如果供应商调用失败，请修正列出的问题后使用新参数重试；如果调用成功，无需只因本提示再次执行。",
       })
     } else if (!validation.ok) {
       schemaWarnings.push({
         code: "arguments_schema_unavailable",
         message: validation.message,
-        suggestedAction: "Use the provider result as the source of truth. If the call failed, the provider administrator may need to repair the advertised inputSchema.",
+        suggestedAction: "以供应商返回结果为准。如果调用失败，可能需要由供应商管理员修复其声明的 inputSchema。",
       })
     }
 
@@ -1103,7 +1103,7 @@ export async function executeExternalCapability(input: {
         })
       }
       if (diagnostic.code === "MCP_PROVIDER_AUTH_REQUIRED") {
-        const resultMessage = `${diagnostic.message} ${diagnostic.operatorAction} Diagnostic reference: ${diagnostic.referenceId}.`
+        const resultMessage = `${diagnostic.message} ${diagnostic.operatorAction} 诊断编号：${diagnostic.referenceId}。`
         return {
           ok: false,
           error: "needs_connection",
@@ -1124,7 +1124,7 @@ export async function executeExternalCapability(input: {
         error: diagnostic.phase === "PROVIDER_EXECUTION" || diagnostic.phase === "PROVIDER_AUTHORIZATION"
           ? "provider_error"
           : "connection_failed",
-        message: `${diagnostic.message} ${diagnostic.operatorAction} Diagnostic reference: ${diagnostic.referenceId}.`,
+        message: `${diagnostic.message} ${diagnostic.operatorAction} 诊断编号：${diagnostic.referenceId}。`,
         diagnostic,
         actionOwner: diagnostic.actionOwner,
         operatorAction: diagnostic.operatorAction,

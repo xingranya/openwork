@@ -8,7 +8,7 @@ import {
     uniqueIndex,
     varchar,
 } from "drizzle-orm/mysql-core";
-import { denTypeIdColumn } from "../../columns";
+import { denTypeIdColumn, encryptedColumn } from "../../columns";
 import { MemberTable, OrganizationTable } from "../org";
 import { TeamTable } from "../teams";
 
@@ -27,6 +27,20 @@ export const SkillTable = mysqlTable(
         title: varchar("title", { length: 255 }).notNull(),
         description: text("description"),
         skillText: text("skill_text").notNull(),
+        slug: varchar("slug", { length: 64 }),
+        sourceKey: varchar("source_key", { length: 255 }),
+        bundleHash: varchar("bundle_hash", { length: 64 }),
+        bundleFilesJson: encryptedColumn<Array<{ path: string; contents: string }>>(
+            "bundle_files_json",
+            {
+                dataType: "mediumtext",
+                deserialize: (value) => JSON.parse(value) as Array<{
+                    path: string;
+                    contents: string;
+                }>,
+                serialize: (value) => JSON.stringify(value),
+            },
+        ),
         shared: mysqlEnum("shared", ["org", "public"]),
         createdAt: timestamp("created_at", { fsp: 3 }).notNull().defaultNow(),
         updatedAt: timestamp("updated_at", { fsp: 3 })
@@ -39,6 +53,11 @@ export const SkillTable = mysqlTable(
             table.createdByOrgMembershipId,
         ),
         index("skill_shared").on(table.shared),
+        index("skill_slug").on(table.slug),
+        uniqueIndex("skill_organization_source_key").on(
+            table.organizationId,
+            table.sourceKey,
+        ),
     ],
 );
 
@@ -56,6 +75,7 @@ export const SkillHubTable = mysqlTable(
         ).notNull(),
         name: varchar("name", { length: 255 }).notNull(),
         description: text("description"),
+        managedKey: varchar("managed_key", { length: 255 }),
         createdAt: timestamp("created_at", { fsp: 3 }).notNull().defaultNow(),
         updatedAt: timestamp("updated_at", { fsp: 3 })
             .notNull()
@@ -65,6 +85,10 @@ export const SkillHubTable = mysqlTable(
         index("skill_hub_organization_id").on(table.organizationId),
         index("skill_hub_created_by_org_membership_id").on(
             table.createdByOrgMembershipId,
+        ),
+        uniqueIndex("skill_hub_organization_managed_key").on(
+            table.organizationId,
+            table.managedKey,
         ),
     ],
 );

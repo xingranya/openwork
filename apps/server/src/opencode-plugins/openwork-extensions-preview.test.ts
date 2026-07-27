@@ -188,13 +188,13 @@ describe("OpenWorkExtensionsPreview session tools", () => {
 
     const connectStateRequest = fake.requests.find((request) => request.pathname === "/experimental/connect/state");
     expect(connectStateRequest?.search).toBe("?directory=%2Ftmp%2Farchive&provider=anthropic&model=claude-sonnet-4");
-    expect(output.system.join("\n")).toContain("verified ready for this exact workspace/model");
+    expect(output.system.join("\n")).toContain("当前工作区和模型已经可以使用公司能力");
   });
 
   test("uses the factory engine client as transform steering source of truth", async () => {
     const requests: unknown[] = [];
     const mcp = {
-      result: { data: { "openwork-cloud": { status: "connected" } } },
+      result: { data: { "foxwork-company": { status: "connected" } } },
       async status(request: unknown) {
         requests.push(request);
         return this.result;
@@ -206,13 +206,13 @@ describe("OpenWorkExtensionsPreview session tools", () => {
     await plugin["experimental.chat.system.transform"]({}, output);
 
     expect(requests).toEqual([{ query: { directory: "/tmp/archive" } }]);
-    expect(output.system.join("\n")).toContain("verified ready for this exact workspace/model");
+    expect(output.system.join("\n")).toContain("当前工作区和模型已经可以使用公司能力");
   });
 
   test("uses neutral transform steering when the engine reports failed Cloud status", async () => {
     const requests: unknown[] = [];
     const mcp = {
-      result: { data: { "openwork-cloud": { status: "failed" } } },
+      result: { data: { "foxwork-company": { status: "failed" } } },
       async status(request: unknown) {
         requests.push(request);
         return this.result;

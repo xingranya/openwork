@@ -1126,8 +1126,9 @@ test("shared-callback version-two state is rejected by the legacy callback even 
 })
 
 test("non-OAuth create validation returns the same structured network diagnostic", async () => {
+  const connectionName = `Broken no-auth MCP ${createDenTypeId("externalMcpConnection")}`
   const response = await staleSessionRequest("/v1/mcp-connections", "POST", {
-    name: "Broken no-auth MCP",
+    name: connectionName,
     url: "http://127.0.0.1:9/mcp",
     authType: "none",
     credentialMode: "shared",
@@ -1143,7 +1144,37 @@ test("non-OAuth create validation returns the same structured network diagnostic
   expect(["NETWORK_TCP", "MCP_INITIALIZE"]).toContain(body.diagnostic.phase)
   expect(["network_failure", "provider_unavailable"]).toContain(body.diagnostic.category)
   expect(["MCP_ECONNREFUSED", "MCP_HTTP_502"]).toContain(body.diagnostic.code)
+
+  const listResponse = await staleSessionRequest("/v1/mcp-connections?scope=manageable")
+  expect(listResponse.status).toBe(200)
+  const listBody: unknown = await listResponse.json()
+  if (!isRecord(listBody) || !Array.isArray(listBody.connections)) {
+    throw new Error("MCP 连接列表响应不完整")
+  }
+  expect(listBody.connections.some((entry) => isRecord(entry) && entry.name === connectionName)).toBe(false)
 })
+
+test("OAuth 连接也必须在保存前通过远程服务发现", async () => {
+  const connectionName = `Broken OAuth MCP ${createDenTypeId("externalMcpConnection")}`
+  const response = await staleSessionRequest("/v1/mcp-connections", "POST", {
+    name: connectionName,
+    description: "此连接不应在测试失败后留在公司列表中。",
+    url: "http://127.0.0.1:9/mcp",
+    authType: "oauth",
+    credentialMode: "per_member",
+  })
+  expect(response.status).toBe(502)
+  const body: unknown = await response.json()
+  expect(isRecord(body) && body.error).toBe("connection_validation_failed")
+
+  const listResponse = await staleSessionRequest("/v1/mcp-connections?scope=manageable")
+  expect(listResponse.status).toBe(200)
+  const listBody: unknown = await listResponse.json()
+  if (!isRecord(listBody) || !Array.isArray(listBody.connections)) {
+    throw new Error("MCP 连接列表响应不完整")
+  }
+  expect(listBody.connections.some((entry) => isRecord(entry) && entry.name === connectionName)).toBe(false)
+}, 12_000)
 
 test("connection configuration rejects credentials embedded in MCP URLs", async () => {
   for (const url of [
@@ -1165,60 +1196,113 @@ test("connection configuration rejects credentials embedded in MCP URLs", async 
 })
 
 test("stale admin sessions can configure and connect shared MCPs but cannot disconnect or delete them", async () => {
-  const createResponse = await staleSessionRequest("/v1/mcp-connections", "POST", {
-    name: "Shared OAuth MCP",
-    url: "http://127.0.0.1:9/mcp",
-    authType: "oauth",
-    credentialMode: "shared",
-  })
-  expect(createResponse.status).toBe(200)
-
-  const createdBody: unknown = await createResponse.json()
-  expect(isRecord(createdBody)).toBe(true)
-  if (!isRecord(createdBody) || typeof createdBody.id !== "string") {
-    throw new Error("create connection response did not include an id")
-  }
-  expect(createdBody.oauthCallbackMode).toBe("shared-v1")
-  const sharedCallbackUrl = new URL("/v1/mcp-connections/oauth/callback", process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790").toString()
-  expect(createdBody.oauthCallbackUrl).toBe(sharedCallbackUrl)
-  expect(createdBody.oauthSharedCallbackUrl).toBe(sharedCallbackUrl)
-  expect("runtime" in createdBody).toBe(false)
-  expect("enterpriseRuntime" in createdBody).toBe(false)
-
-  const accessResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}/access`, "PUT", {
-    access: {
-      orgWide: true,
-      memberIds: [],
-      teamIds: [],
+  let origin = ""
+  const server = Bun.serve({
+    port: 0,
+    async fetch(incoming) {
+      const url = new URL(incoming.url)
+      if (url.pathname === "/.well-known/oauth-protected-resource/mcp") {
+        return Response.json({
+          resource: `${origin}/mcp`,
+          authorization_servers: [origin],
+          scopes_supported: ["mcp_server"],
+        })
+      }
+      if (url.pathname === "/.well-known/oauth-authorization-server") {
+        return Response.json({
+          issuer: origin,
+          authorization_endpoint: `${origin}/authorize`,
+          token_endpoint: `${origin}/token`,
+          registration_endpoint: `${origin}/register`,
+          response_types_supported: ["code"],
+          grant_types_supported: ["authorization_code"],
+          code_challenge_methods_supported: ["S256"],
+          token_endpoint_auth_methods_supported: ["none"],
+          scopes_supported: ["mcp_server"],
+        })
+      }
+      if (url.pathname === "/register") {
+        const metadata: unknown = await incoming.json()
+        const redirectUris = isRecord(metadata) && isStringArray(metadata.redirect_uris)
+          ? metadata.redirect_uris
+          : []
+        return Response.json({
+          client_id: "stale-session-client",
+          token_endpoint_auth_method: "none",
+          redirect_uris: redirectUris,
+        }, { status: 201 })
+      }
+      if (url.pathname === "/mcp") {
+        return new Response(null, {
+          status: 401,
+          headers: {
+            "www-authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp", scope="mcp_server"`,
+          },
+        })
+      }
+      return new Response(null, { status: 404 })
     },
   })
-  expect(accessResponse.status).toBe(200)
+  origin = `http://127.0.0.1:${server.port}`
 
-  const connectResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}/connect/start`)
-  expect(connectResponse.status).toBe(502)
-  const connectBody: unknown = await connectResponse.json()
-  expect(isRecord(connectBody) && connectBody.error).toBe("oauth_handshake_failed")
+  try {
+    const createResponse = await staleSessionRequest("/v1/mcp-connections", "POST", {
+      name: "Shared OAuth MCP",
+      url: `${origin}/mcp`,
+      authType: "oauth",
+      credentialMode: "shared",
+    })
+    expect(createResponse.status).toBe(200)
 
-  for (const [method, suffix] of [["POST", "/disconnect"], ["DELETE", ""]]) {
-    const destructiveResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}${suffix}`, method)
-    expect(destructiveResponse.status).toBe(403)
-    const destructiveBody: unknown = await destructiveResponse.json()
-    expect(isRecord(destructiveBody) && destructiveBody.error).toBe("reauth")
-    expect(isRecord(destructiveBody) && destructiveBody.reason).toBe("fresh_auth_required")
+    const createdBody: unknown = await createResponse.json()
+    expect(isRecord(createdBody)).toBe(true)
+    if (!isRecord(createdBody) || typeof createdBody.id !== "string") {
+      throw new Error("create connection response did not include an id")
+    }
+    expect(createdBody.oauthCallbackMode).toBe("shared-v1")
+    const sharedCallbackUrl = new URL("/v1/mcp-connections/oauth/callback", process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790").toString()
+    expect(createdBody.oauthCallbackUrl).toBe(sharedCallbackUrl)
+    expect(createdBody.oauthSharedCallbackUrl).toBe(sharedCallbackUrl)
+    expect("runtime" in createdBody).toBe(false)
+    expect("enterpriseRuntime" in createdBody).toBe(false)
+
+    const accessResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}/access`, "PUT", {
+      access: {
+        orgWide: true,
+        memberIds: [],
+        teamIds: [],
+      },
+    })
+    expect(accessResponse.status).toBe(200)
+
+    const connectResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}/connect/start`)
+    expect(connectResponse.status).toBe(200)
+    const connectBody: unknown = await connectResponse.json()
+    expect(isRecord(connectBody) && typeof connectBody.authorizeUrl).toBe("string")
+
+    for (const [method, suffix] of [["POST", "/disconnect"], ["DELETE", ""]]) {
+      const destructiveResponse = await staleSessionRequest(`/v1/mcp-connections/${createdBody.id}${suffix}`, method)
+      expect(destructiveResponse.status).toBe(403)
+      const destructiveBody: unknown = await destructiveResponse.json()
+      expect(isRecord(destructiveBody) && destructiveBody.error).toBe("reauth")
+      expect(isRecord(destructiveBody) && destructiveBody.reason).toBe("fresh_auth_required")
+    }
+
+    const [renewedSession] = await db
+      .select({ expiresAt: schema.AuthSessionTable.expiresAt })
+      .from(schema.AuthSessionTable)
+      .where(drizzle.eq(schema.AuthSessionTable.id, staleSessionId))
+      .limit(1)
+    expect(renewedSession?.expiresAt.getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000)
+
+    const signOutResponse = await staleSessionRequest("/api/auth/sign-out", "POST", {})
+    expect(signOutResponse.status).toBe(200)
+    const sessionsAfterSignOut = await db
+      .select({ id: schema.AuthSessionTable.id })
+      .from(schema.AuthSessionTable)
+      .where(drizzle.eq(schema.AuthSessionTable.id, staleSessionId))
+    expect(sessionsAfterSignOut).toEqual([])
+  } finally {
+    server.stop(true)
   }
-
-  const [renewedSession] = await db
-    .select({ expiresAt: schema.AuthSessionTable.expiresAt })
-    .from(schema.AuthSessionTable)
-    .where(drizzle.eq(schema.AuthSessionTable.id, staleSessionId))
-    .limit(1)
-  expect(renewedSession?.expiresAt.getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000)
-
-  const signOutResponse = await staleSessionRequest("/api/auth/sign-out", "POST", {})
-  expect(signOutResponse.status).toBe(200)
-  const sessionsAfterSignOut = await db
-    .select({ id: schema.AuthSessionTable.id })
-    .from(schema.AuthSessionTable)
-    .where(drizzle.eq(schema.AuthSessionTable.id, staleSessionId))
-  expect(sessionsAfterSignOut).toEqual([])
 })

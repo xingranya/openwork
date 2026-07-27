@@ -157,6 +157,8 @@ export const ExternalMcpConnectionTable = mysqlTable(
       "organization_id",
     ).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
+    /** 面向员工展示的连接用途说明，不包含凭据或内部调试信息。 */
+    description: varchar("description", { length: 1000 }),
     url: varchar("url", { length: 2048 }).notNull(),
     authType: mysqlEnum("auth_type", externalMcpAuthTypeValues).notNull(),
     /**

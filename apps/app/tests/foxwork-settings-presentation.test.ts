@@ -104,4 +104,16 @@ describe("FoxWork 设置页对外呈现", () => {
     expect(foxworkChineseCopySource).toContain("魔搭技能广场");
     expect(foxworkChineseCopySource).not.toContain("skills.sh 官方目录");
   });
+
+  test("在线技能卡片在窄侧栏中保持操作区可读", () => {
+    expect(skillsViewSource).toContain(
+      'className="flex min-w-0 flex-wrap items-center gap-3 border-t border-dls-border pt-4"',
+    );
+    expect(skillsViewSource).toContain('className={`${tagClass} shrink-0 gap-1 whitespace-nowrap`}');
+    expect(skillsViewSource).toContain('className="ml-auto flex shrink-0 items-center gap-2"');
+    expect(skillsViewSource).toContain(
+      'className={`${installingHubSkill === skill.id ? pillSecondaryClass : pillPrimaryClass} shrink-0 whitespace-nowrap`}',
+    );
+    expect(skillsViewSource).toContain('aria-label={t("skills.online_view_source")}');
+  });
 });

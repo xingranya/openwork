@@ -42,6 +42,7 @@ export type DenLlmProvider = {
   name: string;
   providerConfig: Record<string, unknown>;
   hasApiKey: boolean;
+  defaultEnabled: boolean;
   configuredEnvKeys: string[];
   createdAt: string | null;
   updatedAt: string | null;
@@ -202,6 +203,7 @@ function asLlmProvider(value: unknown): DenLlmProvider | null {
     name,
     providerConfig: asJsonRecord(value.providerConfig),
     hasApiKey: value.hasApiKey === true,
+    defaultEnabled: value.defaultEnabled === true,
     configuredEnvKeys: asStringList(value.configuredEnvKeys),
     createdAt: asIsoString(value.createdAt),
     updatedAt: asIsoString(value.updatedAt),

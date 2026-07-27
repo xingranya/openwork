@@ -3,6 +3,7 @@ import type {
   OpenworkCloudMcpHealth,
   OpenworkCloudMcpProviderModelContext,
 } from "../../../app/lib/openwork-server";
+import { FOXWORK_COMPANY_MCP_EXPECTED_TOOLS } from "@openwork/types/den/mcp-connection-action";
 import { toChineseUserMessage } from "../../../app/lib/user-facing-error";
 import type { CloudMcpUserState } from "./cloud-mcp-user-state";
 
@@ -12,8 +13,7 @@ export const CLOUD_MCP_AUTH_RESOLUTION_TIMEOUT_MS = 12_000;
 
 const REQUIRED_DIRECT_TOOL_IDS = ["search_capabilities", "execute_capability"];
 const REQUIRED_PROJECTED_TOOL_IDS = [
-  "openwork-cloud_search_capabilities",
-  "openwork-cloud_execute_capability",
+  ...FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
 ];
 
 export type CloudMcpSubmissionIssue = Pick<

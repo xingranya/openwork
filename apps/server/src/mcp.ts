@@ -2,6 +2,11 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { homedir } from "node:os";
 import { minimatch } from "minimatch";
+import {
+  FOXWORK_COMPANY_MCP_NAME,
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  LEGACY_OPENWORK_CLOUD_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 import type { McpItem, ServerConfig } from "./types.js";
 import { sanitizeDiagnosticString } from "./diagnostic-sanitizer.js";
 import { readJsoncFile } from "./jsonc.js";
@@ -25,10 +30,7 @@ export type McpToolDeny = {
 
 type McpToolAllow = McpToolDeny;
 
-const OPENWORK_CLOUD_DIAGNOSTIC_TOOL_IDS = [
-  "openwork-cloud_search_capabilities",
-  "openwork-cloud_execute_capability",
-];
+const OPENWORK_CLOUD_DIAGNOSTIC_TOOL_IDS = [...FOXWORK_COMPANY_MCP_EXPECTED_TOOLS];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -93,7 +95,9 @@ function getToolIdsForDiagnostics(name: string, toolIds: string[]): string[] {
 }
 
 function diagnosticToolIdsForMcp(name: string): string[] {
-  return name === "openwork-cloud" ? OPENWORK_CLOUD_DIAGNOSTIC_TOOL_IDS : [];
+  return name === FOXWORK_COMPANY_MCP_NAME || name === LEGACY_OPENWORK_CLOUD_MCP_NAME
+    ? OPENWORK_CLOUD_DIAGNOSTIC_TOOL_IDS
+    : [];
 }
 
 function permissionCandidates(name: string, toolId: string): string[] {

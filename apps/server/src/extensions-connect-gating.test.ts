@@ -267,8 +267,8 @@ describe("Connect-aware legacy extension gating", () => {
     const gated = await callCalendarListEvents(base);
     expect(gated.status).toBe(200);
     const gatedBody = await readSchema(gated, gatedCallSchema);
-    expect(gatedBody.message).toContain("Settings > Connect");
-    expect(gatedBody.message).toContain("Do not direct them to Settings > Extensions");
+    expect(gatedBody.message).toContain("设置 > 公司连接");
+    expect(gatedBody.message).toContain("不要引导到“扩展”");
 
     const status = await readSchema(
       await fetch(`${base}/experimental/google-workspace/status`, { headers: clientHeaders() }),
@@ -287,16 +287,16 @@ describe("Connect-aware legacy extension gating", () => {
       ...current,
       mcp: {
         ...current.mcp,
-        "openwork-cloud": { type: "remote", url: "https://cloud.example/mcp" },
+        "foxwork-company": { type: "remote", url: "https://cloud.example/mcp" },
       },
     }));
 
     const cloudGated = await callCalendarListEvents(base);
     const cloudBody = await readSchema(cloudGated, gatedCallSchema);
-    expect(cloudBody.message).toContain("agent access needs attention for this workspace");
-    expect(cloudBody.message).not.toContain("not ready");
-    expect(cloudBody.message).not.toContain("Repair and test");
-    expect(cloudBody.message).toContain("Settings > Connect");
+    expect(cloudBody.message).toContain("当前工作区的 AI 使用权限需要处理");
+    expect(cloudBody.message).not.toContain("尚未准备好");
+    expect(cloudBody.message).not.toContain("修复并测试");
+    expect(cloudBody.message).toContain("设置 > 公司连接");
 
     const cloudStatus = await readSchema(
       await fetch(`${base}/experimental/google-workspace/status`, { headers: clientHeaders() }),

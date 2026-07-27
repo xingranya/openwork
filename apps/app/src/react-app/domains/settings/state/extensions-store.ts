@@ -62,6 +62,10 @@ import {
   type CloudImportedSkill,
 } from "../../../../app/cloud/import-state";
 import {
+  buildCompanySkillInstallPayload,
+  reconcileImportedCompanySkills,
+} from "./company-skill-sync";
+import {
   derivePendingCloudPluginChanges,
   readPendingCloudSyncChanges,
   refreshDesktopCloudSync,
@@ -863,6 +867,7 @@ export function createExtensionsStore(options: {
         title: skill.title,
         description: skill.description,
         shared: skill.shared,
+        bundleHash: skill.bundleHash,
         updatedAt: skill.updatedAt,
         importedAt: imported?.importedAt ?? Date.now(),
       },
@@ -908,6 +913,51 @@ export function createExtensionsStore(options: {
         result.stderr || result.stdout,
         t("skills.uninstall_failed"),
       ));
+    }
+  };
+
+  const reconcileCompanySkillAccess = async (
+    availableSkills: readonly DenOrgSkillCard[],
+    importedSkills: Record<string, CloudImportedSkill>,
+  ) => {
+    if (Object.keys(importedSkills).length === 0) return;
+
+    const { openworkSnapshot, openworkClient, openworkWorkspaceId, hasOpenworkTarget } =
+      await resolveWorkspaceServerTarget();
+    const canReconcile =
+      hasOpenworkTarget
+      && openworkSnapshot.openworkServerCapabilities?.skills?.read !== false
+      && openworkSnapshot.openworkServerCapabilities?.skills?.write !== false
+      && openworkClient
+      && openworkWorkspaceId;
+    if (!canReconcile) {
+      throw new Error("公司技能已发生变化，但 FoxWork 服务暂时无法同步当前工作区。请重新连接后重试。");
+    }
+
+    const result = await reconcileImportedCompanySkills({
+      availableSkills,
+      openworkClient,
+      workspaceId: openworkWorkspaceId,
+      includeGlobal: options.workspaceType() === "local",
+    });
+    setStateField("importedCloudSkills", result.importedSkills);
+    for (const name of result.restored) {
+      options.markReloadRequired?.("skills", { type: "skill", name, action: "added" });
+    }
+    for (const name of result.updated) {
+      options.markReloadRequired?.("skills", { type: "skill", name, action: "updated" });
+    }
+    for (const name of result.removed) {
+      options.markReloadRequired?.("skills", { type: "skill", name, action: "removed" });
+    }
+    if (result.restored.length || result.updated.length || result.removed.length) {
+      await refreshSkills({ force: true });
+    }
+    if (result.failed.length > 0) {
+      setStateField(
+        "cloudOrgSkillsStatus",
+        `${result.failed.length} 个已安装的公司技能暂时无法同步，FoxWork 会在恢复连接后重试。`,
+      );
     }
   };
 
@@ -1473,6 +1523,8 @@ export function createExtensionsStore(options: {
       setStateField("cloudOrgSkillsStatus", null);
 
       if (!token || !orgId) {
+        const importedSkills = await refreshImportedCloudSkills();
+        await reconcileCompanySkillAccess([], importedSkills);
         mutateState((current) => ({
           ...current,
           cloudOrgSkills: [],
@@ -1481,7 +1533,6 @@ export function createExtensionsStore(options: {
         }));
         cloudOrgSkillsLoaded = true;
         cloudOrgSkillsLoadKey = loadKey;
-        await refreshImportedCloudSkills();
         return;
       }
 
@@ -1496,7 +1547,8 @@ export function createExtensionsStore(options: {
       }));
       cloudOrgSkillsLoaded = true;
       cloudOrgSkillsLoadKey = loadKey;
-      await refreshImportedCloudSkills();
+      const importedSkills = await refreshImportedCloudSkills();
+      await reconcileCompanySkillAccess(catalog, importedSkills);
     } catch (error) {
       if (refreshCloudOrgSkillsAborted || getCurrentCloudOrgLoadKey() !== loadKey) return;
       mutateState((current) => ({
@@ -1827,10 +1879,6 @@ export function createExtensionsStore(options: {
     const preferredName = existingImport?.installedName?.trim() ?? "";
     if (preferredName) installedNames.delete(preferredName);
     const installName = preferredName || uniqueSkillInstallName(slugifyOpencodeSkillName(skill.title), installedNames, skill.id);
-    const rawDesc = (skill.description?.trim() || skill.title).trim();
-    const description = rawDesc.slice(0, 1024) || skill.title.slice(0, 1024) || "Skill";
-    const body = extractSkillBodyMarkdown(skill.skillText);
-    const content = buildCloudSkillContent(installName, description, body);
     const action = existingImport ? "updated" : "added";
 
     options.setBusy(true);
@@ -1838,7 +1886,21 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
-      await upsertWorkspaceSkill(installName, content, description, { overwrite: Boolean(existingImport) });
+      const { openworkSnapshot, openworkClient, openworkWorkspaceId, hasOpenworkTarget } =
+        await resolveWorkspaceServerTarget();
+      const canInstallBundle =
+        hasOpenworkTarget
+        && openworkSnapshot.openworkServerCapabilities?.skills?.write !== false
+        && openworkClient
+        && openworkWorkspaceId;
+      if (!canInstallBundle) {
+        throw new Error("FoxWork 服务不可用，请重新连接后再安装公司技能。");
+      }
+      await openworkClient.installCatalogSkill(
+        openworkWorkspaceId,
+        installName,
+        buildCompanySkillInstallPayload(skill, Boolean(existingImport)),
+      );
       await persistImportedCloudSkillRecord(skill, installName);
       options.markReloadRequired?.("skills", { type: "skill", name: installName, action });
       await Promise.all([refreshSkills({ force: true }), refreshCloudOrgSkills({ force: true })]);

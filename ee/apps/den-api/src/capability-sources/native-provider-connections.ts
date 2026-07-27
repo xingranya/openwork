@@ -23,6 +23,7 @@ import { readProviderTenantId } from "./oauth-tenant.js"
 export type NativeProviderConnectionEntry = {
   id: string
   name: string
+  description: null
   url: string
   authType: "oauth"
   credentialMode: "per_member"
@@ -80,6 +81,7 @@ export function buildNativeProviderEntry(
   return {
     id: provider.providerId,
     name: provider.displayName,
+    description: null,
     url: provider.websiteUrl,
     authType: "oauth",
     credentialMode: "per_member",

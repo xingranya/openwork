@@ -1,3 +1,5 @@
+import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning";
+
 export type LocalProviderKind =
   | "deepseek"
   | "alibaba-cn"
@@ -162,8 +164,19 @@ export function buildLocalProviderConfig(input: LocalProviderInput): ResolvedLoc
   const api = (plan.api ?? input.baseUrl).trim().replace(/\/+$/, "");
   const env = plan.env ?? buildEnvName(providerId);
   const modelIds = [...new Set(input.modelIds.map((id) => id.trim()).filter(Boolean))];
+  const npm =
+    plan.protocol === "anthropic"
+      ? "@ai-sdk/anthropic"
+      : "@ai-sdk/openai-compatible";
   const models = Object.fromEntries(
-    modelIds.map((id) => [id, { id, name: id }]),
+    modelIds.map((id) => [
+      id,
+      applyModelReasoningDefaults({
+        modelId: id,
+        npm,
+        config: { id, name: id },
+      }),
+    ]),
   );
 
   return {
@@ -174,10 +187,7 @@ export function buildLocalProviderConfig(input: LocalProviderInput): ResolvedLoc
     config: {
       id: providerId,
       name,
-      npm:
-        plan.protocol === "anthropic"
-          ? "@ai-sdk/anthropic"
-          : "@ai-sdk/openai-compatible",
+      npm,
       env: [env],
       api,
       models,

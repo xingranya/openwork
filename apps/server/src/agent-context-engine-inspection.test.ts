@@ -22,7 +22,7 @@ describe("agent diagnostics effective engine inspection", () => {
         default_agent: "openwork",
         plugin: [["file:///plugins/openwork-extensions-preview.ts", { secret: "not-copied" }]],
         mcp: {
-          "openwork-cloud": {
+          "foxwork-company": {
             type: "remote",
             url: "https://api.openworklabs.com/mcp/agent",
             headers: { Authorization: "Bearer NOT_REPORTED" },
@@ -43,7 +43,7 @@ describe("agent diagnostics effective engine inspection", () => {
       defaultAgent: "openwork",
       pluginSpecs: ["file:///plugins/openwork-extensions-preview.ts"],
       agents: [{ name: "openwork", mode: "primary", hidden: false }],
-      mcps: [{ name: "openwork-cloud" }],
+      mcps: [{ name: "foxwork-company" }],
     });
     expect(snapshot).not.toHaveProperty("agents.0.options");
   });
@@ -52,11 +52,11 @@ describe("agent diagnostics effective engine inspection", () => {
     const rules = [
       { permission: "openwork-cloud_*", pattern: "*", action: "allow" as const },
       { permission: "openwork-cloud_search_*", pattern: "tenant-a", action: "deny" as const },
-      { permission: "openwork-cloud_execute_capability", pattern: "*", action: "deny" as const },
+      { permission: "foxwork-company_execute_capability", pattern: "*", action: "deny" as const },
     ];
 
-    expect(effectiveToolDecision(rules, "openwork-cloud_search_capabilities")).toBe("allow");
-    expect(effectiveToolDecision(rules, "openwork-cloud_execute_capability")).toBe("deny");
+    expect(effectiveToolDecision(rules, "foxwork-company_search_capabilities")).toBe("allow");
+    expect(effectiveToolDecision(rules, "foxwork-company_execute_capability")).toBe("deny");
   });
 
   test("bounds engine bodies and rejects redirects without following them", async () => {

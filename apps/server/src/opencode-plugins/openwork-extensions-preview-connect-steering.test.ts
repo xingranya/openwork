@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+  FOXWORK_COMPANY_MCP_NAME,
+} from "@openwork/types/den/mcp-connection-action";
 
 import {
   composeOpenWorkExtensionDiscoveryInstruction,
@@ -20,7 +24,7 @@ const originalServerUrl = process.env.OPENWORK_SERVER_URL;
 const originalServerToken = process.env.OPENWORK_SERVER_TOKEN;
 
 const UNCHANGED_EXTENSION_DISCOVERY_INSTRUCTION =
-  "If the user asks for something you cannot do with obvious built-in tools, check OpenWork extensions before saying the capability is unavailable. Use openwork_extension_list_actions to inspect available extension actions, then call the matching action with openwork_extension_call.";
+  "如果员工提出的任务无法直接用内置工具完成，先检查 FoxWork 扩展，再判断能力是否可用。使用 openwork_extension_list_actions 查看可用动作，再通过 openwork_extension_call 调用匹配动作。";
 
 beforeEach(() => {
   resetOpenWorkExtensionDiscoveryInstructionCacheForTests();
@@ -110,11 +114,11 @@ describe("composeOpenWorkExtensionDiscoveryInstruction", () => {
     expect(composeOpenWorkExtensionDiscoveryInstruction({ ...state(null), googleWorkspace: { legacyConfigured: true } })).toBe(UNCHANGED_EXTENSION_DISCOVERY_INSTRUCTION);
   });
 
-  test("steers ready Connect users to verified openwork-cloud capabilities first", () => {
-    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("verified ready for this exact workspace/model");
-    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("FIRST call openwork-cloud_search_capabilities");
-    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("relay connectionStatus.action exactly");
-    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("results are live, not cached");
+  test("公司能力就绪时优先引导 AI 使用受控工具", () => {
+    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("当前工作区和模型已经可以使用公司能力");
+    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain(FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[0]);
+    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain(FOXWORK_COMPANY_MCP_EXPECTED_TOOLS[1]);
+    expect(OPENWORK_CLOUD_CONNECTION_INSTRUCTION).toContain("结果来自实时状态");
     expect(composeOpenWorkExtensionDiscoveryInstruction(state(health()))).toBe(OPENWORK_CLOUD_CONNECTION_INSTRUCTION);
     expect(composeOpenWorkExtensionDiscoveryInstruction({ ...state(health()), connectCatalogEnabled: false })).toBe(OPENWORK_CLOUD_CONNECTION_INSTRUCTION);
     expect(composeOpenWorkExtensionDiscoveryInstruction({ ...state(health()), googleWorkspace: { legacyConfigured: true } })).toBe(OPENWORK_CLOUD_CONNECTION_INSTRUCTION);
@@ -296,7 +300,7 @@ describe("composeOpenWorkExtensionDiscoveryInstruction", () => {
 describe("resolveOpenWorkExtensionDiscoveryInstruction", () => {
   test("uses engine connected status without fetching server connect state", async () => {
     const requests: unknown[] = [];
-    const client = engineMcpClient({ data: { "openwork-cloud": { status: "connected" } } }, requests);
+    const client = engineMcpClient({ data: { [FOXWORK_COMPANY_MCP_NAME]: { status: "connected" } } }, requests);
     let serverFetchCalls = 0;
     const serverFetch = async (): Promise<Response> => {
       serverFetchCalls += 1;
@@ -315,7 +319,7 @@ describe("resolveOpenWorkExtensionDiscoveryInstruction", () => {
   });
 
   test("uses engine auth-needed status without fetching server connect state", async () => {
-    const client = engineMcpClient({ data: { "openwork-cloud": { status: "needs_auth" } } });
+    const client = engineMcpClient({ data: { [FOXWORK_COMPANY_MCP_NAME]: { status: "needs_auth" } } });
     let serverFetchCalls = 0;
     const serverFetch = async (): Promise<Response> => {
       serverFetchCalls += 1;
@@ -344,8 +348,8 @@ describe("resolveOpenWorkExtensionDiscoveryInstruction", () => {
     expect(serverFetchCalls).toBe(0);
   });
 
-  test("fails open without server fetch when engine has an unknown openwork-cloud status", async () => {
-    const client = engineMcpClient({ data: { "openwork-cloud": { status: "starting" } } });
+  test("公司能力状态未知时保持通用扩展提示", async () => {
+    const client = engineMcpClient({ data: { [FOXWORK_COMPANY_MCP_NAME]: { status: "starting" } } });
     let serverFetchCalls = 0;
     const serverFetch = async (): Promise<Response> => {
       serverFetchCalls += 1;

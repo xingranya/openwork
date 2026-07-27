@@ -12,6 +12,7 @@ import {
 import { hasSkillFrontmatterName, parseSkillMarkdown } from "@openwork-ee/utils"
 import { createDenTypeId, normalizeDenTypeId } from "@openwork-ee/utils/typeid"
 import type { Hono } from "hono"
+import { bodyLimit } from "hono/body-limit"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
 import { db } from "../../db.js"
@@ -25,12 +26,26 @@ import type { MemberTeamsContext } from "../../middleware/member-teams.js"
 import { denTypeIdSchema, emptyResponse, forbiddenSchema, invalidRequestSchema, jsonResponse, notFoundSchema, successSchema, unauthorizedSchema } from "../../openapi.js"
 import type { OrgRouteVariables } from "./shared.js"
 import { ensureOrganizationAdmin, idParamSchema, memberHasRole, orgAccessFailureStatus } from "./shared.js"
+import {
+  CompanySkillStoreError,
+  replaceCompanySkillEntrypoint,
+  saveCompanySkill,
+  serializeCompanySkill,
+  singleFileCompanySkill,
+} from "./company-skills-store.js"
+import {
+  parseSkillZipArchive,
+  SkillZipArchiveError,
+  validateCompanySkillBundleFiles,
+} from "./skill-zip-import.js"
+
+const SKILL_ZIP_REQUEST_MAX_BYTES = 12 * 1024 * 1024 + 256 * 1024
 
 const skillTextSchema = z.string().superRefine((value, ctx) => {
   if (!value.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Skill content cannot be empty.",
+      message: "技能内容不能为空。",
     })
     return
   }
@@ -38,14 +53,29 @@ const skillTextSchema = z.string().superRefine((value, ctx) => {
   if (!hasSkillFrontmatterName(value)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Skill content must start with frontmatter that includes a name.",
+      message: "技能必须以包含 name 的 frontmatter 开头。",
     })
   }
 })
 
+const skillBundleFileSchema = z.object({
+  path: z.string().trim().min(1).max(384),
+  contents: z.string(),
+})
+
 const createSkillSchema = z.object({
-  skillText: skillTextSchema,
+  skillText: skillTextSchema.optional(),
+  files: z.array(skillBundleFileSchema).min(1).max(128).optional(),
+  overwrite: z.boolean().optional(),
   shared: z.enum(["org", "public"]).nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.skillText === undefined && value.files === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["files"],
+      message: "请提供 SKILL.md 内容或完整技能文件。",
+    })
+  }
 })
 
 const updateSkillSchema = z.object({
@@ -56,7 +86,7 @@ const updateSkillSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["skillText"],
-      message: "Provide at least one field to update.",
+      message: "请至少提供一个需要更新的字段。",
     })
   }
 })
@@ -122,6 +152,11 @@ const skillResponseSchema = z.object({
 const skillListResponseSchema = z.object({
   skills: z.array(z.object({}).passthrough()),
 }).meta({ ref: "SkillListResponse" })
+
+const skillZipImportResponseSchema = z.object({
+  failures: z.array(z.object({}).passthrough()),
+  results: z.array(z.object({}).passthrough()),
+}).meta({ ref: "SkillZipImportResponse" })
 
 const skillHubResponseSchema = z.object({
   skillHub: z.object({}).passthrough(),
@@ -205,6 +240,33 @@ function canManageHub(payload: { currentMember: { id: MemberId; isOwner: boolean
   return isOrganizationAdmin(payload) || skillHub.createdByOrgMembershipId === payload.currentMember.id
 }
 
+function skillStoreErrorResponse(error: unknown) {
+  if (error instanceof CompanySkillStoreError) {
+    return { status: error.status, body: { error: error.code, message: error.message } } as const
+  }
+  if (error instanceof SkillZipArchiveError) {
+    return { status: 400 as const, body: { error: error.code, message: error.message } }
+  }
+  throw error
+}
+
+function parseStringIdList(value: FormDataEntryValue | undefined, field: string) {
+  if (value === undefined || value === "") return []
+  if (typeof value !== "string") {
+    throw new SkillZipArchiveError("invalid_access", `${field} 必须是 JSON 字符串数组。`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    throw new SkillZipArchiveError("invalid_access", `${field} 不是有效的 JSON。`)
+  }
+  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string" || !entry.trim())) {
+    throw new SkillZipArchiveError("invalid_access", `${field} 必须是字符串数组。`)
+  }
+  return [...new Set(parsed.map((entry) => entry.trim()))]
+}
+
 function ensureFreshAdminIfApplicable(c: { get: <K extends "organizationContext" | "session">(key: K) => OrgRouteVariables[K] }, message: string) {
   const payload = c.get("organizationContext")
   if (!payload || !isOrganizationAdmin(payload)) {
@@ -275,7 +337,18 @@ function canViewSkill(input: {
     || input.accessibleSkillIds.has(input.skill.id)
 }
 
-export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables & Partial<MemberTeamsContext> }>(app: Hono<T>) {
+type OrgSkillRouteDependencies = {
+  memberRoute?: ReturnType<typeof orgMemberRoute>
+  saveSkill?: typeof saveCompanySkill
+}
+
+export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables & Partial<MemberTeamsContext> }>(
+  app: Hono<T>,
+  dependencies: OrgSkillRouteDependencies = {},
+) {
+  const memberRoute = dependencies.memberRoute ?? orgMemberRoute()
+  const saveSkill = dependencies.saveSkill ?? saveCompanySkill
+
   app.post(
     "/v1/skills",
     describeRoute({
@@ -288,40 +361,124 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         401: jsonResponse("The caller must be signed in to create skills.", unauthorizedSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     jsonValidator(createSkillSchema),
     async (c) => {
       const payload = c.get("organizationContext")
       const input = c.req.valid("json")
-      const now = new Date()
-      const skillId = createDenTypeId("skill")
-      const metadata = parseSkillMetadata(input.skillText)
-
-      await db.insert(SkillTable).values({
-        id: skillId,
-        organizationId: payload.organization.id,
-        createdByOrgMembershipId: payload.currentMember.id,
-        title: metadata.title,
-        description: metadata.description,
-        skillText: input.skillText,
-        shared: input.shared ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-
-      return c.json({
-        skill: {
-          id: skillId,
+      try {
+        const bundle = input.files
+          ? validateCompanySkillBundleFiles("skill", input.files)
+          : singleFileCompanySkill(input.skillText ?? "")
+        if (input.skillText !== undefined && bundle.skillText !== input.skillText) {
+          return c.json({ error: "skill_entrypoint_mismatch", message: "SKILL.md 与 skillText 内容不一致。" }, 400)
+        }
+        const saved = await saveSkill({
+          access: {
+            memberIds: [],
+            orgWide: input.shared === "org" || input.shared === "public",
+            teamIds: [],
+          },
+          actorIsAdmin: isOrganizationAdmin(payload),
+          actorMemberId: payload.currentMember.id,
+          bundle,
           organizationId: payload.organization.id,
-          createdByOrgMembershipId: payload.currentMember.id,
-          title: metadata.title,
-          description: metadata.description,
-          skillText: input.skillText,
-          shared: input.shared ?? null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      }, 201)
+          overwrite: input.overwrite ?? true,
+        })
+        return c.json({
+          action: saved.action,
+          skill: serializeCompanySkill(saved.row, true),
+        }, 201)
+      } catch (error) {
+        const failure = skillStoreErrorResponse(error)
+        return c.json(failure.body, failure.status)
+      }
+    },
+  )
+
+  app.post(
+    "/v1/skills/import-zip",
+    describeRoute({
+      tags: ["Skills"],
+      summary: "Import company skills from ZIP",
+      description: "Imports multiple first-level skill folders from one ZIP and reports each result explicitly.",
+      responses: {
+        200: jsonResponse("Skill ZIP processed.", skillZipImportResponseSchema),
+        400: jsonResponse("The uploaded ZIP or access settings were invalid.", invalidRequestSchema),
+        401: jsonResponse("The caller must be signed in.", unauthorizedSchema),
+        403: jsonResponse("Only organization administrators can import company skills.", forbiddenSchema),
+        413: jsonResponse("The uploaded ZIP exceeded the size limit.", invalidRequestSchema),
+      },
+    }),
+    memberRoute,
+    bodyLimit({
+      maxSize: SKILL_ZIP_REQUEST_MAX_BYTES,
+      onError: (c) => c.json({ error: "skill_zip_too_large", message: "ZIP 文件不能超过 12 MB。" }, 413),
+    }),
+    async (c) => {
+      const permission = ensureOrganizationAdmin(c, "只有公司管理员可以批量导入技能。")
+      if (!permission.ok) {
+        return c.json(permission.response, orgAccessFailureStatus(permission.response))
+      }
+      if (!c.req.header("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+        return c.json({ error: "invalid_skill_zip", message: "请使用表单上传 ZIP 文件。" }, 400)
+      }
+
+      try {
+        const body = await c.req.parseBody()
+        const archive = body.archive instanceof File ? body.archive : null
+        if (!archive) {
+          return c.json({ error: "skill_zip_missing", message: "请选择要上传的 ZIP 文件。" }, 400)
+        }
+        if (!archive.name.toLowerCase().endsWith(".zip")) {
+          return c.json({ error: "invalid_skill_zip", message: "仅支持 ZIP 格式。" }, 400)
+        }
+
+        const parsed = parseSkillZipArchive(new Uint8Array(await archive.arrayBuffer()))
+        const payload = c.get("organizationContext")
+        const orgWide = body.orgWide !== "false"
+        const overwrite = body.overwrite === "true"
+        const memberIds = parseStringIdList(body.memberIds, "memberIds")
+        const teamIds = parseStringIdList(body.teamIds, "teamIds")
+        if (!orgWide && memberIds.length === 0 && teamIds.length === 0) {
+          return c.json({ error: "skill_access_missing", message: "请选择全公司、至少一名成员或一个团队。" }, 400)
+        }
+
+        const results: Array<Record<string, unknown>> = []
+        const failures: Array<Record<string, unknown>> = [...parsed.failures]
+        for (const bundle of parsed.skills) {
+          try {
+            const saved = await saveSkill({
+              access: { memberIds, orgWide, teamIds },
+              actorIsAdmin: true,
+              actorMemberId: payload.currentMember.id,
+              bundle,
+              organizationId: payload.organization.id,
+              overwrite,
+            })
+            results.push({
+              action: saved.action,
+              bundleHash: bundle.bundleHash,
+              fileCount: bundle.files.length,
+              folder: bundle.folder,
+              id: saved.row.id,
+              slug: bundle.slug,
+            })
+          } catch (error) {
+            const failure = skillStoreErrorResponse(error)
+            failures.push({
+              code: failure.body.error,
+              folder: bundle.folder,
+              reason: failure.body.message,
+              slug: bundle.slug,
+            })
+          }
+        }
+        return c.json({ failures, results })
+      } catch (error) {
+        const failure = skillStoreErrorResponse(error)
+        return c.json(failure.body, failure.status)
+      }
     },
   )
 
@@ -337,7 +494,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         401: jsonResponse("The caller must be signed in to list skills.", unauthorizedSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     resolveMemberTeamsMiddleware,
     async (c) => {
       const payload = c.get("organizationContext")
@@ -362,8 +519,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
             accessibleSkillIds,
           }))
           .map((skill) => ({
-            ...skill,
-            canManage: canManageSkill(payload, skill),
+            ...serializeCompanySkill(skill, canManageSkill(payload, skill)),
           })),
       })
     },
@@ -383,7 +539,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")
@@ -438,7 +594,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillParamsSchema),
     jsonValidator(updateSkillSchema),
     async (c) => {
@@ -465,14 +621,15 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
       }
 
       if (!canManageSkill(payload, skill)) {
-        return c.json({ error: "forbidden", message: "Only the skill creator or a workspace admin can update skills." }, 403)
+        return c.json({ error: "forbidden", message: "只有技能创建者或公司管理员可以更新技能。" }, 403)
       }
-      const freshPermission = ensureFreshAdminIfApplicable(c, "Only the skill creator or a workspace admin can update skills.")
+      const freshPermission = ensureFreshAdminIfApplicable(c, "只有技能创建者或公司管理员可以更新技能。")
       if (!freshPermission.ok) {
         return c.json(freshPermission.response, orgAccessFailureStatus(freshPermission.response))
       }
 
       const nextSkillText = input.skillText ?? skill.skillText
+      const nextBundle = replaceCompanySkillEntrypoint(skill, nextSkillText)
       const metadata = parseSkillMetadata(nextSkillText)
       const updatedAt = new Date()
       const nextShared = input.shared === undefined ? skill.shared : input.shared
@@ -480,23 +637,27 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
       await db
         .update(SkillTable)
         .set({
+          bundleFilesJson: nextBundle.files,
+          bundleHash: nextBundle.bundleHash,
           title: metadata.title,
           description: metadata.description,
-          skillText: nextSkillText,
+          skillText: nextBundle.skillText,
           shared: nextShared,
           updatedAt,
         })
         .where(eq(SkillTable.id, skill.id))
 
       return c.json({
-        skill: {
+        skill: serializeCompanySkill({
           ...skill,
+          bundleFilesJson: nextBundle.files,
+          bundleHash: nextBundle.bundleHash,
           title: metadata.title,
           description: metadata.description,
-          skillText: nextSkillText,
+          skillText: nextBundle.skillText,
           shared: nextShared,
           updatedAt,
-        },
+        }, true),
       })
     },
   )
@@ -513,7 +674,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         401: jsonResponse("The caller must be signed in to create skill hubs.", unauthorizedSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     jsonValidator(createSkillHubSchema),
     async (c) => {
       const payload = c.get("organizationContext")
@@ -567,7 +728,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         401: jsonResponse("The caller must be signed in to list skill hubs.", unauthorizedSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     resolveMemberTeamsMiddleware,
     async (c) => {
       const payload = c.get("organizationContext")
@@ -735,7 +896,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill hub could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubParamsSchema),
     jsonValidator(updateSkillHubSchema),
     async (c) => {
@@ -807,7 +968,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill hub could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")
@@ -864,7 +1025,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         409: jsonResponse("The skill is already attached to the skill hub.", conflictSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubParamsSchema),
     jsonValidator(addSkillToHubSchema),
     async (c) => {
@@ -954,7 +1115,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill hub or hub-skill link could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubSkillParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")
@@ -1031,7 +1192,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         409: jsonResponse("The requested access entry already exists.", conflictSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubParamsSchema),
     jsonValidator(addSkillHubAccessSchema),
     async (c) => {
@@ -1144,7 +1305,7 @@ export function registerOrgSkillRoutes<T extends { Variables: OrgRouteVariables 
         404: jsonResponse("The skill hub or access entry could not be found.", notFoundSchema),
       },
     }),
-    orgMemberRoute(),
+    memberRoute,
     paramValidator(orgSkillHubAccessParamsSchema),
     async (c) => {
       const payload = c.get("organizationContext")

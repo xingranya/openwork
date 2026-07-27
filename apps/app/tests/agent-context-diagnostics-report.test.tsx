@@ -90,7 +90,7 @@ function healthyReport(): AgentContextDiagnosticsReport {
     },
     mcps: [
       {
-        name: "openwork-cloud",
+        name: "foxwork-company",
         source: "config.global",
         type: "remote",
         enabled: true,
@@ -103,7 +103,7 @@ function healthyReport(): AgentContextDiagnosticsReport {
         liveEngineStatus: "unavailable",
       },
       {
-        name: "openwork-cloud",
+        name: "foxwork-company",
         source: "config.remote",
         type: "remote",
         enabled: true,

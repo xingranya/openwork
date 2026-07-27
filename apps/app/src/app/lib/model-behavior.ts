@@ -92,7 +92,16 @@ const getDefaultVariantKey = (keys: string[]) => {
   return selected ?? keys[0] ?? null;
 };
 
-const providerFamily = (providerID: string, providerName?: string | null) => {
+const providerFamily = (
+  providerID: string,
+  model: ProviderModel,
+  providerName?: string | null,
+) => {
+  const npm = model.api?.npm?.trim().toLowerCase() ?? "";
+  if (npm.includes("anthropic")) return "anthropic";
+  if (npm.includes("google")) return "google";
+  if (npm.includes("openai")) return "openai";
+
   const normalizedId = providerID.trim().toLowerCase();
   if (["anthropic", "openai", "google", "opencode"].includes(normalizedId)) {
     return normalizedId;
@@ -112,7 +121,7 @@ const getBehaviorTitle = (
   variantKeys: string[],
   providerName?: string | null,
 ) => {
-  const family = providerFamily(providerID, providerName);
+  const family = providerFamily(providerID, model, providerName);
   if (variantKeys.length > 0) {
     if (family === "anthropic") return t("model_behavior.title_extended_thinking");
     if (family === "google") return t("model_behavior.title_reasoning_budget");
@@ -152,11 +161,12 @@ export const formatGenericBehaviorLabel = (value: string | null) => {
 
 const getVariantDescription = (
   providerID: string,
+  model: ProviderModel,
   key: string,
   label: string,
   providerName?: string | null,
 ) => {
-  const family = providerFamily(providerID, providerName);
+  const family = providerFamily(providerID, model, providerName);
   if (key === "none") return t("model_behavior.desc_none");
   if (key === "minimal") return t("model_behavior.desc_minimal");
   if (key === "low") return family === "google"
@@ -184,7 +194,7 @@ export const getModelBehaviorOptions = (
     return {
       value: key,
       label,
-      description: getVariantDescription(providerID, key, label, providerName),
+      description: getVariantDescription(providerID, model, key, label, providerName),
     };
   });
 };

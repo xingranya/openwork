@@ -68,6 +68,7 @@ import { registerWorkspaceRoutes } from "./routes/workspaces.js";
 import { registerCloudMcpRoutes } from "./routes/cloud-mcp.js";
 import {
   markOpenworkCloudMcpStale,
+  OPENWORK_CLOUD_MCP_NAME,
   reconcilePersistedOpenworkCloudMcp,
   type CloudMcpHealth,
 } from "./cloud-mcp-health.js";
@@ -4080,15 +4081,15 @@ function logPersistedCloudMcpReconcileResult(input: {
   const failure = input.health.firstFailure;
   createServerLogger(input.config).log(
     "warn",
-    `Cloud MCP ${input.trigger} reconciliation left connected service tools unavailable for workspace ${input.workspace.id}.`,
+    `公司能力 MCP 在 ${input.trigger} 同步后仍不可用，工作区：${input.workspace.id}。`,
     {
       "workspace.id": input.workspace.id,
-      "mcp.name": "openwork-cloud",
+      "mcp.name": OPENWORK_CLOUD_MCP_NAME,
       "mcp.trigger": input.trigger,
       "mcp.failure.code": failure?.code ?? "unknown",
       "mcp.failure.stage": failure?.stage ?? "unknown",
       "mcp.failure.retryable": failure?.retryable ?? null,
-      "mcp.failure.message": failure?.message ?? "Cloud MCP health remained unusable after reconciliation.",
+      "mcp.failure.message": failure?.message ?? "公司能力 MCP 同步后仍不可用。",
     },
   );
 }
@@ -4119,10 +4120,10 @@ function logPersistedCloudMcpReconcileError(input: {
 }): void {
   createServerLogger(input.config).log(
     "error",
-    `Cloud MCP ${input.trigger} reconciliation crashed for workspace ${input.workspace.id}.`,
+    `公司能力 MCP 在 ${input.trigger} 同步时异常，工作区：${input.workspace.id}。`,
     {
       "workspace.id": input.workspace.id,
-      "mcp.name": "openwork-cloud",
+      "mcp.name": OPENWORK_CLOUD_MCP_NAME,
       "mcp.trigger": input.trigger,
       "mcp.failure.code": "cloud_mcp_reconcile_exception",
       "mcp.failure.message": input.error instanceof Error ? input.error.message : String(input.error),

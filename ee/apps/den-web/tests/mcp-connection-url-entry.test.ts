@@ -7,15 +7,21 @@ const screenPath = fileURLToPath(
 );
 
 describe("MCP URL entry UI contract", () => {
-  test("opens the generic MCP dialog directly on URL discovery", () => {
+  test("默认打开完整的远程 HTTP MCP 配置向导", () => {
     const screen = readFileSync(screenPath, "utf8");
 
-    expect(screen).toContain('useState<"smart" | "advanced">(preset ? "advanced" : "smart")');
-    expect(screen).toContain("添加 MCP 服务");
-    expect(screen).toContain("粘贴 MCP 服务地址");
-    expect(screen).toContain("自动识别并检查认证要求");
+    expect(screen).toContain('useState<"smart" | "advanced">("advanced")');
+    expect(screen).toContain('setView("advanced")');
+    expect(screen).toContain("添加自定义 MCP 服务");
+    expect(screen).toContain("连接类型");
+    expect(screen).toContain("远程 HTTP（Streamable HTTP）");
+    expect(screen).toContain("公司服务器只连接远程 MCP 服务，不会运行本地命令。");
+    expect(screen).toContain("连接说明");
+    expect(screen).toContain('placeholder="说明这个连接提供什么能力，以及适合哪些工作场景"');
     expect(screen).toContain('placeholder="https://mcp.example.com/mcp"');
-    expect(screen).toContain('if (kind !== "url" && kind !== "domain")');
+    expect(screen).toContain("正在测试连接...");
+    expect(screen).toContain("连接测试通过");
+    expect(screen).toContain("重新测试");
     expect(screen).not.toContain('data-testid="select-custom-mcp"');
     expect(screen).not.toContain('data-testid="mcp-service-picker"');
     expect(screen).not.toContain('aria-label="Filter services"');
@@ -31,6 +37,15 @@ describe("MCP URL entry UI contract", () => {
     expect(screen).toContain("disabled={Boolean(preset)}");
     expect(screen).not.toContain("existingConnectionUrls");
     expect(screen).not.toContain("onSelectPreset");
+  });
+
+  test("创建和编辑都会提交连接说明", () => {
+    const screen = readFileSync(screenPath, "utf8");
+
+    expect(screen).toContain('const [description, setDescription] = useState("")');
+    expect(screen).toContain("description: description.trim()");
+    expect(screen).toContain("setDescription(connection.description ?? \"\")");
+    expect(screen).toContain('data-testid="edit-mcp-description"');
   });
 
   test("offers one compact bulk control for long optional permission lists", () => {

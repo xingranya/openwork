@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import { Check, Minimize2 } from "lucide-react";
+import { FOXWORK_COMPANY_MCP_NAME } from "@openwork/types/den/mcp-connection-action";
 import { toast } from "@/components/ui/sonner";
 
 import { captureAnalyticsEvent } from "@/app/lib/analytics";
@@ -1202,7 +1203,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       name: entry.name,
       config: entry.config as McpServerEntry["config"],
       source: entry.source,
-      origin: entry.name === "openwork-cloud" ? "openwork-connect" : "local",
+      origin: entry.name === FOXWORK_COMPANY_MCP_NAME ? "openwork-connect" : "local",
     } satisfies McpServerEntry));
 
     let localStatuses: McpStatusMap = {};

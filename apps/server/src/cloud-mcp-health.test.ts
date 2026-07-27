@@ -8,6 +8,7 @@ import {
   CloudMcpDeliveryStateStore,
   calculateCloudMcpDesiredRevision,
   OPENWORK_CLOUD_EXPECTED_TOOLS,
+  OPENWORK_CLOUD_MCP_NAME,
   OPENWORK_CLOUD_PLUGIN_CANARIES,
   readOpenworkCloudMcpHealth,
 } from "./cloud-mcp-health.js";
@@ -75,7 +76,7 @@ function startMockOpencode(mode: DirectProbeMode) {
     async fetch(request) {
       const url = new URL(request.url);
       if (url.pathname === "/global/health") return Response.json({ healthy: true, version: "1.17.11" });
-      if (url.pathname === "/mcp" && request.method === "GET") return Response.json({ "openwork-cloud": { status: "connected" } });
+      if (url.pathname === "/mcp" && request.method === "GET") return Response.json({ [OPENWORK_CLOUD_MCP_NAME]: { status: "connected" } });
       if (url.pathname === "/experimental/tool/ids") return Response.json([...OPENWORK_CLOUD_EXPECTED_TOOLS, ...OPENWORK_CLOUD_PLUGIN_CANARIES]);
       if (url.pathname === "/cloud-mcp/mcp/agent" && request.method === "POST") {
         if (mode === "unauthorized") return Response.json({ error: "invalid token" }, { status: 401 });
@@ -89,7 +90,7 @@ function startMockOpencode(mode: DirectProbeMode) {
             result: {
               capabilities: { tools: {} },
               protocolVersion: "2025-06-18",
-              serverInfo: { name: "openwork-cloud-test", version: "1.0.0" },
+              serverInfo: { name: "foxwork-company-test", version: "1.0.0" },
             },
           });
         }
@@ -150,7 +151,7 @@ async function readHealthForDirectProbe(mode: DirectProbeMode, options: ReadHeal
     ...current,
     mcp: {
       ...current.mcp,
-      "openwork-cloud": {
+      [OPENWORK_CLOUD_MCP_NAME]: {
         type: "remote",
         url: directUrl,
         enabled: true,
@@ -254,52 +255,52 @@ describe("cloud MCP health foundation", () => {
 
   test("diagnoses project and global OpenCode tool denies for exact Cloud IDs", () => {
     const denies = diagnoseMcpToolDeniesFromConfigs({
-      name: "openwork-cloud",
+      name: OPENWORK_CLOUD_MCP_NAME,
       toolIds: [...OPENWORK_CLOUD_EXPECTED_TOOLS],
       projectConfig: {
         tools: {
-          "openwork-cloud_search_capabilities": false,
+          [OPENWORK_CLOUD_EXPECTED_TOOLS[0]]: false,
         },
       },
       globalConfig: {
         permission: [
-          { permission: "tool", pattern: "openwork-cloud_execute_capability", action: "deny" },
+          { permission: "tool", pattern: OPENWORK_CLOUD_EXPECTED_TOOLS[1], action: "deny" },
         ],
       },
     });
 
     expect(denies.map((deny) => deny.source).sort()).toEqual(["config.global", "config.project"]);
     expect(denies.map((deny) => deny.matched).sort()).toEqual([
-      "openwork-cloud_execute_capability",
-      "openwork-cloud_search_capabilities",
+      OPENWORK_CLOUD_EXPECTED_TOOLS[1],
+      OPENWORK_CLOUD_EXPECTED_TOOLS[0],
     ]);
   });
 
   test("project tool allows override global denies for matching Cloud tool IDs", () => {
     const denies = diagnoseMcpToolDeniesFromConfigs({
-      name: "openwork-cloud",
+      name: OPENWORK_CLOUD_MCP_NAME,
       toolIds: [...OPENWORK_CLOUD_EXPECTED_TOOLS],
       projectConfig: {
         tools: {
-          "openwork-cloud_search_capabilities": true,
+          [OPENWORK_CLOUD_EXPECTED_TOOLS[0]]: true,
         },
       },
       globalConfig: {
-        tools: { deny: ["openwork-cloud_*"] },
+        tools: { deny: [`${OPENWORK_CLOUD_MCP_NAME}_*`] },
       },
     });
 
     expect(denies).toHaveLength(1);
     expect(denies[0]).toMatchObject({
       source: "config.global",
-      pattern: "openwork-cloud_*",
-      matched: "openwork-cloud_execute_capability",
+      pattern: `${OPENWORK_CLOUD_MCP_NAME}_*`,
+      matched: OPENWORK_CLOUD_EXPECTED_TOOLS[1],
     });
   });
 
   test("plugin canary denies are not reported as Cloud tool denies", () => {
     const denies = diagnoseMcpToolDeniesFromConfigs({
-      name: "openwork-cloud",
+      name: OPENWORK_CLOUD_MCP_NAME,
       toolIds: [...OPENWORK_CLOUD_EXPECTED_TOOLS],
       projectConfig: {
         tools: {

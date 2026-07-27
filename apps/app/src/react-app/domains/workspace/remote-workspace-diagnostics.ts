@@ -4,9 +4,13 @@ import {
   createOpenworkServerClient,
   normalizeOpenworkServerUrl,
   parseOpenworkWorkspaceIdFromUrl,
+  stripOpenworkWorkspaceMount,
   type OpenworkServerClient,
 } from "../../../app/lib/openwork-server";
-import { redactTokenLikeText } from "../../../app/utils";
+import {
+  describeWorkspaceTaskLoadError,
+  redactTokenLikeText,
+} from "../../../app/utils";
 
 export type RemoteWorkspaceConnectionTarget = {
   kind: "openwork";
@@ -59,24 +63,6 @@ function endpointLabel(baseUrl: string) {
   }
 }
 
-function stripOpenworkWorkspaceMount(baseUrl: string) {
-  try {
-    const url = new URL(baseUrl);
-    const segments = url.pathname.split("/").filter(Boolean);
-    const workspaceIndex = segments.indexOf("workspace");
-    const legacyIndex = segments.indexOf("w");
-    const mountIndex = workspaceIndex >= 0 ? workspaceIndex : legacyIndex;
-    if (mountIndex >= 0 && segments[mountIndex + 1]) {
-      const prefix = segments.slice(0, mountIndex).join("/");
-      url.pathname = prefix ? `/${prefix}` : "/";
-      return url.toString().replace(/\/+$/, "");
-    }
-  } catch {
-    // 解析失败时继续使用下方已经标准化的地址。
-  }
-  return baseUrl.replace(/\/+$/, "");
-}
-
 function isValidHttpEndpoint(baseUrl: string) {
   try {
     const url = new URL(baseUrl);
@@ -87,7 +73,7 @@ function isValidHttpEndpoint(baseUrl: string) {
 }
 
 function describeUnknownError(error: unknown) {
-  return redactRemoteDiagnosticText(error instanceof Error ? error.message : String(error || "未知错误"));
+  return describeWorkspaceTaskLoadError(error instanceof Error ? error.message : String(error || "未知错误"));
 }
 
 function isServerErrorStatus(error: unknown, status: number | number[]) {
@@ -338,7 +324,7 @@ export async function diagnoseRemoteWorkspaceTaskLoadFailure(
   options: TestOptions = {},
 ): Promise<WorkspaceConnectionState> {
   const checkedAt = options.now?.() ?? Date.now();
-  const fallback = redactRemoteDiagnosticText(trim(taskLoadError) || "远程工作环境连接失败。");
+  const fallback = describeWorkspaceTaskLoadError(trim(taskLoadError) || "远程工作环境连接失败。");
 
   try {
     const diagnostic = await testRemoteWorkspaceConnection(workspace, options);

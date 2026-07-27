@@ -22,18 +22,26 @@ type OrganizationServerAffordanceProps = {
   busy: boolean;
   error: string | null;
   onSave: (url: string) => Promise<boolean>;
+  required?: boolean;
   url: string;
 };
 
 export function OrganizationServerAffordance(props: OrganizationServerAffordanceProps) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+  const configuredUrl = isValidControlPlaneUrl(props.url) ? props.url : "";
   const customUrl = displayCustomControlPlaneUrl(props.url);
-  const connectedHost = customUrl ? formatControlPlaneHost(customUrl) : "";
+  const visibleUrl = props.required ? configuredUrl : customUrl;
+  const hasServer = Boolean(visibleUrl);
+  const [open, setOpen] = useState(() => props.required === true && !hasServer);
+  const [draft, setDraft] = useState("");
+  const connectedHost = visibleUrl ? formatControlPlaneHost(visibleUrl) : "";
 
   useEffect(() => {
-    if (open) setDraft(customUrl);
-  }, [customUrl, open]);
+    if (open) setDraft(visibleUrl);
+  }, [open, visibleUrl]);
+
+  useEffect(() => {
+    if (props.required && !hasServer) setOpen(true);
+  }, [hasServer, props.required]);
 
   const submit = async () => {
     const ok = await props.onSave(draft);
@@ -42,7 +50,7 @@ export function OrganizationServerAffordance(props: OrganizationServerAffordance
 
   return (
     <div className="flex justify-center">
-      {customUrl ? (
+      {hasServer ? (
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg border border-border bg-muted/40 px-3 py-2 text-center text-sm text-muted-foreground">
           <span>{t("welcome.organization_server_connected", { host: connectedHost })}</span>
           <Button
@@ -65,7 +73,13 @@ export function OrganizationServerAffordance(props: OrganizationServerAffordance
         </Button>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && props.required && !hasServer) return;
+          setOpen(nextOpen);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("welcome.organization_server_dialog_title")}</DialogTitle>
@@ -86,20 +100,22 @@ export function OrganizationServerAffordance(props: OrganizationServerAffordance
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={props.busy}
-            >
-              {t("common.cancel")}
-            </Button>
+            {props.required && !hasServer ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={props.busy}
+              >
+                {t("common.cancel")}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={() => void submit()}
               disabled={props.busy || !isValidControlPlaneUrl(draft)}
             >
-              {t("common.save")}
+              {props.required && !hasServer ? "连接并继续" : t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

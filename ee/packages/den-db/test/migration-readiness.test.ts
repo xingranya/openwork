@@ -114,6 +114,30 @@ describe("Den DB migration readiness wiring", () => {
     assertNoForbiddenDeployTools(bootstrap)
   })
 
+  test("MCP 连接说明迁移只新增可空字段并保留既有数据", () => {
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0047_mcp_connection_description.sql")
+    const schema = readRepoFile("ee/packages/den-db/src/schema/sharables/capability-credentials.ts")
+
+    assert.match(migration, /ALTER TABLE `external_mcp_connection` ADD `description` varchar\(1000\);/)
+    assert.equal(/DROP\s+(TABLE|COLUMN)/i.test(migration), false)
+    assert.match(schema, /description: varchar\("description", \{ length: 1000 \}\)/)
+  })
+
+  test("模型默认全员策略迁移为旧数据保留受限访问语义", () => {
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0048_llm_provider_default_enabled.sql")
+    const schema = readRepoFile("ee/packages/den-db/src/schema/sharables/llm-providers.ts")
+
+    assert.match(
+      migration,
+      /ALTER TABLE `llm_provider` ADD `default_enabled` boolean DEFAULT false NOT NULL;/,
+    )
+    assert.equal(/DROP\s+(TABLE|COLUMN)/i.test(migration), false)
+    assert.match(
+      schema,
+      /defaultEnabled: boolean\("default_enabled"\)\.notNull\(\)\.default\(false\)/,
+    )
+  })
+
   test("package build emits the precompiled runner, schema snapshot, and migration assets", { timeout: 120_000 }, () => {
     const build = spawnSync(pnpmCommand, ["run", "build"], {
       cwd: packageDir,

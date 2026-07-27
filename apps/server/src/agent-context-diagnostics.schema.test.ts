@@ -119,7 +119,7 @@ describe("agent context diagnostics safe output schema", () => {
       pluginLabels: ["openwork-extensions-preview"],
     };
     const mcp = {
-      name: "openwork-cloud",
+      name: "foxwork-company",
       source: "config.remote" as const,
       type: "remote" as const,
       enabled: true,

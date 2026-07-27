@@ -354,6 +354,8 @@ export type DenOrgSkillCard = {
   title: string;
   description: string | null;
   skillText: string;
+  bundleHash: string;
+  files: Array<{ path: string; contents: string }>;
   shared: "org" | "public" | null;
   updatedAt: string | null;
 };

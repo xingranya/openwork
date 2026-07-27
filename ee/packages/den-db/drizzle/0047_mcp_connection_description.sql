@@ -1,0 +1,1 @@
+ALTER TABLE `external_mcp_connection` ADD `description` varchar(1000);

@@ -1,6 +1,7 @@
 import type { ModelRef, SuggestedPlugin } from "./types";
 import { t } from "../i18n";
 import { getDenMcpUrl } from "./lib/den";
+import { FOXWORK_COMPANY_MCP_NAME } from "@openwork/types/den/mcp-connection-action";
 import {
   BUILT_IN_OPENWORK_EXTENSION_MANIFESTS,
   extensionContribution,
@@ -152,14 +153,14 @@ export const MCP_QUICK_CONNECT: McpDirectoryInfo[] = [
   },
   {
     get name() { return t("mcp.quick_connect_openwork_cloud_title"); },
-    serverName: "openwork-cloud",
+    serverName: FOXWORK_COMPANY_MCP_NAME,
     get description() { return t("mcp.quick_connect_openwork_cloud_desc"); },
     get url() {
       // The desktop app connects to the minimal, harness-facing surface
       // (/mcp/agent: search_capabilities + execute_capability only), not the
       // full catalog at bare /mcp. getDenMcpUrl heals stale web-app origins;
       // never at the web app's root. A company build without a Den address
-      // must leave this entry unavailable instead of contacting OpenWork Cloud.
+      // 公司构建未配置 Den 地址时必须保持不可用，不能访问公共服务。
       try {
         const mcpUrl = getDenMcpUrl();
         return mcpUrl ? `${mcpUrl}/agent` : "";
@@ -171,9 +172,7 @@ export const MCP_QUICK_CONNECT: McpDirectoryInfo[] = [
     oauth: true,
     kind: "mcp",
     iconSrc: "/openwork-mark.svg",
-    // Auto-managed by the signed-in cloud reconciler (syncCloudControlMcp):
-    // configured + enabled while signed in to OpenWork Cloud. Hidden from the
-    // default catalog; "Show hidden" reveals it.
+    // 由公司登录同步逻辑自动配置和续期；默认不出现在员工手动添加目录中。
     defaultHidden: true,
   },
   {
