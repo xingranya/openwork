@@ -31,30 +31,20 @@ $:
               --username "$CNB_TOKEN_USER_NAME" \
               --password-stdin
 
-            build_with_registry_cache() {
-              local cache_ref="$1"
-              shift
-              local cache_args=(--cache-to "type=registry,ref=$cache_ref,mode=max")
-              if docker buildx imagetools inspect "$cache_ref" >/dev/null 2>&1; then
-                cache_args=(--cache-from "type=registry,ref=$cache_ref" "${cache_args[@]}")
-              fi
-              docker buildx build "${cache_args[@]}" "$@"
-            }
-
-            build_with_registry_cache "$IMAGE_REPOSITORY:den-api-buildcache" \
+            docker buildx build \
               --platform linux/amd64,linux/arm64 \
               --file packaging/docker/Dockerfile.den \
               --build-arg "DEN_API_VERSION=$VERSION" \
               --tag "$IMAGE_REPOSITORY:den-api-$VERSION" \
               --push .
 
-            build_with_registry_cache "$IMAGE_REPOSITORY:den-web-buildcache" \
+            docker buildx build \
               --platform linux/amd64,linux/arm64 \
               --file packaging/docker/Dockerfile.den-web \
               --tag "$IMAGE_REPOSITORY:den-web-$VERSION" \
               --push .
 
-            build_with_registry_cache "$IMAGE_REPOSITORY:den-worker-buildcache" \
+            docker buildx build \
               --platform linux/amd64,linux/arm64 \
               --file packaging/docker/Dockerfile.microsandbox \
               --build-arg RUNTIME_ASSERTS=0 \

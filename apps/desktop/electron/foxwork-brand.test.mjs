@@ -172,15 +172,13 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.match(cnbWorkflowSource, /preRelease: false/);
 });
 
-test("CNB 仅从 SeeWayWork 标签发布三套多架构运行镜像并复用缓存", () => {
+test("CNB 仅从 SeeWayWork 标签发布三套多架构运行镜像且不导出 Registry 缓存", () => {
   assert.match(cnbWorkflowSource, /\^seewaywork-v\[0-9\]/);
   assert.match(cnbWorkflowSource, /VERSION="\$\{CNB_BRANCH#seewaywork-v\}"/);
   assert.match(cnbWorkflowSource, /构建并推送 Den API、Den Web 和远程 Worker/);
   assert.match(cnbWorkflowSource, /packaging\/docker\/Dockerfile\.microsandbox/);
   assert.match(cnbWorkflowSource, /den-worker-\$VERSION/);
-  assert.match(cnbWorkflowSource, /--cache-from "type=registry,ref=\$cache_ref"/);
-  assert.match(cnbWorkflowSource, /--cache-to "type=registry,ref=\$cache_ref,mode=max"/);
-  assert.match(cnbWorkflowSource, /docker buildx imagetools inspect "\$cache_ref"/);
+  assert.doesNotMatch(cnbWorkflowSource, /--cache-(?:from|to)/);
 });
 
 test("远程 Worker 在原生构建机交叉产出目标架构二进制", () => {
