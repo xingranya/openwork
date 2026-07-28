@@ -12,7 +12,9 @@ export const FOXWORK_DEV_APP_IDENTIFIER = "com.foxwork.desktop.dev";
 export const FOXWORK_PROTOCOL_SCHEME = "foxwork";
 export const FOXWORK_DEV_PROTOCOL_SCHEME = "foxwork-dev";
 export const FOXWORK_RELEASE_PAGE_URL = "https://cnb.cool/xingranya/foxwork/-/releases";
-export const FOXWORK_UPDATE_BASE_URL = `${FOXWORK_RELEASE_PAGE_URL}/latest/download`;
+// CNB 不提供 GitHub 兼容的 latest/download 别名。稳定通道固定使用
+// seewaywork-stable Release，发行流程会原子更新其清单与安装包。
+export const FOXWORK_UPDATE_BASE_URL = `${FOXWORK_RELEASE_PAGE_URL}/download/seewaywork-stable`;
 
 export const FOXWORK_LEGACY_PROTOCOL_SCHEMES = Object.freeze([
   "openwork",

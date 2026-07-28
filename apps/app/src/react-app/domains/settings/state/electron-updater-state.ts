@@ -6,11 +6,9 @@ import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import {
   isAlphaChannelAllowedByDesktopConfig,
   isAlphaUpdateAllowed,
-  isUpdateAllowed,
   isUpdateAllowedByDesktopConfig,
-  resolveAutomaticStableDesktopUpdate,
   resolveDesktopUpdateChannel,
-  resolveFreshStableDesktopUpdate,
+  selectConfiguredDesktopUpdateTarget,
 } from "../../../../app/lib/version-gate";
 import type { ReleaseChannel } from "../../../../app/types";
 import { isElectronRuntime } from "../../../../app/utils";
@@ -348,63 +346,18 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         onReleaseChannelChange(activeReleaseChannel);
         await bridge.setChannel?.(activeReleaseChannel);
       }
-      if (manual && activeReleaseChannel === "stable") {
-        const channelState = await bridge.getChannel?.();
-        const currentVersion = channelState?.currentVersion ?? appVersion;
-        if (!currentVersion) {
-          throw new Error("Could not determine the installed SeeWayWork version.");
-        }
-
-        const selection = await resolveFreshStableDesktopUpdate({
-          currentVersion,
-          refreshDesktopConfig,
-        });
-        if (!selection) {
-          throw new Error("Den returned an invalid desktop release inventory.");
-        }
-        if (selection.kind === "blocked") {
-          setUpdateStatus({
-            state: "blocked",
-            lastCheckedAt: Date.now(),
-            version: selection.latestPublishedVersion,
-            message: t("settings.update_blocked_org", undefined, {
-              version: selection.latestPublishedVersion,
-            }),
-          });
-          return;
-        }
-        if (selection.kind === "current") {
-          setUpdateStatus({
-            state: "idle",
-            lastCheckedAt: Date.now(),
-            version: selection.latestPublishedVersion,
-          });
-          return;
-        }
-        targetVersion = selection.targetVersion;
-      }
-
       let result = await bridge.check(activeReleaseChannel, targetVersion);
       dispatchEnvState({ type: "app-version", appVersion: result.currentVersion ?? null });
       if (result.channel && result.channel !== releaseChannel) {
         onReleaseChannelChange(result.channel);
       }
       let checkedReleaseChannel = result.channel ?? activeReleaseChannel;
-      if (
-        !result.reason &&
-        !manual &&
-        checkedReleaseChannel === "stable" &&
-        result.available &&
-        result.latestVersion &&
-        !targetVersion &&
-        !isUpdateAllowedByDesktopConfig(result.latestVersion, freshDesktopConfig)
-      ) {
+      if (!result.reason && checkedReleaseChannel === "stable" && result.available && result.latestVersion && !targetVersion && !isUpdateAllowedByDesktopConfig(result.latestVersion, freshDesktopConfig)) {
         const currentVersion = result.currentVersion ?? appVersion;
         const fallbackTargetVersion = currentVersion
-          ? await resolveAutomaticStableDesktopUpdate({
+          ? selectConfiguredDesktopUpdateTarget({
               currentVersion,
-              latestVersion: result.latestVersion,
-              desktopConfig: freshDesktopConfig,
+              allowedDesktopVersions: freshDesktopConfig?.allowedDesktopVersions,
             })
           : null;
         if (fallbackTargetVersion) {
@@ -415,6 +368,16 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
             onReleaseChannelChange(result.channel);
           }
           checkedReleaseChannel = result.channel ?? checkedReleaseChannel;
+        } else {
+          setUpdateStatus({
+            state: "blocked",
+            lastCheckedAt: Date.now(),
+            version: result.latestVersion,
+            message: t("settings.update_blocked_org", undefined, {
+              version: result.latestVersion,
+            }),
+          });
+          return;
         }
       }
       if (result.reason === "unavailable") {
@@ -436,7 +399,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
           ? result.latestVersion === targetVersion
           : checkedReleaseChannel === "alpha"
             ? await isAlphaUpdateAllowed(result.latestVersion, latestDesktopConfig)
-            : await isUpdateAllowed(result.latestVersion, latestDesktopConfig)
+            : isUpdateAllowedByDesktopConfig(result.latestVersion, latestDesktopConfig)
         : result.available;
       const nextStatus: Exclude<SettingsUpdateStatus, null> = availableAllowed
         ? {

@@ -31,12 +31,12 @@ describe("targetedStableUpdaterFeed", () => {
     );
   });
 
-  it("把 CNB 最新版入口转换为指定版本入口", () => {
+  it("把 CNB 固定稳定通道转换为指定版本入口", () => {
     assert.equal(
       targetedStableUpdaterFeed(
         "0.18.4",
         "0.18.5",
-        "https://cnb.cool/xingranya/foxwork/-/releases/latest/download",
+        "https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable",
       ),
       "https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-v0.18.5",
     );

@@ -15,6 +15,7 @@ import {
 const browserPanelSource = readFileSync(new URL("./browser-panel.mjs", import.meta.url), "utf8");
 const connectLinkSource = readFileSync(new URL("./connect-link.mjs", import.meta.url), "utf8");
 const mainProcessSource = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+const debugViewSource = readFileSync(new URL("../../app/src/react-app/domains/settings/pages/debug-view.tsx", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("./runtime.mjs", import.meta.url), "utf8");
 const uiControlServerSource = readFileSync(new URL("./ui-control-server.mjs", import.meta.url), "utf8");
 const appIndexCssSource = readFileSync(new URL("../../app/src/app/index.css", import.meta.url), "utf8");
@@ -152,11 +153,15 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.equal(FOXWORK_RELEASE_PAGE_URL, "https://cnb.cool/xingranya/foxwork/-/releases");
   assert.equal(
     FOXWORK_UPDATE_BASE_URL,
-    "https://cnb.cool/xingranya/foxwork/-/releases/latest/download",
+    "https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable",
   );
   assert.match(rendererBrandSource, /CNB_STABLE_UPDATE_BASE_URL/);
   assert.match(builderConfigSource, /provider: generic/);
-  assert.match(builderConfigSource, /cnb\.cool\/xingranya\/foxwork\/-\/releases\/latest\/download/);
+  assert.match(builderConfigSource, /cnb\.cool\/xingranya\/foxwork\/-\/releases\/download\/seewaywork-stable/);
+  assert.match(mainProcessSource, /latest-arm64-mac\.yml/);
+  assert.match(mainProcessSource, /latest-x64-mac\.yml/);
+  assert.match(debugViewSource, /稳定版使用公司稳定更新通道/);
+  assert.doesNotMatch(debugViewSource, /releases\/latest\/download/);
 
   for (const contract of [
     "builder_args: --mac dmg zip --arm64",
@@ -165,7 +170,11 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     "latest-x64-mac.yml",
     "latest.yml",
     "apps/desktop/dist-electron/*.blockmap",
+    "FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable",
+    "VITE_FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable",
     "PLUGIN_ATTACHMENTS: ./release/*",
+    "seewaywork-stable",
+    "验证 CNB 稳定更新清单",
     "DMG 临时磁盘未能正常卸载，清理后重试",
     "hdiutil detach",
   ]) {
@@ -175,8 +184,10 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.match(cnbWorkflowSource, /preRelease: false/);
 });
 
-test("CNB 仅从 SeeWayWork 标签发布三套多架构运行镜像且不导出 Registry 缓存", () => {
-  assert.match(cnbWorkflowSource, /\^seewaywork-v\[0-9\]/);
+test("CNB 仅从 SeeWayWork 正式标签发布三套多架构运行镜像且不导出 Registry 缓存", () => {
+  assert.match(cnbWorkflowSource, /\^seewaywork-\(v\[0-9\]/);
+  assert.match(cnbWorkflowSource, /seewaywork-stable/);
+  assert.match(cnbWorkflowSource, /稳定更新通道只承载桌面更新清单和安装包，不重复构建服务镜像。/);
   assert.match(cnbWorkflowSource, /VERSION="\$\{CNB_BRANCH#seewaywork-v\}"/);
   assert.match(cnbWorkflowSource, /构建并推送 Den API、Den Web 和远程 Worker/);
   assert.match(cnbWorkflowSource, /packaging\/docker\/Dockerfile\.microsandbox/);

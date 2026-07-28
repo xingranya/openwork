@@ -1199,8 +1199,7 @@ export function DebugView(props: DebugViewProps) {
           </div>
 
           <div className="text-[11px] text-dls-secondary">
-            测试版渠道：<span className="font-mono">alpha-macos-latest/latest-mac.yml</span>。稳定版渠道：{" "}
-            <span className="font-mono">releases/latest/download/latest-mac.yml</span>.
+            测试版使用独立的测试渠道。稳定版使用公司稳定更新通道，并会按电脑架构自动读取对应的更新清单。
           </div>
 
           {props.electronAlphaUpdaterStatus ? (

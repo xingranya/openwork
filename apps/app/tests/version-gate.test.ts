@@ -5,6 +5,7 @@ import {
   resolveAutomaticStableDesktopUpdate,
   resolveDesktopUpdateChannel,
   resolveFreshStableDesktopUpdate,
+  selectConfiguredDesktopUpdateTarget,
   selectStableDesktopUpdate,
 } from "../src/app/lib/version-gate";
 
@@ -181,5 +182,21 @@ describe("resolveAutomaticStableDesktopUpdate", () => {
 
     expect(targetVersion).toBeNull();
     expect(metadataReads).toBe(0);
+  });
+});
+
+describe("selectConfiguredDesktopUpdateTarget", () => {
+  test("仅根据公司明确允许的版本选择高于当前版本的最高目标", () => {
+    expect(selectConfiguredDesktopUpdateTarget({
+      currentVersion: "0.18.8",
+      allowedDesktopVersions: ["0.18.7", "0.18.12", "0.18.10"],
+    })).toBe("0.18.12");
+  });
+
+  test("未设置版本白名单时不人为限制 CNB 稳定通道", () => {
+    expect(selectConfiguredDesktopUpdateTarget({
+      currentVersion: "0.18.8",
+      allowedDesktopVersions: null,
+    })).toBeNull();
   });
 });

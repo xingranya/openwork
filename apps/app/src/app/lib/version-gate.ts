@@ -161,6 +161,30 @@ function maxAllowedDesktopVersion(desktopConfig: DenDesktopConfig | null | undef
   return maxVersion;
 }
 
+/**
+ * 在管理员明确设置版本白名单时，选择不低于当前安装版本的最高允许版本。
+ *
+ * 发布是否存在由后续更新清单请求验证，不能再依赖与桌面客户端独立发版的
+ * Den API 内置版本列表，否则旧 Den 会把新客户端错误判断为“已是最新”。
+ */
+export function selectConfiguredDesktopUpdateTarget(input: {
+  currentVersion: string;
+  allowedDesktopVersions: string[] | null | undefined;
+}): string | null {
+  const currentVersion = normalizeStableDesktopVersion(input.currentVersion);
+  if (!currentVersion || !Array.isArray(input.allowedDesktopVersions)) return null;
+
+  let targetVersion: string | null = null;
+  for (const candidate of input.allowedDesktopVersions) {
+    const normalized = normalizeStableDesktopVersion(candidate);
+    if (!normalized || compareVersions(normalized, currentVersion) !== 1) continue;
+    if (targetVersion === null || compareVersions(normalized, targetVersion) === 1) {
+      targetVersion = normalized;
+    }
+  }
+  return targetVersion;
+}
+
 function effectiveMaxDesktopVersion(
   denLatestAppVersion: string,
   desktopConfig: DenDesktopConfig | null | undefined,

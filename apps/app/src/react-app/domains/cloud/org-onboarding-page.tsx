@@ -32,7 +32,8 @@ import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   isAlphaChannelAllowedByDesktopConfig,
   isAlphaUpdateAllowed,
-  resolveFreshStableDesktopUpdate,
+  isUpdateAllowedByDesktopConfig,
+  selectConfiguredDesktopUpdateTarget,
 } from "@/app/lib/version-gate";
 import {
   DEN_HANDOFF_AUTO_CONTINUE_KEY,
@@ -124,16 +125,21 @@ async function stageOnboardingUpdate(
     return false;
   }
   let targetVersion: string | undefined;
-  if (channelState.channel === "stable") {
-    const selection = await resolveFreshStableDesktopUpdate({
+  let update = await updater.check(channelState.channel);
+  if (
+    channelState.channel === "stable" &&
+    update.available &&
+    update.latestVersion &&
+    !isUpdateAllowedByDesktopConfig(update.latestVersion, desktopConfig)
+  ) {
+    const configuredTargetVersion = selectConfiguredDesktopUpdateTarget({
       currentVersion: channelState.currentVersion,
-      refreshDesktopConfig: async () => desktopConfig,
+      allowedDesktopVersions: desktopConfig.allowedDesktopVersions,
     });
-    if (selection?.kind !== "update") return false;
-    targetVersion = selection.targetVersion;
+    if (!configuredTargetVersion) return false;
+    targetVersion = configuredTargetVersion;
+    update = await updater.check(channelState.channel, targetVersion);
   }
-
-  const update = await updater.check(channelState.channel, targetVersion);
   if (!update.available || update.reason) return false;
   if (
     channelState.channel === "alpha" &&

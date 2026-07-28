@@ -257,7 +257,9 @@ function downloadAssetExtension() {
 }
 
 function updaterManifestName(arch) {
-  if (process.platform === "darwin") return "latest-mac.yml";
+  if (process.platform === "darwin") {
+    return arch === "arm64" ? "latest-arm64-mac.yml" : "latest-x64-mac.yml";
+  }
   if (process.platform === "win32") return "latest.yml";
   return arch === "arm64" ? "latest-linux-arm64.yml" : "latest-linux.yml";
 }

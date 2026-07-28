@@ -166,7 +166,12 @@ export function targetedStableUpdaterFeed(currentVersion, targetVersion, baseUrl
     throw new Error("目标更新版本必须高于当前安装版本。");
   }
   const normalizedBaseUrl = String(baseUrl).replace(/\/+$/, "");
+  const cnbStableSuffix = "/releases/download/seewaywork-stable";
   const cnbLatestSuffix = "/releases/latest/download";
+  if (normalizedBaseUrl.endsWith(cnbStableSuffix)) {
+    return `${normalizedBaseUrl.slice(0, -cnbStableSuffix.length)}/releases/download/seewaywork-v${normalizedTarget}`;
+  }
+  // 兼容曾由内部构建注入的旧 CNB 地址，避免旧私有构建失去受控回滚能力。
   if (normalizedBaseUrl.endsWith(cnbLatestSuffix)) {
     return `${normalizedBaseUrl.slice(0, -cnbLatestSuffix.length)}/releases/download/seewaywork-v${normalizedTarget}`;
   }

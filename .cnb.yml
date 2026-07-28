@@ -11,7 +11,7 @@ $:
         - name: 校验 SeeWayWork 发布标签
           script: |
             set -euo pipefail
-            echo "$CNB_BRANCH" | grep -Eq '^seewaywork-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+            echo "$CNB_BRANCH" | grep -Eq '^seewaywork-(v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?|stable)$'
 
         - name: 创建 CNB 发布版本
           type: git:release
@@ -24,6 +24,10 @@ $:
         - name: 构建并推送 Den API、Den Web 和远程 Worker
           script: |
             set -euo pipefail
+            if [ "$CNB_BRANCH" = "seewaywork-stable" ]; then
+              echo "稳定更新通道只承载桌面更新清单和安装包，不重复构建服务镜像。"
+              exit 0
+            fi
             VERSION="${CNB_BRANCH#seewaywork-v}"
 
             printf '%s' "$CNB_TOKEN" | docker login \

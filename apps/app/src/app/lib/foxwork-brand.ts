@@ -2,7 +2,7 @@ export const FOXWORK_APP_NAME = "SeeWayWork";
 export const FOXWORK_PROTOCOL = "foxwork:";
 export const FOXWORK_DEV_PROTOCOL = "foxwork-dev:";
 const CNB_RELEASE_PAGE_URL = "https://cnb.cool/xingranya/foxwork/-/releases";
-const CNB_STABLE_UPDATE_BASE_URL = `${CNB_RELEASE_PAGE_URL}/latest/download`;
+const CNB_STABLE_UPDATE_BASE_URL = `${CNB_RELEASE_PAGE_URL}/download/seewaywork-stable`;
 
 const LEGACY_PROTOCOLS = new Set(["openwork:", "openwork-dev:"]);
 

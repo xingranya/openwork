@@ -11,7 +11,7 @@ directories:
   output: dist-electron
 publish:
   - provider: generic
-    url: https://cnb.cool/xingranya/foxwork/-/releases/latest/download
+    url: https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable
 toolsets:
   appimage: "1.0.3"
 files:
