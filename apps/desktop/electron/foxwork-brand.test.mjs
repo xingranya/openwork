@@ -180,10 +180,20 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     "hdiutil detach",
     "验证桌面更新安装契约",
     "验证 Windows 完整安装与卸载",
-    "Uninstall *.exe",
+    "Get-SeewayWorkUninstallEntry",
+    "InstallLocation",
+    "UninstallString",
   ]) {
     assert.ok(releaseWorkflowSource.includes(contract), `缺少发行契约：${contract}`);
   }
+  assert.match(
+    releaseWorkflowSource,
+    /HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\\*/,
+  );
+  assert.doesNotMatch(
+    releaseWorkflowSource,
+    /Join-Path \$env:LOCALAPPDATA "Programs\/SeeWayWork"/,
+  );
   assert.match(releaseWorkflowSource, /prerelease: false/);
   assert.match(releaseWorkflowSource, /release_commit=\$\(git rev-parse "\$\{GITHUB_SHA\}\^\{commit\}"\)/);
   assert.doesNotMatch(releaseWorkflowSource, /git rev-parse "refs\/tags\/\$RELEASE_TAG\^\{commit\}"/);

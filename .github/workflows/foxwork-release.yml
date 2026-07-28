@@ -235,14 +235,54 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          function Get-SeewayWorkUninstallEntry {
+            # electron-builder 会按安装器内部的 sanitizedName 决定目录名，不能
+            # 假定它始终等于产品展示名称。以 NSIS 写入的当前用户卸载项为准。
+            $entry = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" `
+              -ErrorAction SilentlyContinue |
+              Where-Object { $_.DisplayName -like "SeeWayWork*" } |
+              Sort-Object DisplayVersion -Descending |
+              Select-Object -First 1
+            return $entry
+          }
+
+          function Wait-SeewayWorkUninstallEntry {
+            for ($attempt = 1; $attempt -le 20; $attempt++) {
+              $entry = Get-SeewayWorkUninstallEntry
+              if ($null -ne $entry) {
+                return $entry
+              }
+              Start-Sleep -Milliseconds 250
+            }
+            throw "安装完成后未找到 SeeWayWork 卸载注册表项。"
+          }
+
+          function Get-UninstallExecutable([object]$entry) {
+            $uninstallString = [string]$entry.UninstallString
+            if ([string]::IsNullOrWhiteSpace($uninstallString)) {
+              throw "SeeWayWork 卸载注册表项未提供 UninstallString。"
+            }
+
+            # NSIS 正常会为含空格的卸载程序路径加引号；无空格路径也保留兼容。
+            $quoted = [regex]::Match($uninstallString, '^\s*"(?<path>[^"]+\.exe)"')
+            $unquoted = [regex]::Match($uninstallString, '^\s*(?<path>\S+\.exe)')
+            $uninstallerPath = if ($quoted.Success) {
+              $quoted.Groups['path'].Value
+            } elseif ($unquoted.Success) {
+              $unquoted.Groups['path'].Value
+            } else {
+              throw "无法从 SeeWayWork UninstallString 解析卸载程序：$uninstallString"
+            }
+
+            if (-not (Test-Path $uninstallerPath)) {
+              throw "卸载注册表项指向的程序不存在：$uninstallerPath"
+            }
+            return $uninstallerPath
+          }
+
           $installer = Get-ChildItem "apps/desktop/dist-electron/SeeWayWork-win-x64-*.exe" | Select-Object -First 1
           if ($null -eq $installer) {
             throw "未找到 Windows 完整安装包。"
-          }
-
-          $installRoot = Join-Path $env:LOCALAPPDATA "Programs/SeeWayWork"
-          if (Test-Path $installRoot) {
-            Remove-Item -Recurse -Force $installRoot
           }
 
           $install = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
@@ -250,18 +290,29 @@ jobs:
             throw "Windows 安装包静默安装失败，退出码：$($install.ExitCode)"
           }
 
+          $uninstallEntry = Wait-SeewayWorkUninstallEntry
+          $uninstallerPath = Get-UninstallExecutable $uninstallEntry
+          $installRoot = [string]$uninstallEntry.InstallLocation
+          if ([string]::IsNullOrWhiteSpace($installRoot)) {
+            $installRoot = Split-Path -Parent $uninstallerPath
+          }
+          if (-not (Test-Path $installRoot)) {
+            throw "卸载注册表项指向的安装目录不存在：$installRoot"
+          }
+
           $application = Join-Path $installRoot "SeeWayWork.exe"
           if (-not (Test-Path $application)) {
             throw "安装完成后未找到 SeeWayWork.exe：$application"
           }
 
-          $uninstaller = Get-ChildItem $installRoot -Filter "Uninstall *.exe" | Select-Object -First 1
-          if ($null -eq $uninstaller) {
-            throw "安装完成后未找到卸载程序。"
-          }
-
-          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
-          if ($uninstall.ExitCode -ne 0 -or (Test-Path $installRoot)) {
+          $uninstall = Start-Process -FilePath $uninstallerPath -ArgumentList "/S" -Wait -PassThru
+          $remainingUninstallEntry = Get-SeewayWorkUninstallEntry
+          if (
+            $uninstall.ExitCode -ne 0 -or
+            (Test-Path $application) -or
+            (Test-Path $installRoot) -or
+            $null -ne $remainingUninstallEntry
+          ) {
             throw "Windows 安装包卸载失败，退出码：$($uninstall.ExitCode)"
           }
 
