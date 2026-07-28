@@ -128,7 +128,37 @@ jobs:
           FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/latest/download
           VITE_FOXWORK_RELEASE_PAGE_URL: https://cnb.cool/xingranya/foxwork/-/releases
           VITE_FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/latest/download
-        run: pnpm --filter @openwork/desktop run build:electron && pnpm --filter @openwork/desktop exec electron-builder --config electron-builder.yml ${{ matrix.builder_args }} --publish never
+        run: |
+          set -euo pipefail
+          pnpm --filter @openwork/desktop run build:electron
+
+          package_desktop() {
+            pnpm --filter @openwork/desktop exec electron-builder \
+              --config electron-builder.yml ${{ matrix.builder_args }} --publish never
+          }
+
+          if [ "${{ runner.os }}" != "macOS" ]; then
+            package_desktop
+            exit 0
+          fi
+
+          # Intel macOS Runner 偶尔会在 dmgbuild 卸载临时磁盘时返回
+          # “Resource busy”。ZIP 已生成、应用也已签名，此时重试打包即可恢复，
+          # 不应把一次 Runner 挂载抖动误判为应用构建失败。
+          for attempt in 1 2 3; do
+            if package_desktop; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            echo "DMG 临时磁盘未能正常卸载，清理后重试（$attempt/3）。" >&2
+            while IFS= read -r device; do
+              hdiutil detach "$device" -force || true
+            done < <(hdiutil info | awk '/^\/dev\/disk[0-9]+/ { print $1 }' | sort -u)
+            sleep 10
+          done
 
       - name: 校验并整理自动更新附件
         shell: bash

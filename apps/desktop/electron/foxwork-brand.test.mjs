@@ -154,6 +154,8 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     "latest.yml",
     "apps/desktop/dist-electron/*.blockmap",
     "PLUGIN_ATTACHMENTS: ./release/*",
+    "DMG 临时磁盘未能正常卸载，清理后重试",
+    "hdiutil detach",
   ]) {
     assert.ok(releaseWorkflowSource.includes(contract), `缺少发行契约：${contract}`);
   }
