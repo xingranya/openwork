@@ -182,6 +182,8 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     assert.ok(releaseWorkflowSource.includes(contract), `缺少发行契约：${contract}`);
   }
   assert.match(releaseWorkflowSource, /prerelease: false/);
+  assert.match(releaseWorkflowSource, /release_commit=\$\(git rev-parse "\$\{GITHUB_SHA\}\^\{commit\}"\)/);
+  assert.doesNotMatch(releaseWorkflowSource, /git rev-parse "refs\/tags\/\$RELEASE_TAG\^\{commit\}"/);
   assert.match(cnbWorkflowSource, /preRelease: false/);
 });
 

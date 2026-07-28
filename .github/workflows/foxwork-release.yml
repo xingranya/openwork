@@ -424,7 +424,9 @@ jobs:
           trap reject_credential EXIT
           approve_credential
 
-          release_commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          # 每个 GitHub Actions 作业都有独立的工作目录；前面的同步作业创建的
+          # 本地标签不会出现在这里。发布提交就是本次工作流的唯一权威来源。
+          release_commit=$(git rev-parse "${GITHUB_SHA}^{commit}")
           git tag --force seewaywork-stable "$release_commit"
           git push --force "$CNB_REPOSITORY_URL" \
             refs/tags/seewaywork-stable:refs/tags/seewaywork-stable
