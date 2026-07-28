@@ -119,6 +119,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 构建完整桌面安装包
+        # GitHub 的 Windows Runner 默认使用 PowerShell；这里包含 Bash 函数、
+        # 数组和进程替换，必须显式使用 Git Bash，避免在构建前解析失败。
+        shell: bash
         # TARGET 决定 prepare-sidecar.mjs 下载哪个架构的 opencode 与
         # orchestrator 二进制，必须与 electron-builder 的目标架构一致，
         # 否则会打出架构不匹配的包。
