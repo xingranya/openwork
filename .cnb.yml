@@ -21,7 +21,7 @@ $:
             description: FoxWork 公司内部发布，桌面安装包由 GitHub Actions 构建后自动同步。
             preRelease: true
 
-        - name: 构建并推送 Den API 和 Den Web
+        - name: 构建并推送 Den API、Den Web 和远程 Worker
           script: |
             set -euo pipefail
             VERSION="${CNB_BRANCH#foxwork-v}"
@@ -44,5 +44,13 @@ $:
               --tag "$IMAGE_REPOSITORY:den-web-$VERSION" \
               --push .
 
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --file packaging/docker/Dockerfile.microsandbox \
+              --build-arg RUNTIME_ASSERTS=0 \
+              --tag "$IMAGE_REPOSITORY:den-worker-$VERSION" \
+              --push .
+
             docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-api-$VERSION"
             docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-web-$VERSION"
+            docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-worker-$VERSION"
