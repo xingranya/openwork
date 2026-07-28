@@ -98,7 +98,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # pnpm 必须在 setup-node 之前安装，否则 setup-node 找不到 pnpm 可执行文件
+      # 固定 pnpm 版本，确保三个平台使用同一套锁文件解析结果。
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -108,7 +108,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm
 
       - name: 安装 Bun
         uses: oven-sh/setup-bun@v2
