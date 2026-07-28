@@ -20,6 +20,50 @@ permissions:
   contents: write
 
 jobs:
+  sync-cnb-tag:
+    name: 同步发布标签到 CNB
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
+
+    steps:
+      - name: 检出完整仓库历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送同名标签到 CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_RELEASE_TOKEN }}
+          CNB_USER_NAME: xingranya
+          CNB_REPOSITORY_URL: https://cnb.cool/xingranya/foxwork.git
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CNB_TOKEN:-}" ]; then
+            echo "未配置 GitHub Repository Secret：CNB_RELEASE_TOKEN" >&2
+            exit 1
+          fi
+          echo "$RELEASE_TAG" | grep -Eq '^foxwork-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+
+          if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            git tag "$RELEASE_TAG" "$GITHUB_SHA"
+          fi
+
+          git config --global credential.helper 'cache --timeout=300'
+          approve_credential() {
+            printf 'protocol=https\nhost=cnb.cool\nusername=%s\npassword=%s\n\n' \
+              "$CNB_USER_NAME" "$CNB_TOKEN" | git credential approve
+          }
+          reject_credential() {
+            printf 'protocol=https\nhost=cnb.cool\nusername=%s\npassword=%s\n\n' \
+              "$CNB_USER_NAME" "$CNB_TOKEN" | git credential reject || true
+          }
+          trap reject_credential EXIT
+          approve_credential
+
+          git push "$CNB_REPOSITORY_URL" \
+            "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+
   build:
     name: 构建 ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
@@ -126,7 +170,9 @@ jobs:
 
   release:
     name: 汇总到 GitHub Release
-    needs: build
+    needs:
+      - sync-cnb-tag
+      - build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
 
