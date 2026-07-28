@@ -131,13 +131,16 @@ test("发行包只携带 SeeWayWork 中文说明和运行插件", () => {
   }
 });
 
-test("桌面发行构建先生成共享类型产物", () => {
+test("桌面发行构建先生成渲染进程需要的共享产物", () => {
   const typesBuildIndex = electronBuildSource.indexOf('["--filter", "@openwork/types", "build"]');
+  const installConfigBuildIndex = electronBuildSource.indexOf('["--filter", "@openwork/install-config", "build"]');
   const appBuildIndex = electronBuildSource.indexOf('["--filter", "@openwork/app", "build"]');
 
   assert.notEqual(typesBuildIndex, -1);
+  assert.notEqual(installConfigBuildIndex, -1);
   assert.notEqual(appBuildIndex, -1);
   assert.ok(typesBuildIndex < appBuildIndex);
+  assert.ok(installConfigBuildIndex < appBuildIndex);
 });
 
 test("内置服务使用的共享类型必须随正式安装包提供", () => {
