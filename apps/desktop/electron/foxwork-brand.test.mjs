@@ -136,6 +136,11 @@ test("桌面发行构建先生成共享类型产物", () => {
   assert.ok(typesBuildIndex < appBuildIndex);
 });
 
+test("内置服务使用的共享类型必须随正式安装包提供", () => {
+  assert.equal(desktopPackage.dependencies?.["@openwork/types"], "workspace:*");
+  assert.equal(desktopPackage.devDependencies?.["@openwork/types"], undefined);
+});
+
 test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.equal(FOXWORK_RELEASE_PAGE_URL, "https://cnb.cool/xingranya/foxwork/-/releases");
   assert.equal(
