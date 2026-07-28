@@ -32,7 +32,7 @@ describe("Den egress diagnostic settings flow", () => {
     expect(card).toContain("查看支持追踪");
     expect(card).toContain("建议处理人：");
     expect(card).toContain("远端诊断编号");
-    expect(card).toContain("FoxWork 技术支持");
+    expect(card).toContain("SeeWayWork 技术支持");
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "GET" }');
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "POST" }');
   });

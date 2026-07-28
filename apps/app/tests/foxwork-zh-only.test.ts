@@ -68,7 +68,7 @@ const TECHNICAL_IDENTIFIER_ONLY_KEYS = new Set([
   "connect.row_component_skill_other",
 ]);
 
-describe("FoxWork 简体中文界面契约", () => {
+describe("SeeWayWork 简体中文界面契约", () => {
   test("语言固定为简体中文且设置页不提供切换入口", () => {
     expect(LANGUAGES).toEqual(["zh"]);
     expect(LANGUAGE_OPTIONS.map((option) => option.value)).toEqual(["zh"]);
@@ -114,7 +114,7 @@ describe("FoxWork 简体中文界面契约", () => {
     expect(englishOnlyKeys).toEqual([]);
     expect(upstreamTerms).toEqual([]);
     expect(exposedRuntimeBrandKeys).toEqual([]);
-    expect(baseChineseSource).not.toMatch(/OpenWork|OpenCode|FoxWork Cloud|\bCloud\b/);
+    expect(baseChineseSource).not.toMatch(/OpenWork|OpenCode|SeeWayWork Cloud|\bCloud\b/);
   });
 
   test("单公司模式不限制新增本地或远程工作区", () => {

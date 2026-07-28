@@ -516,7 +516,7 @@ test("connect start keeps the shared callback for a pre-registered confidential 
     expect(callbackResponse.status).toBe(200)
     const callbackHtml = await callbackResponse.text()
     expect(callbackHtml).toContain("连接成功")
-    expect(callbackHtml).toContain("已连接到 FoxWork")
+    expect(callbackHtml).toContain("已连接到 SeeWayWork")
     expect(callbackHtml).not.toContain("You're connected")
 
     const connectedRows = await db

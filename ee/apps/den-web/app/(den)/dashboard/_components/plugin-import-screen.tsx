@@ -148,7 +148,7 @@ export function PluginImportScreen() {
         <div>
           <h1 className="text-[28px] font-semibold text-gray-900">从 GitHub 导入</h1>
           <p className="mt-1 text-[15px] text-gray-500">
-            预览公开插件，选择需要的内容，然后在 FoxWork 中完成创建。
+            预览公开插件，选择需要的内容，然后在 SeeWayWork 中完成创建。
           </p>
         </div>
       </div>

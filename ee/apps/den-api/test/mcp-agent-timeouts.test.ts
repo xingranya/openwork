@@ -121,7 +121,7 @@ test("agent MCP server exposes steering instructions during initialize", async (
   expect(client.getInstructions()).toContain("不要为所有服务强行选择同一种认证方式")
   expect(client.getInstructions()).toContain("导入或绑定成功不代表 MCP 已可用")
   expect(client.getInstructions()).toContain("cloudReadiness")
-  expect(client.getInstructions()).toContain("FoxWork 的“公司连接”")
+  expect(client.getInstructions()).toContain("SeeWayWork 的“公司连接”")
   expect(client.getInstructions()).toContain("不要让员工重新连接整个公司服务")
   expect(client.getInstructions()).toContain("connectionStatus.connectionName")
   expect(client.getInstructions()).toContain("schemaGuidance 仅作提示")

@@ -104,7 +104,7 @@ export function DashboardOverviewScreen() {
 
       {/* 页面位置 */}
       <div className="flex flex-wrap items-center gap-2.5 border-b border-[#e7e9f0] pb-3">
-        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "FoxWork 公司服务"}</span>
+        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "SeeWayWork 公司服务"}</span>
         <ChevronRight className="h-3.5 w-3.5 text-[#9AA5BA]" />
         <span className="text-[14px] font-medium tracking-[-0.01em] text-[#5A6886]">管理概览</span>
       </div>
@@ -115,7 +115,7 @@ export function DashboardOverviewScreen() {
         管理公司成员、连接和共享能力，本地与远程工作区都可以继续使用。
       </p>
 
-      {/* FoxWork 下载入口 */}
+      {/* SeeWayWork 下载入口 */}
       {activeOrg && orgContext?.capabilities.installLinks ? (
         <div className="mt-4">
           <OrganizationDownloadCard organizationId={activeOrg.id} organizationName={activeOrg.name} />

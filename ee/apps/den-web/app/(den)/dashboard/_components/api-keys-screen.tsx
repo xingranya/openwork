@@ -308,7 +308,7 @@ export function ApiKeysScreen() {
             icon={KeyRound}
             badgeLabel="管理员"
             title="API 密钥"
-            description="管理当前公司的 FoxWork API 密钥。"
+            description="管理当前公司的 SeeWayWork API 密钥。"
             colors={["#E6FFFA", "#0F766E", "#14B8A6", "#99F6E4"]}
         >
             {!access.canViewSettings ? (

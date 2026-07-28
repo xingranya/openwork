@@ -1,14 +1,14 @@
 name: Release Installer Assets
 
-# Reusable publisher for the GENERIC (unbranded) OpenWork installer. App
+# Reusable publisher for the GENERIC (unbranded) SeeWayWork installer. App
 # releases call this workflow so the committed apps/installer build-config
 # placeholder stays empty and the binary resolves its config at run time (pasted
 # install link, filename tag, or sidecar stamped by den-api).
 #
 # Asset names are a contract with den-api's genericInstallerArtifactName():
-#   OpenWork-Installer-mac-arm64.dmg   (signed+notarized)
-#   OpenWork-Installer-mac-x64.dmg     (signed+notarized)
-#   OpenWork-Installer-win-x64.exe
+#   SeeWayWork-Installer-mac-arm64.dmg   (signed+notarized)
+#   SeeWayWork-Installer-mac-x64.dmg     (signed+notarized)
+#   SeeWayWork-Installer-win-x64.exe
 
 on:
   workflow_call:
@@ -78,9 +78,9 @@ jobs:
           fi
 
           ALL='[
-            {"platform_id":"mac-arm64","runner":"macos-14","os_type":"macos","bun_target":"bun-darwin-arm64","asset":"OpenWork-Installer-mac-arm64.dmg"},
-            {"platform_id":"mac-x64","runner":"macos-14","os_type":"macos","bun_target":"bun-darwin-x64","asset":"OpenWork-Installer-mac-x64.dmg"},
-            {"platform_id":"win-x64","runner":"windows-2022","os_type":"windows","bun_target":"bun-windows-x64","asset":"OpenWork-Installer-win-x64.exe"}
+            {"platform_id":"mac-arm64","runner":"macos-14","os_type":"macos","bun_target":"bun-darwin-arm64","asset":"SeeWayWork-Installer-mac-arm64.dmg"},
+            {"platform_id":"mac-x64","runner":"macos-14","os_type":"macos","bun_target":"bun-darwin-x64","asset":"SeeWayWork-Installer-mac-x64.dmg"},
+            {"platform_id":"win-x64","runner":"windows-2022","os_type":"windows","bun_target":"bun-windows-x64","asset":"SeeWayWork-Installer-win-x64.exe"}
           ]'
           MATRIX=$(jq -cn --arg csv "$PLATFORMS" --argjson all "$ALL" \
             '$all | map(select(.platform_id as $id | ($csv | split(",") | map(gsub("\\s";"")) | index($id)) != null))')
@@ -180,9 +180,9 @@ jobs:
             # Version resource on the .exe so Windows properties and support
             # tickets show the real build.
             if [ -n "$INSTALLER_WINDOWS_VERSION" ]; then extra_args+=("--windows-version=$INSTALLER_WINDOWS_VERSION"); fi
-            extra_args+=("--windows-title=OpenWork Installer")
+            extra_args+=("--windows-title=SeeWayWork Installer")
             extra_args+=("--windows-publisher=Different AI")
-            extra_args+=("--windows-description=Installs OpenWork on this computer")
+            extra_args+=("--windows-description=Installs SeeWayWork on this computer")
           fi
           bun build --compile --minify --target=${{ matrix.bun_target }} "${extra_args[@]}" \
             --define "process.env.OPENWORK_INSTALLER_VERSION=\"$INSTALLER_VERSION\"" \
@@ -214,7 +214,7 @@ jobs:
             exit 1
           fi
           case "$output" in
-            *"Paste an OpenWork install link"*) ;;
+            *"Paste an SeeWayWork install link"*) ;;
             *) echo "Generic installer did not ask for an install link" >&2; exit 1 ;;
           esac
 
@@ -225,7 +225,7 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/installer
-          APP="dist/Install OpenWork.app"
+          APP="dist/Install SeeWayWork.app"
           rm -rf "$APP"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp dist/openwork-installer "$APP/Contents/MacOS/openwork-installer"
@@ -237,8 +237,8 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleName</key><string>Install OpenWork</string>
-            <key>CFBundleDisplayName</key><string>Install OpenWork</string>
+            <key>CFBundleName</key><string>Install SeeWayWork</string>
+            <key>CFBundleDisplayName</key><string>Install SeeWayWork</string>
             <key>CFBundleIdentifier</key><string>com.differentai.openwork.installer</string>
             <key>CFBundleExecutable</key><string>openwork-installer</string>
             <key>CFBundleIconFile</key><string>icon</string>
@@ -288,7 +288,7 @@ jobs:
           fi
 
           cd apps/installer
-          APP="dist/Install OpenWork.app"
+          APP="dist/Install SeeWayWork.app"
 
           KEYCHAIN="$RUNNER_TEMP/installer.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -hex 16)

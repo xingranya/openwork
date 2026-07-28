@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "FoxWork 公司工作区";
+export const alt = "SeeWayWork 公司工作区";
 export const size = {
   width: 1200,
   height: 630
@@ -74,7 +74,7 @@ export default function OpenGraphImage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: "#64748b" }}>
-                  FoxWork
+                  SeeWayWork
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 600 }}>公司工作区</div>
               </div>

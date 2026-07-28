@@ -28,7 +28,7 @@ describe("organization desktop version settings", () => {
     const source = readFileSync(settingsPath, "utf8");
 
     expect(source).toContain("const canManageDesktopVersions = access.isAdmin");
-    expect(source).toContain("管理员可以修改允许登录的 FoxWork 版本");
+    expect(source).toContain("管理员可以修改允许登录的 SeeWayWork 版本");
     expect(source).toContain("{access.isAdmin ? (");
   });
 });

@@ -329,7 +329,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
       resources: [{
         ref: `screen:${route}`,
         kind: "screen",
-        title: "FoxWork",
+        title: "SeeWayWork",
         provider: { id: "openwork-ui", kind: "builtin" },
         state: { kind: "other", route },
       }],
@@ -527,7 +527,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
       return {
         ok: false,
         id: request.id,
-        error: `OpenWork context changed from revision ${request.expectedRevision} to ${revision}.`,
+        error: `SeeWayWork context changed from revision ${request.expectedRevision} to ${revision}.`,
         code: "conflict",
         revision,
       };
@@ -792,15 +792,15 @@ export function OpenworkRouteControlActions() {
     },
     {
       id: "help.capabilities",
-      label: "查看 FoxWork 能力",
-      description: "列出 FoxWork 当前提供的主要能力。",
+      label: "查看 SeeWayWork 能力",
+      description: "列出 SeeWayWork 当前提供的主要能力。",
       sideEffect: "none",
       execute: () => ({
         capabilities: [
           { id: "browse", label: "浏览器", description: "打开网页、提取内容并自动完成网页任务。" },
           { id: "providers", label: "模型", description: "使用公司共享模型或配置获准的自定义模型服务。" },
           { id: "extensions", label: "MCP 扩展", description: "使用公司下发或当前工作区配置的 MCP 服务。" },
-          { id: "voice", label: "语音对话", description: "通过实时语音与 FoxWork 对话。" },
+          { id: "voice", label: "语音对话", description: "通过实时语音与 SeeWayWork 对话。" },
           { id: "files", label: "文件管理", description: "在获授权的工作区中读取、写入和整理文件。" },
           { id: "code", label: "代码与命令", description: "在当前工作区权限范围内生成、编辑和运行代码。" },
           { id: "computer-use", label: "电脑操作", description: "经本机授权后使用截图、鼠标和键盘完成操作。" },

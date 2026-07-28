@@ -211,7 +211,7 @@ export function WelcomePage({
                   <OnboardingStep number="1" title="连接公司">
                     {companyConfigured
                       ? "公司服务器已经连接。"
-                      : "填写管理员提供的公司服务器地址，FoxWork 会先检查服务是否可用。"}
+                      : "填写管理员提供的公司服务器地址，SeeWayWork 会先检查服务是否可用。"}
                   </OnboardingStep>
                   <OnboardingStep number="2" title="登录账号">
                     {companySignedIn

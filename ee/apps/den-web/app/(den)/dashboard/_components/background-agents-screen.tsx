@@ -194,7 +194,7 @@ function SandboxCard({
               disabled={!openDesktopUrl}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 py-2.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Monitor size={15} /> 在 FoxWork 中打开
+              <Monitor size={15} /> 在 SeeWayWork 中打开
             </button>
 
             {openWebUrl ? (
@@ -389,7 +389,7 @@ export function BackgroundAgentsScreen() {
       colors={["#E9FFE0", "#3E9A1D", "#B3F750", "#51F0A3"]}
     >
       <div className="mb-10 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-6 text-amber-800">
-        请在 FoxWork 的工作区菜单中创建新的远程工作区。本页供管理员查看运行状态和连接信息。
+        请在 SeeWayWork 的工作区菜单中创建新的远程工作区。本页供管理员查看运行状态和连接信息。
       </div>
 
       {workersError ? (

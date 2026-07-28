@@ -223,7 +223,7 @@ export function WelcomeRoute() {
           list = null;
         }
         if (!list) {
-          throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
+          throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再创建工作区。");
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||
@@ -327,7 +327,7 @@ export function WelcomeRoute() {
           }
         }
         if (!list) {
-          throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
+          throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再添加远程工作区。");
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||

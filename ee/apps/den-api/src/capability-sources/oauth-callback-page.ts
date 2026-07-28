@@ -17,7 +17,7 @@ export function connectCallbackPage(input:
   const title = input.ok ? "连接成功" : "连接失败"
   const closeButton = `<button type="button" onclick="window.close()" style="margin-top:16px; border:0; border-radius:10px; background:#0f172a; color:white; padding:10px 14px; font:inherit; font-weight:600; cursor:pointer;">关闭窗口</button>`
   const body = input.ok
-    ? `<p>${escapeHtml(input.name)} 已连接到 FoxWork。</p>
+    ? `<p>${escapeHtml(input.name)} 已连接到 SeeWayWork。</p>
       <p>现在可以关闭此窗口。</p>
       ${closeButton}`
     : `<p>无法连接 ${escapeHtml(input.name)}：${escapeHtml(callbackErrorMessage(input.message))}</p>
@@ -25,7 +25,7 @@ export function connectCallbackPage(input:
       ${closeButton}`
   return `<!doctype html>
 <html lang="zh-CN">
-  <head><meta charset="utf-8"><title>${title} — FoxWork</title></head>
+  <head><meta charset="utf-8"><title>${title} — SeeWayWork</title></head>
   <body style="font-family: system-ui, sans-serif; max-width: 480px; margin: 64px auto; text-align: center; color: #0f172a;">
     <h1 style="font-size: 20px;">${title}</h1>
     ${body}

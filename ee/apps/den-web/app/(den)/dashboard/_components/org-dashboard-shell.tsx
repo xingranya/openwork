@@ -93,7 +93,7 @@ function OpenWorkMark({ className = "h-9 w-auto" }: { className?: string }) {
       viewBox="0 0 834 649"
       fill="none"
       className={className}
-      aria-label="FoxWork"
+      aria-label="SeeWayWork"
     >
       <path
         fill="#011627"
@@ -475,7 +475,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         onClick={() => setSwitcherOpen((current) => !current)}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <OrgMark name={activeOrg?.name ?? "FoxWork"} />
+          <OrgMark name={activeOrg?.name ?? "SeeWayWork"} />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-medium text-gray-900">
               {activeOrg?.name ?? "正在加载..."}
@@ -497,7 +497,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-[calc(100%+0.5rem)] left-0 w-[240px] z-30 grid gap-1 rounded-2xl border border-gray-200 bg-white py-2 shadow-[0_12px_24px_-12px_rgba(0,0,0,0.15)]">
           <div className="px-3 py-1.5">
             <p className="truncate text-[13px] font-medium text-gray-900">
-              {user?.email ?? "FoxWork 用户"}
+              {user?.email ?? "SeeWayWork 用户"}
             </p>
           </div>
           

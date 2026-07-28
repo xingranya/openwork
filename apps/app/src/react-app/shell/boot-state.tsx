@@ -49,11 +49,11 @@ const DEFAULT_STATE: BootStateSnapshot = {
 const PHASE_MESSAGES: Record<BootPhaseId, string> = {
   idle: "",
   "bootstrapping-workspaces": "正在加载工作区",
-  "starting-openwork-server": "正在启动 FoxWork 本地服务",
+  "starting-openwork-server": "正在启动 SeeWayWork 本地服务",
   "starting-engine": "正在准备工作区",
   "activating-workspace": "正在打开工作区",
   ready: "已就绪",
-  error: "FoxWork 启动失败",
+  error: "SeeWayWork 启动失败",
 };
 
 const BootStateContext = createContext<BootStateContextValue | null>(null);
@@ -84,7 +84,7 @@ export function BootStateProvider({ children }: { children: ReactNode }) {
 
   const setError = useCallback((message: string | null) => {
     const visibleMessage = message
-      ? toChineseUserMessage(message, "FoxWork 启动失败，请重试。")
+      ? toChineseUserMessage(message, "SeeWayWork 启动失败，请重试。")
       : null;
     setSnapshot((current) => ({
       ...current,

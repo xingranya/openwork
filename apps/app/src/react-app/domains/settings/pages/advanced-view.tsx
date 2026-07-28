@@ -110,12 +110,12 @@ export function AdvancedView(props: AdvancedViewProps) {
     ? ["当前工作区可以使用 AI 会话和任务功能。"]
     : [
         "AI 运行引擎重启完成前，会话和任务创建可能失败。",
-        "仍可查看下方的 FoxWork 本地服务配置来源。",
+        "仍可查看下方的 SeeWayWork 本地服务配置来源。",
       ];
 
   const openworkDetailLines = props.openworkServerStatus === "connected"
     ? ["可以查看运行数据库、工作区配置和迁移诊断。"]
-    : ["连接 FoxWork 本地服务后才能查看运行配置诊断。"];
+    : ["连接 SeeWayWork 本地服务后才能查看运行配置诊断。"];
 
   const submitDebugDeepLink = async () => {
     const rawUrl = debugDeepLinkInput.trim();

@@ -1,7 +1,7 @@
 import zh from "./locales/zh";
 export const LANGUAGE_PREF_KEY = "openwork.language";
 
-/** FoxWork 固定使用的语言。 */
+/** SeeWayWork 固定使用的语言。 */
 export type Language = "en" | "ja" | "zh" | "vi" | "pt-BR" | "th" | "fr" | "ca" | "es" | "ru";
 export type Locale = Language;
 
@@ -13,7 +13,7 @@ export const LANGUAGE_OPTIONS = [
   { value: "zh" as Language, label: "简体中文", nativeName: "简体中文" },
 ] as const;
 
-/** FoxWork 固定使用中文，不生成英文复数后缀。 */
+/** SeeWayWork 固定使用中文，不生成英文复数后缀。 */
 export const pluralSuffix = (locale: Language, count: number): string => {
   void locale;
   void count;
@@ -38,7 +38,7 @@ function locale(): Language {
   return localeValue;
 }
 
-/** FoxWork 不允许切换语言，此入口始终保持简体中文。 */
+/** SeeWayWork 不允许切换语言，此入口始终保持简体中文。 */
 export const setLocale = (newLocale: Language) => {
   void newLocale;
   localeValue = "zh";

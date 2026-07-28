@@ -518,7 +518,7 @@ test("createPluginBundle composes component creation, org-wide grants, and marke
   const marketplace = {
     id: createDenTypeId("marketplace"),
     organizationId,
-    name: "FoxWork 公司能力",
+    name: "SeeWayWork 公司能力",
     description: "Company extensions",
     logoUrl: null,
     status: "active",

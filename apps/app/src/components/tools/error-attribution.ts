@@ -76,7 +76,7 @@ export function reconnectActionFromChatToolResult(
   toolName: string,
   result: unknown,
 ): ChatToolReconnectAction | null {
-  // Tool output is otherwise untrusted. Only the two canonical OpenWork Cloud
+  // Tool output is otherwise untrusted. Only the two canonical SeeWayWork Cloud
   // capability tools may turn a structured Den response into a UI action.
   // Discovery is included because it performs a live connection probe before
   // the agent can safely proceed to execution.
@@ -123,15 +123,15 @@ export function attributeChatToolError(errorText: string): ToolErrorAttribution 
   const providerCode = stringValue(diagnostic, "providerCode")
 
   if (
-    errorText.includes("OpenWork stopped waiting after")
+    errorText.includes("SeeWayWork stopped waiting after")
     || /The capability call exceeded \d+(?:\.\d+)?s\b/.test(errorText)
     || code === "MCP_LIFECYCLE_DEADLINE"
     || code === "MCP_REQUEST_TIMEOUT"
     || category === "lifecycle_deadline"
   ) {
     return confirmed(
-      "FoxWork 等待超时",
-      "FoxWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
+      "SeeWayWork 等待超时",
+      "SeeWayWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
     )
   }
 
@@ -140,7 +140,7 @@ export function attributeChatToolError(errorText: string): ToolErrorAttribution 
     || code === "MCP_URL_BLOCKED"
     || code === "MCP_FETCH_FORBIDDEN_PORT"
   ) {
-    return confirmed("FoxWork 已阻止请求", "该请求在发送前已被 FoxWork 阻止。")
+    return confirmed("SeeWayWork 已阻止请求", "该请求在发送前已被 SeeWayWork 阻止。")
   }
 
   if (httpStatus !== undefined && (httpStatus < 200 || httpStatus >= 300)) {

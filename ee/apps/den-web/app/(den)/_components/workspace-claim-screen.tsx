@@ -18,7 +18,7 @@ function LoadingCard({ title, body }: { title: string; body: string }) {
   return (
     <section className="den-page py-4 lg:py-6">
       <div className="den-frame grid max-w-[44rem] gap-4 p-6 md:p-7">
-        <p className="den-eyebrow">FoxWork 公司服务</p>
+        <p className="den-eyebrow">SeeWayWork 公司服务</p>
         <div className="grid gap-2">
           <h1 className="den-title-lg">{title}</h1>
           <p className="den-copy">{body}</p>
@@ -206,12 +206,12 @@ export function WorkspaceClaimScreen({
     );
 
     if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `无法准备 FoxWork 登录链接（${response.status}）。`));
+      throw new Error(getErrorMessage(payload, `无法准备 SeeWayWork 登录链接（${response.status}）。`));
     }
 
     const openworkUrl = getOpenworkUrl(payload);
     if (!openworkUrl) {
-      throw new Error("登录交接已完成，但没有返回 FoxWork 打开链接。");
+      throw new Error("登录交接已完成，但没有返回 SeeWayWork 打开链接。");
     }
 
     return openworkUrl;
@@ -225,7 +225,7 @@ export function WorkspaceClaimScreen({
     try {
       window.location.assign(await createDesktopHandoff());
     } catch (error) {
-      setHandoffError(error instanceof Error ? error.message : "无法打开 FoxWork。");
+      setHandoffError(error instanceof Error ? error.message : "无法打开 SeeWayWork。");
     } finally {
       setHandoffBusy(false);
     }
@@ -265,7 +265,7 @@ export function WorkspaceClaimScreen({
       <section className="den-page py-4 lg:py-6">
         <div className="den-frame grid max-w-[44rem] gap-6 p-6 md:p-8">
           <div className="grid gap-2">
-            <p className="den-eyebrow">FoxWork 公司服务</p>
+            <p className="den-eyebrow">SeeWayWork 公司服务</p>
             <h1 className="den-title-lg">无法打开公司初始化链接</h1>
             <p className="den-copy">链接缺少必要信息，请重新打开原链接或向管理员索取新链接。</p>
           </div>
@@ -289,7 +289,7 @@ export function WorkspaceClaimScreen({
       <section className="den-page py-6 lg:py-10">
         <div className="mx-auto grid w-full max-w-[32rem] gap-5">
           <div className="grid gap-2 text-center">
-            <p className="den-eyebrow">FoxWork 公司服务</p>
+            <p className="den-eyebrow">SeeWayWork 公司服务</p>
             <h1 className="den-title-lg">完成公司初始化</h1>
             <p className="den-copy">
               登录或创建账号后，该账号将成为公司所有者。
@@ -337,8 +337,8 @@ export function WorkspaceClaimScreen({
             <h1 className="den-title-lg max-w-[22ch]">已完成 {claimedOrg.organizationName} 的初始化</h1>
             <p className="den-copy max-w-[46ch]">
               {isLoopback
-                ? "复制一次性登录码，再粘贴到 FoxWork 中完成登录。"
-                : "打开 FoxWork 完成登录，无需再次输入密码。"}
+                ? "复制一次性登录码，再粘贴到 SeeWayWork 中完成登录。"
+                : "打开 SeeWayWork 完成登录，无需再次输入密码。"}
             </p>
           </div>
 
@@ -360,7 +360,7 @@ export function WorkspaceClaimScreen({
                 onClick={() => void handleOpenDesktop()}
                 disabled={handoffBusy || copyBusy}
               >
-                {handoffBusy ? "正在打开 FoxWork..." : "打开 FoxWork"}
+                {handoffBusy ? "正在打开 SeeWayWork..." : "打开 SeeWayWork"}
               </button>
             )}
 
@@ -373,7 +373,7 @@ export function WorkspaceClaimScreen({
                   disabled={handoffBusy || copyBusy}
                 >
                   <ExternalLink className="size-3.5" aria-hidden />
-                  {handoffBusy ? "正在打开 FoxWork..." : "打开 FoxWork"}
+                  {handoffBusy ? "正在打开 SeeWayWork..." : "打开 SeeWayWork"}
                 </button>
               ) : (
                 <button
@@ -400,13 +400,13 @@ export function WorkspaceClaimScreen({
 
           {codeCopied ? (
             <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800">
-              在 FoxWork 中选择“粘贴登录码”，然后粘贴一次。
+              在 SeeWayWork 中选择“粘贴登录码”，然后粘贴一次。
             </div>
           ) : null}
 
           {handoffAttempted && !handoffError ? (
             <p className="den-copy text-sm">
-              正在打开 FoxWork。如果没有反应，可能是这台电脑尚未安装应用，请先在浏览器中继续。
+              正在打开 SeeWayWork。如果没有反应，可能是这台电脑尚未安装应用，请先在浏览器中继续。
             </p>
           ) : null}
           {handoffError ? <div className="den-notice is-error">{handoffError}</div> : null}
@@ -420,7 +420,7 @@ export function WorkspaceClaimScreen({
     <section className="den-page py-6 lg:py-10">
       <div className="den-frame mx-auto grid max-w-[34rem] gap-6 p-6 md:p-8">
         <div className="grid gap-2">
-          <p className="den-eyebrow">FoxWork 公司服务</p>
+          <p className="den-eyebrow">SeeWayWork 公司服务</p>
           <h1 className="den-title-lg">确认公司所有者</h1>
           <p className="den-copy">确认后，当前账号将成为公司所有者。</p>
         </div>

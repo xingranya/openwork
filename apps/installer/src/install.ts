@@ -40,7 +40,7 @@ const status: InstallStatus = {
 
 const HOSTED_DESKTOP_WEB_URL = "https://app.openworklabs.com"
 const HOSTED_DESKTOP_API_URL = "https://api.openworklabs.com"
-const INSTALLER_APP_BUNDLE_NAME = "Install OpenWork.app"
+const INSTALLER_APP_BUNDLE_NAME = "Install SeeWayWork.app"
 
 type BootstrapCandidate = {
   config: Record<string, unknown>
@@ -259,8 +259,8 @@ async function run(command: string, args: string[]): Promise<void> {
 
 export function windowsInstalledExePath(localAppData: string): string {
   const candidates = [
-    path.join(localAppData, "Programs", "OpenWork", "OpenWork.exe"),
-    path.join(localAppData, "Programs", "@openworkdesktop", "OpenWork.exe"),
+    path.join(localAppData, "Programs", "SeeWayWork", "SeeWayWork.exe"),
+    path.join(localAppData, "Programs", "@openworkdesktop", "SeeWayWork.exe"),
   ]
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]
 }
@@ -300,7 +300,7 @@ async function installExe(exePath: string): Promise<string> {
 function installAppImage(appImagePath: string): string {
   const appDir = path.join(os.homedir(), ".local", "share", "openwork")
   mkdirSync(appDir, { recursive: true })
-  const target = path.join(appDir, "OpenWork.AppImage")
+  const target = path.join(appDir, "SeeWayWork.AppImage")
   rmSync(target, { force: true })
   writeFileSync(target, readFileSync(appImagePath))
   chmodSync(target, 0o755)
@@ -311,7 +311,7 @@ function installAppImage(appImagePath: string): string {
     mkdirSync(applicationsDir, { recursive: true })
     writeFileSync(
       path.join(applicationsDir, "openwork.desktop"),
-      ["[Desktop Entry]", "Type=Application", "Name=OpenWork", `Exec=${target}`, "Terminal=false", "Categories=Utility;"].join("\n") + "\n",
+      ["[Desktop Entry]", "Type=Application", "Name=SeeWayWork", `Exec=${target}`, "Terminal=false", "Categories=Utility;"].join("\n") + "\n",
       "utf8",
     )
   } catch {
@@ -338,7 +338,7 @@ export async function runInstall(config: InstallerConfig, opts: InstallOptions =
 
   try {
     const bootstrapPath = writeBootstrapConfig(config)
-    update({ step: "check-version", message: "正在检查公司支持的 FoxWork 版本…" }, opts.onStatus)
+    update({ step: "check-version", message: "正在检查公司支持的 SeeWayWork 版本…" }, opts.onStatus)
     const version = await fetchLatestSupportedVersion(config.apiUrl)
     const asset = releaseAssetFor(version)
     update({ version, message: `公司当前支持 ${config.appName} ${version}。` }, opts.onStatus)

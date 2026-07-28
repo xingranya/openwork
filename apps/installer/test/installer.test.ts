@@ -19,19 +19,101 @@ import {
 } from "../scripts/dmg-layout.mjs"
 import { resolveInstallerVersion, versionFromReleaseTag, windowsFileVersion } from "../scripts/installer-version.mjs"
 import { desktopBootstrapPath, legacyDesktopBootstrapPath } from "../src/bootstrap-path"
-import { installerConfigSourceLabel, parseInstallLinkInput, resolveInstallerConfig } from "../src/config"
+import {
+  buildConstantsConfig,
+  installerConfigSourceLabel,
+  parseInstallLinkInput,
+  resolveInstallLinkConfig,
+  resolveInstallerConfig,
+} from "../src/config"
 import { isTranslocatedPath, parseMountTableLine, readSidecarConfig, resolveTranslocatedOriginalPath } from "../src/config-sources"
-import { writeBootstrapConfig } from "../src/install"
+import { removableInstallerBundlePath, windowsInstalledExePath, writeBootstrapConfig } from "../src/install"
+import { externalUrlCommand } from "../src/open-external-url"
 import { releaseAssetFor } from "../src/release-asset"
+import { startInstallerServer } from "../src/server"
+import {
+  DARWIN_KEYCHAINS,
+  createSystemCaFetch,
+  loadExtraCaCertificates,
+  parseDarwinSecurityCertificates,
+  parseWindowsPowerShellCertificates,
+  resolveSystemCaBundle,
+  summarizeSystemCaSources,
+  type SystemCaLoaders,
+} from "../src/system-ca"
 import { renderInstallerHtml } from "../src/ui-html"
+import { INSTALLER_VERSION } from "../src/version"
 
-describe("FoxWork 安装界面", () => {
+type SelfSignedCertificate = {
+  cert: string
+  key: string
+  cleanup: () => void
+}
+
+function createSelfSignedCertificate(): SelfSignedCertificate {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "seewaywork-installer-tls-"))
+  const certPath = path.join(dir, "cert.pem")
+  const keyPath = path.join(dir, "key.pem")
+  execFileSync("openssl", [
+    "req",
+    "-x509",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-sha256",
+    "-days",
+    "1",
+    "-keyout",
+    keyPath,
+    "-out",
+    certPath,
+    "-subj",
+    "/CN=localhost",
+    "-addext",
+    "subjectAltName=DNS:localhost,IP:127.0.0.1",
+  ], { stdio: "ignore" })
+  return {
+    cert: readFileSync(certPath, "utf8"),
+    key: readFileSync(keyPath, "utf8"),
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  }
+}
+
+function startTlsInstallConfigServer(certificate: SelfSignedCertificate) {
+  return Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    tls: { cert: certificate.cert, key: certificate.key },
+    fetch: () => Response.json({
+      clientName: "TLS Corp",
+      webUrl: "https://tls.example.com/",
+      apiUrl: "https://tls-api.example.com/",
+      requireSignin: true,
+      logoUrl: null,
+    }),
+  })
+}
+
+function windowsPowerShellCertBlock(base64: string): string {
+  return `-----OPENWORK-CERTIFICATE-----\n${base64}\n-----END-OPENWORK-CERTIFICATE-----`
+}
+
+function pemForBase64(base64: string): string {
+  const lines: string[] = []
+  for (let index = 0; index < base64.length; index += 64) {
+    lines.push(base64.slice(index, index + 64))
+  }
+  return `-----BEGIN CERTIFICATE-----\n${lines.join("\n")}\n-----END CERTIFICATE-----`
+}
+
+describe("SeeWayWork 安装界面", () => {
   test("未配置页面只显示中文操作文案", () => {
     const html = renderInstallerHtml(null, "test-token")
 
     expect(html).toContain('<html lang="zh-CN">')
-    expect(html).toContain("<title>FoxWork 安装程序</title>")
-    expect(html).toContain("粘贴 FoxWork 安装链接")
+    expect(html).toContain("<title>SeeWayWork 安装程序</title>")
+    expect(html).toContain("粘贴 SeeWayWork 安装链接")
+    expect(html).not.toMatch(/\b(?:FoxWork|OpenWork)\b/)
     expect(html).toContain("继续")
     expect(html).toContain("退出")
     expect(html).not.toMatch(/>\s*(?:Continue|Exit|Install|Retry|Launch)\s*</)
@@ -41,7 +123,7 @@ describe("FoxWork 安装界面", () => {
     const html = renderInstallerHtml({
       source: "install-link",
       config: {
-        appName: "FoxWork",
+        appName: "SeeWayWork",
         clientName: "Fox 公司",
         webUrl: "https://foxwork.example.com",
         apiUrl: "https://api.foxwork.example.com",
@@ -50,7 +132,7 @@ describe("FoxWork 安装界面", () => {
       },
     }, "test-token")
 
-    expect(html).toContain("安装 FoxWork")
+    expect(html).toContain("安装 SeeWayWork")
     expect(html).toContain("配置来源：公司安装链接")
     expect(html).toContain("正在检查安装链接…")
     expect(html).toContain("安装完成")
@@ -93,22 +175,29 @@ describe("desktopBootstrapPath", () => {
 })
 
 describe("releaseAssetFor", () => {
-  test("resolves per-platform asset names", () => {
-    expect(releaseAssetFor("v0.17.7", "darwin", "arm64").fileName).toBe("openwork-mac-arm64-0.17.7.dmg")
-    expect(releaseAssetFor("0.17.7", "darwin", "x64").fileName).toBe("openwork-mac-x64-0.17.7.dmg")
-    expect(releaseAssetFor("0.17.7", "win32", "x64").fileName).toBe("openwork-win-x64-0.17.7.exe")
-    expect(releaseAssetFor("0.17.7", "linux", "x64").fileName).toBe("openwork-linux-x86_64-0.17.7.AppImage")
-    expect(releaseAssetFor("0.17.7", "linux", "arm64").fileName).toBe("openwork-linux-arm64-0.17.7.AppImage")
+  test("0.18.4 起生成 SeeWayWork 发行资产名", () => {
+    expect(releaseAssetFor("v0.18.4", "darwin", "arm64").fileName).toBe("SeeWayWork-mac-arm64-0.18.4.dmg")
+    expect(releaseAssetFor("0.18.4", "darwin", "x64").fileName).toBe("SeeWayWork-mac-x64-0.18.4.dmg")
+    expect(releaseAssetFor("0.18.4", "win32", "x64").fileName).toBe("SeeWayWork-win-x64-0.18.4.exe")
+    expect(releaseAssetFor("0.18.4", "linux", "x64").fileName).toBe("SeeWayWork-linux-x86_64-0.18.4.AppImage")
+    expect(releaseAssetFor("0.18.4", "linux", "arm64").fileName).toBe("SeeWayWork-linux-arm64-0.18.4.AppImage")
   })
 
-  test("builds the release download URL from the version tag", () => {
-    expect(releaseAssetFor("0.17.7", "darwin", "arm64").url).toBe(
-      "https://github.com/different-ai/openwork/releases/download/v0.17.7/openwork-mac-arm64-0.17.7.dmg",
+  test("指向公司 SeeWayWork 发布仓库和标签", () => {
+    expect(releaseAssetFor("0.18.4", "darwin", "arm64").url).toBe(
+      "https://github.com/xingranya/openwork/releases/download/seewaywork-v0.18.4/SeeWayWork-mac-arm64-0.18.4.dmg",
     )
   })
 
+  test("旧版公司发行资产继续用于升级和回滚", () => {
+    expect(releaseAssetFor("0.18.3", "darwin", "arm64")).toMatchObject({
+      fileName: "foxwork-mac-arm64-0.18.3.dmg",
+      url: "https://github.com/xingranya/openwork/releases/download/foxwork-v0.18.3/foxwork-mac-arm64-0.18.3.dmg",
+    })
+  })
+
   test("rejects unsupported targets", () => {
-    expect(() => releaseAssetFor("0.17.7", "win32", "arm64")).toThrow()
+    expect(() => releaseAssetFor("0.18.4", "win32", "arm64")).toThrow()
     expect(() => releaseAssetFor("", "darwin", "arm64")).toThrow()
   })
 })
@@ -124,7 +213,7 @@ test("browser activation uses each platform's standard URL opener", () => {
 describe("windowsInstalledExePath", () => {
   test("reports the installed electron-builder package directory", () => {
     const temp = mkdtempSync(path.join(os.tmpdir(), "openwork-installed-path-"))
-    const installed = path.join(temp, "Programs", "@openworkdesktop", "OpenWork.exe")
+    const installed = path.join(temp, "Programs", "@openworkdesktop", "SeeWayWork.exe")
     mkdirSync(path.dirname(installed), { recursive: true })
     writeFileSync(installed, "")
     try {
@@ -262,7 +351,7 @@ describe("resolveInstallerConfig", () => {
       })
       expect(resolution.installLink).toBe(`http://127.0.0.1:${configServer.port}/install?token=abcDEF12`)
       expect(resolution.config).toEqual({
-        appName: "OpenWork",
+        appName: "SeeWayWork",
         clientName: "Linked Corp",
         webUrl: "https://linked.example.com",
         apiUrl: "https://linked-api.example.com",
@@ -321,7 +410,7 @@ describe("system CA fetch", () => {
         status: "resolved",
         activation: null,
         config: {
-          appName: "OpenWork",
+          appName: "SeeWayWork",
           clientName: "TLS Corp",
           webUrl: "https://tls.example.com",
           apiUrl: "https://tls-api.example.com",
@@ -493,13 +582,13 @@ describe("resolve-link API", () => {
       const response = await fetch(`${installerServer.url}api/resolve-link`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
-        body: JSON.stringify({ installLink: "https://github.com/different-ai/openwork/releases/download/v0.17.39/OpenWork-Installer-win-x64.exe" }),
+        body: JSON.stringify({ installLink: "https://github.com/different-ai/openwork/releases/download/v0.17.39/SeeWayWork-Installer-win-x64.exe" }),
       })
 
       expect(response.status).toBe(400)
       expect(await response.json()).toEqual({
         error: "install_link_invalid",
-        message: "That doesn't look like an install link. On your team's install page, copy the link shown in step 2 — it ends with ?token=...",
+        message: "这不是有效的公司安装链接。请在公司安装页面复制第 2 步显示的完整链接，链接应以 ?token=... 结尾。",
       })
     } finally {
       installerServer.stop()
@@ -525,7 +614,7 @@ describe("resolve-link API", () => {
       expect(response.status).toBe(400)
       expect(await response.json()).toEqual({
         error: "install_link_unreachable",
-        message: "Could not reach your workspace. Check your internet or VPN connection and try again.",
+        message: "无法连接公司服务，请检查网络或 VPN 后重试。",
       })
     } finally {
       installerServer.stop()
@@ -546,10 +635,9 @@ describe("resolve-link API", () => {
       expect(response.status).toBe(400)
       expect(await response.json()).toMatchObject({
         error: "install_link_tls_untrusted",
-        // Carried alongside the user-facing copy so a support screenshot shows
-        // whether the trust stores were even readable.
+        // 保留信任源摘要，便于支持人员从截图判断系统证书库是否可读。
         trustSources: expect.stringContaining("runtime="),
-        message: `Reached your workspace, but the secure connection isn't trusted on this computer yet. This usually means your company inspects secure traffic. Try again — if it keeps failing, ask IT to check the certificate for 127.0.0.1:${configServer.port}.`,
+        message: `已连接公司服务，但本机不信任其安全证书。这通常是公司网络检查加密流量导致的。请重试；若仍失败，请联系 IT 检查 127.0.0.1:${configServer.port} 的证书。`,
       })
     } finally {
       installerServer.stop()
@@ -575,7 +663,7 @@ describe("resolve-link API", () => {
       expect(response.status).toBe(400)
       expect(await response.json()).toEqual({
         error: "install_link_expired",
-        message: "This install link has expired or was replaced. Ask your workspace admin for a fresh one from the Members page.",
+        message: "该安装链接已过期或已被替换，请联系公司管理员从“成员”页面获取新链接。",
       })
     } finally {
       installerServer.stop()
@@ -600,7 +688,7 @@ describe("resolve-link API", () => {
       expect(response.status).toBe(400)
       expect(await response.json()).toEqual({
         error: "install_link_invalid",
-        message: "Install link could not be resolved.",
+        message: "无法解析安装链接。",
       })
     } finally {
       installerServer.stop()
@@ -615,7 +703,7 @@ describe("browser activation API", () => {
     const activationUrl = "https://den.example.test/activate?code=abcdefghijklmnopqrstuvwxyz123456"
     const installerServer = startInstallerServer({
       config: {
-        appName: "OpenWork",
+        appName: "SeeWayWork",
         clientName: "Acme Robotics",
         webUrl: "https://den.example.test",
         apiUrl: "https://api.den.example.test",
@@ -686,7 +774,7 @@ describe("writeBootstrapConfig", () => {
         writtenAt: "2026-07-09T12:00:00.000Z",
       }))
       const written = writeBootstrapConfig(
-        { appName: "OpenWork", clientName: "Hosted", webUrl: "https://app.openworklabs.com/", apiUrl: "https://api.openworklabs.com/", requireSignin: false, logoUrl: null },
+        { appName: "SeeWayWork", clientName: "Hosted", webUrl: "https://app.openworklabs.com/", apiUrl: "https://api.openworklabs.com/", requireSignin: false, logoUrl: null },
         env,
         "win32",
       )
@@ -721,7 +809,7 @@ describe("writeBootstrapConfig", () => {
         claimLinks: [{ id: "claim_example" }],
       }))
       const hostedConfig = {
-        appName: "OpenWork",
+        appName: "SeeWayWork",
         clientName: "Hosted",
         webUrl: "https://api.openworklabs.com/v1/",
         apiUrl: "https://api.openworklabs.com/",
@@ -791,21 +879,21 @@ describe("removableInstallerBundlePath", () => {
   const executablePath = "Contents/MacOS/openwork-installer"
 
   test("allows only the installer app bundle in common writable locations", () => {
-    expect(removableInstallerBundlePath(`/Applications/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
-      "/Applications/Install OpenWork.app",
+    expect(removableInstallerBundlePath(`/Applications/Install SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      "/Applications/Install SeeWayWork.app",
     )
-    expect(removableInstallerBundlePath(`${homeDir}/Applications/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
-      `${homeDir}/Applications/Install OpenWork.app`,
+    expect(removableInstallerBundlePath(`${homeDir}/Applications/Install SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      `${homeDir}/Applications/Install SeeWayWork.app`,
     )
-    expect(removableInstallerBundlePath(`${homeDir}/Downloads/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
-      `${homeDir}/Downloads/Install OpenWork.app`,
+    expect(removableInstallerBundlePath(`${homeDir}/Downloads/Install SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      `${homeDir}/Downloads/Install SeeWayWork.app`,
     )
   })
 
   test("rejects DMG mounts, wrong app names, nested copies, and other platforms", () => {
-    expect(removableInstallerBundlePath(`/Volumes/Install OpenWork/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
-    expect(removableInstallerBundlePath(`/Applications/OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
-    expect(removableInstallerBundlePath(`${homeDir}/Downloads/OpenWork/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
-    expect(removableInstallerBundlePath(`/Applications/Install OpenWork.app/${executablePath}`, homeDir, "linux")).toBeNull()
+    expect(removableInstallerBundlePath(`/Volumes/Install SeeWayWork/Install SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`/Applications/SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`${homeDir}/Downloads/SeeWayWork/Install SeeWayWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`/Applications/Install SeeWayWork.app/${executablePath}`, homeDir, "linux")).toBeNull()
   })
 })

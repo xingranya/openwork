@@ -1,5 +1,5 @@
 /**
- * Release-channel concept for OpenWork desktop builds.
+ * Release-channel concept for SeeWayWork desktop builds.
  *
  * There are two channels users can opt into:
  *

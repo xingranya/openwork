@@ -55,7 +55,7 @@ export async function searchAdminCapabilities(query: string, limit = 5): Promise
           queryTokens,
           ["admin", "platform"],
         ),
-        summary: `[OpenWork Admin] ${tool.description ?? tool.name}`,
+        summary: `[SeeWayWork Admin] ${tool.description ?? tool.name}`,
         pathParams: [],
         queryParams: [],
         hasBody,

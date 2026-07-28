@@ -4,7 +4,7 @@ import {
   LEGACY_OPENWORK_CLOUD_MCP_NAME,
 } from "@openwork/types/den/mcp-connection-action";
 
-/** Durable, scoped records for the auto-managed OpenWork Cloud MCP. */
+/** Durable, scoped records for the auto-managed SeeWayWork Cloud MCP. */
 
 export const CLOUD_MCP_SERVER_NAME = FOXWORK_COMPANY_MCP_NAME;
 export const LEGACY_CLOUD_MCP_SERVER_NAME = LEGACY_OPENWORK_CLOUD_MCP_NAME;

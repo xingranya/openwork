@@ -1110,7 +1110,7 @@ export function LlmProviderEditorScreen({
 
                         {credentialFields}
                         <p className="-mt-3 text-[13px] text-gray-500">
-                            填写后会检查接口并读取可用模型，供你直接选择。凭据只会加密保存并下发给获授权的 FoxWork。
+                            填写后会检查接口并读取可用模型，供你直接选择。凭据只会加密保存并下发给获授权的 SeeWayWork。
                         </p>
 
                         <label className="grid gap-3">
@@ -1282,7 +1282,7 @@ export function LlmProviderEditorScreen({
                             rows={18}
                         />
                         <p className="text-[13px] text-gray-500">
-                            可粘贴单个模型服务配置块或完整的 FoxWork 模型服务 JSON，模型映射会自动导入。
+                            可粘贴单个模型服务配置块或完整的 SeeWayWork 模型服务 JSON，模型映射会自动导入。
                         </p>
                         {customJsonHint ? (
                             <p className="text-[13px] text-amber-700">

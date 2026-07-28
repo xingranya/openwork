@@ -550,7 +550,7 @@ export function McpView(props: McpViewProps) {
 
       {props.builtInExtensionsDisabled ? (
         <div className="rounded-xl border border-amber-6 bg-amber-2 px-4 py-3 text-xs text-amber-11">
-          公司已停用 FoxWork 内置扩展。可选择“显示已隐藏”查看被停用的内置扩展。
+          公司已停用 SeeWayWork 内置扩展。可选择“显示已隐藏”查看被停用的内置扩展。
         </div>
       ) : null}
 

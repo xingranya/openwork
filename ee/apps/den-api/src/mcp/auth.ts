@@ -412,7 +412,7 @@ export async function verifyMcpRequest(headers: Headers, optionsInput?: string |
   if (sessionLiveness === "check_failed") {
     return mcpJsonResponse(503, {
       error: "mcp_session_check_unavailable",
-      message: "OpenWork could not verify the token session. Retry shortly.",
+      message: "SeeWayWork could not verify the token session. Retry shortly.",
       referenceId,
     }, undefined, { "retry-after": "10" })
   }

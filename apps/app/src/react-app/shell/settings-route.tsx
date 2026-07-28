@@ -1012,7 +1012,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const installOpenAiImageExtension = useCallback(async (apiKey: string) => {
     const resolvedApiKey = apiKey.trim();
     if (!openworkClient) {
-      setImageExtensionError("FoxWork 服务尚未连接。");
+      setImageExtensionError("SeeWayWork 服务尚未连接。");
       return;
     }
     if (!resolvedApiKey) {
@@ -1040,7 +1040,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const apiKey = input.apiKey.trim();
     const prompt = input.prompt.trim();
     if (!client || !workspaceId) {
-      setImageGenerationError("当前工作区尚未连接 FoxWork 服务。");
+      setImageGenerationError("当前工作区尚未连接 SeeWayWork 服务。");
       return;
     }
     if (!apiKey) {
@@ -1104,7 +1104,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const testVoiceSession = useCallback(async () => {
     if (!openworkClient) {
-      setVoiceError("FoxWork 服务尚未连接。");
+      setVoiceError("SeeWayWork 服务尚未连接。");
       return;
     }
     setVoiceBusy(true);
@@ -1125,7 +1125,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const workspaceId = runtimeWorkspaceId?.trim() ?? "";
     const modelId = input.modelId.trim();
     if (!client || !workspaceId) {
-      setLocalProviderError("当前工作区尚未连接 FoxWork 服务。");
+      setLocalProviderError("当前工作区尚未连接 SeeWayWork 服务。");
       return;
     }
     if (!modelId) {
@@ -1988,7 +1988,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setRenameWorkspaceBusy(true);
     try {
       if (!openworkClient) {
-        toast.error("FoxWork 服务不可用，请重新连接后再重命名工作区。");
+        toast.error("SeeWayWork 服务不可用，请重新连接后再重命名工作区。");
         return;
       }
       await openworkClient.updateWorkspaceDisplayName(renameWorkspaceId, trimmed);
@@ -2025,7 +2025,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }
       return;
     }
-    throw new Error("FoxWork 服务暂时不可用，请重新连接后再导出工作区配置。");
+    throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再导出工作区配置。");
   }, [workspaceServerClientResolver, workspaces]);
 
   const handleForgetWorkspace = useCallback(async (workspaceId: string) => {
@@ -2063,7 +2063,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           .catch(() => null);
       }
       if (!list) {
-        throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
+        throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再创建工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
@@ -2106,7 +2106,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         list = await openworkClient.createRemoteWorkspace(payload).catch(() => null);
       }
       if (!list) {
-        throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
+        throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再添加远程工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {

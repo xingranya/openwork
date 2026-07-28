@@ -108,7 +108,7 @@ export function ArchitectureMismatchGate({ children }: ArchitectureMismatchGateP
               </div>
               <div className="space-y-4">
                 <h1 className="max-w-2xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
-                  请安装适合当前电脑的 FoxWork
+                  请安装适合当前电脑的 SeeWayWork
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
                   当前安装的是 {info.appArchLabel} 版本，但这台 {platformLabel(info.platform)} 电脑使用 {info.systemArchLabel}。继续运行可能导致功能异常。
@@ -148,19 +148,19 @@ export function ArchitectureMismatchGate({ children }: ArchitectureMismatchGateP
               </div>
               {!info.downloadUrl && !info.releaseUrl ? (
                 <p className="text-sm leading-6 text-amber-100/80">
-                  公司更新地址尚未配置，请联系管理员获取适配当前电脑的 FoxWork 安装包。
+                  公司更新地址尚未配置，请联系管理员获取适配当前电脑的 SeeWayWork 安装包。
                 </p>
               ) : null}
             </div>
 
             <aside className="border-t border-white/10 bg-gradient-to-br from-emerald-300/12 via-sky-300/8 to-transparent p-8 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
               <div className="space-y-5 rounded-[28px] border border-white/10 bg-black/25 p-6 text-sm leading-6 text-white/68">
-                <div className="text-lg font-semibold text-white">为什么 FoxWork 停在这里</div>
+                <div className="text-lg font-semibold text-white">为什么 SeeWayWork 停在这里</div>
                 <p>
-                  FoxWork 检测到应用架构与电脑架构不一致，因此停止启动，以免运行环境、浏览器工具或自动更新继续使用错误版本。
+                  SeeWayWork 检测到应用架构与电脑架构不一致，因此停止启动，以免运行环境、浏览器工具或自动更新继续使用错误版本。
                 </p>
                 <p>
-                  安装 {info.systemArchLabel} 版本后，请退出当前应用并重新启动 FoxWork。已有工作区和设置会继续保留。
+                  安装 {info.systemArchLabel} 版本后，请退出当前应用并重新启动 SeeWayWork。已有工作区和设置会继续保留。
                 </p>
                 <div className="rounded-2xl bg-white/[0.06] p-4 font-mono text-xs text-white/55">
                   v{info.version} · {platformLabel(info.platform)} · {info.systemArch}

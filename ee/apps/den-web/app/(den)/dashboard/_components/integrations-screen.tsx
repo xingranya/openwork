@@ -326,7 +326,7 @@ function DisconnectConfirmDialog({
               移除 @{accountLogin}？
             </h2>
             <p className="mt-1 text-[13px] leading-6 text-gray-600">
-              此操作会永久删除 FoxWork 从这个 GitHub 账号导入的内容，包括：
+              此操作会永久删除 SeeWayWork 从这个 GitHub 账号导入的内容，包括：
             </p>
             <ul className="mt-3 space-y-1.5 text-[13px] leading-6 text-gray-600">
               <li className="flex gap-2">

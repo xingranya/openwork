@@ -57,12 +57,12 @@ function isOpenworkServerReady(info?: BootOpenworkServerInfo) {
 /**
  * On desktop (Tauri) startup:
  *   1) bootstrap the workspace list
- *   2) if a local workspace is selected, restart the embedded OpenWork server
+ *   2) if a local workspace is selected, restart the embedded SeeWayWork server
  *   3) start the OpenCode engine pointed at the workspace
- *   4) activate the workspace on the running OpenWork server
+ *   4) activate the workspace on the running SeeWayWork server
  *   5) notify React routes that fresh desktop runtime info is available. Electron
  *      routes read live runtime info directly instead of persisting ephemeral
- *      localhost ports/tokens into OpenWork settings.
+ *      localhost ports/tokens into SeeWayWork settings.
  *
  * Safe to call multiple times — gated by a `didBoot` ref so it runs once per mount.
  */
@@ -116,13 +116,13 @@ export function useDesktopRuntimeBoot() {
         };
 
         const startServerWithoutDesktopWorkspace = async () => {
-          setPhase("starting-engine", "正在启动 FoxWork 服务");
+          setPhase("starting-engine", "正在启动 SeeWayWork 服务");
           const serverInfo = await openworkServerRestart({ remoteAccessEnabled: preferredRemoteAccess }).catch((error) => {
             console.warn("[desktop-boot] openworkServerRestart failed:", error);
             return null;
           });
           if (!isOpenworkServerInfoLike(serverInfo) || !isOpenworkServerReady(serverInfo)) {
-            setError("FoxWork 服务未能完成启动，请重启 FoxWork。");
+            setError("SeeWayWork 服务未能完成启动，请重启 SeeWayWork。");
             return;
           }
           publishOpenworkServerInfo(serverInfo);
@@ -165,12 +165,12 @@ export function useDesktopRuntimeBoot() {
           };
 
           if (boot.ok === false) {
-            setError(toChineseUserMessage(boot.error, "FoxWork 运行环境启动失败。"));
+            setError(toChineseUserMessage(boot.error, "SeeWayWork 运行环境启动失败。"));
             return;
           }
 
           if (!boot.skipped && !isOpenworkServerReady(boot.openworkServer)) {
-            setError("FoxWork 服务未能完成启动，请重启 FoxWork。");
+            setError("SeeWayWork 服务未能完成启动，请重启 SeeWayWork。");
             return;
           }
 
@@ -315,7 +315,7 @@ export function useDesktopRuntimeBoot() {
         markReady();
       } catch (error) {
         console.warn("[desktop-boot] fatal:", error);
-        setError(toChineseUserMessage(error, "FoxWork 启动失败，请重试。"));
+        setError(toChineseUserMessage(error, "SeeWayWork 启动失败，请重试。"));
       }
     })();
   }, [markReady, setActive, setError, setPhase]);

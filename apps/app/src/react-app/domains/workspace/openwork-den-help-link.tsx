@@ -33,7 +33,7 @@ export function OpenWorkDenHelpLink() {
           <DialogHeader>
             <DialogTitle>远程 Worker 兼容说明</DialogTitle>
             <DialogDescription>
-              如果远程 Worker 创建于公司服务器升级之前，它可能与当前 FoxWork 版本不兼容。
+              如果远程 Worker 创建于公司服务器升级之前，它可能与当前 SeeWayWork 版本不兼容。
             </DialogDescription>
           </DialogHeader>
 
@@ -41,7 +41,7 @@ export function OpenWorkDenHelpLink() {
             <p>请按以下顺序处理：</p>
             <ul className="ml-4 list-disc space-y-2">
               <li>
-                确认 FoxWork 与公司 Den、远程 Worker 使用兼容版本。
+                确认 SeeWayWork 与公司 Den、远程 Worker 使用兼容版本。
               </li>
               <li>
                 如果仍无法连接，请联系公司管理员升级或重新创建此 Worker。

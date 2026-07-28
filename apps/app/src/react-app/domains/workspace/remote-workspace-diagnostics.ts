@@ -90,7 +90,7 @@ function rejectedTokenMessage(target: RemoteWorkspaceConnectionTarget) {
 }
 
 function remoteSupportMessage(message: string) {
-  return `${message} 请确认远程 FoxWork 服务已升级到公司批准版本后重试；仍失败时请联系公司管理员。`;
+  return `${message} 请确认远程 SeeWayWork 服务已升级到公司批准版本后重试；仍失败时请联系公司管理员。`;
 }
 
 export function redactRemoteDiagnosticText(value: string): string {
@@ -151,7 +151,7 @@ export function resolveRemoteWorkspaceConnectionTarget(workspace: WorkspaceInfo)
       ok: false,
       state: {
         status: "error",
-        message: "连接诊断仅支持 FoxWork 远程工作区。",
+        message: "连接诊断仅支持 SeeWayWork 远程工作区。",
         checkedAt: Date.now(),
       },
     };
@@ -240,7 +240,7 @@ export async function testRemoteWorkspaceConnection(
 
   if (!target.token) {
     return fail(
-      remoteSupportMessage(`${target.endpointLabel} 缺少登录令牌。请编辑连接并填写有效的 FoxWork 令牌。`),
+      remoteSupportMessage(`${target.endpointLabel} 缺少登录令牌。请编辑连接并填写有效的 SeeWayWork 令牌。`),
       checkedAt,
     );
   }

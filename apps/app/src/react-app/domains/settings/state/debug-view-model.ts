@@ -560,7 +560,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   }, [electronMigrationArtifact]);
 
   const onResolveElectronAlphaArtifact = useCallback(async () => {
-    setElectronMigrationStatus("FoxWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的迁移操作。");
+    setElectronMigrationStatus("SeeWayWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的迁移操作。");
   }, []);
 
   const onRevealElectronMigrationBackup = useCallback(async () => {
@@ -572,22 +572,22 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       const env = await updaterEnvironmentCmd() as { appBundlePath?: string };
       const appBundlePath = env.appBundlePath?.trim();
       if (!appBundlePath) {
-        setElectronMigrationStatus("无法获取当前 FoxWork.app 的应用路径。");
+        setElectronMigrationStatus("无法获取当前 SeeWayWork.app 的应用路径。");
         return;
       }
       await revealDesktopItemInDir(`${appBundlePath}.migrate-bak`);
-      setElectronMigrationStatus("已请求在访达中显示 FoxWork.app.migrate-bak。完成安装交接后才会生成该备份。");
+      setElectronMigrationStatus("已请求在访达中显示 SeeWayWork.app.migrate-bak。完成安装交接后才会生成该备份。");
     } catch (error) {
       setElectronMigrationStatus(toChineseUserMessage(error, "无法打开迁移备份，请重试。"));
     }
   }, []);
 
   const onPrepareElectronMigrationSnapshot = useCallback(async () => {
-    setElectronMigrationStatus("FoxWork 已移除 Tauri，不再提供 Tauri 迁移快照。");
+    setElectronMigrationStatus("SeeWayWork 已移除 Tauri，不再提供 Tauri 迁移快照。");
   }, []);
 
   const onInstallElectronPreviewFromTauri = useCallback(async () => {
-    setElectronMigrationStatus("FoxWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的安装交接。");
+    setElectronMigrationStatus("SeeWayWork 已使用 Electron 桌面运行时，不再提供 Tauri 到 Electron 的安装交接。");
   }, []);
 
   useEffect(() => {
@@ -832,15 +832,15 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       });
       setOpenworkServiceStatus({
         tone: "success",
-        message: t("settings.restart_succeeded_template", { service: "FoxWork 本地服务" }),
+        message: t("settings.restart_succeeded_template", { service: "SeeWayWork 本地服务" }),
       });
-      pushDeveloperLog("已重启 FoxWork 本地服务");
+      pushDeveloperLog("已重启 SeeWayWork 本地服务");
       await openworkServerStore.reconnectOpenworkServer();
     } catch (error) {
-      const message = toChineseUserMessage(error, "重启 FoxWork 本地服务失败，请重试。");
+      const message = toChineseUserMessage(error, "重启 SeeWayWork 本地服务失败，请重试。");
       setOpenworkServiceStatus({
         tone: "error",
-        message: `${t("settings.restart_failed_template", { service: "FoxWork 本地服务" })} ${message}`,
+        message: `${t("settings.restart_failed_template", { service: "SeeWayWork 本地服务" })} ${message}`,
       });
       setServiceRestartError(message);
     } finally {
@@ -905,7 +905,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     }
     try {
       await navigator.clipboard.writeText(text);
-      setOpenworkLogStatus(t("settings.copied_service_logs", { service: "FoxWork 本地服务" }));
+      setOpenworkLogStatus(t("settings.copied_service_logs", { service: "SeeWayWork 本地服务" }));
     } catch (error) {
       setOpenworkLogStatus(toChineseUserMessage(error, "复制服务日志失败，请重试。"));
     }
@@ -937,7 +937,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       if (!isDesktopRuntime()) return;
       const message =
         mode === "all"
-          ? "确定重置全部 FoxWork 应用数据吗？当前会话和工作区记录将被移除。"
+          ? "确定重置全部 SeeWayWork 应用数据吗？当前会话和工作区记录将被移除。"
           : "确定只重置首次使用引导吗？";
       if (typeof window !== "undefined" && !window.confirm(message)) {
         return;
@@ -949,13 +949,13 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
           clearOpenworkLocalStorageForReset(mode);
           setResetStatus(
             mode === "all"
-              ? "FoxWork 状态已重置，重启应用后生效。"
+              ? "SeeWayWork 状态已重置，重启应用后生效。"
               : "首次使用引导已重置，重启应用后生效。",
           );
-          pushDeveloperLog(`已重置 FoxWork 状态：${mode === "all" ? "全部数据" : "首次使用引导"}`);
+          pushDeveloperLog(`已重置 SeeWayWork 状态：${mode === "all" ? "全部数据" : "首次使用引导"}`);
         })
         .catch((error) => {
-          setRouteError(toChineseUserMessage(error, "重置 FoxWork 状态失败，请重试。"));
+          setRouteError(toChineseUserMessage(error, "重置 SeeWayWork 状态失败，请重试。"));
         })
         .finally(() => {
           setResetModalBusy(false);
@@ -970,7 +970,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       typeof window === "undefined"
         ? true
         : window.confirm(
-            "确定删除 FoxWork 的全部本机设置和运行环境数据并退出吗？此操作无法撤销。",
+            "确定删除 SeeWayWork 的全部本机设置和运行环境数据并退出吗？此操作无法撤销。",
           );
     if (!confirmed) return;
     setNukeConfigBusy(true);

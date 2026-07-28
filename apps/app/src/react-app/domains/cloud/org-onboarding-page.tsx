@@ -261,7 +261,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
             className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
           >
             <CheckCircle2 className="size-3.5" />
-            准备完成，FoxWork 已可使用
+            准备完成，SeeWayWork 已可使用
           </div>
           <PageTitle>{prepared.orgName}</PageTitle>
         </PageHeader>
@@ -770,7 +770,7 @@ export function ResourceSelectionPage({ autoContinue = false }: { autoContinue?:
             </div>
             <PageTitle>工作区已准备完成</PageTitle>
             <PageDescription>
-              重启一次 FoxWork，即可在系统各处应用{orgName || "当前工作区"}的名称和图标。
+              重启一次 SeeWayWork，即可在系统各处应用{orgName || "当前工作区"}的名称和图标。
             </PageDescription>
             {brandingRestart.updateReady ? (
               <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11">
@@ -800,7 +800,7 @@ export function ResourceSelectionPage({ autoContinue = false }: { autoContinue?:
               暂不重启
             </Button>
             <Button type="button" size="lg" onClick={() => void restartWithBranding()}>
-              重启 FoxWork
+              重启 SeeWayWork
               <ArrowRight data-icon="inline-end" />
             </Button>
           </PageFooter>
@@ -843,7 +843,7 @@ export function ResourceSelectionPage({ autoContinue = false }: { autoContinue?:
               className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
             >
               <CheckCircle2 className="size-3.5" />
-              准备完成，FoxWork 已配置此工作区
+              准备完成，SeeWayWork 已配置此工作区
             </div>
           ) : null}
           <PageTitle>

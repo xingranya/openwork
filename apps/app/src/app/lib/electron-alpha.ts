@@ -71,7 +71,7 @@ export async function resolveElectronAlphaArtifact(
   arch: "arm64" | "x64" = "arm64",
 ): Promise<ElectronAlphaArtifact> {
   if (!ELECTRON_ALPHA_LATEST_MAC_YML_URL || !ELECTRON_ALPHA_RELEASE_PAGE_URL) {
-    throw new Error("FoxWork 公司测试更新源尚未配置。");
+    throw new Error("SeeWayWork 公司测试更新源尚未配置。");
   }
   const response = await desktopFetch(ELECTRON_ALPHA_LATEST_MAC_YML_URL, {
     headers: { Accept: "text/yaml, text/plain, */*" },

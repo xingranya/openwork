@@ -9,12 +9,12 @@ description: 帮助员工创建或更新工作区技能。适用于需要沉淀�
 
 ## 技能是什么
 
-技能是一组面向具体工作的说明、模板和脚本，以 `SKILL.md` 为入口。FoxWork 支持以下目录：
+技能是一组面向具体工作的说明、模板和脚本，以 `SKILL.md` 为入口。SeeWayWork 支持以下目录：
 
 - `.opencode/skills/<技能名称>/SKILL.md`
 - `.claude/skills/<技能名称>/SKILL.md`
 
-默认使用 `.opencode/skills/<技能名称>/SKILL.md`。文件写入后，FoxWork 会提示重新加载，让新技能立即生效。
+默认使用 `.opencode/skills/<技能名称>/SKILL.md`。文件写入后，SeeWayWork 会提示重新加载，让新技能立即生效。
 
 ## 设计要求
 
@@ -38,7 +38,7 @@ description: 帮助员工创建或更新工作区技能。适用于需要沉淀�
 
 ## 触发描述
 
-`description` 决定 FoxWork 何时使用技能。写清楚实际工作场景，并列出两到三个员工会说出的具体短语。
+`description` 决定 SeeWayWork 何时使用技能。写清楚实际工作场景，并列出两到三个员工会说出的具体短语。
 
 不够明确：
 
@@ -81,4 +81,4 @@ description: |
 3. 需要本机工具时，写清安装和首次配置步骤。
 4. 至少提供两个贴近实际工作的示例。
 5. 写明失败处理、回退方式和不可执行的边界。
-6. 将最终内容写入工作区的 `SKILL.md`，并按 FoxWork 提示重新加载。
+6. 将最终内容写入工作区的 `SKILL.md`，并按 SeeWayWork 提示重新加载。

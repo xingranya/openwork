@@ -160,7 +160,7 @@ export function ActivationScreen() {
     return (
       <OnboardingShell state="activation-error" width="wide">
         <section className="grid gap-5 rounded-[1.75rem] border border-slate-200/80 bg-white p-6 sm:p-8" data-testid="activation-page">
-          <p className="den-eyebrow">FoxWork 桌面端</p>
+          <p className="den-eyebrow">SeeWayWork 桌面端</p>
           <h1 className="den-title-lg">这台电脑仍需确认</h1>
           <p className="den-copy" role="alert">{message}</p>
           <button type="button" className="den-button-secondary w-fit" onClick={() => window.history.back()}>
@@ -190,7 +190,7 @@ export function ActivationScreen() {
           <p className="den-copy">
             {connected
               ? `${details.organizationName} 的配置和品牌信息已写入 ${details.brand.appName}。`
-              : `FoxWork 会先显示 ${details.organizationName} 及其服务器地址，确认后才会更改本机配置。`}
+              : `SeeWayWork 会先显示 ${details.organizationName} 及其服务器地址，确认后才会更改本机配置。`}
           </p>
         </div>
 
@@ -201,11 +201,11 @@ export function ActivationScreen() {
               已连接到 {details.organizationName}
             </div>
             <a className="den-button-primary w-full justify-center sm:w-fit" href={RETURN_TO_FOXWORK_URL} data-testid="activation-return-openwork">
-              返回 FoxWork
+              返回 SeeWayWork
               <ExternalLink className="size-4" aria-hidden="true" />
             </a>
             <div className="grid gap-2 rounded-2xl bg-slate-50 p-4">
-              <p className="m-0 text-sm text-slate-600">FoxWork 没有打开？请复制下面的链接并在浏览器中打开。</p>
+              <p className="m-0 text-sm text-slate-600">SeeWayWork 没有打开？请复制下面的链接并在浏览器中打开。</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input className="den-input min-w-0 flex-1 text-xs" value={RETURN_TO_FOXWORK_URL} readOnly onFocus={(event) => event.currentTarget.select()} />
                 <button type="button" className="den-button-secondary sm:w-auto" onClick={() => void copyLink("return", RETURN_TO_FOXWORK_URL)}>
@@ -226,21 +226,21 @@ export function ActivationScreen() {
                 window.location.assign(connectUrl);
               }}
             >
-              打开 FoxWork
+              打开 SeeWayWork
               <ExternalLink className="size-4" aria-hidden="true" />
             </button>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              {openAttempted ? "正在等待 FoxWork 接收公司配置..." : "正在等待你确认..."}
+              {openAttempted ? "正在等待 SeeWayWork 接收公司配置..." : "正在等待你确认..."}
             </div>
             {openAttempted ? (
               <div className="grid gap-2 rounded-2xl bg-slate-50 p-4" data-testid="activation-open-fallback">
-                <p className="m-0 text-sm text-slate-600">FoxWork 没有打开？请复制此一次性链接，并在能够打开 FoxWork 链接的位置粘贴。</p>
+                <p className="m-0 text-sm text-slate-600">SeeWayWork 没有打开？请复制此一次性链接，并在能够打开 SeeWayWork 链接的位置粘贴。</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input className="den-input min-w-0 flex-1 text-xs" value={connectUrl} readOnly onFocus={(event) => event.currentTarget.select()} />
                   <button type="button" className="den-button-secondary sm:w-auto" onClick={() => void copyLink("connect", connectUrl)}>
                     <Copy className="size-4" aria-hidden="true" />
-                    {copied === "connect" ? "已复制" : "复制 FoxWork 链接"}
+                    {copied === "connect" ? "已复制" : "复制 SeeWayWork 链接"}
                   </button>
                 </div>
               </div>

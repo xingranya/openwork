@@ -24,7 +24,7 @@ const installLinkId = createDenTypeId("installLink")
 const insertedRows: unknown[] = []
 const revokedRows: unknown[] = []
 const officialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/download/v9.9.9/openwork-win-x64-9.9.9.exe"
-const latestOfficialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/latest/download/OpenWork-Installer-win-x64.exe"
+const latestOfficialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/latest/download/SeeWayWork-Installer-win-x64.exe"
 const connectKeyPair = generateConnectLinkKeyPair()
 const connectKeyId = "owc-route-test"
 
@@ -228,7 +228,7 @@ function expectedLinuxInstallScript() {
   const configUrl = new URL("/v1/install-config?token=opaque-token", new URL(apiUrl).origin).toString()
   const downloadUrl = `https://github.com/${envModule.env.installerReleaseRepo}/releases`
   return `#!/usr/bin/env sh
-# 为 Acme Robotics 配置 FoxWork Linux 客户端。
+# 为 Acme Robotics 配置 SeeWayWork Linux 客户端。
 # 本脚本只写入公司连接配置，不下载或执行其他代码。
 set -eu
 
@@ -243,11 +243,11 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   FETCH="wget -qO-"
 else
-  echo "配置 FoxWork 需要 curl 或 wget。" >&2
+  echo "配置 SeeWayWork 需要 curl 或 wget。" >&2
   exit 1
 fi
 
-echo "正在检查 FoxWork 公司安装链接……"
+echo "正在检查 SeeWayWork 公司安装链接……"
 # shellcheck disable=SC2086
 $FETCH "$CONFIG_URL" >/dev/null
 
@@ -265,10 +265,10 @@ cat > "$BOOTSTRAP_PATH" <<EOF
 EOF
 
 echo
-echo "已为 $CLIENT_NAME 写入 FoxWork 公司连接配置。"
+echo "已为 $CLIENT_NAME 写入 SeeWayWork 公司连接配置。"
 echo "配置文件：$BOOTSTRAP_PATH"
 echo
-echo "请从以下地址下载 FoxWork Linux 安装包："
+echo "请从以下地址下载 SeeWayWork Linux 安装包："
 echo "  $DOWNLOAD_URL"
 echo
 echo "启动安装包并登录后，公司工作区会自动加载。"
@@ -415,7 +415,7 @@ test("downloads fail closed when the company installer is not configured", async
   expect(response.status).toBe(503)
   await expect(response.json()).resolves.toEqual({
     error: "installer_not_configured",
-    message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+    message: "公司尚未配置 SeeWayWork 安装包，请联系公司管理员。",
   })
 })
 
@@ -467,9 +467,9 @@ test("mounted artifact lookup uses the exact Windows installer filename", async 
   }).request("http://den.local/v1/install/win-x64?token=opaque-token")
 
   expect(response.status).toBe(200)
-  expect(artifactFileNames).toEqual(["OpenWork-Installer-win-x64.exe"])
+  expect(artifactFileNames).toEqual(["SeeWayWork-Installer-win-x64.exe"])
   expect(response.headers.get("content-type")).toBe("application/vnd.microsoft.portable-executable")
-  expect(response.headers.get("content-disposition")).toContain("OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("content-disposition")).toContain("SeeWayWork-Installer-win-x64.exe")
   expect(response.headers.get("content-disposition")).not.toContain("opaque-token")
   expect(Buffer.from(await response.arrayBuffer())).toEqual(installer)
 })
@@ -536,7 +536,7 @@ test("custom release repos never use the latest-release URL", async () => {
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v9.9.9/foxwork-win-x64-9.9.9.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v9.9.9/SeeWayWork-win-x64-9.9.9.exe")
   expect(response.headers.get("location")).not.toContain("/releases/latest/")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -589,7 +589,7 @@ test("custom installer release repos are not clamped", async () => {
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v0.17.27/foxwork-win-x64-0.17.27.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v0.17.27/SeeWayWork-win-x64-0.17.27.exe")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
 
@@ -619,7 +619,7 @@ test.each(["linux-x64", "linux-arm64"])(
 
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("text/x-shellscript; charset=utf-8")
-    expect(response.headers.get("content-disposition")).toContain("foxwork-linux-setup-acme-robotics.sh")
+    expect(response.headers.get("content-disposition")).toContain("SeeWayWork-linux-setup-acme-robotics.sh")
     expect(await response.text()).toBe(expectedLinuxInstallScript())
   },
 )
@@ -636,7 +636,7 @@ test("guided semi-air-gapped mac downloads return a provisioned DMG without ZIP 
 
   expect(response.status).toBe(200)
   expect(response.headers.get("content-type")).toBe("application/x-apple-diskimage")
-  expect(response.headers.get("content-disposition")).toContain("OpenWork-Installer-mac-arm64.dmg")
+  expect(response.headers.get("content-disposition")).toContain("SeeWayWork-Installer-mac-arm64.dmg")
   expect(response.headers.get("content-disposition")).not.toContain("opaque-token")
   expect(Buffer.from(await response.arrayBuffer())).toEqual(installer)
 })

@@ -198,7 +198,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
       const confirmed = booleanArg(args, "confirmed");
       if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
       if (!confirmed) return { ok: false, error: "删除前必须得到用户明确确认，并将 confirmed 设为 true。" };
-      if (!openworkClient) return { ok: false, error: "FoxWork 服务尚未连接。" };
+      if (!openworkClient) return { ok: false, error: "SeeWayWork 服务尚未连接。" };
 
       const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
       if (!targetWorkspace) return { ok: false, error: "当前会话列表中未找到该会话。" };

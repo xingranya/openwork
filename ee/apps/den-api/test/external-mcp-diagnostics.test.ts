@@ -1171,9 +1171,9 @@ describe("external MCP diagnostics", () => {
     const html = connectCallbackPage({ ok: true, name: "Enterprise MCP <test>" })
 
     expect(html).toContain("连接成功")
-    expect(html).toContain("Enterprise MCP &lt;test&gt; 已连接到 FoxWork。")
+    expect(html).toContain("Enterprise MCP &lt;test&gt; 已连接到 SeeWayWork。")
     expect(html).toContain('<html lang="zh-CN">')
-    expect(html).toContain("<title>连接成功 — FoxWork</title>")
+    expect(html).toContain("<title>连接成功 — SeeWayWork</title>")
     expect(html).toContain("关闭窗口")
     expect(html).toContain("window.close()")
     expect(html).not.toContain("Close window")

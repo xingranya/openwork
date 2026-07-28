@@ -60,7 +60,7 @@ function missingContextIssue(input: {
       code: "cloud_mcp_submission_context_missing",
       stage: "engine_delivery",
       retryable: true,
-      message: "FoxWork 无法确定当前工作区服务，暂时不能检查公司工具。",
+      message: "SeeWayWork 无法确定当前工作区服务，暂时不能检查公司工具。",
       recommendedAction: "请等待工作区加载完成后重试。",
     };
   }
@@ -77,7 +77,7 @@ function missingContextIssue(input: {
     code: "cloud_mcp_submission_context_missing",
     stage: "provider_projection",
     retryable: false,
-    message: "FoxWork 无法确认本次消息所需的公司工具是否可用。",
+    message: "SeeWayWork 无法确认本次消息所需的公司工具是否可用。",
     recommendedAction: "请重试，或前往“设置 > 公司连接”查看诊断。",
   };
 }

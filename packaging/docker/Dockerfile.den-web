@@ -21,6 +21,8 @@ COPY ee/apps/den-web /app/ee/apps/den-web
 
 WORKDIR /app/ee/apps/den-web
 
+RUN pnpm --dir /app/packages/types run build
+
 # Source-map upload is build-only; runtime Sentry still requires its own backend and DSN configuration.
 ARG DEN_WEB_UPLOAD_SENTRY_SOURCEMAPS=0
 ARG DEN_WEB_SENTRY_UPLOAD_BUILD_ID=disabled

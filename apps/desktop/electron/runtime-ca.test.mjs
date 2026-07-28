@@ -71,7 +71,7 @@ test("respects user-set NODE_EXTRA_CA_CERTS", async () => {
     userDataDir,
     parentEnv: { NODE_EXTRA_CA_CERTS: "/custom/ca.pem" },
     logInfo(message) {
-      logged = String(message).includes("NODE_EXTRA_CA_CERTS is already set");
+      logged = String(message).includes("已设置 NODE_EXTRA_CA_CERTS");
     },
   });
 

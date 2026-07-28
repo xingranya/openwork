@@ -821,7 +821,7 @@ function readableModelRuntimeMessage(message: string | null, fallback: string) {
   const raw = message?.trim() ?? ""
   if (!raw) return fallback
   if (/open\s*code|big\s*pickle|subscribe|free usage exceeded|usage exceeded/i.test(raw)) {
-    return "FoxWork 免费模型当前不可用，请稍后重试或切换到公司模型。"
+    return "SeeWayWork 免费模型当前不可用，请稍后重试或切换到公司模型。"
   }
   return /[\u3400-\u9fff]/.test(raw) ? raw : fallback
 }
@@ -872,7 +872,7 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
     : `正在重试，第 ${status.attempt} 次尝试`
   const message = readableModelRuntimeMessage(
     status.message,
-    "模型服务暂时不可用，FoxWork 正在重试。",
+    "模型服务暂时不可用，SeeWayWork 正在重试。",
   )
   const action = status.action && !/open\s*code|subscribe|big\s*pickle/i.test(
     `${status.action.title} ${status.action.message} ${status.action.label} ${status.action.link ?? ""}`,

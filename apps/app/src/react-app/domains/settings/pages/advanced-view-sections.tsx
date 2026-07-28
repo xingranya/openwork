@@ -397,13 +397,13 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
       <LayoutSectionHeader>
         <LayoutSectionTitle>AI 服务权限诊断</LayoutSectionTitle>
         <LayoutSectionDescription>
-          查看 FoxWork 公司 MCP 的下发详情。显示或复制前会移除令牌和 Authorization 请求头。
+          查看 SeeWayWork 公司 MCP 的下发详情。显示或复制前会移除令牌和 Authorization 请求头。
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>FoxWork 公司 MCP 运行状态</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>SeeWayWork 公司 MCP 运行状态</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
             用于排查具体运行状态；日常连接信息仍在“连接”页面查看。
           </LayoutSectionItemDescription>
@@ -434,7 +434,7 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
               <DiagnosticRow label="受控能力" value={`Schema v${props.cloudMcpHealth.schemaVersion}；连接目录：${props.cloudMcpHealth.connectCatalogEnabled ? "已启用" : "已关闭"}`} />
               {compatibility ? (
                 <>
-                  <DiagnosticRow label="FoxWork 版本" value={`服务端：${formatMaybe(compatibility.openwork.serverVersion)}；应用：${formatMetadataRecord(compatibility.openwork.app)}`} />
+                  <DiagnosticRow label="SeeWayWork 版本" value={`服务端：${formatMaybe(compatibility.openwork.serverVersion)}；应用：${formatMetadataRecord(compatibility.openwork.app)}`} />
                   <DiagnosticRow label="运行引擎兼容性" value={`预期：${formatMaybe(compatibility.opencode.expectedVersion)}；实际：${formatMaybe(compatibility.opencode.actualVersion)}；探测：${compatibility.opencode.probe}`} />
                   <DiagnosticRow label="功能探针" value={formatSupportedFeatures(compatibility.supportedFeatures)} />
                   <DiagnosticRow label="实验工具 ID" value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
@@ -577,15 +577,15 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
       <LayoutSectionHeader>
         <LayoutSectionTitle>运行配置来源</LayoutSectionTitle>
         <LayoutSectionDescription>
-          检查 FoxWork 管理的运行配置和工作区自有配置。即使本地运行引擎暂时不可用，也可以查看这些信息。
+          检查 SeeWayWork 管理的运行配置和工作区自有配置。即使本地运行引擎暂时不可用，也可以查看这些信息。
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>迁移 FoxWork 管理的配置</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>迁移 SeeWayWork 管理的配置</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            将旧版配置文件中可安全迁移的 FoxWork 配置移入运行时数据库。
+            将旧版配置文件中可安全迁移的 SeeWayWork 配置移入运行时数据库。
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button
@@ -615,9 +615,9 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
         {props.configStatus ? (
           <div className="space-y-3 rounded-xl border border-gray-6 bg-gray-1/60 p-3 text-xs text-gray-10">
             <div className="space-y-2 rounded-xl border border-blue-6/50 bg-blue-2/40 p-3">
-              <div className="font-medium text-gray-12">FoxWork 目标运行时配置</div>
+              <div className="font-medium text-gray-12">SeeWayWork 目标运行时配置</div>
               <div className="text-[11px] text-gray-9">
-                此配置由 FoxWork 生成，写入运行时数据库后由服务端安全注入。敏感请求头会在此处脱敏。
+                此配置由 SeeWayWork 生成，写入运行时数据库后由服务端安全注入。敏感请求头会在此处脱敏。
               </div>
               <RuntimeConfigSummary config={effectiveRuntimeConfig ?? {}} />
               <details className="rounded-lg bg-gray-3 p-2">
@@ -632,7 +632,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
                 <div>
                   <div className="font-medium text-gray-12">配置来源明细</div>
                   <div className="text-[11px] text-gray-9">
-                    本地运行引擎会读取项目和用户级配置。FoxWork 另行注入受管配置；排查公司管理项时，以注入配置为准。
+                    本地运行引擎会读取项目和用户级配置。SeeWayWork 另行注入受管配置；排查公司管理项时，以注入配置为准。
                   </div>
                 </div>
                 <RuntimeConfigSourceBlock
@@ -650,14 +650,14 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
                   config={props.configStatus.sources.globalOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="FoxWork 运行时数据库"
-                  description="保存在工作区文件之外、由 FoxWork 管理的运行时配置。"
+                  title="SeeWayWork 运行时数据库"
+                  description="保存在工作区文件之外、由 SeeWayWork 管理的运行时配置。"
                   keys={props.configStatus.sources.runtimeDatabase.keys}
                   config={props.configStatus.sources.runtimeDatabase.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="FoxWork 注入配置"
-                  description="FoxWork 注入本地运行引擎的受管配置。"
+                  title="SeeWayWork 注入配置"
+                  description="SeeWayWork 注入本地运行引擎的受管配置。"
                   keys={props.configStatus.sources.injected.keys}
                   config={props.configStatus.sources.injected.config}
                 />
@@ -668,7 +668,7 @@ export function AdvancedRuntimeMigrationSection(props: AdvancedRuntimeMigrationS
               <div>已存配置项：{formatKeys(props.configStatus.runtimeKeys)}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">旧版 FoxWork 元数据</div>
+              <div className="font-medium text-gray-12">旧版 SeeWayWork 元数据</div>
               {props.configStatus.legacyOpenwork.error ? (
                 <div className="text-amber-11">旧配置文件存在错误，请先修复后再迁移。</div>
               ) : null}

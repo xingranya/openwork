@@ -75,7 +75,7 @@ export function RemoteWorkspaceFields({
             className={inputClass}
           />
           <span className={inputHintClass}>
-            粘贴要连接的 FoxWork Worker 地址。
+            粘贴要连接的 SeeWayWork Worker 地址。
           </span>
         </label>
 

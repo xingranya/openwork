@@ -118,7 +118,7 @@ function GithubInstallCompletionRedirect({ installationId, state }: { installati
       icon={Github}
       badgeLabel="GitHub"
       title="正在完成 GitHub 连接"
-      description="FoxWork 正在完成公司 GitHub App 的安装交接。"
+      description="SeeWayWork 正在完成公司 GitHub App 的安装交接。"
       colors={["#E2E8F0", "#0F172A", "#111827", "#94A3B8"]}
     >
       {completionQuery.error ? (
@@ -135,7 +135,7 @@ function GithubInstallCompletionRedirect({ installationId, state }: { installati
             正在完成 GitHub 连接
           </h2>
           <p className="mt-2 max-w-[460px] text-[13px] leading-[1.6] text-gray-500">
-            FoxWork 正在确认安装信息并加载有权访问的代码仓库。
+            SeeWayWork 正在确认安装信息并加载有权访问的代码仓库。
           </p>
         </section>
       )}
@@ -194,7 +194,7 @@ function ConfigurationLoadingState() {
       icon={Puzzle}
       badgeLabel="代码仓库"
       title="正在加载..."
-      description="FoxWork 正在加载这个代码仓库的连接配置。"
+      description="SeeWayWork 正在加载这个代码仓库的连接配置。"
       colors={["#DBEAFE", "#0F172A", "#1D4ED8", "#BFDBFE"]}
     >
       <div className="rounded-[28px] border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
@@ -270,7 +270,7 @@ function GithubConnectorInstanceManagePhase({
       icon={Puzzle}
       badgeLabel="代码仓库"
       title={repoName}
-      description="管理 FoxWork 从此代码仓库导入的插件。"
+      description="管理 SeeWayWork 从此代码仓库导入的插件。"
       colors={["#DBEAFE", "#0F172A", "#1D4ED8", "#BFDBFE"]}
     >
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -304,7 +304,7 @@ function GithubConnectorInstanceManagePhase({
                 自动导入新插件
               </p>
               <p className="mt-1 text-[12.5px] leading-[1.6] text-gray-500">
-                后续提交中出现新的插件结构时，FoxWork 会自动发现并导入。
+                后续提交中出现新的插件结构时，SeeWayWork 会自动发现并导入。
               </p>
               {autoImportMutation.error ? (
                 <p className="mt-2 text-[12px] text-red-700">
@@ -348,7 +348,7 @@ function GithubConnectorInstanceManagePhase({
                   移除此代码仓库
                 </p>
                 <p className="mt-1 text-[12.5px] leading-[1.6] text-gray-500">
-                  删除 FoxWork 从此代码仓库导入的全部内容，GitHub 账号连接仍会保留。
+                  删除 SeeWayWork 从此代码仓库导入的全部内容，GitHub 账号连接仍会保留。
                 </p>
               </div>
               <DenButton
@@ -543,7 +543,7 @@ function RemoveRepositoryConfirmDialog({
               移除 {repoName}？
             </h2>
             <p className="mt-1 text-[13px] leading-6 text-gray-600">
-              此操作会删除 FoxWork 从这个代码仓库导入的全部内容，包括：
+              此操作会删除 SeeWayWork 从这个代码仓库导入的全部内容，包括：
             </p>
             <ul className="mt-3 space-y-1.5 text-[13px] leading-6 text-gray-600">
               <li className="flex gap-2">
@@ -680,7 +680,7 @@ function GithubConnectedAccountSelectionPhase({ connectorAccountId }: { connecto
       {repositoriesQuery.isLoading || (!connection && (connectionsLoading || connectionsFetching)) ? (
         <StatePanel
           title="正在加载代码仓库"
-          body="FoxWork 正在检查此 GitHub App 已获授权读取的代码仓库。"
+          body="SeeWayWork 正在检查此 GitHub App 已获授权读取的代码仓库。"
         />
       ) : repositoriesQuery.error ? (
         <StatePanel
@@ -690,7 +690,7 @@ function GithubConnectedAccountSelectionPhase({ connectorAccountId }: { connecto
       ) : !connection ? (
         <StatePanel
           title="没有找到已连接账号"
-          body="FoxWork 没有找到这个 GitHub 账号。请返回数据源页面，必要时重新连接。"
+          body="SeeWayWork 没有找到这个 GitHub 账号。请返回数据源页面，必要时重新连接。"
         />
       ) : (
         <div className="space-y-5">
@@ -783,7 +783,7 @@ function GithubConnectedAccountSelectionPhase({ connectorAccountId }: { connecto
               </p>
               <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-6 text-gray-500">
                 {connection.account.repositorySelection === "selected"
-                  ? "此 GitHub App 只获准访问指定仓库，FoxWork 已经配置完这些仓库。"
+                  ? "此 GitHub App 只获准访问指定仓库，SeeWayWork 已经配置完这些仓库。"
                   : "此 GitHub App 已能访问账号下的全部仓库，目前没有尚未配置的仓库。"}
               </p>
               {connection.account.repositorySelection === "selected" && connection.account.manageUrl ? (
@@ -806,7 +806,7 @@ function GithubConnectedAccountSelectionPhase({ connectorAccountId }: { connecto
                 暂无可用代码仓库
               </p>
               <p className="mx-auto mt-2 max-w-[420px] text-[13px] leading-6 text-gray-500">
-                此 GitHub App 当前没有 FoxWork 可以读取的代码仓库。
+                此 GitHub App 当前没有 SeeWayWork 可以读取的代码仓库。
               </p>
             </div>
           ) : null}
@@ -980,7 +980,7 @@ function GithubDiscoveryPhase({ connectorInstanceId, onBack }: { connectorInstan
       icon={Sparkles}
       badgeLabel="插件扫描"
       title={repoName ?? "扫描代码仓库"}
-      description="选择 FoxWork 要从此代码仓库导入的插件。"
+      description="选择 SeeWayWork 要从此代码仓库导入的插件。"
       colors={["#DBEAFE", "#0F172A", "#1D4ED8", "#BFDBFE"]}
     >
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -1005,7 +1005,7 @@ function GithubDiscoveryPhase({ connectorInstanceId, onBack }: { connectorInstan
       ) : discoveryQuery.error ? (
         <StatePanel
           title="扫描失败"
-          body={getErrorMessage(discoveryQuery.error, "FoxWork 无法检查已连接的代码仓库。")}
+          body={getErrorMessage(discoveryQuery.error, "SeeWayWork 无法检查已连接的代码仓库。")}
         />
       ) : applyMutation.isSuccess ? (
         <DiscoveryAppliedState
@@ -1043,7 +1043,7 @@ function GithubDiscoveryPhase({ connectorInstanceId, onBack }: { connectorInstan
                   自动导入新插件
                 </p>
                 <p className="mt-1 text-[12.5px] leading-[1.6] text-gray-500">
-                  后续提交中出现新的插件结构时，FoxWork 会自动发现并导入。
+                  后续提交中出现新的插件结构时，SeeWayWork 会自动发现并导入。
                 </p>
               </div>
               <Toggle
@@ -1072,7 +1072,7 @@ function GithubDiscoveryPhase({ connectorInstanceId, onBack }: { connectorInstan
                   未检测到 Claude 兼容插件
                 </p>
                 <p className="mx-auto mt-2 max-w-[440px] text-[13px] leading-6 text-gray-500">
-                  FoxWork 当前支持 Claude 兼容插件和能力市场。请在代码仓库中添加 <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">.claude-plugin/marketplace.json</code> 或 <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">.claude-plugin/plugin.json</code>。
+                  SeeWayWork 当前支持 Claude 兼容插件和能力市场。请在代码仓库中添加 <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">.claude-plugin/marketplace.json</code> 或 <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">.claude-plugin/plugin.json</code>。
                 </p>
               </div>
             )}
@@ -1083,7 +1083,7 @@ function GithubDiscoveryPhase({ connectorInstanceId, onBack }: { connectorInstan
               <div className="min-w-0 text-[12.5px] text-gray-500">
                 {selectedPlugins.length === 0
                   ? "请至少选择一个要导入的插件。"
-                  : `将会在 FoxWork 中创建 ${selectedPlugins.length} 个插件及其映射。`}
+                  : `将会在 SeeWayWork 中创建 ${selectedPlugins.length} 个插件及其映射。`}
               </div>
               <DenButton
                 disabled={selectedPlugins.length === 0}
@@ -1237,7 +1237,7 @@ function DiscoveryAppliedState({
             扫描结果已应用
           </h2>
           <p className="mt-1 text-[12.5px] leading-[1.6] text-gray-500">
-            FoxWork 已创建 <span className="font-semibold text-gray-900">{createdPluginNames.length}</span> 个插件、{" "}
+            SeeWayWork 已创建 <span className="font-semibold text-gray-900">{createdPluginNames.length}</span> 个插件、{" "}
             <span className="font-semibold text-gray-900">{createdMappingCount}</span> 个映射和{" "}
             <span className="font-semibold text-gray-900">{materializedConfigObjectCount}</span> 个导入配置。
           </p>
@@ -1273,7 +1273,7 @@ function DiscoveryLoadingState() {
         正在扫描代码仓库中的能力市场和插件
       </h2>
       <p className="mt-2 max-w-[460px] text-[13px] leading-[1.6] text-gray-500">
-        FoxWork 正在查找 Claude 兼容的插件和能力市场清单。
+        SeeWayWork 正在查找 Claude 兼容的插件和能力市场清单。
       </p>
     </section>
   );

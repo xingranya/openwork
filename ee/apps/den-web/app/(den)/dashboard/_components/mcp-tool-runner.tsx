@@ -98,7 +98,7 @@ function InspectionBody({ body }: { body: ExternalMcpInspectionBody }) {
 }
 
 function diagnosisLayerLabel(layer: ExternalMcpToolCallInspection["diagnosis"]["layer"]): string {
-  if (layer === "openwork") return "FoxWork 发送前";
+  if (layer === "openwork") return "SeeWayWork 发送前";
   if (layer === "network") return "网络连接或无响应";
   if (layer === "mcp_connection") return "MCP 连接配置";
   if (layer === "remote_http") return "远程 MCP HTTP 服务";
@@ -168,7 +168,7 @@ function McpToolCallInspector({
   failureAttribution: ExternalMcpFailureAttribution | null;
 }) {
   const succeeded = inspection.diagnosis.status === "succeeded";
-  // 即使已捕获请求，也可能在 FoxWork 内部被拦截；诊断层负责区分“未发送”和“已发送但无响应”。
+  // 即使已捕获请求，也可能在 SeeWayWork 内部被拦截；诊断层负责区分“未发送”和“已发送但无响应”。
   const transportChip = inspection.response
     ? `HTTP ${inspection.response.status}`
     : inspection.request && inspection.diagnosis.layer !== "openwork"
@@ -181,7 +181,7 @@ function McpToolCallInspector({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-emerald-800">远程 MCP 已完成调用</p>
             <div className="flex items-center gap-1.5 font-mono text-[10px] text-gray-600">
-              <span>FoxWork</span><ArrowRight className="h-3 w-3" aria-hidden="true" />
+              <span>SeeWayWork</span><ArrowRight className="h-3 w-3" aria-hidden="true" />
               <span>{transportChip}</span><ArrowRight className="h-3 w-3" aria-hidden="true" />
               <span>工具结果</span>
             </div>
@@ -207,7 +207,7 @@ function McpToolCallInspector({
         </summary>
 
         <div className="border-t border-amber-100 bg-amber-50/70 px-4 py-2 text-[10px] leading-4 text-amber-800">
-          凭据和会话请求头已隐藏。请求及响应正文可能包含服务方的敏感数据；这些内容只在本次执行中返回，不会写入 FoxWork 日志。
+          凭据和会话请求头已隐藏。请求及响应正文可能包含服务方的敏感数据；这些内容只在本次执行中返回，不会写入 SeeWayWork 日志。
         </div>
 
         <div className="grid gap-0 border-t border-gray-200 xl:grid-cols-2 xl:divide-x xl:divide-gray-200">
@@ -219,7 +219,7 @@ function McpToolCallInspector({
                   <span className="font-semibold text-blue-300">{inspection.request.method}</span> <span className="break-all">{inspection.request.url}</span>
                 </div>
               ) : (
-                <p className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-500">FoxWork 未发出工具调用请求。</p>
+                <p className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-500">SeeWayWork 未发出工具调用请求。</p>
               )}
             </div>
             {inspection.request ? (
@@ -336,7 +336,7 @@ export function McpToolRunner({ connection }: { connection: ExternalMcpConnectio
             <p className="text-[13px] font-semibold text-gray-900">手动运行工具</p>
           </div>
           <p className="mt-1 max-w-2xl text-[12px] leading-5 text-gray-500">
-            FoxWork 会使用当前可用的连接凭据执行工具，参数和结果不会写入 FoxWork 日志。
+            SeeWayWork 会使用当前可用的连接凭据执行工具，参数和结果不会写入 SeeWayWork 日志。
           </p>
         </div>
         <DenButton className="shrink-0 whitespace-nowrap" variant="secondary" size="sm" loading={catalog.isFetching} onClick={() => void catalog.refetch()}>

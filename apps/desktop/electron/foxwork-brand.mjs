@@ -1,12 +1,12 @@
 /**
- * FoxWork 的发行配置只在桌面主进程读取。
+ * SeeWayWork 的发行配置只在桌面主进程读取。
  *
  * 公司构建必须显式提供 Den、文档和更新地址；缺少配置时返回空值，
  * 让调用方安全地禁用对应入口，不得回退到上游服务。
  */
 
-export const FOXWORK_APP_NAME = "FoxWork";
-export const FOXWORK_DEV_APP_NAME = "FoxWork - 开发";
+export const FOXWORK_APP_NAME = "SeeWayWork";
+export const FOXWORK_DEV_APP_NAME = "SeeWayWork - 开发";
 export const FOXWORK_APP_IDENTIFIER = "com.foxwork.desktop";
 export const FOXWORK_DEV_APP_IDENTIFIER = "com.foxwork.desktop.dev";
 export const FOXWORK_PROTOCOL_SCHEME = "foxwork";
@@ -39,7 +39,7 @@ function baseUrl(value) {
 }
 
 /**
- * 读取 FoxWork 桌面构建配置。
+ * 读取 SeeWayWork 桌面构建配置。
  * @param {Record<string, string | undefined>} [env]
  */
 export function resolveFoxWorkBrandConfig(env = process.env) {
@@ -88,4 +88,3 @@ export function isLegacyFoxWorkProtocolUrl(value) {
     return false;
   }
 }
-

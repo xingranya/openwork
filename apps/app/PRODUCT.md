@@ -6,11 +6,11 @@ product
 
 ## Users
 
-FoxWork 面向公司内部员工使用。多数员工不熟悉模型、API 密钥、MCP、Skills 或命令行，需要登录后直接完成日常资料处理、协作和 AI 任务；管理员负责统一配置公司账号、模型与能力目录。
+SeeWayWork 面向公司内部员工使用。多数员工不熟悉模型、API 密钥、MCP、Skills 或命令行，需要登录后直接完成日常资料处理、协作和 AI 任务；管理员负责统一配置公司账号、模型与能力目录。
 
 ## Product Purpose
 
-FoxWork 是员工唯一需要安装的公司 AI 工作客户端。它连接公司 Den 控制面和 Brand Project OS Service，同时支持本地与远程工作区。成功标准是员工不需要理解底层运行引擎，也能找到正确能力、看懂任务状态，并在重要动作前获得明确反馈。
+SeeWayWork 是员工唯一需要安装的公司 AI 工作客户端。它连接公司 Den 控制面和 Brand Project OS Service，同时支持本地与远程工作区。成功标准是员工不需要理解底层运行引擎，也能找到正确能力、看懂任务状态，并在重要动作前获得明确反馈。
 
 ## Brand Personality
 
@@ -18,7 +18,7 @@ FoxWork 是员工唯一需要安装的公司 AI 工作客户端。它连接公�
 
 ## Anti-references
 
-- 不展示 OpenWork、OpenCode、OpenCode Go、Big Pickle 等上游品牌和订阅入口。
+- 不展示 SeeWayWork、OpenCode、OpenCode Go、Big Pickle 等上游品牌和订阅入口。
 - 不把设置页做成面向开发者的配置清单，不向普通员工展示无关供应商。
 - 不用只有深浅色差异的信息层级，不让推理过程、工具步骤和最终答复混成一段正文。
 - 不使用卡片堆叠、夸张圆角、装饰动画或营销式页面结构。

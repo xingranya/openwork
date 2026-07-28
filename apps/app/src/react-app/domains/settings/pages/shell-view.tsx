@@ -272,7 +272,7 @@ export function ShellCustomizationView() {
                   id="shell-app-name"
                   className="h-8 text-xs"
                   value={brandAppName}
-                  placeholder="FoxWork"
+                  placeholder="SeeWayWork"
                   disabled
                   onChange={(event) => update({ appName: event.currentTarget.value || DEFAULT_SHELL_CONFIG.appName })}
                 />
@@ -282,7 +282,7 @@ export function ShellCustomizationView() {
           <Alert>
             <Info />
             <AlertDescription>
-              {brandAppName === "FoxWork" ? "应用名称由公司统一管理。" : "应用名称由公司统一管理。"}
+              {brandAppName === "SeeWayWork" ? "应用名称由公司统一管理。" : "应用名称由公司统一管理。"}
             </AlertDescription>
           </Alert>
         </LayoutSectionItem>

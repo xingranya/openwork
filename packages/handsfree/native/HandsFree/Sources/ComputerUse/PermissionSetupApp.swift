@@ -66,7 +66,7 @@ private final class PermissionSetupWindow: NSWindow {
             backing: .buffered,
             defer: false
         )
-        title = "FoxWork 电脑控制"
+        title = "SeeWayWork 电脑控制"
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = true
@@ -125,7 +125,7 @@ final class PermissionSetupViewController: NSViewController {
         titleField.alignment = .center
 
         let subtitleField = wrappingField(
-            "允许 FoxWork 在你授权后查看并操作其他应用。",
+            "允许 SeeWayWork 在你授权后查看并操作其他应用。",
             size: 13
         )
         subtitleField.textColor = .secondaryLabelColor
@@ -136,7 +136,7 @@ final class PermissionSetupViewController: NSViewController {
         let axCard = makeAccessibilityCard()
         let srCard = makeScreenRecordingCard()
 
-        let doneBtn = NSButton(title: "完成，返回 FoxWork", target: self, action: #selector(done))
+        let doneBtn = NSButton(title: "完成，返回 SeeWayWork", target: self, action: #selector(done))
         doneBtn.bezelStyle = .rounded
         doneBtn.controlSize = .large
         doneBtn.keyEquivalent = "\r"
@@ -163,7 +163,7 @@ final class PermissionSetupViewController: NSViewController {
         let step = StepCircle(number: "1")
         let title = textField("辅助功能", size: 15, weight: .semibold)
         let body = wrappingField(
-            "允许 FoxWork 点击按钮、填写内容并操作应用界面。",
+            "允许 SeeWayWork 点击按钮、填写内容并操作应用界面。",
             size: 13
         )
         body.textColor = .secondaryLabelColor
@@ -186,7 +186,7 @@ final class PermissionSetupViewController: NSViewController {
         let step = StepCircle(number: "2")
         let title = textField("屏幕录制", size: 15, weight: .semibold)
         let body = wrappingField(
-            "允许 FoxWork 查看屏幕内容。如果 macOS 没有自动弹出授权，请按下方提示手动添加。",
+            "允许 SeeWayWork 查看屏幕内容。如果 macOS 没有自动弹出授权，请按下方提示手动添加。",
             size: 13
         )
         body.textColor = .secondaryLabelColor

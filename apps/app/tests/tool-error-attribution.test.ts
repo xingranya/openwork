@@ -28,9 +28,9 @@ function reconnectStatus(connectionId = "emc_knowledge", connectionName = "Knowl
 describe("chat tool error attribution", () => {
   test("identifies an OpenWork-created capability deadline", () => {
     expect(attributeChatToolError("The capability call exceeded 180s. Retry once.")).toEqual({
-      label: "FoxWork 等待超时",
+      label: "SeeWayWork 等待超时",
       confidence: "Confirmed",
-      description: "FoxWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
+      description: "SeeWayWork 已停止等待，但外部操作可能已经完成，请先核对结果再重试。",
     })
   })
 
@@ -43,7 +43,7 @@ describe("chat tool error attribution", () => {
         phase: "MCP_TOOL_EXECUTION",
       },
     }))).toMatchObject({
-      label: "FoxWork 等待超时",
+      label: "SeeWayWork 等待超时",
       confidence: "Confirmed",
     })
   })
@@ -52,7 +52,7 @@ describe("chat tool error attribution", () => {
     expect(attributeChatToolError(JSON.stringify({
       diagnostic: { code: "MCP_URL_BLOCKED", category: "security_blocked" },
     }))).toMatchObject({
-      label: "FoxWork 已阻止请求",
+      label: "SeeWayWork 已阻止请求",
       confidence: "Confirmed",
     })
   })

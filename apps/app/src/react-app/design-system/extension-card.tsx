@@ -45,7 +45,7 @@ const kindLabel: Record<ExtensionKind, string> = {
   plugin: "插件",
   skill: "Skill（技能）",
   "ui-control": "界面控制",
-  extension: "FoxWork 扩展",
+  extension: "SeeWayWork 扩展",
 };
 
 const kindStyle: Record<ExtensionKind, string> = {

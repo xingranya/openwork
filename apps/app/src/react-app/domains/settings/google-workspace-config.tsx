@@ -25,7 +25,7 @@ type OptionalFeature = "gmailRead" | "driveFull" | "calendarWrite" | "chat";
 
 const OPTIONAL_FEATURES: { id: OptionalFeature; label: string; description: string }[] = [
   { id: "gmailRead", label: "读取 Gmail", description: "读取你的 Gmail 邮件和会话。" },
-  { id: "driveFull", label: "完整访问 Google Drive", description: "搜索、读取和编辑云端硬盘中的全部文件，不限于通过 FoxWork 创建的文件。" },
+  { id: "driveFull", label: "完整访问 Google Drive", description: "搜索、读取和编辑云端硬盘中的全部文件，不限于通过 SeeWayWork 创建的文件。" },
   { id: "calendarWrite", label: "创建日历活动", description: "在 Google 日历中创建活动。" },
   { id: "chat", label: "Google Chat 聊天", description: "列出空间、读取消息并在 Google Chat 中发送消息。" },
 ];
@@ -148,7 +148,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       const result = await Promise.race([
         command(),
         new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error("Google Workspace 连接时间过长。请重试；如果浏览器已经提示授权成功，请重启 FoxWork。")), DESKTOP_ACTION_TIMEOUT_MS);
+          window.setTimeout(() => reject(new Error("Google Workspace 连接时间过长。请重试；如果浏览器已经提示授权成功，请重启 SeeWayWork。")), DESKTOP_ACTION_TIMEOUT_MS);
         }),
       ]);
       const next = normalizeGoogleWorkspaceAuthStatus(result);
@@ -183,9 +183,9 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       onSaved();
       if (restartLocalServer) {
         const restarted = await restartLocalServer();
-        if (!restarted) setError("Google OAuth 设置已保存，请重启 FoxWork 后使用。");
+        if (!restarted) setError("Google OAuth 设置已保存，请重启 SeeWayWork 后使用。");
       } else {
-        setError("Google OAuth 设置已保存，请重启 FoxWork 后使用。");
+        setError("Google OAuth 设置已保存，请重启 SeeWayWork 后使用。");
       }
       await loadStatus({ clearError: false });
     } catch (err) {
@@ -212,7 +212,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       return;
     }
     if (id === OPENWORK_BUILTIN_GOOGLE_CLIENT_ID) {
-      setError("这是 FoxWork 内置客户端 ID，不能用于读取 Gmail。请在 Google Cloud Console 的“API 和服务 > 凭据 > 创建 OAuth 客户端 ID > 桌面应用”中新建客户端，并在此填写客户端 ID。");
+      setError("这是 SeeWayWork 内置客户端 ID，不能用于读取 Gmail。请在 Google Cloud Console 的“API 和服务 > 凭据 > 创建 OAuth 客户端 ID > 桌面应用”中新建客户端，并在此填写客户端 ID。");
       return;
     }
     await saveOauthEnv(
@@ -234,8 +234,8 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
       {!serverAvailable ? (
         <Alert variant="warning">
           <ShieldCheck />
-          <AlertTitle>需要 FoxWork 服务</AlertTitle>
-          <AlertDescription>请先启动 FoxWork 服务，再连接 Google Workspace。</AlertDescription>
+          <AlertTitle>需要 SeeWayWork 服务</AlertTitle>
+          <AlertDescription>请先启动 SeeWayWork 服务，再连接 Google Workspace。</AlertDescription>
         </Alert>
       ) : null}
 
@@ -253,7 +253,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
           <ShieldCheck />
           <AlertTitle>连接 Google Workspace</AlertTitle>
           <AlertDescription>
-            连接后，FoxWork 可以按你的要求使用日历、指定的云端硬盘文件和 Gmail 草稿。
+            连接后，SeeWayWork 可以按你的要求使用日历、指定的云端硬盘文件和 Gmail 草稿。
           </AlertDescription>
         </Alert>
       )}
@@ -271,7 +271,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
           <CardHeader>
             <CardTitle>设置 Google OAuth</CardTitle>
             <CardDescription>
-              请使用 Google Cloud OAuth 桌面客户端。FoxWork 已内置客户端 ID，只需在此粘贴对应的客户端密钥。
+              请使用 Google Cloud OAuth 桌面客户端。SeeWayWork 已内置客户端 ID，只需在此粘贴对应的客户端密钥。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -283,7 +283,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
               autoComplete="off"
             />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              密钥会保存在 FoxWork 本机环境设置中，并在本机服务重启后生效。
+              密钥会保存在 SeeWayWork 本机环境设置中，并在本机服务重启后生效。
             </p>
           </CardContent>
           <CardFooter>
@@ -299,7 +299,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
         <Alert variant="destructive">
           <XCircle />
           <AlertTitle>加密令牌存储不可用</AlertTitle>
-          <AlertDescription>FoxWork 当前无法在这台电脑上安全保存 Google 连接。</AlertDescription>
+          <AlertDescription>SeeWayWork 当前无法在这台电脑上安全保存 Google 连接。</AlertDescription>
         </Alert>
       ) : null}
 
@@ -321,9 +321,9 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
 
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>FoxWork 可以做什么</CardTitle>
+          <CardTitle>SeeWayWork 可以做什么</CardTitle>
           <CardDescription>
-            连接 Google Workspace 后，FoxWork 可以协助准备会议、处理指定文件和起草邮件。
+            连接 Google Workspace 后，SeeWayWork 可以协助准备会议、处理指定文件和起草邮件。
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
@@ -340,7 +340,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
           <div className="rounded-2xl border border-border bg-card p-3">
             <FileText className="mb-2 size-4 text-green-11" />
             <div className="text-sm font-medium text-card-foreground">指定的云端硬盘文件</div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">只读取你明确选择或通过 FoxWork 创建的文件。</div>
+            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">只读取你明确选择或通过 SeeWayWork 创建的文件。</div>
           </div>
         </CardContent>
       </Card>
@@ -426,7 +426,7 @@ function GoogleWorkspaceConfig({ openworkServerClient, hostOpenworkServerClient,
                   autoComplete="off"
                 />
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  请在 Google Cloud Console 中创建桌面 OAuth 客户端，再粘贴客户端 ID 和密钥。它们会保存在 FoxWork 本机环境设置中，并在本机服务重启后生效。
+                  请在 Google Cloud Console 中创建桌面 OAuth 客户端，再粘贴客户端 ID 和密钥。它们会保存在 SeeWayWork 本机环境设置中，并在本机服务重启后生效。
                 </p>
                 <Button disabled={busyAction === "save-secret" || !customClientId.trim() || !customClientSecret.trim() || !hostServerAvailable} onClick={() => void saveCustomOauthClient()}>
                   {busyAction === "save-secret" ? <Loader2 className="size-4 animate-spin" /> : null}

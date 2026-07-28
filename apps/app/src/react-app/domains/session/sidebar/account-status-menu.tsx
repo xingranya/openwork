@@ -235,10 +235,10 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
   const restoringSession = denAuth.status === "checking";
   const accountLabel = signedIn
     ? user.name?.trim() || user.email
-    : restoringSession ? "OpenWork Cloud" : "Sign in";
+    : restoringSession ? "SeeWayWork Cloud" : "Sign in";
   const accountDetail = signedIn
-    ? (user.name ? user.email : "OpenWork Cloud")
-    : restoringSession ? "Restoring your session" : "Sync with OpenWork Cloud";
+    ? (user.name ? user.email : "SeeWayWork Cloud")
+    : restoringSession ? "Restoring your session" : "Sync with SeeWayWork Cloud";
 
   const runtimeStatus = props.showConnectionStatus
     ? resolveRuntimeStatus({

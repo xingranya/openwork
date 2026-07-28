@@ -457,7 +457,7 @@ export function ScimScreen() {
                   </span>
                 </div>
                 <p className="mt-1 text-[14px] leading-6 text-gray-500">
-                  根据身份服务中的用户组创建对应的 FoxWork 团队，并持续同步成员。手动管理的团队不会受到影响。
+                  根据身份服务中的用户组创建对应的 SeeWayWork 团队，并持续同步成员。手动管理的团队不会受到影响。
                 </p>
               </div>
               <DenButton
@@ -529,7 +529,7 @@ export function ScimScreen() {
             </div>
 
             <div className="mt-5 rounded-[24px] border border-gray-200 bg-gray-50 p-4 text-[13px] leading-6 text-gray-600">
-              FoxWork 会记录失败的 SCIM 任务并自动重试，也会定期检查成员状态差异。仍未解决的问题会显示在此处。
+              SeeWayWork 会记录失败的 SCIM 任务并自动重试，也会定期检查成员状态差异。仍未解决的问题会显示在此处。
               <div className="mt-3">
                 <DenButton variant="secondary" icon={RefreshCw} onClick={() => void handleRunReconciliation()} loading={reconciling}>
                   检查同步状态

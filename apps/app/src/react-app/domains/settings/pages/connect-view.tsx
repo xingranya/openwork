@@ -197,7 +197,7 @@ function AgentAccessCard(props: {
     setBusy("test");
     setError(null);
     try {
-      // probe: verify the Cloud endpoint directly from the OpenWork server as
+      // probe: verify the Cloud endpoint directly from the SeeWayWork server as
       // well, so a failure can be attributed to the endpoint, the network
       // path, or the engine — not just reported as the engine's cached state.
       const result = await runOpenworkCloudMcpReconciler({
@@ -230,7 +230,7 @@ function AgentAccessCard(props: {
       if (result.status === "skipped") {
         setError(
           result.skippedReason === "unsupported"
-            ? "当前 FoxWork 服务暂不支持刷新运行引擎，请更新服务后重试。"
+            ? "当前 SeeWayWork 服务暂不支持刷新运行引擎，请更新服务后重试。"
             : "请先选择工作区，再刷新运行引擎连接。",
         );
       }

@@ -489,12 +489,12 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     if (desktopAuthRequested) {
-      setAuthInfo("登录成功，正在返回 FoxWork...");
+      setAuthInfo("登录成功，正在返回 SeeWayWork...");
       return null;
     }
 
     if (webAuthRequested) {
-      setAuthInfo("登录成功，正在返回 FoxWork...");
+      setAuthInfo("登录成功，正在返回 SeeWayWork...");
       return null;
     }
 
@@ -1017,13 +1017,13 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        setAuthError(getErrorMessage(payload, `FoxWork 登录交接失败（${response.status}）。`));
+        setAuthError(getErrorMessage(payload, `SeeWayWork 登录交接失败（${response.status}）。`));
         return;
       }
 
       const openworkUrl = getDesktopHandoffOpenworkUrl(payload) ?? "";
       if (!openworkUrl) {
-        setAuthError("登录已经完成，但没有收到 FoxWork 打开地址。");
+        setAuthError("登录已经完成，但没有收到 SeeWayWork 打开地址。");
         return;
       }
 
@@ -1031,7 +1031,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       setDesktopRedirectUrl(openworkUrl);
       window.location.assign(openworkUrl);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "无法打开 FoxWork。");
+      setAuthError(error instanceof Error ? error.message : "无法打开 SeeWayWork。");
     } finally {
       setDesktopRedirectBusy(false);
     }
@@ -1098,7 +1098,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     const autoName = deriveOnboardingWorkerName(authenticatedUser);
     setWorkerName(autoName);
     setLaunchError(null);
-    setLaunchStatus("账号已就绪，请在 FoxWork 中新建本地或远程工作区。");
+    setLaunchStatus("账号已就绪，请在 SeeWayWork 中新建本地或远程工作区。");
     persistOnboardingIntent(null);
     return "dashboard" as const;
   }

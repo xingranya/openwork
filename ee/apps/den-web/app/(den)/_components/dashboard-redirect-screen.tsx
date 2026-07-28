@@ -31,7 +31,7 @@ export function DashboardRedirectScreen() {
 
   return (
     <section className="mx-auto grid w-full max-w-[52rem] gap-4 rounded-[32px] border border-gray-100 bg-white p-6 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.22)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">FoxWork 公司服务</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">SeeWayWork 公司服务</p>
       <p className="text-2xl font-semibold tracking-[-0.04em] text-gray-900">正在进入公司</p>
       <p className="text-sm text-gray-500">正在确认你的公司身份和访问权限。</p>
     </section>

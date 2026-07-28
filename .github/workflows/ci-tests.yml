@@ -1,4 +1,4 @@
-name: OpenWork Tests
+name: SeeWayWork Tests
 
 on:
   pull_request:

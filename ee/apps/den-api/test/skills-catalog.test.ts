@@ -30,7 +30,7 @@ function skill(overrides: Record<string, unknown> = {}) {
 }
 
 describe("魔搭在线技能目录", () => {
-  test("通过魔搭接口搜索并映射为 FoxWork 目录契约", async () => {
+  test("通过魔搭接口搜索并映射为 SeeWayWork 目录契约", async () => {
     const requests: Request[] = []
     const result = await listSkillsCatalog(config, { query: "PPT", page: 1, perPage: 20 }, {
       fetchImpl: async (input, init) => {

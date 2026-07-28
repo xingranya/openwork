@@ -184,7 +184,7 @@ export async function reconcilePersonalRemoteWorkspace(input: {
     : await input.createRemoteWorkspace(payload);
   const workspaceId = workspaceIdFromList(list, worker.workerId, payload.openworkWorkspaceId);
   if (!workspaceId) {
-    throw new Error("个人远程工作区已连接，但 FoxWork 未能保存工作区信息，请重试。");
+    throw new Error("个人远程工作区已连接，但 SeeWayWork 未能保存工作区信息，请重试。");
   }
 
   return {

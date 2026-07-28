@@ -104,7 +104,7 @@ function genericSubmissionIssue(input?: {
   recommendedAction?: string;
 }): CloudMcpSubmissionIssue {
   const fallbackAction = "请重试；如果问题仍然存在，请前往“设置 > 公司连接”检查。";
-  const fallbackMessage = "FoxWork 无法确认所选模型可以使用公司工具。";
+  const fallbackMessage = "SeeWayWork 无法确认所选模型可以使用公司工具。";
   return {
     code: input?.code ?? "cloud_mcp_submission_readiness_failed",
     stage: input?.stage ?? "engine_delivery",
@@ -173,8 +173,8 @@ function authResolutionIssue(input?: { timedOut?: boolean }): CloudMcpSubmission
       ? "cloud_mcp_auth_resolution_timeout"
       : "cloud_mcp_auth_resolution_failed",
     message: input?.timedOut
-      ? "FoxWork 恢复公司工具访问权限时超时。"
-      : "FoxWork 无法完成公司工具访问权限恢复。",
+      ? "SeeWayWork 恢复公司工具访问权限时超时。"
+      : "SeeWayWork 无法完成公司工具访问权限恢复。",
     recommendedAction: "请重试，或前往“设置 > 公司连接”检查。",
   });
 }
@@ -264,7 +264,7 @@ export function assessCloudMcpSubmissionReadiness(input: {
         stage: "provider_projection",
         retryable: false,
         message: "当前运行环境无法确认公司工具已提供给所选模型。",
-        recommendedAction: "请更新或重启 FoxWork 后重试，并在“公司连接”中查看详细诊断。",
+        recommendedAction: "请更新或重启 SeeWayWork 后重试，并在“公司连接”中查看详细诊断。",
       }),
     };
   }
@@ -291,7 +291,7 @@ export function assessCloudMcpSubmissionReadiness(input: {
 function timeoutIssue(): CloudMcpSubmissionIssue {
   return genericSubmissionIssue({
     code: "cloud_mcp_submission_timeout",
-    message: "FoxWork 准备公司工具时超时。",
+    message: "SeeWayWork 准备公司工具时超时。",
   });
 }
 
@@ -317,7 +317,7 @@ function errorAssessment(error: unknown): CloudMcpSubmissionReadinessAssessment 
       ? timeoutIssue()
       : genericSubmissionIssue({
           code: "cloud_mcp_submission_check_failed",
-          message: "发送消息前，FoxWork 无法完成公司工具检查。",
+          message: "发送消息前，SeeWayWork 无法完成公司工具检查。",
         }),
   };
 }

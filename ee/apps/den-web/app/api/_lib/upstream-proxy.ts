@@ -19,7 +19,7 @@ const RESPONSE_ONLY_HEADERS = new Set(["content-length", "content-encoding"]);
 const SPOOFABLE_FORWARDING_HEADERS = new Set(["forwarded", "x-forwarded-host", "x-forwarded-prefix", "x-forwarded-proto"]);
 
 /**
- * OpenWork Cloud instances are served from Daytona preview origins that are
+ * SeeWayWork Cloud instances are served from Daytona preview origins that are
  * re-signed (and therefore renamed) on every wake, so they can never appear in
  * a static CORS allowlist. The signed-in SPA running there has to reach Den for
  * /v1/me, /v1/me/orgs, MCP tokens and org connections.

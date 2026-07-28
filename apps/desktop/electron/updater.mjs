@@ -151,7 +151,7 @@ function isVersionNewer(candidate, current) {
 
 export function targetedStableUpdaterFeed(currentVersion, targetVersion, baseUrl = ELECTRON_UPDATER_FEEDS.stable) {
   if (!baseUrl) {
-    throw new Error("FoxWork 公司更新源尚未配置。");
+    throw new Error("SeeWayWork 公司更新源尚未配置。");
   }
   const normalizedTarget = normalizeStableTargetVersion(targetVersion);
   if (!normalizedTarget) {
@@ -189,7 +189,7 @@ async function applyElectronUpdaterFeed(app, updater, targetVersion = null) {
   }
   const state = updaterChannelState(app, channel, targetVersion);
   if (!state.feedUrl) {
-    throw new Error("FoxWork 公司更新源尚未配置。");
+    throw new Error("SeeWayWork 公司更新源尚未配置。");
   }
   updater.allowPrerelease = state.channel === "alpha";
   // Moving from alpha back to stable can be a semver downgrade; still show

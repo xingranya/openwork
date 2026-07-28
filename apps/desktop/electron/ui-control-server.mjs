@@ -68,7 +68,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "snapshot") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
+        if (!control) return { ok: false, error: "SeeWayWork 控制界面尚未就绪。" };
         control.setEnabled?.(true);
         return { ok: true, ...control.snapshot() };
       })()`);
@@ -76,7 +76,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "actions") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
+        if (!control) return { ok: false, error: "SeeWayWork 控制界面尚未就绪。" };
         control.setEnabled?.(true);
         return { ok: true, actions: control.listActions() };
       })()`);
@@ -84,7 +84,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "context") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
+        if (!control) return { ok: false, error: "SeeWayWork 控制界面尚未就绪。" };
         return { ok: true, context: control.context() };
       })()`);
     }
@@ -92,9 +92,9 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
         const input = JSON.parse(${argsJsonLiteral});
-        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
+        if (!control) return { ok: false, error: "SeeWayWork 控制界面尚未就绪。" };
         if (!input || typeof input.id !== "string" || !input.id.trim()) {
-          return { ok: false, error: "缺少 FoxWork 界面操作标识。" };
+          return { ok: false, error: "缺少 SeeWayWork 界面操作标识。" };
         }
         return control[${JSON.stringify(command)}](input);
       })()`);
@@ -103,15 +103,15 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
         const input = JSON.parse(${argsJsonLiteral});
-        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
+        if (!control) return { ok: false, error: "SeeWayWork 控制界面尚未就绪。" };
         if (!input || typeof input.actionId !== "string" || !input.actionId.trim()) {
-          return { ok: false, error: "缺少 FoxWork 操作标识。" };
+          return { ok: false, error: "缺少 SeeWayWork 操作标识。" };
         }
         control.setEnabled?.(true);
         return control.execute(input.actionId, input.args ?? {});
       })()`);
     }
-    return { ok: false, error: `无法识别 FoxWork 控制命令：${command}` };
+    return { ok: false, error: `无法识别 SeeWayWork 控制命令：${command}` };
   }
 
   async function start() {
@@ -162,7 +162,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     });
     const address = uiControlServer.address();
     const port = typeof address === "object" && address ? address.port : null;
-    if (!port) throw new Error("无法启动 FoxWork 界面控制桥接服务。");
+    if (!port) throw new Error("无法启动 SeeWayWork 界面控制桥接服务。");
     uiControlDiscoveryPath = path.join(app.getPath("userData"), "openwork-ui-control.json");
     await writeFile(
       uiControlDiscoveryPath,

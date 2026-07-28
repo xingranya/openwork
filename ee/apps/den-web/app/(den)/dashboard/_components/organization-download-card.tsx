@@ -57,7 +57,7 @@ export function OrganizationDownloadCard({
         <div>
           <div className="flex items-center gap-2.5">
             <ExternalLink className="h-5 w-5 text-[#07192C]/70" aria-hidden="true" />
-            <h2 className="text-[16px] font-semibold text-[#07192C]">下载 {organizationName} 专用 FoxWork</h2>
+            <h2 className="text-[16px] font-semibold text-[#07192C]">下载 {organizationName} 专用 SeeWayWork</h2>
           </div>
           <p className="mt-2 max-w-[620px] text-[13px] leading-[1.6] text-[#5A6886]">
             下载公司客户端，安装后登录即可连接当前工作区。

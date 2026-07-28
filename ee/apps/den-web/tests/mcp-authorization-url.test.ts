@@ -34,7 +34,7 @@ describe("mcpAuthorizationPendingDocument", () => {
     expect(document).toContain("正在准备连接")
     expect(document).toContain("正在安全检查服务")
     expect(document).toContain("请保持此窗口打开")
-    expect(document).toContain("FoxWork 公司连接")
+    expect(document).toContain("SeeWayWork 公司连接")
     expect(document).not.toContain("OpenWork Connect")
     expect(document).not.toContain("Preparing your connection")
     expect(document).toContain('role="status"')

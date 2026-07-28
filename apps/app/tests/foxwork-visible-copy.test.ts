@@ -5,6 +5,12 @@ import path from "node:path";
 import ts from "typescript";
 
 const SOURCE_ROOT = fileURLToPath(new URL("../src", import.meta.url));
+const EMAIL_TEMPLATE_ROOT = fileURLToPath(
+  new URL("../../../packages/email/src/templates", import.meta.url),
+);
+const SHARED_UI_ROOT = fileURLToPath(
+  new URL("../../../packages/ui/src/react", import.meta.url),
+);
 const viteConfigSource = readFileSync(
   fileURLToPath(new URL("../vite.config.ts", import.meta.url)),
   "utf8",
@@ -58,8 +64,8 @@ const TECHNICAL_LABELS = new Set([
   "Ctrl+Shift+F",
   "CSV",
   "Excel",
-  "FoxWork",
-  "FoxWork.app.migrate-bak",
+  "SeeWayWork",
+  "SeeWayWork.app.migrate-bak",
   "GitHub",
   "Google Chat",
   "Linear",
@@ -100,7 +106,7 @@ function sourceFiles(directory: string): string[] {
 
 function isVisibleEnglish(text: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
-  if (/\bOpen(?:Work|Code)\b|Big Pickle/.test(normalized)) return true;
+  if (/\b(?:FoxWork|OpenWork|OpenCode)\b|Big Pickle/.test(normalized)) return true;
   if (!/[A-Za-z]{2}/.test(normalized) || /[\u3400-\u9fff]/.test(normalized)) return false;
   if (TECHNICAL_LABELS.has(normalized)) return false;
   if (/^(?:https?:\/\/|\.?\.?\/|~\/|[A-Za-z]:\\|\.)/.test(normalized)) return false;
@@ -260,7 +266,29 @@ function scanFile(file: string): Violation[] {
   return violations;
 }
 
-describe("FoxWork 源码可见文案", () => {
+describe("SeeWayWork 源码可见文案", () => {
+  test("全部语言资源不包含旧产品品牌", () => {
+    const localesRoot = path.join(SOURCE_ROOT, "i18n/locales");
+    const localeSources = readdirSync(localesRoot)
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => readFileSync(path.join(localesRoot, file), "utf8"));
+    for (const source of localeSources) {
+      expect(source).not.toMatch(/\b(?:FoxWork|OpenWork)\b/);
+    }
+    expect(localeSources.join("\n")).toContain("SeeWayWork");
+  });
+
+  test("共享邮件和下载组件不包含旧产品品牌", () => {
+    const sources = [
+      ...sourceFiles(EMAIL_TEMPLATE_ROOT),
+      path.join(SHARED_UI_ROOT, "download-card.tsx"),
+      path.join(SHARED_UI_ROOT, "roadmap.tsx"),
+    ].map((file) => readFileSync(file, "utf8"));
+    for (const source of sources) {
+      expect(source).not.toMatch(/\b(?:FoxWork|OpenWork)\b/);
+    }
+  });
+
   test("界面源码不直接显示英文句子", () => {
     const violations = sourceFiles(SOURCE_ROOT).flatMap(scanFile);
     const sample = violations.slice(0, 250).map(

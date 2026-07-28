@@ -27,7 +27,7 @@ export function renderInstallerHtml(resolution: InstallerConfigResolution | null
     ? `<img class="logo" src="${escapeHtml(config.logoUrl)}" alt="${escapeHtml(config.clientName)}" />`
     : `<div class="logo">${OPENWORK_LOGO_SVG}</div>`
   const sourceLabel = resolution ? installerConfigSourceLabel(resolution.source) : ""
-  const appName = config?.appName ?? "FoxWork"
+  const appName = config?.appName ?? "SeeWayWork"
   const configuredContent = config
     ? `
   ${logo}
@@ -52,7 +52,7 @@ export function renderInstallerHtml(resolution: InstallerConfigResolution | null
   <div class="status" id="status"></div>`
     : `
   <div class="logo">${OPENWORK_LOGO_SVG}</div>
-  <div class="title">粘贴 FoxWork 安装链接</div>
+  <div class="title">粘贴 SeeWayWork 安装链接</div>
   <div class="client">请向公司管理员获取安装链接。</div>
   <form class="paste" id="paste-form">
     <input id="install-link" type="url" placeholder="https://.../install?token=..." autocomplete="off" required />
@@ -175,7 +175,7 @@ ${configuredContent}
     if (status.state === "done") {
       installed = true;
       statusEl.textContent = "安装完成";
-      actionBtn.textContent = "打开 FoxWork";
+      actionBtn.textContent = "打开 SeeWayWork";
       actionBtn.disabled = false;
       return;
     }

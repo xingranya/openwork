@@ -504,7 +504,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("FoxWork 服务无法管理当前工作区的配置。");
+      throw new Error("SeeWayWork 服务无法管理当前工作区的配置。");
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
@@ -537,7 +537,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("FoxWork 服务无法管理当前工作区的配置。");
+      throw new Error("SeeWayWork 服务无法管理当前工作区的配置。");
     }
 
     if (isLocalWorkspace && isDesktopRuntime() && root) {
@@ -564,7 +564,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
       await resolveOpenworkConfigTarget("write");
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再管理公司模型供应商。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再管理公司模型供应商。");
     }
     await openworkClient.setRuntimeProviders(openworkWorkspaceId, update);
   };
@@ -576,7 +576,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
       await resolveOpenworkConfigTarget("write");
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-      throw new Error("FoxWork 服务暂时不可用，请连接工作区后再管理公司模型服务。");
+      throw new Error("SeeWayWork 服务暂时不可用，请连接工作区后再管理公司模型服务。");
     }
     const config = await readWorkspaceOpenworkConfigRecord();
     const cloudImports = readWorkspaceCloudImports(config);
@@ -1297,7 +1297,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       const shouldUseServerReload = !(
         isDesktopRuntime() && options.selectedWorkspaceDisplay().workspaceType === "local"
       );
-      // Prefer the OpenWork server engine reload: it disposes the engine AND
+      // Prefer the SeeWayWork server engine reload: it disposes the engine AND
       // re-registers runtime-DB MCPs, so non-primary workspaces and pending
       // changes are picked up instead of silently dropping (toggles "turn
       // off").
@@ -1576,7 +1576,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         if (!openworkClient) {
           throw new Error(`${provider.name} 需要环境变量 ${envEntries
             .map((entry) => entry.key)
-            .join("、")}，但 FoxWork 本地服务尚未连接。`);
+            .join("、")}，但 SeeWayWork 本地服务尚未连接。`);
         }
         await openworkClient.upsertUserEnv(envEntries);
       }
@@ -1748,7 +1748,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       return;
     }
 
-    // Imports, baseline reads, and persistence all go through the OpenWork
+    // Imports, baseline reads, and persistence all go through the SeeWayWork
     // server target (patchRuntimeProviders throws without it). Running before
     // the target resolves made the baseline read fall back to an empty source
     // and re-import every org provider — engine dispose churn on settings open.

@@ -34,6 +34,7 @@ COPY ee/packages/den-db /app/ee/packages/den-db
 COPY ee/apps/den-api /app/ee/apps/den-api
 COPY apps/desktop/package.json /app/apps/desktop/package.json
 
+RUN pnpm --dir /app/packages/types run build
 RUN pnpm --dir /app/packages/email run build
 RUN pnpm --dir /app/packages/enterprise-mcp-client run build
 RUN pnpm --dir /app/packages/install-config run build

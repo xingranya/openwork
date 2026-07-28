@@ -171,8 +171,8 @@ function getPromptDescriptionErrorId(index: number) {
 
 function getDisabledPromptCopy(isDefault: boolean) {
   return isDefault
-    ? "关闭公司任务建议后，FoxWork 会显示内置建议。"
-    : "关闭公司任务建议后，员工会继承其他匹配策略或默认策略；没有匹配项时显示 FoxWork 内置建议。";
+    ? "关闭公司任务建议后，SeeWayWork 会显示内置建议。"
+    : "关闭公司任务建议后，员工会继承其他匹配策略或默认策略；没有匹配项时显示 SeeWayWork 内置建议。";
 }
 
 function policyDocumentFromDraft(draft: PolicyDraft): DesktopPolicyDocumentWrite {
@@ -452,7 +452,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
               <span>
                 <span className="block text-[14px] font-medium text-gray-950">公司任务建议</span>
                 <span className="mt-1 block text-[13px] leading-6 text-gray-500">
-                  用公司提供的任务建议替换 FoxWork 内置建议。
+                  用公司提供的任务建议替换 SeeWayWork 内置建议。
                 </span>
               </span>
             </label>
@@ -481,7 +481,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                             onboardingPromptDescriptions: updateOnboardingPromptDescription(draft.onboardingPromptDescriptions, index, event.target.value),
                           })}
                           disabled={saving || togglingEnabled}
-                          placeholder="填写 FoxWork 中显示的卡片标题"
+                          placeholder="填写 SeeWayWork 中显示的卡片标题"
                         />
                         <span id={promptDescriptionHelpId} className="text-[12px] text-gray-500">
                           {(draft.onboardingPromptDescriptions[index] ?? "").trim().length}/{ONBOARDING_PROMPT_DESCRIPTION_MAX_LENGTH} 个字符

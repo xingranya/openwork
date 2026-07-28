@@ -61,9 +61,9 @@ export const roadmapSections: RoadmapSection[] = [
     eyebrow: "01 · the home base",
     title: "the desktop app is home",
     description:
-      "The desktop app is the main OpenWork experience. It is where people work with files, run agents, manage sessions, create skills, connect services, and customize a workspace.",
+      "The desktop app is the main SeeWayWork experience. It is where people work with files, run agents, manage sessions, create skills, connect services, and customize a workspace.",
     callout:
-      "The desktop app is where most people configure OpenWork today. Connect is how that configuration travels.",
+      "The desktop app is where most people configure SeeWayWork today. Connect is how that configuration travels.",
     items: [
       {
         title: "Desktop app for macOS, Windows, and Linux",
@@ -112,16 +112,16 @@ export const roadmapSections: RoadmapSection[] = [
     eyebrow: "02 · portable by design",
     title: "your setup follows you",
     description:
-      "What you configure in OpenWork should not stay trapped in one interface. OpenWork Connect brings the same capabilities into the agents you already use.",
+      "What you configure in SeeWayWork should not stay trapped in one interface. SeeWayWork Connect brings the same capabilities into the agents you already use.",
     items: [
       {
-        title: "OpenWork Connect MCP",
+        title: "SeeWayWork Connect MCP",
         description: "Search and run your assigned capabilities through one remote MCP connection.",
         status: "live",
       },
       {
         title: "Codex, Claude Code, Cursor, and OpenCode",
-        description: "Use OpenWork from compatible agents without rewriting skills or changing MCP servers.",
+        description: "Use SeeWayWork from compatible agents without rewriting skills or changing MCP servers.",
         status: "live",
       },
       {
@@ -146,9 +146,9 @@ export const roadmapSections: RoadmapSection[] = [
     eyebrow: "03 · central management",
     title: "central management",
     description:
-      "OpenWork Cloud is the control plane for distributing capabilities, applying desktop policies, managing identity and access, and understanding adoption across the organization.",
+      "SeeWayWork Cloud is the control plane for distributing capabilities, applying desktop policies, managing identity and access, and understanding adoption across the organization.",
     callout:
-      "Configure policies and access once in OpenWork Cloud. The desktop app and OpenWork Connect apply them for each member and team.",
+      "Configure policies and access once in SeeWayWork Cloud. The desktop app and SeeWayWork Connect apply them for each member and team.",
     items: [
       {
         title: "Desktop policies",
@@ -167,7 +167,7 @@ export const roadmapSections: RoadmapSection[] = [
       },
       {
         title: "Anthropic-compatible plugins",
-        description: "Import Claude-compatible plugin and marketplace manifests and normalize their skills, MCPs, commands, and tools into OpenWork extensions.",
+        description: "Import Claude-compatible plugin and marketplace manifests and normalize their skills, MCPs, commands, and tools into SeeWayWork extensions.",
         status: "live",
       },
       {
@@ -182,7 +182,7 @@ export const roadmapSections: RoadmapSection[] = [
       },
       {
         title: "OpenTelemetry coverage",
-        description: "Extend OTLP traces, metrics, and logs across OpenWork services and deployment paths.",
+        description: "Extend OTLP traces, metrics, and logs across SeeWayWork services and deployment paths.",
         status: "building",
       },
     ],
@@ -231,18 +231,18 @@ export const roadmapSections: RoadmapSection[] = [
   {
     id: "every-surface",
     eyebrow: "05 · meet people where they work",
-    title: "OpenWork on every surface",
+    title: "SeeWayWork on every surface",
     description:
-      "The desktop app remains the richest OpenWork experience. Other surfaces provide focused ways to reach the same capabilities, permissions, workspaces, and history.",
+      "The desktop app remains the richest SeeWayWork experience. Other surfaces provide focused ways to reach the same capabilities, permissions, workspaces, and history.",
     items: [
       {
-        title: "OpenWork desktop",
+        title: "SeeWayWork desktop",
         description: "The complete interface for creating, configuring, and doing work.",
         status: "live",
       },
       {
         title: "Existing AI agents through MCP",
-        description: "Bring OpenWork into the coding and agent tools you already use.",
+        description: "Bring SeeWayWork into the coding and agent tools you already use.",
         status: "live",
       },
       {
@@ -257,12 +257,12 @@ export const roadmapSections: RoadmapSection[] = [
       },
       {
         title: "Email and messaging",
-        description: "Reach OpenWork from more of the places where requests and decisions arrive.",
+        description: "Reach SeeWayWork from more of the places where requests and decisions arrive.",
         status: "exploring",
       },
       {
         title: "Custom organization agents",
-        description: "Build specialized surfaces on top of the same OpenWork workspace and capability system.",
+        description: "Build specialized surfaces on top of the same SeeWayWork workspace and capability system.",
         status: "exploring",
       },
     ],
@@ -276,7 +276,7 @@ export const roadmapSections: RoadmapSection[] = [
     items: [
       {
         title: "Search and execute",
-        description: "Keep agent context small while making the full OpenWork capability catalog available on demand.",
+        description: "Keep agent context small while making the full SeeWayWork capability catalog available on demand.",
         status: "live",
       },
       {
@@ -365,7 +365,7 @@ export function OpenWorkRoadmap({
       <section className="pb-14 pt-10 md:pb-20 md:pt-16">
         <div className="mb-7 flex flex-wrap items-center gap-3">
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm">
-            OpenWork roadmap
+            SeeWayWork roadmap
           </span>
           <span className="text-xs text-slate-500">Updated July 2026</span>
         </div>
@@ -378,10 +378,10 @@ export function OpenWorkRoadmap({
 
         <div className="mt-8 grid gap-6 text-base leading-7 text-slate-600 md:grid-cols-2 md:text-lg md:leading-8">
           <p>
-            Most people use OpenWork through the desktop app today. It is where you create a workspace, work with files, connect services, add skills, and customize how your agent works.
+            Most people use SeeWayWork through the desktop app today. It is where you create a workspace, work with files, connect services, add skills, and customize how your agent works.
           </p>
           <p>
-            What you create there should not stay trapped there. OpenWork Connect already brings the same capabilities into compatible agents. Next come persistent hosted workspaces, Slack, mobile, and more.
+            What you create there should not stay trapped there. SeeWayWork Connect already brings the same capabilities into compatible agents. Next come persistent hosted workspaces, Slack, mobile, and more.
           </p>
         </div>
 
@@ -408,7 +408,7 @@ export function OpenWorkRoadmap({
       <section className="py-16 text-center md:py-24">
         <div className="mx-auto max-w-2xl">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">Help shape what comes next</div>
-          <h2 className="mt-4 text-3xl font-medium tracking-[-0.035em] sm:text-4xl md:text-5xl">what should OpenWork build next?</h2>
+          <h2 className="mt-4 text-3xl font-medium tracking-[-0.035em] sm:text-4xl md:text-5xl">what should SeeWayWork build next?</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
             Tell us which workflow, workspace, or surface would make the biggest difference to how you work.
           </p>

@@ -1,20 +1,21 @@
-# FoxWork 公司发行构建
+# SeeWayWork 公司发行构建
 #
 # 产出 macOS arm64、macOS x64 和 Windows x64 三个平台的安装包，并汇总到
 # 同一个 GitHub Release。当前仓库未配置 Apple 与 Windows 签名 Secret，
 # 因此默认产出未签名的内部验收版本；配置签名 Secret 后自动进入签名流程。
-name: FoxWork 发行构建
+name: SeeWayWork 发行构建
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 发布标签，例如 foxwork-v0.18.0；留空则只上传 Artifacts 不创建 Release
+        description: 发布标签，例如 seewaywork-v0.18.4；留空则只上传 Artifacts 不创建 Release
         required: false
         type: string
   push:
     tags:
-      - foxwork-v*
+      - seewaywork-v*
+      - foxwork-v* # 兼容旧版自动更新与回滚标签
 
 permissions:
   contents: write
@@ -23,7 +24,7 @@ jobs:
   sync-cnb-tag:
     name: 同步发布标签到 CNB
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
+    if: startsWith(github.ref, 'refs/tags/seewaywork-v') || startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
 
     steps:
       - name: 检出完整仓库历史
@@ -43,7 +44,7 @@ jobs:
             echo "未配置 GitHub Repository Secret：CNB_RELEASE_TOKEN" >&2
             exit 1
           fi
-          echo "$RELEASE_TAG" | grep -Eq '^foxwork-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          echo "$RELEASE_TAG" | grep -Eq '^(seewaywork|foxwork)-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
 
           if ! git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
             git tag "$RELEASE_TAG" "$GITHUB_SHA"
@@ -74,19 +75,19 @@ jobs:
           # macos-14 及以上的 GitHub 托管 Runner 是 Apple Silicon
           - os: macos-14
             label: macOS arm64
-            artifact: foxwork-mac-arm64
+            artifact: SeeWayWork-mac-arm64
             target: aarch64-apple-darwin
             builder_args: --mac --arm64
           # macos-15-intel 是当前受支持的 Intel Runner。macos-13 已被 GitHub
           # 退役，指定它会导致作业永远排队且分配不到 Runner。
           - os: macos-15-intel
             label: macOS x64
-            artifact: foxwork-mac-x64
+            artifact: SeeWayWork-mac-x64
             target: x86_64-apple-darwin
             builder_args: --mac --x64
           - os: windows-latest
             label: Windows x64
-            artifact: foxwork-win-x64
+            artifact: SeeWayWork-win-x64
             target: x86_64-pc-windows-msvc
             builder_args: --win --x64
 
@@ -127,7 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           APP_DIR=$(find apps/desktop/dist-electron -maxdepth 1 -type d -name 'mac*' | head -1)
-          BIN="$APP_DIR/FoxWork.app/Contents/MacOS/FoxWork"
+          BIN="$APP_DIR/SeeWayWork.app/Contents/MacOS/SeeWayWork"
           echo "主程序架构："
           file "$BIN"
           case "${{ matrix.target }}" in
@@ -135,7 +136,7 @@ jobs:
             x86_64-apple-darwin)  file "$BIN" | grep -q 'x86_64' ;;
           esac
           echo "Sidecar 架构："
-          file "$APP_DIR/FoxWork.app/Contents/Resources/sidecars/opencode"
+          file "$APP_DIR/SeeWayWork.app/Contents/Resources/sidecars/opencode"
 
       - name: 生成 SHA-256 校验文件
         shell: bash
@@ -174,7 +175,7 @@ jobs:
       - sync-cnb-tag
       - build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
+    if: startsWith(github.ref, 'refs/tags/seewaywork-v') || startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
 
     steps:
       - name: 下载全部平台产物
@@ -197,12 +198,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: FoxWork ${{ inputs.release_tag || github.ref_name }}
+          name: SeeWayWork ${{ inputs.release_tag || github.ref_name }}
           prerelease: true
           fail_on_unmatched_files: true
           files: release/*
           body: |
-            ## FoxWork 内部验收版
+            ## SeeWayWork 内部验收版
 
             **本版本未签名，也未经 Apple 公证，只能用于公司内部验收，不得向员工正式分发。**
 
@@ -215,9 +216,9 @@ jobs:
 
             | 平台 | 文件 |
             |:---|:---|
-            | macOS Apple Silicon | `foxwork-mac-arm64-*.dmg` |
-            | macOS Intel | `foxwork-mac-x64-*.dmg` |
-            | Windows x64 | `foxwork-win-x64-*.exe` |
+            | macOS Apple Silicon | `SeeWayWork-mac-arm64-*.dmg` |
+            | macOS Intel | `SeeWayWork-mac-x64-*.dmg` |
+            | Windows x64 | `SeeWayWork-win-x64-*.exe` |
 
             ### 校验方式
 
@@ -232,12 +233,12 @@ jobs:
             Windows PowerShell：
 
             ```powershell
-            Get-FileHash .\foxwork-win-x64-0.18.0.exe -Algorithm SHA256
+            Get-FileHash .\SeeWayWork-win-x64-0.18.4.exe -Algorithm SHA256
             ```
 
             ### 服务器要求
 
-            FoxWork 需要公司自托管的 Den 控制面才能登录。部署方式见
+            SeeWayWork 需要公司自托管的 Den 控制面才能登录。部署方式见
             Brand Project OS 仓库的
             `deploy/phase3/foxwork-den/LINUX-DEPLOYMENT.md`。
 

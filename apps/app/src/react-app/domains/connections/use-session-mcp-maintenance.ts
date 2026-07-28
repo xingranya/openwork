@@ -84,7 +84,7 @@ function genericCloudMcpMaintenanceIssue(input?: {
     stage: "engine_delivery",
     retryable: input?.retryable ?? true,
     recommendedAction: "请重试；如果问题仍然存在，请前往“设置 > 公司连接”检查。",
-    message: toChineseUserMessage(input?.message, "FoxWork 无法确认当前工作区可以使用公司工具。"),
+    message: toChineseUserMessage(input?.message, "SeeWayWork 无法确认当前工作区可以使用公司工具。"),
   };
 }
 
@@ -99,7 +99,7 @@ function localizeCloudMcpMaintenanceIssue(
     ),
     message: toChineseUserMessage(
       issue.message,
-      "FoxWork 无法确认当前工作区可以使用公司工具。",
+      "SeeWayWork 无法确认当前工作区可以使用公司工具。",
     ),
   };
 }
@@ -279,7 +279,7 @@ export async function syncCloudControlMcpInBackground(input: {
       return failedCloudMcpBackgroundSync({
         health: result.health,
         code: "cloud_mcp_token_mint_failed",
-        message: "FoxWork 无法刷新公司工具的登录状态。",
+        message: "SeeWayWork 无法刷新公司工具的登录状态。",
       });
     }
   }

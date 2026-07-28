@@ -233,14 +233,14 @@ export function MarketplaceOnboardingScreen() {
     <div className="mx-auto max-w-2xl px-4 pb-12 pt-6 sm:px-6">
       {/* Header */}
       <header className="text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6C7890]">FoxWork 公司工作区</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6C7890]">SeeWayWork 公司工作区</p>
         <h1 className="mt-3 text-[28px] font-semibold leading-[1.05] tracking-[-0.04em] text-[#07192C] sm:text-[34px]">
           {requiredDone ? `${orgName} 已准备就绪。` : `继续完成 ${orgName} 的配置。`}
         </h1>
         <p className="mx-auto mt-3 max-w-md text-[14px] leading-6 text-[#5A6886]">
           {requiredDone
             ? "模型和客户端已准备就绪。你可以立即使用，也可以继续完成下方可选配置。"
-            : "FoxWork 通过桌面客户端使用。请先下载客户端并启用模型，再按需添加其他能力。"}
+            : "SeeWayWork 通过桌面客户端使用。请先下载客户端并启用模型，再按需添加其他能力。"}
         </p>
 
         {/* Download CTA */}
@@ -349,13 +349,13 @@ export function MarketplaceOnboardingScreen() {
             done={mcpAdded}
             required={false}
             icon={<Plug className="h-4 w-4" />}
-            title="在 FoxWork、Codex 或其他 MCP 客户端中使用公司能力"
+            title="在 SeeWayWork、Codex 或其他 MCP 客户端中使用公司能力"
             helper="复制公司 MCP 地址。未配置时请联系管理员获取接入方式。"
           >
             <div className="space-y-2.5">
               <button
                 type="button"
-                aria-label={`复制 FoxWork MCP 地址 ${mcpEndpoint || "尚未配置"}`}
+                aria-label={`复制 SeeWayWork MCP 地址 ${mcpEndpoint || "尚未配置"}`}
                 onClick={copyMcpEndpoint}
                 disabled={!mcpEndpoint}
                 className="inline-flex max-w-full items-center justify-between gap-2 whitespace-normal rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left text-[12px] font-mono text-[#07192C] transition hover:bg-gray-100"
@@ -364,7 +364,7 @@ export function MarketplaceOnboardingScreen() {
                 {copied ? <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />}
               </button>
               <p aria-live="polite" className="min-h-5 text-[12px] font-medium text-emerald-600">
-                {copied ? "FoxWork MCP 地址已复制。" : ""}
+                {copied ? "SeeWayWork MCP 地址已复制。" : ""}
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 {runtimeConfig.foxworkMcpDocsUrl ? (

@@ -16,8 +16,8 @@ beforeAll(async () => {
   schemas = await import("../src/routes/org/plugin-system/schemas.js")
 })
 
-test("FoxWork 默认能力市场不依赖第三方目录", () => {
-  expect(defaults.DEFAULT_FOXWORK_MARKETPLACE_NAME).toBe("FoxWork 公司能力")
+test("SeeWayWork 默认能力市场不依赖第三方目录", () => {
+  expect(defaults.DEFAULT_FOXWORK_MARKETPLACE_NAME).toBe("SeeWayWork 公司能力")
   expect(defaults.DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION).toContain("公司")
   expect(defaults.DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL).toBe("/openwork-mark.svg")
   expect(defaults.DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION).not.toMatch(/https?:\/\//)

@@ -17,7 +17,7 @@ describe("dashboard home layouts", () => {
     expect(overview).not.toContain("Download the app to unlock extensions");
     expect(overview).not.toContain("ExtensionsDownloadPromo");
     expect(promotion).toContain("export function ExtensionsDownloadPromo");
-    expect(promotion).toContain("在 FoxWork 中使用公司扩展");
+    expect(promotion).toContain("在 SeeWayWork 中使用公司扩展");
   });
 
   test("retains the organization download card on both dashboard experiences", () => {

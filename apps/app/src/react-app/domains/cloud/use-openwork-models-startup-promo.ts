@@ -1,5 +1,5 @@
-// "OpenWork Models" startup promo: one-shot dialog latch shown shortly after
-// a workspace is ready when the user has no OpenWork Models provider yet.
+// "SeeWayWork Models" startup promo: one-shot dialog latch shown shortly after
+// a workspace is ready when the user has no SeeWayWork Models provider yet.
 // Extracted verbatim from session-route.tsx.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,7 +26,7 @@ export type UseOpenWorkModelsStartupPromoInput = {
   clientReady: boolean;
   workspaceId: string;
   providerConnectedIds: string[];
-  /** Org member already has OpenWork Models on Den — never upsell Subscribe. */
+  /** Org member already has SeeWayWork Models on Den — never upsell Subscribe. */
   openWorkModelsEntitled?: boolean;
 };
 

@@ -53,7 +53,7 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
       <CardHeader>
         <CardTitle>实时语音</CardTitle>
         <CardDescription>
-          语音模式使用 OpenAI Realtime，并通过 FoxWork 界面控制 MCP 操作当前应用。
+          语音模式使用 OpenAI Realtime，并通过 SeeWayWork 界面控制 MCP 操作当前应用。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -62,7 +62,7 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
             <Mic2 />
             <AlertTitle>已找到 OpenAI 密钥</AlertTitle>
             <AlertDescription>
-              优先使用 OPENAI_REALTIME_API_KEY，未配置时使用 FoxWork 环境变量中的 OPENAI_API_KEY。
+              优先使用 OPENAI_REALTIME_API_KEY，未配置时使用 SeeWayWork 环境变量中的 OPENAI_API_KEY。
             </AlertDescription>
           </Alert>
         ) : null}
@@ -78,7 +78,7 @@ export function OpenWorkVoiceConfig(props: OpenWorkVoiceConfigProps) {
               placeholder="sk-..."
             />
             <FieldDescription>
-              密钥以 OPENAI_API_KEY 保存在 FoxWork 本机环境设置中，界面进程只会收到短期 Realtime 客户端密钥。
+              密钥以 OPENAI_API_KEY 保存在 SeeWayWork 本机环境设置中，界面进程只会收到短期 Realtime 客户端密钥。
             </FieldDescription>
           </Field>
         </FieldGroup>

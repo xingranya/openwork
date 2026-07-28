@@ -10,7 +10,7 @@ const organizationContext = {
   organization: {
     id: organizationId,
     slug: "foxwork-company",
-    name: "FoxWork 公司",
+    name: "SeeWayWork 公司",
     metadata: {},
   },
   currentMember: {

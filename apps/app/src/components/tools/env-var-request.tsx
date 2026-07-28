@@ -31,7 +31,7 @@ export function EnvVarRequestTool({ part }: EnvVarRequestToolProps) {
   const label = toChineseUserMessage(clean(part.input?.label), key || "环境变量")
   const description = toChineseUserMessage(
     clean(part.input?.description),
-    "请在此填写所需值。FoxWork 仅在本机保存，不会把内容发送到聊天中。",
+    "请在此填写所需值。SeeWayWork 仅在本机保存，不会把内容发送到聊天中。",
   )
   const placeholder = clean(part.input?.placeholder)
   const helpUrl = clean(part.input?.helpUrl)

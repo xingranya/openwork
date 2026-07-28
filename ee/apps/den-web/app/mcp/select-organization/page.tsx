@@ -237,11 +237,11 @@ export default function McpSelectOrganizationPage() {
               <div className="flex items-center gap-3">
                 <img
                   src="/openwork-logo-transparent.svg"
-                  alt="FoxWork"
+                  alt="SeeWayWork"
                   className="h-9 w-auto"
                 />
                 <span className="text-[13px] font-medium text-white/80">
-                  FoxWork 公司服务
+                  SeeWayWork 公司服务
                 </span>
               </div>
               <div className="grid gap-4">

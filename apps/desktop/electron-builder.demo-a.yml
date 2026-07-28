@@ -1,6 +1,6 @@
 extends: electron-builder.yml
 appId: com.foxwork.desktop.demo.admin
-productName: FoxWork 演示 A
+productName: SeeWayWork 演示 A
 protocols: []
 directories:
   output: dist-electron-demo-a

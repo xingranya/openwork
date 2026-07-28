@@ -213,7 +213,7 @@ export function DenAuthProvider({ children }: DenAuthProviderProps) {
         nextError,
         failureStatus === "signed_out"
           ? "登录已失效，请重新登录。"
-          : "暂时无法连接公司服务，FoxWork 会自动重试。",
+          : "暂时无法连接公司服务，SeeWayWork 会自动重试。",
       ));
       updateStatus(failureStatus);
     }

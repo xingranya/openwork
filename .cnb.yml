@@ -8,23 +8,23 @@ $:
       env:
         IMAGE_REPOSITORY: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}
       stages:
-        - name: 校验 FoxWork 发布标签
+        - name: 校验 SeeWayWork 发布标签
           script: |
             set -euo pipefail
-            echo "$CNB_BRANCH" | grep -Eq '^foxwork-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+            echo "$CNB_BRANCH" | grep -Eq '^(seewaywork|foxwork)-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
 
         - name: 创建 CNB 发布版本
           type: git:release
           options:
             overlying: true
-            title: FoxWork ${CNB_BRANCH}
-            description: FoxWork 公司内部发布，桌面安装包由 GitHub Actions 构建后自动同步。
+            title: SeeWayWork ${CNB_BRANCH}
+            description: SeeWayWork 公司内部发布，桌面安装包由 GitHub Actions 构建后自动同步。
             preRelease: true
 
         - name: 构建并推送 Den API 和 Den Web
           script: |
             set -euo pipefail
-            VERSION="${CNB_BRANCH#foxwork-v}"
+            VERSION="${CNB_BRANCH#*-v}"
 
             printf '%s' "$CNB_TOKEN" | docker login \
               "$CNB_DOCKER_REGISTRY" \

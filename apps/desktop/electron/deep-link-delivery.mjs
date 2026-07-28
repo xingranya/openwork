@@ -67,7 +67,7 @@ export function createDeepLinkDelivery(send) {
 
 /**
  * 只有即将替换当前渲染上下文的主框架导航才需要重新等待握手。
- * 被 FoxWork 拦截到内置浏览器的外部导航不会销毁当前页面。
+ * 被 SeeWayWork 拦截到内置浏览器的外部导航不会销毁当前页面。
  */
 export function shouldResetDeepLinkDeliveryForNavigation({
   isMainFrame,

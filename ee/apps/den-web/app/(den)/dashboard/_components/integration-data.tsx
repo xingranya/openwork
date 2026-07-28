@@ -127,7 +127,7 @@ export const INTEGRATION_PROVIDERS: Record<IntegrationProvider, IntegrationProvi
   github: {
     provider: "github",
     name: "GitHub",
-    description: "安装 FoxWork GitHub App，再选择要连接的代码仓库。",
+    description: "安装 SeeWayWork GitHub App，再选择要连接的代码仓库。",
     docsHref: "https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps",
     scopes: ["metadata:read", "contents:read", "webhooks"],
   },
@@ -163,7 +163,7 @@ export function getMockReposFor(provider: IntegrationProvider, accountId: string
       id: `${tag}:openwork`,
       name: "openwork",
       fullName: `${accountToLabel(accountId)}/openwork`,
-      description: "FoxWork 主仓库，包含桌面端、服务端和编排器。",
+      description: "SeeWayWork 主仓库，包含桌面端、服务端和编排器。",
       hasPlugins: true,
     },
     {

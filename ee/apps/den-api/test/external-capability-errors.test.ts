@@ -63,7 +63,7 @@ test("JSON-RPC refresh failures are classified as downstream connector reauthori
   expect(externalCapabilities.externalMcpAuthErrorCode(error, message)).toBe("invalid_refresh_token")
   expect(externalCapabilities.isExternalMcpAuthError(error)).toBe(true)
   expect(hint).toContain('“Knowledge Hub”保存的凭据无效或已过期')
-  expect(hint).toContain('FoxWork 的“我的连接”')
+  expect(hint).toContain('SeeWayWork 的“我的连接”')
   expect(hint).toContain("公司服务本身仍保持连接")
 })
 

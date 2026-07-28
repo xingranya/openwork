@@ -57,7 +57,7 @@ async function createBrandAssetDraft(file: File, kind: BrandAssetKind): Promise<
   try {
     image = await createImageBitmap(file);
   } catch {
-    throw new Error("FoxWork 无法读取这张图片，请更换文件。");
+    throw new Error("SeeWayWork 无法读取这张图片，请更换文件。");
   }
 
   const { width, height } = image;
@@ -293,7 +293,7 @@ export function BrandAppearanceScreen() {
       <DashboardPageTemplate
         icon={Palette}
         title="品牌外观"
-        description="统一设置公司在 FoxWork 中显示的名称、字标、图标和强调色。"
+        description="统一设置公司在 SeeWayWork 中显示的名称、字标、图标和强调色。"
         colors={["#F5F3FF", "#4C1D95", "#8B5CF6", "#DDD6FE"]}
       >
         {!orgContext.entitlements.desktopPolicies ? (
@@ -314,14 +314,14 @@ export function BrandAppearanceScreen() {
                 <div className="grid gap-5">
                   <label className="grid gap-3">
                     <span className="text-[14px] font-medium text-gray-700">应用名称</span>
-                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="FoxWork" maxLength={64} disabled={!canManageBrandAppearance} />
-                    <span className="text-[11px] text-gray-400">已签名的应用标识固定为 FoxWork。</span>
+                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="SeeWayWork" maxLength={64} disabled={!canManageBrandAppearance} />
+                    <span className="text-[11px] text-gray-400">已签名的应用标识固定为 SeeWayWork。</span>
                   </label>
 
                   <label className="grid gap-3">
                     <span className="text-[14px] font-medium text-gray-700">强调色</span>
                     <select value={accentColorDraft} onChange={(event) => setAccentColorDraft(event.target.value)} disabled={!canManageBrandAppearance} className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none">
-                      <option value="">默认（FoxWork）</option>
+                      <option value="">默认（SeeWayWork）</option>
                       {ACCENT_COLOR_OPTIONS.map(([color, label]) => (
                         <option key={color} value={color}>{label}</option>
                       ))}
@@ -335,7 +335,7 @@ export function BrandAppearanceScreen() {
                     {iconPreviewUrl ? <img src={iconPreviewUrl} alt="应用图标预览" className="size-12 rounded-xl bg-white object-contain" /> : <div className="flex size-12 items-center justify-center rounded-xl bg-white text-[14px] font-semibold text-gray-950">FW</div>}
                     <div className="min-w-0">
                       {logoPreviewUrl ? <img src={logoPreviewUrl} alt="品牌字标预览" className="mb-1 max-h-7 max-w-40 object-contain object-left brightness-0 invert" /> : null}
-                      <p className="truncate text-[15px] font-medium">{appNameDraft.trim() || "FoxWork"}</p>
+                      <p className="truncate text-[15px] font-medium">{appNameDraft.trim() || "SeeWayWork"}</p>
                     </div>
                   </div>
                 </div>

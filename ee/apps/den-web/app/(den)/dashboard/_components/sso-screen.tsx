@@ -364,14 +364,14 @@ export function SsoScreen() {
                     </label>
                     <label className="block text-[14px] text-gray-700 md:col-span-2">
                       <span className="mb-2 block font-medium">受众地址</span>
-                      <input className="w-full rounded-[18px] border border-gray-200 px-4 py-3" value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="留空时使用 FoxWork 认证地址" />
+                      <input className="w-full rounded-[18px] border border-gray-200 px-4 py-3" value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="留空时使用 SeeWayWork 认证地址" />
                     </label>
                     <label className="block text-[14px] text-gray-700 md:col-span-2">
                       <span className="mb-2 block font-medium">身份服务证书</span>
                       <textarea className="min-h-[140px] w-full rounded-[18px] border border-gray-200 px-4 py-3" value={cert} onChange={(event) => setCert(event.target.value)} placeholder="-----BEGIN CERTIFICATE-----" />
                     </label>
                     <div className="rounded-[18px] border border-gray-200 px-4 py-3 text-[14px] leading-6 text-gray-600 md:col-span-2">
-                      FoxWork 要求公司 SAML 连接使用已签名的断言、有效时间戳和由服务方发起的登录响应。
+                      SeeWayWork 要求公司 SAML 连接使用已签名的断言、有效时间戳和由服务方发起的登录响应。
                     </div>
                   </>
                 ) : (

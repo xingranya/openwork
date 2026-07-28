@@ -37,7 +37,7 @@ export type ForcedSigninPageProps = {
 
 /**
  * Parse a pasted manual-auth input. Accepts either a raw handoff grant
- * 字符串（至少 12 个字符）或 FoxWork 登录深链。
+ * 字符串（至少 12 个字符）或 SeeWayWork 登录深链。
  * Matches the Solid ForcedSigninPage exactly so flows stay fungible.
  */
 export function parseManualAuthInput(value: string) {

@@ -113,7 +113,7 @@ function DesktopHandoffCopyLink({
           value={openworkUrl}
           readOnly
           onFocus={(event) => event.currentTarget.select()}
-          aria-label="FoxWork 登录链接"
+          aria-label="SeeWayWork 登录链接"
         />
         <button type="button" className="den-button-secondary sm:w-auto" onClick={() => void copyOpenworkUrl()}>
           {copied ? "已复制" : "复制"}
@@ -147,7 +147,7 @@ function DesktopHandoffAction({
   if (status === "consumed") {
     return (
       <div className="den-frame-inset rounded-[1.5rem] px-4 py-3 text-center text-sm font-medium text-emerald-700" data-testid="desktop-connected" aria-live="polite">
-        ✓ 已连接，FoxWork 已完成 {resolvedOrganizationName} 的配置
+        ✓ 已连接，SeeWayWork 已完成 {resolvedOrganizationName} 的配置
       </div>
     );
   }
@@ -156,9 +156,9 @@ function DesktopHandoffAction({
     return (
       <div className="den-frame-inset grid gap-3 rounded-[1.5rem] px-4 py-3 text-sm text-[var(--dls-text-secondary)]" data-testid="desktop-handoff-troubleshoot" aria-live="polite">
         <p className="m-0">
-          FoxWork 没有打开？{" "}
+          SeeWayWork 没有打开？{" "}
           <button type="button" className="font-medium text-[var(--dls-text-primary)] underline-offset-4 hover:underline" onClick={() => window.location.assign(openworkUrl)}>
-            再次打开 FoxWork
+            再次打开 SeeWayWork
           </button>
         </p>
         <DesktopHandoffCopyLink
@@ -176,7 +176,7 @@ function DesktopHandoffAction({
         className={buttonClassName}
         onClick={() => window.location.assign(openworkUrl)}
       >
-        打开 FoxWork
+        打开 SeeWayWork
         <ArrowRight className="h-4 w-4" />
       </button>
       {helperText ? (
@@ -188,7 +188,7 @@ function DesktopHandoffAction({
         <DesktopHandoffCopyLink
           openworkUrl={openworkUrl}
           label={showTroubleshoot
-            ? "FoxWork 没有打开？请复制下面的登录链接并粘贴到浏览器地址栏打开："
+            ? "SeeWayWork 没有打开？请复制下面的登录链接并粘贴到浏览器地址栏打开："
             : "也可以复制下面的登录链接并粘贴到浏览器地址栏打开："}
         />
       ) : null}
@@ -271,7 +271,7 @@ export function AuthPanel({
   const isSingleOrgSsoMode = isSingleOrgMode && runtimeConfig.singleOrgSsoConfigured;
   const isSingleOrgPrivateSignup = isSingleOrgSignupDisabled(runtimeConfig, runtimeConfigLoaded);
   const visibleAuthMode = resolveVisibleAuthMode({ authMode, runtimeConfig, runtimeConfigLoaded });
-  const singleOrgName = runtimeConfig.singleOrgName || "FoxWork";
+  const singleOrgName = runtimeConfig.singleOrgName || "SeeWayWork";
   const singleOrgSlug = runtimeConfig.singleOrgSlug.trim();
   const emailRecoveryEnabled = runtimeConfig.emailRecoveryEnabled;
 
@@ -544,7 +544,7 @@ export function AuthPanel({
           <p className="den-eyebrow">{eyebrow}</p>
           <div className="grid gap-2">
             <h2 className="den-title-lg">登录成功</h2>
-            <p className="den-copy">请打开 FoxWork 继续。</p>
+            <p className="den-copy">请打开 SeeWayWork 继续。</p>
             {signedInEmail ? <p className="den-copy">已登录账号：{signedInEmail}</p> : null}
           </div>
         </div>
@@ -561,7 +561,7 @@ export function AuthPanel({
             className="den-frame-inset rounded-[1.5rem] px-4 py-3 text-center text-sm text-[var(--dls-text-secondary)]"
             aria-live="polite"
           >
-            正在准备 FoxWork 登录链接...
+            正在准备 SeeWayWork 登录链接...
           </div>
         )}
 
@@ -599,11 +599,11 @@ export function AuthPanel({
               className="den-button-primary w-full"
               onClick={() => window.location.assign(desktopRedirectUrl)}
             >
-              打开 FoxWork
+              打开 SeeWayWork
               <ArrowRight className="h-4 w-4" />
             </button>
             <p className="m-0 text-center text-xs text-[var(--dls-text-secondary)]">
-              请先在下方登录，再返回 FoxWork。
+              请先在下方登录，再返回 SeeWayWork。
             </p>
           </div>
         ) : null}
@@ -825,11 +825,11 @@ export function AuthPanel({
             className="den-button-primary w-full"
             onClick={() => window.location.assign(desktopRedirectUrl)}
           >
-            打开 FoxWork
+            打开 SeeWayWork
             <ArrowRight className="h-4 w-4" />
           </button>
           <p className="m-0 text-center text-xs text-[var(--dls-text-secondary)]">
-            请先在下方登录，再返回 FoxWork。
+            请先在下方登录，再返回 SeeWayWork。
           </p>
         </div>
       ) : null}

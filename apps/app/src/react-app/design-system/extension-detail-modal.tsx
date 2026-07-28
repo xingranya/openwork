@@ -93,14 +93,14 @@ const kindLabel: Record<ExtensionKind, string> = {
   plugin: "插件",
   skill: "Skill（技能）",
   "ui-control": "界面控制",
-  extension: "FoxWork 扩展",
+  extension: "SeeWayWork 扩展",
 };
 
 const kindDesc: Record<ExtensionKind, string> = {
   mcp: "通过模型上下文协议连接外部工具和数据。",
-  plugin: "为 FoxWork 增加由公司统一管理的能力。",
+  plugin: "为 SeeWayWork 增加由公司统一管理的能力。",
   skill: "可由助手按需执行的可复用工作方法。",
-  "ui-control": "允许其他 MCP 客户端通过本机标准输入输出桥接查看和操作 FoxWork 界面。",
+  "ui-control": "允许其他 MCP 客户端通过本机标准输入输出桥接查看和操作 SeeWayWork 界面。",
   extension: "为工作区增加工具、模型服务或其他集成。",
 };
 
@@ -559,7 +559,7 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-            <div>FoxWork 桌面端会自动启动仅限本机访问的桥接服务。</div>
+            <div>SeeWayWork 桌面端会自动启动仅限本机访问的桥接服务。</div>
             <div>MCP 客户端通过标准输入输出启动 <span className="font-mono text-card-foreground">openwork-ui-mcp</span>，由该程序自动发现桥接服务并转发界面工具。</div>
             <div>不要让客户端直接连接随机生成的本机桥接地址。</div>
           </div>

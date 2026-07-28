@@ -1124,10 +1124,10 @@ function GoogleWorkspaceDialog({
                 <p className="text-[13px] font-semibold text-gray-900">凭据已保存</p>
               </div>
               <p className="mt-1 text-[12px] leading-5 text-gray-500">
-                保存权限更改时，FoxWork 会保留现有 Google 客户端 ID 和密钥。仅在轮换凭据时需要替换。
+                保存权限更改时，SeeWayWork 会保留现有 Google 客户端 ID 和密钥。仅在轮换凭据时需要替换。
               </p>
               <div className="mt-3 rounded-xl border border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-800">
-                已保存的客户端 ID：<span className="font-mono">{savedClientId ?? "已保存在 FoxWork"}</span>
+                已保存的客户端 ID：<span className="font-mono">{savedClientId ?? "已保存在 SeeWayWork"}</span>
               </div>
               <DenButton className="mt-3" variant="secondary" size="sm" onClick={startReplacingCredentials} disabled={submitting}>
                 替换凭据
@@ -2158,7 +2158,7 @@ function EditConnectionDialog({
         {identityChanged && !marketplaceManaged ? (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[12px] leading-5 text-amber-900" data-testid="mcp-identity-change-warning">
             <p className="font-semibold">此操作会更改连接身份。</p>
-            <p className="mt-1">FoxWork 会清除原有的共用和个人会话、API 密钥、待处理的 OAuth 状态、OAuth 客户端注册、授权范围及连接时间，随后才能使用新服务。</p>
+            <p className="mt-1">SeeWayWork 会清除原有的共用和个人会话、API 密钥、待处理的 OAuth 状态、OAuth 客户端注册、授权范围及连接时间，随后才能使用新服务。</p>
             {authType === "oauth" ? <p className="mt-1 font-medium">保存后需要重新授权此连接。</p> : null}
             {confirmingIdentityChange ? <p className="mt-2 font-semibold">请确认要停用原有连接身份。</p> : null}
           </div>
@@ -2498,7 +2498,7 @@ function AddConnectionDialog({
               添加 MCP 服务
             </h2>
             <p className="mt-1.5 text-[13px] leading-5 text-gray-500">
-              粘贴 MCP 服务地址，FoxWork 会自动识别并检查认证要求。
+              粘贴 MCP 服务地址，SeeWayWork 会自动识别并检查认证要求。
             </p>
 
             <div className="mt-5">

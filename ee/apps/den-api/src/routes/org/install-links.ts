@@ -134,7 +134,7 @@ function organizationMetadataInput(value: unknown): Record<string, unknown> | st
 function buildInstallConfig(input: { organization: { name: string; logo: string | null; metadata: unknown }; request: Request }) {
   const metadata = normalizeOrganizationMetadata(organizationMetadataInput(input.organization.metadata)).metadata
   return installConfigSchema.parse({
-    appName: typeof metadata.brandAppName === "string" ? metadata.brandAppName : "FoxWork",
+    appName: typeof metadata.brandAppName === "string" ? metadata.brandAppName : "SeeWayWork",
     clientName: input.organization.name,
     webUrl: env.betterAuthUrl,
     apiUrl: resolvePublicOrigin(input.request, env.apiPublicUrl),
@@ -232,7 +232,7 @@ function clampInstallerReleaseTag(releaseTag: string) {
   if (env.installerReleaseRepo === DEFAULT_INSTALLER_RELEASE_REPO && comparison !== null && comparison < 0) {
     // The generic installer is version-agnostic: it installs /v1/app-version,
     // so allowedDesktopVersions still governs app updates. This only selects
-    // an installer binary release that actually has OpenWork-Installer-* assets.
+    // an installer binary release that actually has SeeWayWork-Installer-* assets.
     return `v${FIRST_GENERIC_INSTALLER_RELEASE}`
   }
   return releaseTag
@@ -319,7 +319,7 @@ function linuxInstallScript(input: {
 }) {
   const configUrl = installConfigEndpoint(input.config.apiUrl, input.token)
   return `#!/usr/bin/env sh
-# 为 ${input.config.clientName} 配置 FoxWork Linux 客户端。
+# 为 ${input.config.clientName} 配置 SeeWayWork Linux 客户端。
 # 本脚本只写入公司连接配置，不下载或执行其他代码。
 set -eu
 
@@ -334,11 +334,11 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   FETCH="wget -qO-"
 else
-  echo "配置 FoxWork 需要 curl 或 wget。" >&2
+  echo "配置 SeeWayWork 需要 curl 或 wget。" >&2
   exit 1
 fi
 
-echo "正在检查 FoxWork 公司安装链接……"
+echo "正在检查 SeeWayWork 公司安装链接……"
 # shellcheck disable=SC2086
 $FETCH "$CONFIG_URL" >/dev/null
 
@@ -356,10 +356,10 @@ cat > "$BOOTSTRAP_PATH" <<EOF
 EOF
 
 echo
-echo "已为 $CLIENT_NAME 写入 FoxWork 公司连接配置。"
+echo "已为 $CLIENT_NAME 写入 SeeWayWork 公司连接配置。"
 echo "配置文件：$BOOTSTRAP_PATH"
 echo
-echo "请从以下地址下载 FoxWork Linux 安装包："
+echo "请从以下地址下载 SeeWayWork Linux 安装包："
 echo "  $DOWNLOAD_URL"
 echo
 echo "启动安装包并登录后，公司工作区会自动加载。"
@@ -386,7 +386,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
     describeRoute({
       tags: ["Organizations"],
       summary: "Create organization install link",
-      description: "Mints a shareable OpenWork desktop install link for a signed-in organization member. Older active links remain valid unless an owner or admin explicitly requests rotation.",
+      description: "Mints a shareable SeeWayWork desktop install link for a signed-in organization member. Older active links remain valid unless an owner or admin explicitly requests rotation.",
       responses: {
         200: jsonResponse("Install link created successfully.", createInstallLinkResponseSchema),
         400: jsonResponse("The install-link request was invalid.", invalidRequestSchema),
@@ -580,14 +580,14 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
     "/v1/install/:platform",
     describeRoute({
       tags: ["Organizations"],
-      summary: "Download OpenWork installer",
-      description: "Always serves the OpenWork installer for the requested platform. By default Den redirects to the public release asset; unrestricted official-repo organizations follow the latest published release. Operators can optionally mount installer artifacts for an air-gapped mirror.",
+      summary: "Download SeeWayWork installer",
+      description: "Always serves the SeeWayWork installer for the requested platform. By default Den redirects to the public release asset; unrestricted official-repo organizations follow the latest published release. Operators can optionally mount installer artifacts for an air-gapped mirror.",
       responses: {
         200: textResponse("Installer artifact returned successfully."),
-        302: emptyResponse("Den redirected the browser to the public OpenWork installer release asset."),
+        302: emptyResponse("Den redirected the browser to the public SeeWayWork installer release asset."),
         400: jsonResponse("The install-link token or platform was invalid.", invalidRequestSchema),
         404: jsonResponse("The install link was missing, expired, or revoked.", installLinkNotFoundSchema),
-        503: jsonResponse("The FoxWork installer is not configured on this deployment.", installerNotConfiguredSchema),
+        503: jsonResponse("The SeeWayWork installer is not configured on this deployment.", installerNotConfiguredSchema),
         429: jsonResponse("Too many installer download attempts.", rateLimitedSchema),
       },
     }),
@@ -617,13 +617,13 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
         if (!downloadUrl) {
           return c.json({
             error: "installer_not_configured" as const,
-            message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+            message: "公司尚未配置 SeeWayWork 安装包，请联系公司管理员。",
           }, 503)
         }
         return new Response(linuxInstallScript({ token: input.token, config: resolved.config, downloadUrl }), {
           headers: {
             "content-type": "text/x-shellscript; charset=utf-8",
-            "content-disposition": contentDisposition(`foxwork-linux-setup-${safeAttachmentSlug(resolved.organizationSlug)}.sh`),
+            "content-disposition": contentDisposition(`SeeWayWork-linux-setup-${safeAttachmentSlug(resolved.organizationSlug)}.sh`),
             "cache-control": "no-store",
           },
         })
@@ -657,7 +657,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
       if (!directUrl) {
         return c.json({
           error: "installer_not_configured" as const,
-          message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+          message: "公司尚未配置 SeeWayWork 安装包，请联系公司管理员。",
         }, 503)
       }
       return c.redirect(directUrl, 302)

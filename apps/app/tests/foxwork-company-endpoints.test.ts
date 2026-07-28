@@ -6,7 +6,7 @@ function source(relativePath: string) {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 }
 
-describe("FoxWork 公司服务地址契约", () => {
+describe("SeeWayWork 公司服务地址契约", () => {
   test("客户端运行路径不回退到 OpenWork 公网服务", () => {
     const constants = source("../src/app/constants.ts");
     const accountStatusMenu = source("../src/react-app/domains/session/sidebar/account-status-menu.tsx");
@@ -20,7 +20,7 @@ describe("FoxWork 公司服务地址契约", () => {
     expect(feedback).not.toContain("https://openworklabs.com/feedback");
   });
 
-  test("界面控制桥接优先发现 FoxWork 发行路径并兼容旧安装", () => {
+  test("界面控制桥接优先发现 SeeWayWork 发行路径并兼容旧安装", () => {
     const detail = source("../src/react-app/design-system/extension-detail-modal.tsx");
     const wrapper = source("../../../packages/openwork-ui-mcp/index.mjs");
 

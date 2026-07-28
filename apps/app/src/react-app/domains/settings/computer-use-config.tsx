@@ -110,7 +110,7 @@ export function ComputerUseConfig({
   } = useMutation({
     mutationFn: async () => {
       if (!hasDesktopBridge()) {
-        throw new Error("电脑控制仅支持 Mac，并且需要使用 FoxWork 桌面应用。");
+        throw new Error("电脑控制仅支持 Mac，并且需要使用 SeeWayWork 桌面应用。");
       }
 
       return parsePermissionResult(await desktopBridge.openComputerUsePermissionSetup());
@@ -186,7 +186,7 @@ export function ComputerUseConfig({
         {/* 第二步：授予系统权限 */}
         <SetupRow
           title="2. 授予 macOS 权限"
-          description="打开 FoxWork 权限设置程序。授予两项权限后，在下方重新检查。"
+          description="打开 SeeWayWork 权限设置程序。授予两项权限后，在下方重新检查。"
           complete={allGranted}
         >
           <div className="flex w-full min-w-0 flex-col gap-3">
@@ -300,7 +300,7 @@ function Pill({ label, granted, checked }: PillProps) {
 
 function localizeComputerUseError(message: string) {
   if (/[\u3400-\u9fff]/.test(message)) return message;
-  return "无法检查电脑控制权限，请确认正在使用 FoxWork 桌面应用后重试。";
+  return "无法检查电脑控制权限，请确认正在使用 SeeWayWork 桌面应用后重试。";
 }
 
 interface StatusIconProps {

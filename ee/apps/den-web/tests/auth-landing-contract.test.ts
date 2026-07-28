@@ -21,7 +21,7 @@ describe("Den auth landing contract", () => {
     expect(source).toContain('data-testid="auth-landing-mobile-brand"');
     expect(source).toContain("lg:hidden");
     expect(source).toContain('src="/openwork-mark.svg"');
-    expect(source).toContain('alt="FoxWork"');
+    expect(source).toContain('alt="SeeWayWork"');
   });
 
   test("removes the old marketing panel content from the shader side", () => {

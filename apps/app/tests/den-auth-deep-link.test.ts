@@ -5,7 +5,7 @@ import { parseDebugDeepLinkInput, parseDenAuthDeepLink } from "../src/app/lib/op
 const GRANT = "one-time-desktop-grant";
 
 describe("parseDenAuthDeepLink", () => {
-  test("解析 FoxWork 和旧协议登录链接", () => {
+  test("解析 SeeWayWork 和旧协议登录链接", () => {
     expect(parseDenAuthDeepLink(`foxwork://den-auth?grant=${GRANT}&denBaseUrl=http%3A%2F%2Fden.local`)).toEqual({
       grant: GRANT,
       denBaseUrl: "http://den.local",

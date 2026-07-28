@@ -736,7 +736,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         : "浏览器回调不稳定时，可使用 OpenAI 设备代码登录。";
     }
     if (method.type === "oauth") {
-      return "在浏览器中完成登录，FoxWork 会自动完成连接。";
+      return "在浏览器中完成登录，SeeWayWork 会自动完成连接。";
     }
     if (method.type === "cloud") {
       return method.description && /[\u3400-\u9fff]/.test(method.description)
@@ -746,7 +746,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     if (entry.localPlan && method.type === "api") {
       return "为当前本地工作区保存接口地址、API 密钥和模型 ID。";
     }
-    return "粘贴 API 密钥；密钥仅由 FoxWork 本地运行环境保存。";
+    return "粘贴 API 密钥；密钥仅由 SeeWayWork 本地运行环境保存。";
   };
 
   return (
@@ -1027,7 +1027,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-[11px] text-gray-9">
-                      密钥仅由 FoxWork 本地运行环境保存。
+                      密钥仅由 SeeWayWork 本地运行环境保存。
                     </div>
                     <Button
                       onClick={() => void handleLocalProviderSubmit()}
@@ -1072,7 +1072,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] text-gray-9">密钥仅由 FoxWork 本地运行环境保存。</div>
+                    <div className="text-[11px] text-gray-9">密钥仅由 SeeWayWork 本地运行环境保存。</div>
                     <Button
                       onClick={handleApiSubmit}
                       disabled={actionDisabled || !apiKeyInput.trim()}
@@ -1111,7 +1111,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-[11px] text-gray-9">
-                      FoxWork 会安装模型服务配置，并使用公司保存的凭据。
+                      SeeWayWork 会安装模型服务配置，并使用公司保存的凭据。
                     </div>
                     <Button onClick={handleCloudSubmit} disabled={actionDisabled}>
                       {props.submitting ? "正在连接…" : "连接模型服务"}
@@ -1197,7 +1197,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   ) : (
                     <div className="text-xs text-gray-9">
-                      请在刚打开的浏览器页面中登录，FoxWork 会自动完成连接。
+                      请在刚打开的浏览器页面中登录，SeeWayWork 会自动完成连接。
                     </div>
                   )}
                   {oauthDisplayCode ? (

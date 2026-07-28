@@ -166,7 +166,7 @@ export function TelegramDialog({ open, onClose }: { open: boolean; onClose: () =
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
               <p className="text-[13px] font-semibold text-gray-900">1. 创建 Telegram 机器人</p>
-              <p className="mt-1 text-[12px] leading-5 text-gray-500">打开 {" "}<a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">@BotFather</a>，执行 /newbot，并在下方粘贴令牌。FoxWork 会加密保存，之后不再显示。</p>
+              <p className="mt-1 text-[12px] leading-5 text-gray-500">打开 {" "}<a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 underline decoration-gray-300 underline-offset-4">@BotFather</a>，执行 /newbot，并在下方粘贴令牌。SeeWayWork 会加密保存，之后不再显示。</p>
               <label className="mb-1.5 mt-3 block text-[12px] font-medium text-gray-700">机器人令牌</label>
               <DenInput data-testid="telegram-bot-token" type="password" autoComplete="off" value={botToken} onChange={(event) => setBotToken(event.target.value)} placeholder="123456789:AA…" />
             </div>
@@ -180,7 +180,7 @@ export function TelegramDialog({ open, onClose }: { open: boolean; onClose: () =
               </div>
             </div>
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-[12px] leading-5 text-amber-800">
-              自托管环境需要稳定且可公开访问的 HTTPS FoxWork API 地址，Telegram 才能发送回调。当前仅支持私密文字会话，不支持群组、频道或媒体文件。
+              自托管环境需要稳定且可公开访问的 HTTPS SeeWayWork API 地址，Telegram 才能发送回调。当前仅支持私密文字会话，不支持群组、频道或媒体文件。
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               {connection ? <DenButton variant="secondary" disabled={busy} onClick={() => setEditing(false)}>取消更改</DenButton> : null}

@@ -32,16 +32,16 @@ export const desktopPolicyDefinitions = [
   },
   {
     id: "allowZenModel",
-    name: "FoxWork免费模型",
-    description: "允许员工使用FoxWork随客户端提供的免费模型。",
-    userNotice: "公司管理员已禁止使用FoxWork免费模型。",
+    name: "SeeWayWork免费模型",
+    description: "允许员工使用SeeWayWork随客户端提供的免费模型。",
+    userNotice: "公司管理员已禁止使用SeeWayWork免费模型。",
     defaultValue: true,
   },
   {
     id: "allowMultipleWorkspaces",
     name: "多个工作区",
     description:
-      "允许员工在 FoxWork 中创建和配置任意数量的本地或远程工作区。",
+      "允许员工在 SeeWayWork 中创建和配置任意数量的本地或远程工作区。",
     userNotice:
       "公司管理员已限制添加其他工作区。",
     defaultValue: true,
@@ -49,9 +49,9 @@ export const desktopPolicyDefinitions = [
   {
     id: "allowControlSettings",
     name: "客户端设置",
-    description: "允许员工查看和修改 FoxWork 设置。",
+    description: "允许员工查看和修改 SeeWayWork 设置。",
     userNotice:
-      "公司管理员已禁止修改 FoxWork 设置。",
+      "公司管理员已禁止修改 SeeWayWork 设置。",
     defaultValue: true,
   },
   {
@@ -66,9 +66,9 @@ export const desktopPolicyDefinitions = [
     id: "allowBuiltInExtensions",
     name: "内置扩展",
     description:
-      "允许员工查看和使用 FoxWork 内置的浏览器、图像及本地模型服务扩展。",
+      "允许员工查看和使用 SeeWayWork 内置的浏览器、图像及本地模型服务扩展。",
     userNotice:
-      "公司管理员已禁止使用 FoxWork 内置扩展。",
+      "公司管理员已禁止使用 SeeWayWork 内置扩展。",
     defaultValue: true,
   },
   {

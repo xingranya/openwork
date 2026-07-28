@@ -46,7 +46,7 @@ export function MarketplacesScreen() {
       icon={Store}
       badgeLabel="预览"
       title="应用市场"
-      description="应用市场用于集中管理插件。分配给全公司、指定成员或团队的市场，会在员工登录 FoxWork 后自动显示。"
+      description="应用市场用于集中管理插件。分配给全公司、指定成员或团队的市场，会在员工登录 SeeWayWork 后自动显示。"
       colors={["#FEF3C7", "#92400E", "#F59E0B", "#FDE68A"]}
     >
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
@@ -273,7 +273,7 @@ function ConnectIntegrationEmptyState({ integrationsHref }: { integrationsHref: 
   return (
     <EmptyState
       title="连接数据源以发现插件"
-      description="FoxWork 会在已连接的代码仓库中查找插件并建立应用市场，之后可将其分配给全公司、指定成员或团队。"
+      description="SeeWayWork 会在已连接的代码仓库中查找插件并建立应用市场，之后可将其分配给全公司、指定成员或团队。"
       action={{ href: integrationsHref, label: "打开数据源", icon: Cable }}
     />
   );

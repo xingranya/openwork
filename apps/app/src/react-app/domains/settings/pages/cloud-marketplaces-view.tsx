@@ -284,7 +284,7 @@ export function CloudMarketplacesView({
       return {
         source: "built-in",
         marketplaceId: "openwork-builtins",
-        marketplaceName: "OpenWork Built-ins",
+        marketplaceName: "SeeWayWork Built-ins",
         entry,
         active,
         status: item?.installState ?? (active ? "installed" : "available"),
@@ -341,7 +341,7 @@ export function CloudMarketplacesView({
 
   const marketplaceOptions = React.useMemo(
     () => canShowRows ? [
-      ...(builtInRows.length > 0 ? [{ id: "openwork-builtins", name: "FoxWork 内置扩展" }] : []),
+      ...(builtInRows.length > 0 ? [{ id: "openwork-builtins", name: "SeeWayWork 内置扩展" }] : []),
       ...(includeCloudMarketplaceRows ? marketplaces.map((marketplace) => ({ id: marketplace.marketplace.id, name: marketplace.marketplace.name })) : []),
       ...(orgMcpRows.length > 0 ? [{ id: "org-mcp-connections", name: "公司 MCP 连接" }] : []),
     ] : [],
@@ -473,7 +473,7 @@ export function CloudMarketplacesView({
       {!isSignedIn ? (
         <SettingsNotice>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>不登录也可以使用 FoxWork 本机功能。登录公司账号后，可加载 FoxWork 内置扩展和公司能力市场。</span>
+            <span>不登录也可以使用 SeeWayWork 本机功能。登录公司账号后，可加载 SeeWayWork 内置扩展和公司能力市场。</span>
             <Button size="sm" onClick={onOpenAccount}>
               {t("skills.share_team_sign_in")}
             </Button>
@@ -815,7 +815,7 @@ function OrgMcpConnectionDetailModal(props: {
             <SettingsPill>MCP</SettingsPill>
           </div>
           <SettingsNotice>
-            登录信息由公司服务保管。连接后，FoxWork 中的 AI 可以按公司授权使用这些工具。
+            登录信息由公司服务保管。连接后，SeeWayWork 中的 AI 可以按公司授权使用这些工具。
           </SettingsNotice>
         </div>
       )}

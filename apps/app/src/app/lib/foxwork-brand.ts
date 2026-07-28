@@ -1,4 +1,4 @@
-export const FOXWORK_APP_NAME = "FoxWork";
+export const FOXWORK_APP_NAME = "SeeWayWork";
 export const FOXWORK_PROTOCOL = "foxwork:";
 export const FOXWORK_DEV_PROTOCOL = "foxwork-dev:";
 

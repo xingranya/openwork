@@ -232,7 +232,7 @@ const issuerReviewResponseSchema = z.object({
 
 const clientMetadataResponseSchema = z.object({
   client_id: z.string(),
-  client_name: z.literal("OpenWork"),
+  client_name: z.literal("SeeWayWork"),
   application_type: z.literal("web"),
   redirect_uris: z.array(z.string()).length(1),
   grant_types: z.tuple([z.literal("authorization_code"), z.literal("refresh_token")]),
@@ -1280,7 +1280,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
     "/oauth/client-metadata.json",
     describeRoute({
       tags: ["Authentication"],
-      summary: "OpenWork external MCP OAuth client metadata",
+      summary: "SeeWayWork external MCP OAuth client metadata",
       description: "Public client metadata document for URL-based OAuth client registration. It contains no deployment secrets.",
       responses: {
         200: jsonResponse("Client metadata.", clientMetadataResponseSchema),
@@ -1292,7 +1292,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       const clientId = externalMcpClientMetadataUrl()
       return c.json({
         client_id: clientId,
-        client_name: "OpenWork" as const,
+        client_name: "SeeWayWork" as const,
         application_type: "web" as const,
         redirect_uris: [externalMcpSharedCallbackUrl()],
         grant_types: ["authorization_code", "refresh_token"] as const,
@@ -1823,10 +1823,10 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       // Secrets must not travel through chat transcripts: when the caller is
       // the agent (internal MCP principal), refuse API-key connections.
       if (isAgentOAuthClientConnection({ oauthClient: body.oauthClient, sessionId })) {
-        return c.json({ error: "invalid_request", message: "不能由 AI 设置 OAuth 客户端凭据，请在 FoxWork 公司后台的扩展页面添加。" }, 400)
+        return c.json({ error: "invalid_request", message: "不能由 AI 设置 OAuth 客户端凭据，请在 SeeWayWork 公司后台的扩展页面添加。" }, 400)
       }
       if (isAgentApiKeyConnection({ authType: body.authType, sessionId })) {
-        return c.json({ error: "invalid_request", message: "不能由 AI 创建密钥连接，请在 FoxWork 公司后台的扩展页面添加。" }, 400)
+        return c.json({ error: "invalid_request", message: "不能由 AI 创建密钥连接，请在 SeeWayWork 公司后台的扩展页面添加。" }, 400)
       }
       if (body.oauthClient && body.authType !== "oauth") {
         return c.json({ error: "invalid_request", message: "只有 OAuth 类型的连接可以设置 OAuth 客户端。" }, 400)
@@ -2063,7 +2063,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
       if (sessionId === "mcp_internal" && (body.apiKey !== undefined || body.oauthClient !== undefined)) {
         return c.json({
           error: "invalid_request",
-          message: "不能由 AI 修改连接凭据，请在 FoxWork 公司后台的连接页面操作。",
+          message: "不能由 AI 修改连接凭据，请在 SeeWayWork 公司后台的连接页面操作。",
         }, 400)
       }
       if (body.apiKey !== undefined && body.authType !== "apikey") {
@@ -2582,7 +2582,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
             manualRequirements: [
               "请在外部服务中创建 OAuth 应用。",
               "将页面显示的回调地址加入外部服务的允许列表。",
-              "在 FoxWork 中保存客户端 ID 和可选的客户端密钥。",
+              "在 SeeWayWork 中保存客户端 ID 和可选的客户端密钥。",
             ],
           }, 409)
         }
@@ -2591,7 +2591,7 @@ export function registerMcpConnectionRoutes<T extends { Variables: OrgRouteVaria
             error: "mcp_oauth_issuer_mismatch",
             message: issuerRepairRequiresAdmin
               ? "此连接的 OAuth 授权服务已变化，需要清除旧凭据，请联系公司管理员重新连接。"
-              : "FoxWork 无法安全确认此 MCP 连接选择的授权服务，请联系公司管理员检查 OAuth 配置。",
+              : "SeeWayWork 无法安全确认此 MCP 连接选择的授权服务，请联系公司管理员检查 OAuth 配置。",
           }, 409)
         }
         return c.json({

@@ -39,7 +39,7 @@ const FORBIDDEN_VISIBLE_LITERALS = [
   '"Failed to load MCP servers',
 ];
 
-describe("FoxWork 工作区运行错误中文化", () => {
+describe("SeeWayWork 工作区运行错误中文化", () => {
   test("远程访问状态全部使用中文", () => {
     const statuses = [
       remoteAccessStatusForPhase("idle", true),

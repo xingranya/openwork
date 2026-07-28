@@ -32,7 +32,7 @@ export function modelEquals(a: ModelRef, b: ModelRef) {
 
 /** 后端未返回供应商名称时使用的展示名称。 */
 export const FRIENDLY_PROVIDER_LABELS: Record<string, string> = {
-  opencode: "FoxWork 免费模型",
+  opencode: "SeeWayWork 免费模型",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
@@ -104,8 +104,8 @@ export const FRIENDLY_MODEL_LABELS: [pattern: string, label: string][] = [
   ["grok-3", "Grok 3"],
   ["grok-2", "Grok 2"],
 
-  // FoxWork 内置免费模型
-  ["big-pickle", "FoxWork 免费模型"],
+  // SeeWayWork 内置免费模型
+  ["big-pickle", "SeeWayWork 免费模型"],
 ];
 
 /**
@@ -373,7 +373,7 @@ export function addOpencodeCacheHint(message: string) {
   ];
 
   if (cacheSignals.some((signal) => lower.includes(signal)) && lower.includes("enoent")) {
-    return "FoxWork 运行缓存可能已损坏，请在设置中使用“修复缓存”重新构建。";
+    return "SeeWayWork 运行缓存可能已损坏，请在设置中使用“修复缓存”重新构建。";
   }
 
   return message;
@@ -1015,7 +1015,7 @@ const ARTIFACT_OUTPUT_SKIP_TOOLS = new Set(["webfetch"]);
 // Patterns that indicate a path is a truncated system/absolute path rather than a workspace-relative path
 const TRUNCATED_SYSTEM_PATH_PATTERNS = [
   /com\.[^/]+\.(openwork|opencode)/i, // macOS app bundle identifiers
-  /\.openwork\.dev\//i, // OpenWork dev paths
+  /\.openwork\.dev\//i, // SeeWayWork dev paths
   /Application Support\//i, // macOS Application Support
   /AppData[/\\]/i, // Windows AppData
   /\.local\/share\//i, // Linux XDG data

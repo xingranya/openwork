@@ -26,7 +26,7 @@ export function OrganizationScreen() {
     const trimmedName = user?.name?.trim();
     if (trimmedName) return trimmedName;
     const emailLocalPart = user?.email?.split("@")[0]?.trim() ?? "";
-    return emailLocalPart || "FoxWork 用户";
+    return emailLocalPart || "SeeWayWork 用户";
   }, [user?.email, user?.name]);
 
   const userInitials = useMemo(() => {
@@ -36,7 +36,7 @@ export function OrganizationScreen() {
 
   const activeOrg = useMemo(() => orgs.find((org) => org.isActive) ?? null, [orgs]);
   const isSingleOrgMode = runtimeConfigLoaded && runtimeConfig.orgMode === "single_org";
-  const singleOrgName = runtimeConfig.singleOrgName || "FoxWork";
+  const singleOrgName = runtimeConfig.singleOrgName || "SeeWayWork";
   const singleOrgSlug = runtimeConfig.singleOrgSlug.trim();
   const singleOrgSsoConfigured = runtimeConfig.singleOrgSsoConfigured;
   const showDirectCreateFlow = !isSingleOrgMode && orgs.length === 0;
@@ -155,7 +155,7 @@ export function OrganizationScreen() {
     <div className="flex min-h-screen flex-col bg-[#fafafa]">
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 sm:px-6">
         <div className="flex items-center gap-2">
-          <span className="text-[14px] font-medium text-gray-900">FoxWork 公司服务</span>
+          <span className="text-[14px] font-medium text-gray-900">SeeWayWork 公司服务</span>
         </div>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <span className="min-w-0 truncate text-sm text-gray-500">{user?.email}</span>
@@ -178,7 +178,7 @@ export function OrganizationScreen() {
                   {userInitials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-gray-400">FoxWork</p>
+                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-gray-400">SeeWayWork</p>
                   <h1 className="mt-2 text-[2rem] font-semibold leading-none tracking-[-0.04em] text-gray-950 sm:text-3xl">
                     {singleOrgName}
                   </h1>
@@ -224,7 +224,7 @@ export function OrganizationScreen() {
                   {userInitials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-gray-400">FoxWork 公司服务</p>
+                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-gray-400">SeeWayWork 公司服务</p>
                   <h1 className="mt-2 text-[2rem] font-semibold leading-none tracking-[-0.04em] text-gray-950 sm:text-3xl">
                     创建公司
                   </h1>

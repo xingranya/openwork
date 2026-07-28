@@ -144,7 +144,7 @@ export function validateLocalProviderInput(input: LocalProviderInput): string | 
     return "模型服务 ID 只能包含英文字母、数字、短横线和下划线。";
   }
   if (/^lpr_/i.test(providerId) || ["openwork", "opencode"].includes(providerId.toLowerCase())) {
-    return "此模型服务 ID 已由 FoxWork 保留，请换一个。";
+    return "此模型服务 ID 已由 SeeWayWork 保留，请换一个。";
   }
 
   const baseUrl = (plan.api ?? input.baseUrl).trim();

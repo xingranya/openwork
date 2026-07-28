@@ -170,7 +170,7 @@ function parseInstallConfig(value: unknown): InstallConfig | null {
   if (!isRecord(value)) return null;
 
   const clientName = typeof value.clientName === "string" ? value.clientName.trim() : "";
-  const appName = "FoxWork";
+  const appName = "SeeWayWork";
   const webUrl = typeof value.webUrl === "string" ? value.webUrl.trim() : "";
   const apiUrl = typeof value.apiUrl === "string" ? value.apiUrl.trim() : "";
   const requireSignin = value.requireSignin;
@@ -552,7 +552,7 @@ export function InstallScreen() {
       setConnectError(
         connectFailure instanceof Error
           ? connectFailure.message
-          : "无法打开 FoxWork，请稍后重试。",
+          : "无法打开 SeeWayWork，请稍后重试。",
       );
     } finally {
       setConnecting(false);
@@ -565,7 +565,7 @@ export function InstallScreen() {
       setConnectCopied(true);
       window.setTimeout(() => setConnectCopied(false), 1800);
     } catch {
-      setConnectError("无法自动复制，请选中 FoxWork 连接链接后手动复制。");
+      setConnectError("无法自动复制，请选中 SeeWayWork 连接链接后手动复制。");
     }
   }
 
@@ -587,7 +587,7 @@ export function InstallScreen() {
       setConnectError(
         copyFailure instanceof Error
           ? copyFailure.message
-          : "无法复制新的 FoxWork 连接链接。",
+          : "无法复制新的 SeeWayWork 连接链接。",
       );
     } finally {
       setConnecting(false);
@@ -600,7 +600,7 @@ export function InstallScreen() {
       setReturnCopied(true);
       window.setTimeout(() => setReturnCopied(false), 1800);
     } catch {
-      setConnectError("无法自动复制，请选中 FoxWork 返回链接后手动复制。");
+      setConnectError("无法自动复制，请选中 SeeWayWork 返回链接后手动复制。");
     }
   }
 
@@ -611,9 +611,9 @@ export function InstallScreen() {
           className="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-6 md:p-8"
           data-testid="install-page"
         >
-          <p className="den-eyebrow">FoxWork 桌面客户端</p>
+          <p className="den-eyebrow">SeeWayWork 桌面客户端</p>
           <h1 className="den-title-lg">正在加载安装链接</h1>
-          <p className="den-copy">正在检查公司的 FoxWork 配置...</p>
+          <p className="den-copy">正在检查公司的 SeeWayWork 配置...</p>
         </section>
       </OnboardingShell>
     );
@@ -627,7 +627,7 @@ export function InstallScreen() {
           data-testid="install-page"
         >
           <div className="grid gap-2">
-            <p className="den-eyebrow">FoxWork 桌面客户端</p>
+            <p className="den-eyebrow">SeeWayWork 桌面客户端</p>
             <h1 className="den-title-lg">无法打开安装链接</h1>
             <p className="den-copy">{error ?? "请联系公司管理员获取新的安装链接。"}</p>
           </div>
@@ -652,7 +652,7 @@ export function InstallScreen() {
         >
           <div className="grid justify-items-center gap-3">
             <h1 className="m-0 grid max-w-[22ch] gap-1 text-[2rem] font-semibold leading-[1.04] tracking-[-0.05em] text-slate-950 sm:text-[2.4rem]">
-              <span>下载 FoxWork</span>
+              <span>下载 SeeWayWork</span>
               <span className="flex min-w-0 flex-wrap items-center justify-center gap-x-[0.18em] gap-y-1">
                 <span>连接</span>
                 <OrganizationBrandIdentity
@@ -674,7 +674,7 @@ export function InstallScreen() {
               data-testid="install-mobile-note"
             >
               <p className="m-0 text-base font-medium text-[var(--dls-text-primary)]">
-                FoxWork 需要安装在电脑上
+                SeeWayWork 需要安装在电脑上
               </p>
               <p className="den-copy">
                 请在 Mac、Windows 或 Linux 电脑上打开此链接，也可以复制链接后发送到电脑。
@@ -692,7 +692,7 @@ export function InstallScreen() {
               <InstallStep
                 index={1}
                 state={guideStep > 1 ? "complete" : "active"}
-                title="下载 FoxWork 安装程序"
+                title="下载 SeeWayWork 安装程序"
                 description="下载完成后打开安装程序，并保留当前页面。"
                 expanded={expandedStep === 1}
                 onExpand={() => setExpandedStep(1)}
@@ -711,7 +711,7 @@ export function InstallScreen() {
                   onClick={() => advanceGuide(2)}
                   data-testid="install-skip-download"
                 >
-                  这台电脑已经安装 FoxWork
+                  这台电脑已经安装 SeeWayWork
                 </button>
                 {downloadState !== "idle" ? (
                   <div
@@ -757,7 +757,7 @@ export function InstallScreen() {
                 title="在电脑上完成安装"
                 description={
                   guideStep < 2
-                    ? "请先安装并打开 FoxWork，再继续连接公司。"
+                    ? "请先安装并打开 SeeWayWork，再继续连接公司。"
                     : "打开刚下载的文件，安装程序会继续完成安装和公司连接。"
                 }
                 expanded={expandedStep === 2 && guideStep >= 2}
@@ -852,7 +852,7 @@ export function InstallScreen() {
 
                     <div className="flex items-center justify-between gap-3">
                       <p className="m-0 text-[13px] leading-[17px] text-[#344054]">
-                        这台电脑已经安装 FoxWork？
+                        这台电脑已经安装 SeeWayWork？
                       </p>
                       <button
                         type="button"
@@ -861,7 +861,7 @@ export function InstallScreen() {
                         disabled={connecting}
                         onClick={() => void beginConnect()}
                       >
-                        {connecting ? "正在准备..." : "打开 FoxWork"}
+                        {connecting ? "正在准备..." : "打开 SeeWayWork"}
                       </button>
                     </div>
 
@@ -910,8 +910,8 @@ export function InstallScreen() {
               <InstallStep
                 index={3}
                 state={guideStep === 3 ? "active" : "pending"}
-                title="在浏览器中确认，然后返回 FoxWork"
-                description="登录公司账号并确认这台电脑，完成后返回 FoxWork。"
+                title="在浏览器中确认，然后返回 SeeWayWork"
+                description="登录公司账号并确认这台电脑，完成后返回 SeeWayWork。"
                 expanded={expandedStep === 3 && guideStep === 3}
                 onExpand={() => setExpandedStep(3)}
                 testId="install-guide-step-signin"
@@ -922,7 +922,7 @@ export function InstallScreen() {
                       className="grid h-11 shrink-0 place-items-center rounded-[11px] bg-[#101828] px-6 text-[13px] font-semibold text-white transition-colors hover:bg-black sm:w-[18rem]"
                       href={RETURN_TO_FOXWORK_URL}
                     >
-                      返回 FoxWork
+                      返回 SeeWayWork
                     </a>
                     {activationStatus === "connected" ? null : (
                       <p className="m-0 flex grow items-center gap-3 rounded-[11px] border border-[#e1e4e8] bg-white px-4 text-[13px] text-[#60646c]">
@@ -951,13 +951,13 @@ export function InstallScreen() {
                           已连接到 {config.clientName}
                         </span>
                         <span className="text-[11px] text-[#60646c]">
-                          公司配置和品牌信息已写入 FoxWork。
+                          公司配置和品牌信息已写入 SeeWayWork。
                         </span>
                       </span>
                     </div>
                   ) : activationStatus === "expired" ? (
                     <p className="m-0 text-sm text-amber-700">
-                      一次性连接链接已过期，请返回第二步重新打开 FoxWork。
+                      一次性连接链接已过期，请返回第二步重新打开 SeeWayWork。
                     </p>
                   ) : null}
 
@@ -970,7 +970,7 @@ export function InstallScreen() {
                   ) : connectLink ? (
                     <div className="grid gap-2">
                       <p className="m-0 text-[11px] text-[#7a808a]">
-                        FoxWork 没有打开？复制下面的链接，再粘贴到浏览器地址栏中打开。
+                        SeeWayWork 没有打开？复制下面的链接，再粘贴到浏览器地址栏中打开。
                       </p>
                       <CopyLinkRow
                         value={connectLink}

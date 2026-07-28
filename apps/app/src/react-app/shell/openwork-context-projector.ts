@@ -129,7 +129,7 @@ export function buildOpenworkContext(
   const resources: OpenworkResourceDescriptor[] = [{
     ref: `screen:${input.route}`,
     kind: "screen",
-    title: screen.kind === "settings" ? `${screen.panel} 设置` : "FoxWork",
+    title: screen.kind === "settings" ? `${screen.panel} 设置` : "SeeWayWork",
     provider,
     state: { kind: screen.kind, route: input.route },
   }];

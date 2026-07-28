@@ -32,7 +32,7 @@ beforeEach(() => {
 
 afterEach(restoreEnv);
 
-describe("FoxWork 公司地址配置", () => {
+describe("SeeWayWork 公司地址配置", () => {
   test("优先使用管理员显式配置的 MCP 地址", async () => {
     process.env.DEN_WEB_FOXWORK_MCP_ENDPOINT = "https://foxwork.example.com/company-mcp/agent/";
     const payload = await readRuntimeConfig();

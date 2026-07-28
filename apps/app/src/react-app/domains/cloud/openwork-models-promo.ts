@@ -56,7 +56,7 @@ export const OPENWORK_MODEL_PREVIEWS: OpenWorkModelPreview[] = Object.entries(
   .filter(([, model]) => model.enabled)
   .map(([id, model]) => ({
     id,
-    title: model.displayName.replace(/^OpenWork:\s*/, ""),
+    title: model.displayName.replace(/^SeeWayWork:\s*/, ""),
     subtitle: "公司统一提供",
   }));
 
@@ -64,7 +64,7 @@ export function hasOpenWorkModelsProvider(providerIds: readonly string[]) {
   return providerIds.some((id) => id.trim().toLowerCase() === OPENWORK_MODELS_PROVIDER_ID);
 }
 
-/** Local engine has OpenWork Models connected with at least one selectable model. */
+/** Local engine has SeeWayWork Models connected with at least one selectable model. */
 export function hasOpenWorkModelsAvailable(input: {
   providerConnectedIds: readonly string[];
   providers: ReadonlyArray<{ id: string; models?: Record<string, unknown> | null }>;
@@ -82,7 +82,7 @@ export function getOpenWorkModelsActionUrl(
 ) {
   const settings = readDenSettings();
   const baseUrl = settings.baseUrl || readDenBootstrapConfig().baseUrl;
-  // Signed-in users go straight to the OpenWork Models page — the value-prop
+  // Signed-in users go straight to the SeeWayWork Models page — the value-prop
   // + subscribe surface — never to a bare auth or billing page.
   return isSignedIn ? getDenInferenceUrl(baseUrl) : buildDenAuthUrl(baseUrl, authMode);
 }

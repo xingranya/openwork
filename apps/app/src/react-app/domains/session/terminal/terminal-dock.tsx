@@ -35,7 +35,7 @@ export function TerminalDock({ workspaceRoot, isRemoteWorkspace, onClose }: Term
 
     const bridge = window.__OPENWORK_ELECTRON__?.terminal;
     if (!bridge?.create || !bridge.write || !bridge.resize || !bridge.kill || !bridge.onData || !bridge.onExit) {
-      setStatus("终端组件不可用，请重启 FoxWork 后重试。");
+      setStatus("终端组件不可用，请重启 SeeWayWork 后重试。");
       return;
     }
     const createTerminal = bridge.create;

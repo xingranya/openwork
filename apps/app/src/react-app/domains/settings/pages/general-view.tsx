@@ -44,7 +44,7 @@ const workspaceCards: SettingsCardDefinition[] = [
 
 const globalCards: SettingsCardDefinition[] = [
   { tab: "ai", icon: Sparkles, title: "AI 模型服务", desc: "连接可提供 AI 模型的服务。" },
-  { tab: "cloud-account", icon: Cloud, title: "公司账号", desc: "管理 FoxWork 公司账号和公司信息。" },
+  { tab: "cloud-account", icon: Cloud, title: "公司账号", desc: "管理 SeeWayWork 公司账号和公司信息。" },
   { tab: "connect", icon: Cable, titleKey: "settings.tab_connect", descKey: "settings.tab_description_connect" },
   { tab: "appearance", icon: Paintbrush, title: "外观", desc: "调整主题、字号和界面显示。" },
   { tab: "environment", icon: Terminal, title: "环境变量", desc: "管理环境变量和本机路径。" },

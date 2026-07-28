@@ -16,7 +16,7 @@ import {
 } from "./dmg-layout.mjs"
 import { installerVersionFromEnvironment } from "./installer-version.mjs"
 
-const appName = "Install OpenWork.app"
+const appName = "Install SeeWayWork.app"
 const executableName = "openwork-installer"
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const backgroundAssetDir = path.join(packageRoot, "assets", "dmg-background")
@@ -53,8 +53,8 @@ function writeInfoPlist(appPath, version) {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Install OpenWork</string>
-  <key>CFBundleDisplayName</key><string>Install OpenWork</string>
+  <key>CFBundleName</key><string>Install SeeWayWork</string>
+  <key>CFBundleDisplayName</key><string>Install SeeWayWork</string>
   <key>CFBundleIdentifier</key><string>com.differentai.openwork.installer</string>
   <key>CFBundleExecutable</key><string>${executableName}</string>
   <key>CFBundleIconFile</key><string>icon</string>
@@ -161,13 +161,13 @@ async function main() {
   const arch = normalizeArch(argValue("--arch") || process.env.OPENWORK_INSTALLER_ARCH || process.env.TARGET_ARCH || process.arch)
   const inputPath = path.resolve(argValue("--input") || defaultInputPath())
   const outDir = path.resolve(argValue("--out-dir") || "dist")
-  const outputPath = path.resolve(argValue("--output") || path.join(outDir, `OpenWork-Installer-${arch}.dmg`))
+  const outputPath = path.resolve(argValue("--output") || path.join(outDir, `SeeWayWork-Installer-${arch}.dmg`))
   const version = installerVersionFromEnvironment()
   if (!version) fail("Could not resolve an installer version. Pass --version 0.18.1.")
   const volumeName = dmgVolumeName(version)
   const stagingRoot = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-dmg-root-"))
   const imageRoot = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-dmg-image-"))
-  const rwImagePath = path.join(imageRoot, "OpenWork-Installer.readwrite.dmg")
+  const rwImagePath = path.join(imageRoot, "SeeWayWork-Installer.readwrite.dmg")
   const mountPoint = path.join(imageRoot, volumeName)
   let attached = false
 

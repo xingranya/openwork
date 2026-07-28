@@ -507,7 +507,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink }) {
       // data: loads are internal plumbing (CDP target-marker pages), not
       // user-visible navigations — don't surface the panel for them.
       if (target === "about:blank" || target.startsWith("data:")) return;
-      // 拦截 FoxWork 深链，让内置浏览器中的登录交接不依赖系统协议处理器。
+      // 拦截 SeeWayWork 深链，让内置浏览器中的登录交接不依赖系统协议处理器。
       if (DESKTOP_DEEP_LINK_PREFIXES.some((prefix) => target.startsWith(prefix))) {
         if (typeof onDeepLink === "function") {
           onDeepLink([target]);

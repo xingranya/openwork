@@ -82,7 +82,7 @@ export function DesktopPoliciesScreen() {
     <DashboardPageTemplate
       icon={Laptop}
       title="桌面策略"
-      description="控制全公司、指定成员或团队可以使用哪些 FoxWork 桌面能力。"
+      description="控制全公司、指定成员或团队可以使用哪些 SeeWayWork 桌面能力。"
       colors={["#F8FAFC", "#0F172A", "#38BDF8", "#A78BFA"]}
     >
       <div className="mb-6 flex flex-wrap items-center justify-end gap-3">

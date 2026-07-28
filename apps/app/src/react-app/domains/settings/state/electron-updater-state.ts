@@ -239,7 +239,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   const downloadUpdate = useCallback(async (channelOverride?: ReleaseChannel) => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.download) {
-      const message = "只有 FoxWork 桌面版可以下载更新。";
+      const message = "只有 SeeWayWork 桌面版可以下载更新。";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;
@@ -352,7 +352,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         const channelState = await bridge.getChannel?.();
         const currentVersion = channelState?.currentVersion ?? appVersion;
         if (!currentVersion) {
-          throw new Error("Could not determine the installed OpenWork version.");
+          throw new Error("Could not determine the installed SeeWayWork version.");
         }
 
         const selection = await resolveFreshStableDesktopUpdate({
@@ -494,7 +494,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   const installUpdateAndRestart = useCallback(async () => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.installAndRestart) {
-      const message = "只有 FoxWork 桌面版可以安装更新。";
+      const message = "只有 SeeWayWork 桌面版可以安装更新。";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;

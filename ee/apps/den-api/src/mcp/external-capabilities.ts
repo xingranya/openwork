@@ -296,7 +296,7 @@ export function externalConnectionErrorHint(
   }
   if (externalMcpAuthErrorCode(error, message)) {
     const destination = credentialMode === "per_member"
-      ? "FoxWork 的“我的连接”"
+      ? "SeeWayWork 的“我的连接”"
       : "公司管理后台的“MCP 连接”"
     return `“${connectionName}”保存的凭据无效或已过期。请在${destination}重新连接，然后再次检索。公司服务本身仍保持连接。${LIVE_PROBE_HINT}`
   }
@@ -668,7 +668,7 @@ async function probeExternalMcpConnection(input: {
           score,
           summary: `【${connection.name}】已向你开放，但尚未连接个人账号。`,
           status: "needs_connection",
-          hint: `请在 FoxWork 的“我的连接”中连接“${connection.name}”，完成后再次检索。`,
+          hint: `请在 SeeWayWork 的“我的连接”中连接“${connection.name}”，完成后再次检索。`,
           connectionStatus: buildExternalConnectionStatus({ connection, state: "needs_connection", errorCode: "not_connected", message }),
         }))
       }
@@ -932,7 +932,7 @@ function advisorySchemaGuidance(
   return {
     advisory: true,
     providerCallAttempted: true,
-    message: "FoxWork 已将调用转发给供应商。本地 Schema 检查只作提示，最终以供应商返回结果为准。",
+    message: "SeeWayWork 已将调用转发给供应商。本地 Schema 检查只作提示，最终以供应商返回结果为准。",
     warnings,
   }
 }
@@ -1021,7 +1021,7 @@ export async function executeExternalCapability(input: {
       return {
         ok: false,
         error: "needs_connection",
-        message: `你还没有连接“${connection.name}”账号。请在 FoxWork 的“我的连接”中完成连接。`,
+        message: `你还没有连接“${connection.name}”账号。请在 SeeWayWork 的“我的连接”中完成连接。`,
         connectionStatus: buildExternalConnectionStatus({
           connection,
           state: "needs_connection",
@@ -1065,7 +1065,7 @@ export async function executeExternalCapability(input: {
     if (input.schemaDigest && input.schemaDigest !== schemaDigest) {
       schemaWarnings.push({
         code: "capability_schema_changed",
-        message: "供应商在检索后返回了不同的能力 Schema，但 FoxWork 仍已转发本次调用。",
+        message: "供应商在检索后返回了不同的能力 Schema，但 SeeWayWork 仍已转发本次调用。",
         searchedSchemaDigest: input.schemaDigest,
         currentSchemaDigest: schemaDigest,
         suggestedAction: "如果供应商调用失败，请重新调用 search_capabilities，并按最新 argumentsSchema 重试；如果调用成功，无需只因本提示再次执行。",
@@ -1089,7 +1089,7 @@ export async function executeExternalCapability(input: {
     if (!validation.ok && validation.error === "invalid_arguments") {
       schemaWarnings.push({
         code: "arguments_schema_mismatch",
-        message: "参数不符合供应商声明的 argumentsSchema，但供应商可能仍会接受，因此 FoxWork 已继续转发。",
+        message: "参数不符合供应商声明的 argumentsSchema，但供应商可能仍会接受，因此 SeeWayWork 已继续转发。",
         issues: validation.issues,
         suggestedAction: "如果供应商调用失败，请修正列出的问题后使用新参数重试；如果调用成功，无需只因本提示再次执行。",
       })

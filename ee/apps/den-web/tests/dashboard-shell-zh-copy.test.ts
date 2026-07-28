@@ -39,11 +39,11 @@ describe("Den 公司导航中文文案", () => {
     expect(source).not.toContain("Preparing workspace");
   });
 
-  test("个人资料和成员状态使用 FoxWork 中文文案", () => {
+  test("个人资料和成员状态使用 SeeWayWork 中文文案", () => {
     const profile = readComponent("user-profile-dialog.tsx");
     const member = readComponent("org-member-identity.tsx");
 
-    expect(profile).toContain(">FoxWork<");
+    expect(profile).toContain(">SeeWayWork<");
     expect(profile).toContain('title = "个人资料"');
     expect(profile).toContain("正在保存...");
     expect(member).toContain("管理员");

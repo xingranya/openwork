@@ -70,7 +70,7 @@ export class EnterpriseMcpClientError extends Error {
  * Marks a lifecycle abort as ours on the `data` of an MCP error. The SDK
  * rethrows an `McpError` untouched but collapses any other abort reason into
  * `String(reason)` on a RequestTimeout, leaving downstream diagnostics unable
- * to tell an OpenWork deadline apart from a provider-declared failure.
+ * 用于区分 SeeWayWork 生命周期截止错误和供应商返回的失败。
  */
 export const ENTERPRISE_MCP_LIFECYCLE_DEADLINE_DATA_KEY = "enterpriseMcpLifecycleDeadline"
 

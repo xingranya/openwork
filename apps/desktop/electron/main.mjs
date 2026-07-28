@@ -328,7 +328,7 @@ async function resolveArchitectureInfo() {
   const systemArch = resolveSystemArch();
   const version = app.getVersion();
   const targetArch = systemArch === "arm64" || systemArch === "x64" ? systemArch : appArch;
-  const assetName = `foxwork-${platformDownloadSlug()}-${downloadAssetArch(targetArch)}-${version}.${downloadAssetExtension()}`;
+  const assetName = `SeeWayWork-${platformDownloadSlug()}-${downloadAssetArch(targetArch)}-${version}.${downloadAssetExtension()}`;
   const latestDownloadUrl = await resolveCorrectArchitectureDownloadUrl(targetArch);
   const hasCorrectArchitectureDownload = Boolean(latestDownloadUrl);
   return {
@@ -833,7 +833,7 @@ if (process.platform === "darwin" && INITIAL_APP_ICON_IMAGE && !INITIAL_APP_ICON
   app.dock.setIcon(INITIAL_APP_ICON_IMAGE);
 }
 
-// 向 FoxWork 自带的浏览器工具开放 Chrome DevTools Protocol。可通过环境变量
+// 向 SeeWayWork 自带的浏览器工具开放 Chrome DevTools Protocol。可通过环境变量
 // 固定端口，否则从 9223 开始选择空闲端口。该配置必须在应用就绪前完成。
 function probePort(port) {
   return new Promise((resolve) => {
@@ -948,7 +948,7 @@ let mainWindow = null;
 const deepLinkDelivery = createDeepLinkDelivery((urls) => {
   const webContents = mainWindow?.webContents;
   if (!webContents || webContents.isDestroyed()) {
-    throw new Error("FoxWork 页面尚未准备好接收深层链接。");
+    throw new Error("SeeWayWork 页面尚未准备好接收深层链接。");
   }
   webContents.send(NATIVE_DEEP_LINK_EVENT, urls);
 });
@@ -1161,7 +1161,7 @@ function showShutdownScreen() {
   <body>
     <main>
       <div class="spinner" aria-hidden="true"></div>
-      <div class="title">正在关闭 FoxWork 服务</div>
+      <div class="title">正在关闭 SeeWayWork 服务</div>
       <div class="body">正在安全退出本地工作区和后台服务...</div>
     </main>
   </body>
@@ -1184,13 +1184,13 @@ async function disposeRuntimeBeforeQuit() {
 
 function assertOpenworkServerReady(info) {
   if (!info?.running) {
-    throw new Error("FoxWork 本机服务启动后未能持续运行。");
+    throw new Error("SeeWayWork 本机服务启动后未能持续运行。");
   }
   if (!info.baseUrl) {
-    throw new Error("FoxWork 本机服务启动后未返回访问地址。");
+    throw new Error("SeeWayWork 本机服务启动后未返回访问地址。");
   }
   if (!info.ownerToken && !info.clientToken) {
-    throw new Error("FoxWork 本机服务启动后未返回访问凭据。");
+    throw new Error("SeeWayWork 本机服务启动后未返回访问凭据。");
   }
   return info;
 }
@@ -2251,7 +2251,7 @@ function desktopErrorMessageWithCauses(error) {
 async function handleDesktopInvoke(event, command, ...args) {
   const handler = desktopCommandHandlers[command];
   if (!handler) {
-    throw new Error(`FoxWork 桌面桥接尚不支持此操作：${command}`);
+    throw new Error(`SeeWayWork 桌面桥接尚不支持此操作：${command}`);
   }
   try {
     return await handler(event, ...args);
@@ -2503,11 +2503,11 @@ const { ensureAutoUpdater } = registerUpdaterIpc({ app, ipcMain, getMainWindow: 
 
 if (!app.requestSingleInstanceLock()) {
   if (isDevMode && !app.isPackaged) {
-    console.error(`[openwork] Another OpenWork dev instance already holds this profile directory:
+    console.error(`[openwork] 另一个 SeeWayWork 开发实例正在使用此配置目录：
   ${app.getPath("userData")}
-The second process is exiting so its CDP port is released.
-Run this worktree with an isolated profile: OPENWORK_DEV_PROFILE=auto pnpm dev
-or use: pnpm dev:worktree`);
+第二个进程将退出并释放 CDP 端口。
+请使用隔离配置启动此工作树：OPENWORK_DEV_PROFILE=auto pnpm dev
+也可以运行：pnpm dev:worktree`);
     app.exit(1);
     setImmediate(() => process.exit(1));
   } else {

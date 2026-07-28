@@ -18,7 +18,7 @@ afterEach(async () => {
   await setDenBootstrapConfig({ baseUrl: DEFAULT_DEN_BASE_URL, requireSignin: false });
 });
 
-describe("FoxWork 公司模型入口", () => {
+describe("SeeWayWork 公司模型入口", () => {
   test("公司定制版始终关闭上游促销入口", () => {
     expect(isOpenWorkModelsPromoEligibleForDenBaseUrl("https://app.openworklabs.com/api/den/")).toBe(false);
   });

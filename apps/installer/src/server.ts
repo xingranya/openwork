@@ -13,9 +13,8 @@ export type InstallerServer = {
 }
 
 /**
- * Loopback-only UI/control server. Mutating routes require the per-process
- * token embedded in the served page so other local processes can't drive the
- * installer.
+ * 仅监听回环地址的安装界面服务。写操作必须携带页面内嵌的进程级令牌，
+ * 避免其他本机进程未经授权操作安装程序。
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -31,8 +30,8 @@ function installLinkFromPayload(value: unknown) {
 
 function tlsUntrustedMessage(installLink: string): string {
   const host = parseInstallLinkInput(installLink)?.host
-  const certificateTarget = host ? `the certificate for ${host}` : "the workspace certificate"
-  return `Reached your workspace, but the secure connection isn't trusted on this computer yet. This usually means your company inspects secure traffic. Try again — if it keeps failing, ask IT to check ${certificateTarget}.`
+  const certificateTarget = host ? `${host} 的证书` : "公司服务证书"
+  return `已连接公司服务，但本机不信任其安全证书。这通常是公司网络检查加密流量导致的。请重试；若仍失败，请联系 IT 检查 ${certificateTarget}。`
 }
 
 export function startInstallerServer(
@@ -43,10 +42,8 @@ export function startInstallerServer(
   const token = randomBytes(16).toString("hex")
   const dryRun = process.env.OPENWORK_INSTALLER_DRY_RUN === "1"
   let resolution = initialResolution
-  // Warm the OS trust-store CA cache now so the first resolve-link fetch does
-  // not spend its 10s abort budget waiting on PowerShell/security exports.
-  // Record what each source produced: a TLS failure is otherwise indistinguishable
-  // from silent enumeration failure when supporting a locked-down fleet.
+  // 提前预热系统证书缓存，避免首次解析链接时把超时预算耗在证书导出上。
+  // 同时记录各证书来源的数量，便于区分 TLS 失败和系统证书读取失败。
   void loadSystemCaBundle().then((bundle) => {
     console.log(`[openwork-installer] OS trust store: ${summarizeSystemCaSources(bundle.sources)}`)
   })
@@ -87,11 +84,46 @@ export function startInstallerServer(
         if (request.method === "POST" && url.pathname === "/api/resolve-link") {
           const installLink = installLinkFromPayload(await request.json().catch(() => null))
           if (!installLink) {
-            return Response.json({ error: "missing_install_link", message: "请粘贴 FoxWork 安装链接。" }, { status: 400 })
+            return Response.json({ error: "missing_install_link", message: "请粘贴 SeeWayWork 安装链接。" }, { status: 400 })
           }
-          const config = await installLinkConfig(installLink)
-          if (!config) {
-            return Response.json({ error: "install_link_invalid", message: "无法识别安装链接，请检查后重试。" }, { status: 400 })
+          const result = await resolveInstallLinkConfig(installLink)
+          if (result.status !== "resolved") {
+            if (result.status === "not-found") {
+              return Response.json({
+                error: "install_link_expired",
+                message: "该安装链接已过期或已被替换，请联系公司管理员从“成员”页面获取新链接。",
+              }, { status: 400 })
+            }
+            if (result.status === "invalid-input") {
+              return Response.json({
+                error: "install_link_invalid",
+                message: "这不是有效的公司安装链接。请在公司安装页面复制第 2 步显示的完整链接，链接应以 ?token=... 结尾。",
+              }, { status: 400 })
+            }
+            if (result.status === "unreachable") {
+              if (result.reason === "tls") {
+                const bundle = await loadSystemCaBundle()
+                return Response.json({
+                  error: "install_link_tls_untrusted",
+                  message: tlsUntrustedMessage(installLink),
+                  trustSources: summarizeSystemCaSources(bundle.sources),
+                }, { status: 400 })
+              }
+              return Response.json({
+                error: "install_link_unreachable",
+                message: "无法连接公司服务，请检查网络或 VPN 后重试。",
+              }, { status: 400 })
+            }
+            return Response.json({
+              error: "install_link_invalid",
+              message: "无法解析安装链接。",
+            }, { status: 400 })
+          }
+          resolution = {
+            config: result.config,
+            source: "install-link",
+            activation: result.activation,
+            installLink,
           }
           return Response.json({ ok: true, source: installerConfigSourceLabel(resolution.source) })
         }
@@ -113,7 +145,7 @@ export function startInstallerServer(
           if (!activation) {
             return Response.json({
               error: "activation_unavailable",
-              message: "Could not create a browser activation link. Paste the organization install link again.",
+              message: "无法创建浏览器登录链接，请重新粘贴公司安装链接。",
             }, { status: 409 })
           }
           return Response.json({
@@ -126,7 +158,7 @@ export function startInstallerServer(
           if (!activation) {
             return Response.json({
               error: "activation_unavailable",
-              message: "Could not create a browser activation link. Paste the organization install link again.",
+              message: "无法创建浏览器登录链接，请重新粘贴公司安装链接。",
             }, { status: 409 })
           }
           return Response.json({

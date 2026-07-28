@@ -79,7 +79,7 @@ export function employeeFacingProvider(provider: ConnectedProvider) {
     return { name: provider.name, id: provider.id };
   }
   return {
-    name: internalId === "opencodego" ? "FoxWork 轻量模型" : "FoxWork 免费模型",
+    name: internalId === "opencodego" ? "SeeWayWork 轻量模型" : "SeeWayWork 免费模型",
     id: null,
   };
 }

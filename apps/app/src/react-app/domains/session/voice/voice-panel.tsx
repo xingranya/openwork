@@ -43,7 +43,7 @@ type VoicePanelProps = {
   onClose: () => void;
 };
 
-const DEFAULT_TEXT_COMMAND = "总结当前 FoxWork 会话，并把下一步写入输入框。";
+const DEFAULT_TEXT_COMMAND = "总结当前 SeeWayWork 会话，并把下一步写入输入框。";
 const VOICE_SUGGESTIONS = [
   "朗读当前会话的最新消息",
   "把简短的下一步写入输入框",
@@ -51,7 +51,7 @@ const VOICE_SUGGESTIONS = [
   "发送输入框中的内容",
 ];
 const TOOL_LABELS: Record<string, string> = {
-  openwork_snapshot: "正在检查 FoxWork",
+  openwork_snapshot: "正在检查 SeeWayWork",
   openwork_list_actions: "正在读取可用操作",
   openwork_execute_action: "正在执行界面操作",
 };
@@ -135,7 +135,7 @@ function safeJson(value: unknown) {
 }
 
 function humanToolLabel(toolName?: string) {
-  if (!toolName) return "FoxWork 操作";
+  if (!toolName) return "SeeWayWork 操作";
   return TOOL_LABELS[toolName] ?? "自定义操作";
 }
 
@@ -264,7 +264,7 @@ async function requestMacMicrophoneAccess() {
 
 async function executeOpenWorkTool(name: string, args: Record<string, unknown>) {
   const control = window.__openworkControl;
-  if (!control) return { ok: false, error: "FoxWork 控制功能当前不可用。" };
+  if (!control) return { ok: false, error: "SeeWayWork 控制功能当前不可用。" };
 
   if (name === "openwork_snapshot") return { ok: true, snapshot: control.snapshot() };
   if (name === "openwork_list_actions") return { ok: true, actions: control.listActions() };
@@ -396,8 +396,8 @@ export function VoicePanel(props: VoicePanelProps) {
       status: nextStatus,
       statusText: text ?? (
         nextStatus === "connecting" ? "正在连接 OpenAI 实时语音..." :
-          nextStatus === "listening" ? "正在聆听，请说出要 FoxWork 完成的操作。" :
-            nextStatus === "speaking" ? "FoxWork 正在说话..." :
+          nextStatus === "listening" ? "正在聆听，请说出要 SeeWayWork 完成的操作。" :
+            nextStatus === "speaking" ? "SeeWayWork 正在说话..." :
               nextStatus === "muted" ? "已连接，麦克风已静音。" :
                 nextStatus === "error" ? "语音模式需要处理。" :
                   "语音控制已就绪。"
@@ -532,7 +532,7 @@ export function VoicePanel(props: VoicePanelProps) {
 
   const connectRealtime = useCallback(async (audioInput = true) => {
     const client = props.client;
-    if (!client) throw new Error("FoxWork 本地服务尚未连接。");
+    if (!client) throw new Error("SeeWayWork 本地服务尚未连接。");
     if (audioInput && !navigator.mediaDevices?.getUserMedia) throw new Error("当前环境无法使用麦克风。");
 
     disconnectRealtime(true);
@@ -545,7 +545,7 @@ export function VoicePanel(props: VoicePanelProps) {
     if (audioInput) {
       setRuntimeStatus("connecting", "正在申请麦克风权限...");
       const macPermissionGranted = await requestMacMicrophoneAccess();
-      if (!macPermissionGranted) throw new Error("macOS 未允许使用麦克风。请在“系统设置 > 隐私与安全性 > 麦克风”中允许 FoxWork，然后重启 FoxWork。");
+      if (!macPermissionGranted) throw new Error("macOS 未允许使用麦克风。请在“系统设置 > 隐私与安全性 > 麦克风”中允许 SeeWayWork，然后重启 SeeWayWork。");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
@@ -595,7 +595,7 @@ export function VoicePanel(props: VoicePanelProps) {
     await waitForDataChannelOpen(channel);
     setRealtimeDiagnostics("实时语音通道已打开。");
     setRuntimeStatus("listening", audioInput ? undefined : "已连接，请输入语音命令。");
-    addEntry("system", `实时语音已连接模型 ${realtimeSession.model}，可使用 ${realtimeSession.tools.length} 个 FoxWork 工具。`);
+    addEntry("system", `实时语音已连接模型 ${realtimeSession.model}，可使用 ${realtimeSession.tools.length} 个 SeeWayWork 工具。`);
     recordInspectorEvent("voice.connected", { sessionId: props.sessionId, model: realtimeSession.model });
   }, [addEntry, disconnectRealtime, handleRealtimeMessage, props.client, props.sessionId, props.workspaceId, setRuntimeStatus]);
 
@@ -795,7 +795,7 @@ export function VoicePanel(props: VoicePanelProps) {
             <Radio className="text-primary" />
             语音模式
           </div>
-          <div className="truncate text-xs text-muted-foreground">通过 FoxWork 界面控制实时语音</div>
+          <div className="truncate text-xs text-muted-foreground">通过 SeeWayWork 界面控制实时语音</div>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={props.onClose} aria-label="关闭语音模式">
           <X />
@@ -851,7 +851,7 @@ export function VoicePanel(props: VoicePanelProps) {
                 <CardTitle>需要连接本地服务</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                语音模式需要连接 FoxWork 本地服务，由服务生成短期实时语音凭据，避免在界面进程中暴露 API 密钥。
+                语音模式需要连接 SeeWayWork 本地服务，由服务生成短期实时语音凭据，避免在界面进程中暴露 API 密钥。
               </CardContent>
             </Card>
           ) : null}

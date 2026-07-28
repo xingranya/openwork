@@ -98,7 +98,7 @@ export async function GET() {
       foxworkMcpEndpoint: readMcpEndpoint(),
       foxworkMcpDocsUrl: readPublicRuntimeEnv("DEN_WEB_FOXWORK_MCP_DOCS_URL"),
       orgMode,
-      singleOrgName: readPublicRuntimeEnv("DEN_SINGLE_ORG_NAME") || "FoxWork 公司",
+      singleOrgName: readPublicRuntimeEnv("DEN_SINGLE_ORG_NAME") || "SeeWayWork 公司",
       singleOrgSlug: readPublicRuntimeEnv("DEN_SINGLE_ORG_SLUG") || "default",
       singleOrgAllowPublicSignup: readBooleanEnv("DEN_SINGLE_ORG_ALLOW_PUBLIC_SIGNUP", true),
       singleOrgSsoConfigured,

@@ -59,7 +59,7 @@ function InvitationDetails({
 }
 
 function InvitationHeading({
-  eyebrow = "FoxWork 公司服务",
+  eyebrow = "SeeWayWork 公司服务",
   title,
   copy,
 }: {

@@ -7,7 +7,7 @@ import {
   validateLocalProviderInput,
 } from "../src/react-app/domains/connections/provider-auth/local-provider-config";
 
-describe("FoxWork 本地模型服务", () => {
+describe("SeeWayWork 本地模型服务", () => {
   test("只提供五家国内常用服务和两种自定义协议", () => {
     expect(LOCAL_PROVIDER_PLANS.map((plan) => plan.kind)).toEqual([
       "deepseek",

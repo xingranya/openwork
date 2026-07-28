@@ -21,8 +21,8 @@ const TECHNICAL_LABELS = new Set([
   "API",
   "API Key",
   "API keys",
-  "FoxWork",
-  "FoxWork MCP",
+  "SeeWayWork",
+  "SeeWayWork MCP",
   "GitHub",
   "Google Workspace",
   "Linux",
@@ -75,7 +75,7 @@ function sourceFiles(directory: string): string[] {
 
 function isVisibleEnglish(text: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
-  if (/\bOpen(?:Work|Code)\b|Big Pickle/.test(normalized)) return true;
+  if (/\b(?:FoxWork|OpenWork|OpenCode)\b|Big Pickle/.test(normalized)) return true;
   if (!/[A-Za-z]{2}/.test(normalized) || /[\u3400-\u9fff]/.test(normalized)) return false;
   if (TECHNICAL_LABELS.has(normalized)) return false;
   if (/^(?:https?:\/\/|\.?\.?\/|~\/|[A-Za-z]:\\|\.)/.test(normalized)) return false;
@@ -209,6 +209,15 @@ function scanFile(file: string): Violation[] {
 }
 
 describe("Den 简体中文界面契约", () => {
+  test("员工页面和管理员后台不包含旧产品品牌", () => {
+    const sources = [APP_ROOT, COMPONENTS_ROOT].flatMap(sourceFiles);
+    const violations = sources.flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      return /\b(?:FoxWork|OpenWork)\b/.test(source) ? [path.relative(APP_ROOT, file)] : [];
+    });
+    expect(violations).toEqual([]);
+  });
+
   test("员工页面和管理员后台不直接显示英文句子", () => {
     const violations = [APP_ROOT, COMPONENTS_ROOT].flatMap((root) => sourceFiles(root).flatMap(scanFile));
     const sample = violations.slice(0, 60).map(
@@ -227,7 +236,7 @@ describe("Den 简体中文界面契约", () => {
   });
 
   test("运行服务名称不暴露上游品牌", () => {
-    expect(DEN_FLOW_SOURCE).toContain('return "FoxWork 本地服务"');
+    expect(DEN_FLOW_SOURCE).toContain('return "SeeWayWork 本地服务"');
     expect(DEN_FLOW_SOURCE).toContain('return "AI 运行引擎"');
     expect(DEN_FLOW_SOURCE).not.toContain('return "OpenWork server"');
     expect(DEN_FLOW_SOURCE).not.toContain('return "OpenCode"');

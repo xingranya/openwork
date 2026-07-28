@@ -300,7 +300,7 @@ export function AnalyticsScreen() {
 
       {/* 面包屑 */}
       <div className="flex flex-wrap items-center gap-2.5 border-b border-[#e7e9f0] pb-3">
-        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "FoxWork"}</span>
+        <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">{activeOrg?.name ?? "SeeWayWork"}</span>
         <ChevronRight className="h-3.5 w-3.5 text-[#9AA5BA]" />
         <span className="text-[14px] font-medium tracking-[-0.01em] text-[#5A6886]">用量分析</span>
       </div>
@@ -353,7 +353,7 @@ export function AnalyticsScreen() {
       <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Users className="h-5 w-5 text-[#6F3DFF]" />}
-          title="FoxWork 用户"
+          title="SeeWayWork 用户"
           value={isLoading ? "…" : `${data?.members ?? 0}`}
           sub={isProjectFiltered ? "公司总数，不受项目筛选影响" : `${data?.pendingInvites ?? 0} 个待处理邀请`}
           tone="violet"
@@ -436,7 +436,7 @@ export function AnalyticsScreen() {
 
       {/* 隐私说明 */}
       <p className="mt-5 text-[12px] leading-5 text-[#9AA5BA]">
-        遥测不会包含提示词、代码、文件内容、差异、密钥或终端输出。成员登录 FoxWork 并运行任务后，用量数据会显示在这里。
+        遥测不会包含提示词、代码、文件内容、差异、密钥或终端输出。成员登录 SeeWayWork 并运行任务后，用量数据会显示在这里。
       </p>
       </>
       )}

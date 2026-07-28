@@ -307,7 +307,7 @@ export function createConnectionsStore(options: {
     });
 
     if (hasOpenworkTarget && !canTryOpenworkServer) {
-      throw new Error("FoxWork 服务无法读取当前工作区的 MCP 配置。");
+      throw new Error("SeeWayWork 服务无法读取当前工作区的 MCP 配置。");
     }
 
     if (!canTryOpenworkServer || !openworkClient || !openworkWorkspaceId) return null;
@@ -351,7 +351,7 @@ export function createConnectionsStore(options: {
       if (!fallbackOnError) {
         throw error instanceof Error
           ? error
-          : new Error("电脑操作辅助程序不可用，请重启 FoxWork 或重新安装应用。");
+          : new Error("电脑操作辅助程序不可用，请重启 SeeWayWork 或重新安装应用。");
       }
       // Fall through to the published package command in the manifest/catalog.
     }
@@ -465,7 +465,7 @@ export function createConnectionsStore(options: {
     if (isRemoteWorkspace) {
       mutateState((current) => ({
         ...current,
-        mcpStatus: "FoxWork 服务不可用，MCP 配置当前为只读。",
+        mcpStatus: "SeeWayWork 服务不可用，MCP 配置当前为只读。",
         mcpServers: [],
         mcpStatuses: {},
       }));
@@ -515,7 +515,7 @@ export function createConnectionsStore(options: {
         ...globalServers.filter((entry) => !projectNames.has(entry.name)),
         ...projectServers,
       ];
-      // Runtime-DB MCPs (source "config.remote") only exist on the OpenWork
+      // Runtime-DB MCPs (source "config.remote") only exist on the SeeWayWork
       // server. Keep the last-known entries instead of silently dropping them
       // while the server is briefly unreachable (startup race) — otherwise
       // enabled MCPs like openwork-ui render as "off".
@@ -592,7 +592,7 @@ export function createConnectionsStore(options: {
       await resolveWritableOpenworkTarget();
 
     if (isRemoteWorkspace && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "FoxWork 服务不可用，MCP 配置当前为只读。");
+      setStateField("mcpStatus", "SeeWayWork 服务不可用，MCP 配置当前为只读。");
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "openwork-server-unavailable",
       });
@@ -600,7 +600,7 @@ export function createConnectionsStore(options: {
     }
 
     if (hasOpenworkTarget && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 配置。");
+      setStateField("mcpStatus", "SeeWayWork 服务当前只能读取 MCP 配置。");
       finishPerf(options.developerMode(), "mcp.connect", "blocked", startedAt, {
         reason: "openwork-server-read-only",
       });
@@ -649,7 +649,7 @@ export function createConnectionsStore(options: {
 
       if (entry.serverName === CLOUD_MCP_SERVER_NAME) {
         if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-          throw new Error("需要连接 FoxWork 服务，才能修复 AI 对已连接服务的访问。");
+          throw new Error("需要连接 SeeWayWork 服务，才能修复 AI 对已连接服务的访问。");
         }
         const context = await resolveCloudMcpOperationContext(entry.url);
         if (!context) {
@@ -713,7 +713,7 @@ export function createConnectionsStore(options: {
 
       if (entryType === "remote") {
         if (!resolvedUrl) {
-          throw new Error("缺少 MCP 地址，请确认 FoxWork 正在运行。");
+          throw new Error("缺少 MCP 地址，请确认 SeeWayWork 正在运行。");
         }
         mcpEntryConfig["url"] = resolvedUrl;
         if (resolvedHeaders) {
@@ -787,11 +787,11 @@ export function createConnectionsStore(options: {
       }
 
       if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-        // The OpenWork server is the source of truth for workspace-scoped MCP
+        // The SeeWayWork server is the source of truth for workspace-scoped MCP
         // config in the React port. Avoid also calling the OpenCode SDK's MCP
         // hot-add endpoint here: when the SDK client is rooted at the aggregate
         // `/opencode` route it can resolve to an internal `local_*` workspace
-        // id that the OpenWork server does not expose, producing a confusing
+        // id that the SeeWayWork server does not expose, producing a confusing
         // `workspace_not_found` after the config write already succeeded.
         setStateField("mcpStatuses", filterConfiguredStatuses(snapshot.mcpStatuses, snapshot.mcpServers));
       } else {
@@ -882,7 +882,7 @@ export function createConnectionsStore(options: {
 
   /**
    * Background reconciliation for the Den cloud MCP: when the desktop is
-   * signed in to OpenWork Cloud with an active org, keep the
+   * signed in to SeeWayWork Cloud with an active org, keep the
    * `openwork-cloud` MCP entry configured with a fresh first-party token.
    * Quiet by design — a failed mint never opens the OAuth modal.
    *
@@ -970,12 +970,12 @@ export function createConnectionsStore(options: {
       await resolveWritableOpenworkTarget();
 
     if (isRemoteWorkspace && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "FoxWork 服务不可用，MCP 授权当前为只读。");
+      setStateField("mcpStatus", "SeeWayWork 服务不可用，MCP 授权当前为只读。");
       return;
     }
 
     if (hasOpenworkTarget && !canUseOpenworkServer) {
-      setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 授权。");
+      setStateField("mcpStatus", "SeeWayWork 服务当前只能读取 MCP 授权。");
       return;
     }
 
@@ -1044,7 +1044,7 @@ export function createConnectionsStore(options: {
         await openworkClient.removeMcp(openworkWorkspaceId, name);
       } else {
         if (hasOpenworkTarget) {
-          setStateField("mcpStatus", "FoxWork 服务当前只能读取 MCP 配置。");
+          setStateField("mcpStatus", "SeeWayWork 服务当前只能读取 MCP 配置。");
           return;
         }
         const projectDir = options.projectDir().trim();

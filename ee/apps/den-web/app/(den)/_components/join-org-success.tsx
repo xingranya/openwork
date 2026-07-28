@@ -65,7 +65,7 @@ function ReturnToFoxWorkStatus({
         data-testid="desktop-connected"
         aria-live="polite"
       >
-        已连接，{organizationName} 的公司配置已写入 FoxWork。
+        已连接，{organizationName} 的公司配置已写入 SeeWayWork。
       </div>
     );
   }
@@ -78,13 +78,13 @@ function ReturnToFoxWorkStatus({
         aria-live="polite"
       >
         <p className="m-0">
-          FoxWork 没有打开？{" "}
+          SeeWayWork 没有打开？{" "}
           <button
             type="button"
             className="font-medium text-slate-950 underline-offset-4 hover:underline"
             onClick={() => window.location.assign(foxworkUrl)}
           >
-            再次打开 FoxWork
+            再次打开 SeeWayWork
           </button>
         </p>
         <div className="grid gap-2">
@@ -111,7 +111,7 @@ function ReturnToFoxWorkStatus({
 
   return (
     <p className="m-0 text-sm text-slate-500" aria-live="polite">
-      正在返回 FoxWork...
+      正在返回 SeeWayWork...
     </p>
   );
 }
@@ -168,13 +168,13 @@ export function JoinOrgSuccess({
         12000,
       );
       if (!response.ok) {
-        setActionError(getErrorMessage(payload, `无法返回 FoxWork（${response.status}）。`));
+        setActionError(getErrorMessage(payload, `无法返回 SeeWayWork（${response.status}）。`));
         return;
       }
 
       const foxworkUrl = getDesktopHandoffOpenworkUrl(payload);
       if (!foxworkUrl) {
-        setActionError("登录交接已准备完成，但公司服务没有返回 FoxWork 打开链接。");
+        setActionError("登录交接已准备完成，但公司服务没有返回 SeeWayWork 打开链接。");
         return;
       }
 
@@ -184,7 +184,7 @@ export function JoinOrgSuccess({
       setDesktopGrant(grant);
       window.location.assign(foxworkUrl);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "无法返回 FoxWork。");
+      setActionError(error instanceof Error ? error.message : "无法返回 SeeWayWork。");
     } finally {
       setHandoffBusy(false);
     }
@@ -195,12 +195,12 @@ export function JoinOrgSuccess({
       <section data-testid="join-org-success">
       <div className="grid gap-6 rounded-[1.75rem] border border-slate-200/80 bg-white p-6 md:p-8">
         <div className="grid gap-2">
-          <p className="den-eyebrow">FoxWork 公司服务</p>
+          <p className="den-eyebrow">SeeWayWork 公司服务</p>
           <h1 className="den-title-xl max-w-full">
             已加入{" "}
             <OrganizationBrandIdentity organizationName={organizationName} brand={brand} />
           </h1>
-          <p className="den-copy">安装 FoxWork 后，就可以在电脑上使用公司的模型、MCP 和 Skills。</p>
+          <p className="den-copy">安装 SeeWayWork 后，就可以在电脑上使用公司的模型、MCP 和 Skills。</p>
         </div>
 
         {isMobile === null ? (
@@ -208,8 +208,8 @@ export function JoinOrgSuccess({
         ) : isMobile ? (
           <div className="grid gap-5">
             <div className="den-frame-inset grid gap-2 rounded-[1.5rem] p-5" data-testid="join-org-mobile-note">
-              <p className="m-0 text-base font-medium text-[var(--dls-text-primary)]">FoxWork 需要安装在电脑上</p>
-              <p className="den-copy">账号已经加入公司。回到电脑后安装 FoxWork，再用当前账号登录即可。</p>
+              <p className="m-0 text-base font-medium text-[var(--dls-text-primary)]">SeeWayWork 需要安装在电脑上</p>
+              <p className="den-copy">账号已经加入公司。回到电脑后安装 SeeWayWork，再用当前账号登录即可。</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <button type="button" className="den-button-primary w-full sm:w-auto" onClick={onContinueInBrowser}>
@@ -232,7 +232,7 @@ export function JoinOrgSuccess({
               disabled={handoffBusy}
               data-testid="join-org-return-openwork"
             >
-              {handoffBusy ? "正在返回 FoxWork..." : "返回 FoxWork"}
+              {handoffBusy ? "正在返回 SeeWayWork..." : "返回 SeeWayWork"}
             </button>
           )
         ) : (
@@ -254,7 +254,7 @@ export function JoinOrgSuccess({
                 disabled={installBusy}
                 data-testid="join-org-get-app"
               >
-                {installBusy ? "正在准备安装包..." : "下载 FoxWork"}
+                {installBusy ? "正在准备安装包..." : "下载 SeeWayWork"}
               </button>
               {actionError ? (
                 <span className="self-center text-sm text-[var(--dls-text-secondary)]">

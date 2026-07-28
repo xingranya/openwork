@@ -252,7 +252,7 @@ function ExecutionDetails(props: { execution: OpencodeExecutionSnapshot }) {
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold tracking-wider text-blue-11">运行引擎执行信息</div>
-          <div className="text-[11px] text-dls-secondary">命令、工作目录以及 FoxWork 注入的环境变量。</div>
+          <div className="text-[11px] text-dls-secondary">命令、工作目录以及 SeeWayWork 注入的环境变量。</div>
         </div>
         <div className="shrink-0 rounded-full border border-blue-7/30 bg-blue-7/10 px-2 py-1 text-[10px] font-medium text-blue-11">
           已脱敏
@@ -1062,7 +1062,7 @@ export function DebugView(props: DebugViewProps) {
           <div className="rounded-xl border border-green-7/25 bg-green-3/10 px-3 py-2 text-[12px] leading-relaxed text-green-11">
             建议先使用<strong>准备迁移数据</strong>。此操作只写入 Electron 快照，不会替换、退出或删除现有应用。
             安装交接会将回滚备份保存在{" "}
-            <code className="font-mono">FoxWork.app.migrate-bak</code>。
+            <code className="font-mono">SeeWayWork.app.migrate-bak</code>。
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1133,7 +1133,7 @@ export function DebugView(props: DebugViewProps) {
               size="sm"
               onClick={() => void props.onInstallElectronPreviewFromTauri()}
               disabled={props.electronMigrationBusy || !props.electronMigrationUrl.trim()}
-              title="需要可信的安装包地址。macOS 会保留 FoxWork.app.migrate-bak 以便回滚。"
+              title="需要可信的安装包地址。macOS 会保留 SeeWayWork.app.migrate-bak 以便回滚。"
             >
               开始安装交接…
             </Button>

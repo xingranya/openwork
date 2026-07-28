@@ -317,7 +317,7 @@ export function PluginEditorScreen() {
         <div>
           <h1 className="text-[28px] font-semibold text-gray-900">创建插件</h1>
           <p className="mt-1 text-[15px] text-gray-500">
-            将技能、命令和 MCP 服务器组合成插件，团队成员可在 FoxWork 中直接安装。
+            将技能、命令和 MCP 服务器组合成插件，团队成员可在 SeeWayWork 中直接安装。
           </p>
         </div>
         <Link
@@ -515,7 +515,7 @@ export function PluginEditorScreen() {
             ))}
           </DenSelect>
           <p className="mt-1.5 text-[13px] text-gray-500">
-            发布后，成员可以在 FoxWork 的应用市场中找到此插件。
+            发布后，成员可以在 SeeWayWork 的应用市场中找到此插件。
           </p>
         </div>
       </div>

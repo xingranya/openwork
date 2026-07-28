@@ -102,7 +102,7 @@ test("concurrent marketplace lists seed one complete set of defaults", async () 
   )
 
   for (const result of results) {
-    expect(result.items.map((item) => item.name).sort()).toEqual(["FoxWork 公司能力"])
+    expect(result.items.map((item) => item.name).sort()).toEqual(["SeeWayWork 公司能力"])
   }
 
   const [marketplaces, plugins, memberships, marketplaceGrants, pluginGrants] = await Promise.all([

@@ -1071,7 +1071,7 @@ function MarketplacePluginCard({
           ) : (
             <p className="mt-2 text-[11.5px] text-gray-400">
               {plugin.sourceFormat === "openwork-builtin"
-                ? "FoxWork 桌面端内置"
+                ? "SeeWayWork 桌面端内置"
                 : "连接来源仓库后即可导入内容"}
             </p>
           )}

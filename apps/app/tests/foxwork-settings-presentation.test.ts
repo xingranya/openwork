@@ -50,17 +50,17 @@ const cloudProvidersViewSource = readFileSync(
   "utf8",
 );
 
-describe("FoxWork 设置页对外呈现", () => {
+describe("SeeWayWork 设置页对外呈现", () => {
   test("bundled free model providers do not expose upstream names or ids", () => {
     expect(employeeFacingProvider({ id: "opencode", name: "OpenCode Zen" })).toEqual({
-      name: "FoxWork 免费模型",
+      name: "SeeWayWork 免费模型",
       id: null,
     });
     expect(employeeFacingProvider({ id: "opencodego", name: "OpenCode Go" })).toEqual({
-      name: "FoxWork 轻量模型",
+      name: "SeeWayWork 轻量模型",
       id: null,
     });
-    expect(resolveProviderDisplayName("opencode")).toBe("FoxWork 免费模型");
+    expect(resolveProviderDisplayName("opencode")).toBe("SeeWayWork 免费模型");
   });
 
   test("keeps normal provider labels intact", () => {

@@ -19,7 +19,7 @@ test("rejects missing and malformed desktop handoffs", () => {
   expect(getDesktopGrant(null)).toBeNull();
 });
 
-test("兼容 FoxWork、旧协议和网页回跳链接", () => {
+test("兼容 SeeWayWork、旧协议和网页回跳链接", () => {
   expect(
     getDesktopGrant("foxwork://den-auth?grant=foxwork-grant&denBaseUrl=http%3A%2F%2Fden.local%2Fapi%2Fden")
   ).toBe("foxwork-grant");

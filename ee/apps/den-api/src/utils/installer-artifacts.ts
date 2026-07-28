@@ -9,7 +9,7 @@ export type ConfiguredInstallerArtifact = {
 }
 
 export const DEFAULT_INSTALLER_RELEASE_REPO = "different-ai/openwork"
-// First GitHub release tag on different-ai/openwork that carries the OpenWork-Installer-* assets;
+// different-ai/openwork 的旧版安装器仍只用于兼容历史发布资产。
 // earlier tags have no installer assets so redirects to them 404.
 export const FIRST_GENERIC_INSTALLER_RELEASE = "0.17.37"
 
@@ -41,8 +41,12 @@ export function desktopReleaseAssetName(
   const releaseRepo = options.releaseRepo
     ?? env.installerReleaseRepo
     ?? DEFAULT_INSTALLER_RELEASE_REPO
-  const assetPrefix = releaseRepo === DEFAULT_INSTALLER_RELEASE_REPO ? "openwork" : "foxwork"
-  const version = releaseTag.replace(/^foxwork-v/i, "").replace(/^v/i, "")
+  const assetPrefix = releaseRepo === DEFAULT_INSTALLER_RELEASE_REPO
+    ? "openwork"
+    : /^foxwork-v/i.test(releaseTag)
+      ? "foxwork"
+      : "SeeWayWork"
+  const version = releaseTag.replace(/^(?:seewaywork|foxwork)-v/i, "").replace(/^v/i, "")
   if (platform === "mac-arm64" || platform === "mac-x64") {
     return `${assetPrefix}-${platform}-${version}.dmg`
   }
@@ -60,13 +64,13 @@ export function desktopReleaseAssetName(
 
 export function genericInstallerArtifactName(platform: string) {
   if (platform === "mac-arm64") {
-    return "OpenWork-Installer-mac-arm64.dmg"
+    return "SeeWayWork-Installer-mac-arm64.dmg"
   }
   if (platform === "mac-x64") {
-    return "OpenWork-Installer-mac-x64.dmg"
+    return "SeeWayWork-Installer-mac-x64.dmg"
   }
   if (platform === "win-x64") {
-    return "OpenWork-Installer-win-x64.exe"
+    return "SeeWayWork-Installer-win-x64.exe"
   }
   return null
 }

@@ -154,7 +154,7 @@ describe("join organization invite clean layout contract", () => {
     });
 
     expect(legacyPreview?.organization.branding).toEqual({
-      appName: "OpenWork",
+      appName: "SeeWayWork",
       logoUrl: null,
       iconUrl: null,
     });
@@ -165,15 +165,15 @@ describe("join organization invite clean layout contract", () => {
     const installSource = readFileSync(installScreenPath, "utf8");
     const identitySource = readFileSync(brandIdentityPath, "utf8");
 
-    expect(successSource).toContain("下载 FoxWork");
-    expect(successSource).toContain("返回 FoxWork");
+    expect(successSource).toContain("下载 SeeWayWork");
+    expect(successSource).toContain("返回 SeeWayWork");
     expect(successSource).toContain("desktopAuthRequested");
     expect(successSource).toContain("在浏览器中继续");
     expect(successSource).toContain("capabilities");
     expect(successSource).not.toContain("Open OpenWork");
     expect(successSource).toContain("已加入");
     expect(installSource).toContain("DownloadPlatformGrid");
-    expect(installSource).toContain("<span>下载 FoxWork</span>");
+    expect(installSource).toContain("<span>下载 SeeWayWork</span>");
     expect(installSource).toContain("安装脚本（ARM64）");
     expect(identitySource).toContain("failedLogoUrl");
     expect(identitySource).toContain("failedIconUrl");

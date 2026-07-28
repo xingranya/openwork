@@ -4,9 +4,9 @@ export type InstallPlatform = "mac-arm64" | "mac-x64" | "win-x64" | "linux-x64" 
 // version in their name, so these are the exact names the browser saves. Linux is absent
 // on purpose: its setup script name embeds the organization slug, which this page never sees.
 const INSTALLER_FILE_NAMES: Partial<Record<InstallPlatform, string>> = {
-  "mac-arm64": "OpenWork-Installer-mac-arm64.dmg",
-  "mac-x64": "OpenWork-Installer-mac-x64.dmg",
-  "win-x64": "OpenWork-Installer-win-x64.exe",
+  "mac-arm64": "SeeWayWork-Installer-mac-arm64.dmg",
+  "mac-x64": "SeeWayWork-Installer-mac-x64.dmg",
+  "win-x64": "SeeWayWork-Installer-win-x64.exe",
 };
 
 export function installerFileName(platform: InstallPlatform | null) {

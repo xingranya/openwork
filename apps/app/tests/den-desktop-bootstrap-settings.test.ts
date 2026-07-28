@@ -222,7 +222,7 @@ describe("desktop Den bootstrap settings", () => {
       authToken: "tok_handoff",
       activeOrgId: "org_test",
       activeOrgSlug: "foxwork",
-      activeOrgName: "FoxWork",
+      activeOrgName: "SeeWayWork",
     });
 
     await started;

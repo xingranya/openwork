@@ -241,7 +241,7 @@ export function ReauthDialog({
   async function continueSocial(provider: SocialAuthProvider) {
     const popup = window.open("", "openwork-reauth", "popup,width=480,height=640");
     if (!popup) {
-      setError("FoxWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
+      setError("SeeWayWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
       return;
     }
 
@@ -286,7 +286,7 @@ export function ReauthDialog({
 
     const popup = window.open("", "openwork-reauth", "popup,width=480,height=640");
     if (!popup) {
-      setError("FoxWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
+      setError("SeeWayWork 无法打开登录窗口。请允许此站点打开弹窗，然后重试。");
       return;
     }
 
@@ -339,7 +339,7 @@ export function ReauthDialog({
               {WORKSPACE_REAUTH_SECURITY_MESSAGE}
             </h2>
             <p className="text-[14px] leading-6 text-slate-600">
-              确认身份后，FoxWork 会自动重试刚才的操作。
+              确认身份后，SeeWayWork 会自动重试刚才的操作。
             </p>
           </div>
         </div>

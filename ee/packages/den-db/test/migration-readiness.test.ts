@@ -69,12 +69,25 @@ describe("Den DB migration readiness wiring", () => {
 
   test("Dockerfile.den builds Den DB dist assets before the Den API image build", () => {
     const dockerfile = readRepoFile("packaging/docker/Dockerfile.den")
+    const typesBuildIndex = dockerfile.indexOf("RUN pnpm --dir /app/packages/types run build")
     const denDbBuildIndex = dockerfile.indexOf("RUN pnpm --dir /app/ee/packages/den-db run build")
     const denApiBuildIndex = dockerfile.indexOf("pnpm --dir /app/ee/apps/den-api run build")
 
+    assert.notEqual(typesBuildIndex, -1, "Dockerfile.den builds @openwork/types")
     assert.notEqual(denDbBuildIndex, -1, "Dockerfile.den builds @openwork-ee/den-db")
     assert.notEqual(denApiBuildIndex, -1, "Dockerfile.den builds @openwork-ee/den-api")
+    assert.ok(typesBuildIndex < denDbBuildIndex, "共享类型产物必须先于 den-db 生成")
     assert.ok(denDbBuildIndex < denApiBuildIndex, "den-db dist assets are built before den-api")
+  })
+
+  test("Dockerfile.den-web 在 Den Web 之前生成共享类型产物", () => {
+    const dockerfile = readRepoFile("packaging/docker/Dockerfile.den-web")
+    const typesBuildIndex = dockerfile.indexOf("RUN pnpm --dir /app/packages/types run build")
+    const denWebBuildIndex = dockerfile.indexOf("pnpm run build")
+
+    assert.notEqual(typesBuildIndex, -1)
+    assert.notEqual(denWebBuildIndex, -1)
+    assert.ok(typesBuildIndex < denWebBuildIndex)
   })
 
   test("Den API version changes do not invalidate dependency installation layers", () => {

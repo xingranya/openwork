@@ -73,10 +73,10 @@ export function createWorkspaceServerClientCacheKey(
 }
 
 /**
- * Workspace-scoped OpenWork server client resolver.
+ * Workspace-scoped SeeWayWork server client resolver.
  *
  * The returned endpoint includes the correctly mounted workspace URLs and a
- * memoized OpenWork server client. The cache is intentionally per resolver so
+ * memoized SeeWayWork server client. The cache is intentionally per resolver so
  * React routes/stores do not share mutable clients across workspace contexts.
  */
 export function createWorkspaceServerClientResolver(

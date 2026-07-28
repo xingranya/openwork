@@ -1,10 +1,10 @@
-# FoxWork 使用公司独立的发行身份；旧 OpenWork 标识只由迁移代码识别，
+# SeeWayWork 使用公司独立的发行身份；旧 OpenWork 标识只由迁移代码识别，
 # 不再写入新安装包、协议注册或更新配置。
 appId: com.foxwork.desktop
-productName: FoxWork
+productName: SeeWayWork
 copyright: "版权所有 © 2026 Fox"
 protocols:
-  - name: FoxWork
+  - name: SeeWayWork
     schemes:
       - foxwork
 directories:
@@ -54,10 +54,10 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    NSBluetoothAlwaysUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
-    NSBluetoothPeripheralUsageDescription: FoxWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
-    NSCameraUsageDescription: FoxWork 仅在你主动使用摄像头相关功能时访问摄像头。
-    NSMicrophoneUsageDescription: FoxWork 仅在你主动开启语音模式时使用麦克风。
+    NSBluetoothAlwaysUsageDescription: SeeWayWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
+    NSBluetoothPeripheralUsageDescription: SeeWayWork 仅在你主动使用蓝牙相关功能时访问蓝牙。
+    NSCameraUsageDescription: SeeWayWork 仅在你主动使用摄像头相关功能时访问摄像头。
+    NSMicrophoneUsageDescription: SeeWayWork 仅在你主动开启语音模式时使用麦克风。
   extraResources:
     - from: resources/sidecars
       to: sidecars
@@ -74,7 +74,7 @@ mac:
     - from: resources/helpers
       to: helpers
       filter:
-        - "FoxWork Computer Use.app/**"
+        - "SeeWayWork Computer Use.app/**"
   target:
     - dmg
     - zip
@@ -116,4 +116,4 @@ win:
     - nsis
 nsis:
   include: build/installer.nsh
-artifactName: foxwork-${os}-${arch}-${version}.${ext}
+artifactName: SeeWayWork-${os}-${arch}-${version}.${ext}

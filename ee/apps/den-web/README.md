@@ -1,4 +1,4 @@
-# FoxWork 公司服务（`ee/apps/den-web`）
+# SeeWayWork 公司服务（`ee/apps/den-web`）
 
 公司内部 Den Web 管理与员工入口。部署时必须使用公司自己的域名和服务地址。
 
@@ -8,7 +8,7 @@
 - Handles invited-org signup flows where the invited email stays locked and the user verifies access before joining.
 - Lists and connects existing cloud workers.
 - Sends users to the organization billing page for subscription management.
-- Offers desktop handoff actions so users can open the generated worker directly in OpenWork or copy the connect credentials manually.
+- Offers desktop handoff actions so users can open the generated worker directly in SeeWayWork or copy the connect credentials manually.
 - Uses a Next.js proxy route (`/api/den/*`) to reach `api.openworklabs.com` without browser CORS issues.
 - Uses a same-origin auth proxy (`/api/auth/*`) so GitHub OAuth callbacks can land on `app.openworklabs.com`.
 

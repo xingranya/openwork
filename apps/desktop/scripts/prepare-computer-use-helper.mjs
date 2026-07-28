@@ -10,7 +10,7 @@ const packagePath = resolve(repoRoot, "packages", "handsfree", "native", "HandsF
 const iconPath = resolve(desktopRoot, "resources", "icons", "icon.icns");
 const productName = "HandsFreeComputerUse";
 const helperExecutableName = "ComputerUse";
-const helperAppName = "FoxWork Computer Use.app";
+const helperAppName = "SeeWayWork Computer Use.app";
 const bundleIdentifier = "com.foxwork.desktop.computer-use";
 const swiftModuleCachePath = join(packagePath, ".build", "foxwork-module-cache");
 
@@ -26,7 +26,7 @@ function swiftBuildEnvironment() {
 function swiftTargetTriple() {
   if (process.arch === "arm64") return "arm64-apple-macosx14.0";
   if (process.arch === "x64") return "x86_64-apple-macosx14.0";
-  throw new Error(`不支持为 ${process.arch} 构建 FoxWork 电脑控制组件。`);
+  throw new Error(`不支持为 ${process.arch} 构建 SeeWayWork 电脑控制组件。`);
 }
 
 const readArg = (name) => {
@@ -93,7 +93,7 @@ function buildComputerUseExecutable() {
     throw new Error(`swift ${packageArgs.join(" ")} failed${diagnostic.trim() ? `: ${diagnostic.trim()}` : ""}`);
   }
 
-  process.stderr.write("[FoxWork 构建] SwiftPM 清单接口不可用，改用 swiftc 编译同一套电脑控制源码。\n");
+  process.stderr.write("[SeeWayWork 构建] SwiftPM 清单接口不可用，改用 swiftc 编译同一套电脑控制源码。\n");
   const sourceDir = join(packagePath, "Sources", "ComputerUse");
   const sourceFiles = readdirSync(sourceDir)
     .filter((name) => name.endsWith(".swift"))
@@ -146,7 +146,7 @@ function signHelperApp() {
   }
   if (result.error) {
     if (result.error.code === "ENOENT") {
-      throw new Error("构建 FoxWork 电脑控制组件需要 codesign。");
+      throw new Error("构建 SeeWayWork 电脑控制组件需要 codesign。");
     }
     throw result.error;
   }
@@ -163,7 +163,7 @@ function infoPlist() {
   <key>CFBundleDevelopmentRegion</key>
   <string>zh-Hans</string>
   <key>CFBundleDisplayName</key>
-  <string>FoxWork 电脑控制</string>
+  <string>SeeWayWork 电脑控制</string>
   <key>CFBundleExecutable</key>
   <string>${helperExecutableName}</string>
   <key>CFBundleIdentifier</key>
@@ -173,7 +173,7 @@ function infoPlist() {
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>FoxWork 电脑控制</string>
+  <string>SeeWayWork 电脑控制</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

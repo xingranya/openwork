@@ -175,7 +175,7 @@ describe("AgentContextDiagnosticsReportView", () => {
     expect(html).toContain("config.remote");
     expect(html).toContain("注册记录: 已连接");
     expect(html).toContain("配置的默认智能体");
-    expect(html).toContain("配置的 FoxWork 智能体");
+    expect(html).toContain("配置的 SeeWayWork 智能体");
     expect(html).toContain("配置为启用");
     expect(html).toContain("已配置请求头 · 具体值已隐藏");
     expect(html).toContain("未查询实时连接状态");
@@ -262,7 +262,7 @@ describe("AgentContextDiagnosticsReportView", () => {
     );
 
     expect(html).toContain("实际使用的默认智能体");
-    expect(html).toContain("实际使用的 FoxWork 智能体");
+    expect(html).toContain("实际使用的 SeeWayWork 智能体");
     expect(html).toContain("实际生效的插件名称");
     expect(html).toContain("已读取实际配置");
     expect(html).toContain("因工具策略而停用");

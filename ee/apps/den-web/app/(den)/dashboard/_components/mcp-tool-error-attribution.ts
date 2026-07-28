@@ -144,12 +144,12 @@ function unknownOutcomeGuidance(mayHaveSideEffects: boolean): string {
 }
 
 function lastBoundaryFromDiagnostic(diagnostic: ExternalMcpDiagnostic | null): string | undefined {
-  if (diagnostic?.highestPassed === "operation_ready") return "FoxWork 已开始执行远程工具";
-  if (diagnostic?.highestPassed === "catalog_ready") return "FoxWork 已读取远程 MCP 工具目录";
-  if (diagnostic?.highestPassed === "protocol_ready") return "FoxWork 已建立远程 MCP 会话";
+  if (diagnostic?.highestPassed === "operation_ready") return "SeeWayWork 已开始执行远程工具";
+  if (diagnostic?.highestPassed === "catalog_ready") return "SeeWayWork 已读取远程 MCP 工具目录";
+  if (diagnostic?.highestPassed === "protocol_ready") return "SeeWayWork 已建立远程 MCP 会话";
   if (diagnostic?.highestPassed === "authorized") return "远程 MCP 已接受连接凭据";
-  if (diagnostic?.highestPassed === "reachable") return "FoxWork 已连接远程 MCP 地址";
-  if (diagnostic?.highestPassed === "configured") return "FoxWork 已读取 MCP 连接配置";
+  if (diagnostic?.highestPassed === "reachable") return "SeeWayWork 已连接远程 MCP 地址";
+  if (diagnostic?.highestPassed === "configured") return "SeeWayWork 已读取 MCP 连接配置";
   return undefined;
 }
 
@@ -181,8 +181,8 @@ export function attributeExternalMcpToolFailure(input: {
     const seconds = browserTimeout.timeoutMs / 1000;
     const duration = Number.isInteger(seconds) ? `${seconds}` : seconds.toFixed(1);
     return {
-      summary: `FoxWork 等待 ${duration} 秒后停止，本次操作结果尚未确认。`,
-      lastConfirmedBoundary: "FoxWork 管理后台已发出请求",
+      summary: `SeeWayWork 等待 ${duration} 秒后停止，本次操作结果尚未确认。`,
+      lastConfirmedBoundary: "SeeWayWork 管理后台已发出请求",
       likelySource: "超时后的具体原因尚不明确",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
@@ -196,13 +196,13 @@ export function attributeExternalMcpToolFailure(input: {
     || diagnostic?.code === "MCP_FETCH_FORBIDDEN_PORT";
   if (blockedBeforeSend) {
     return {
-      summary: "FoxWork 在请求发出前将其拦截。",
-      lastConfirmedBoundary: "FoxWork 已完成外发安全检查",
-      likelySource: "FoxWork 安全策略",
+      summary: "SeeWayWork 在请求发出前将其拦截。",
+      lastConfirmedBoundary: "SeeWayWork 已完成外发安全检查",
+      likelySource: "SeeWayWork 安全策略",
       confidence: "Confirmed",
       retryGuidance: chineseDiagnosticText(
         diagnostic?.operatorAction,
-        "请先修正 FoxWork 安全策略或连接配置，再重新运行工具。",
+        "请先修正 SeeWayWork 安全策略或连接配置，再重新运行工具。",
       ),
       outcome: "failed",
       ...details,
@@ -274,8 +274,8 @@ export function attributeExternalMcpToolFailure(input: {
     && (diagnostic?.code === "MCP_LIFECYCLE_DEADLINE" || diagnostic?.code === "MCP_REQUEST_TIMEOUT");
   if (deadlineAfterSend) {
     return {
-      summary: "FoxWork 已发出请求，但远程 MCP 未在规定时间内响应。",
-      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      summary: "SeeWayWork 已发出请求，但远程 MCP 未在规定时间内响应。",
+      lastConfirmedBoundary: "SeeWayWork 已开始发送工具调用",
       likelySource: "网络或远程 MCP",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
@@ -286,8 +286,8 @@ export function attributeExternalMcpToolFailure(input: {
 
   if (inspection?.request && !inspection.response) {
     return {
-      summary: "FoxWork 已发出请求，但没有捕获到 HTTP 响应，暂时无法确认具体故障方。",
-      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      summary: "SeeWayWork 已发出请求，但没有捕获到 HTTP 响应，暂时无法确认具体故障方。",
+      lastConfirmedBoundary: "SeeWayWork 已开始发送工具调用",
       likelySource: "请求发出后的具体原因尚不明确",
       confidence: "Inferred",
       retryGuidance: unknownOutcomeGuidance(mayHaveSideEffects),
@@ -318,15 +318,15 @@ export function attributeExternalMcpToolFailure(input: {
   return {
     summary: chineseDiagnosticText(
       inspection?.diagnosis?.summary ?? diagnostic?.message,
-      "FoxWork 在收到工具结果前遇到错误。",
+      "SeeWayWork 在收到工具结果前遇到错误。",
     ),
     lastConfirmedBoundary: lastBoundaryFromDiagnostic(diagnostic)
-      ?? (diagnostic ? "FoxWork 已返回结构化诊断信息" : "FoxWork 管理后台已发出请求"),
-    likelySource: networkSetup ? "连接链路或远程 MCP" : "FoxWork 或 MCP 配置",
+      ?? (diagnostic ? "SeeWayWork 已返回结构化诊断信息" : "SeeWayWork 管理后台已发出请求"),
+    likelySource: networkSetup ? "连接链路或远程 MCP" : "SeeWayWork 或 MCP 配置",
     confidence: "Inferred",
     retryGuidance: chineseDiagnosticText(
       diagnostic?.operatorAction,
-      "请根据诊断编号检查 FoxWork 和 MCP 连接状态，再重新运行。",
+      "请根据诊断编号检查 SeeWayWork 和 MCP 连接状态，再重新运行。",
     ),
     outcome: "failed",
     ...details,

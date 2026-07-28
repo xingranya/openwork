@@ -563,7 +563,7 @@ describe("公司 Skill 同步", () => {
     expect(parsed.skills.skill_legacy?.bundleHash).toBeNull();
   });
 
-  test("FoxWork 通过文件包接口安装并把摘要写入工作区配置", async () => {
+  test("SeeWayWork 通过文件包接口安装并把摘要写入工作区配置", async () => {
     const requests: Array<{ method: string; path: string; body: unknown }> = [];
     let savedOpenworkConfig: Record<string, unknown> = {};
     setFetch(async (input, init) => {
@@ -662,7 +662,7 @@ describe("公司 Skill 同步", () => {
     });
   });
 
-  test("管理员撤销授权后，FoxWork 删除工作区文件并清理导入记录", async () => {
+  test("管理员撤销授权后，SeeWayWork 删除工作区文件并清理导入记录", async () => {
     installTestWindow({
       "openwork.den.baseUrl": "https://den.test",
       "openwork.den.authToken": "tok_test",

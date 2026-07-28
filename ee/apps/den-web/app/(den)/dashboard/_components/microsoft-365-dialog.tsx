@@ -91,7 +91,7 @@ export function Microsoft365Dialog({
           {configured ? "更新 Microsoft 365" : "配置 Microsoft 365"}
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
-          公司统一使用一个 Entra Web 应用。每位员工连接自己的工作账号，FoxWork 只申请管理员在下方启用的权限。
+          公司统一使用一个 Entra Web 应用。每位员工连接自己的工作账号，SeeWayWork 只申请管理员在下方启用的权限。
         </p>
 
         <div className="mt-5 space-y-4">
@@ -162,7 +162,7 @@ export function Microsoft365Dialog({
           </div>
 
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-[12px] leading-5 text-blue-800">
-            如果公司已经使用自有 Entra Web 应用提供 OIDC 单点登录，可以在原应用中添加此回调地址和 Graph 委托权限后继续使用。只配置 SAML 的企业应用可能仍需单独创建应用注册。单点登录只负责员工登录 FoxWork，这里的授权仅开放上方选中的 Microsoft 365 能力。
+            如果公司已经使用自有 Entra Web 应用提供 OIDC 单点登录，可以在原应用中添加此回调地址和 Graph 委托权限后继续使用。只配置 SAML 的企业应用可能仍需单独创建应用注册。单点登录只负责员工登录 SeeWayWork，这里的授权仅开放上方选中的 Microsoft 365 能力。
           </div>
 
           {loadingConfig ? (

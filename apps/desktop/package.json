@@ -1,8 +1,8 @@
 {
   "name": "@openwork/desktop",
   "private": true,
-  "version": "0.18.3",
-  "description": "FoxWork 公司桌面客户端",
+  "version": "0.18.4",
+  "description": "SeeWayWork 公司桌面客户端",
   "author": {
     "name": "Fox"
   },

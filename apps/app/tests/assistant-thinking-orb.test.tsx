@@ -8,7 +8,7 @@ function read(relativePath: string) {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8")
 }
 
-describe("FoxWork AI 等待图标", () => {
+describe("SeeWayWork AI 等待图标", () => {
   test("使用 Thinking Orbs 的工作状态并适配应用主题", () => {
     const markup = renderToStaticMarkup(<AssistantThinkingOrb />)
 

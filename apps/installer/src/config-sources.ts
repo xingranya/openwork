@@ -62,7 +62,7 @@ const DEFAULT_BUILD_CONSTANTS: BuildConstants = {
 
 export class InstallerConfigMissingError extends Error {
   constructor() {
-    super("Installer is not configured. Paste an OpenWork install link, or run with --install-link <url>.")
+    super("Installer is not configured. Paste an SeeWayWork install link, or run with --install-link <url>.")
     this.name = "InstallerConfigMissingError"
   }
 }
@@ -100,7 +100,7 @@ function parseConfigPayload(
 ): { config: InstallerConfig; activation: InstallerActivation | null } | null {
   const parsed = installConfigSchema.safeParse(payload)
   if (!parsed.success) {
-    warn(options, `${label} did not contain a valid OpenWork install config.`)
+    warn(options, `${label} did not contain a valid SeeWayWork install config.`)
     return null
   }
   try {
@@ -115,7 +115,7 @@ function parseConfigPayload(
         : null,
     }
   } catch {
-    warn(options, `${label} did not contain a valid OpenWork install config.`)
+    warn(options, `${label} did not contain a valid SeeWayWork install config.`)
     return null
   }
 }
@@ -128,7 +128,7 @@ function parseRequireSignin(value: string | undefined, fallback: boolean) {
 }
 
 export function envOverrides(env: NodeJS.ProcessEnv = process.env): InstallerConfig | null {
-  const appName = env.OPENWORK_INSTALLER_APP_NAME?.trim() || "OpenWork"
+  const appName = env.OPENWORK_INSTALLER_APP_NAME?.trim() || "SeeWayWork"
   const clientName = env.OPENWORK_INSTALLER_CLIENT_NAME?.trim() ?? ""
   const webUrl = env.OPENWORK_INSTALLER_WEB_URL?.trim() ?? ""
   const apiUrl = env.OPENWORK_INSTALLER_API_URL?.trim() ?? ""
@@ -220,13 +220,17 @@ async function fetchInstallConfig(configUrl: string, options?: ConfigSourceOptio
   })
   if (!response.ok) {
     warn(options, `Install config request failed (${response.status} ${response.statusText}).`)
-    return { status: response.status === 404 ? "not-found" : "unresolved" }
+    if (response.status === 404) return { status: "not-found" }
+    if ([502, 503, 504].includes(response.status)) {
+      return { status: "unreachable", reason: "network" }
+    }
+    return { status: "unresolved" }
   }
   let payload: unknown
   try {
     payload = await response.json()
   } catch {
-    warn(options, `${configUrl} did not contain a valid OpenWork install config.`)
+    warn(options, `${configUrl} did not contain a valid SeeWayWork install config.`)
     return { status: "unresolved" }
   }
   const resolved = parseConfigPayload(payload, configUrl, options)
@@ -261,7 +265,7 @@ export async function resolveInstallLinkConfig(input: string, options: ConfigSou
 }
 
 export function buildConstantsConfig(constants: BuildConstants = DEFAULT_BUILD_CONSTANTS): InstallerConfig | null {
-  const appName = constants.appName.trim() || "OpenWork"
+  const appName = constants.appName.trim() || "SeeWayWork"
   const clientName = constants.clientName.trim()
   const webUrl = constants.webUrl.trim()
   const apiUrl = constants.apiUrl.trim()

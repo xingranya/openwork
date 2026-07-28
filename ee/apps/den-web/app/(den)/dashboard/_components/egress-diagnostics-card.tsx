@@ -41,7 +41,7 @@ function statusLabel(status: EgressDiagnosticStep["status"]) {
 
 function ownerLabel(owner: EgressDiagnosticStep["owner"]) {
   if (owner === "network-administrator") return "网络管理员";
-  if (owner === "openwork-support") return "FoxWork 技术支持";
+  if (owner === "openwork-support") return "SeeWayWork 技术支持";
   return "Den 运维人员";
 }
 

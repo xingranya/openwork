@@ -55,7 +55,7 @@ export const CLOUD_MCP_SYNC_MARKER_STORAGE_KEY = "openwork.den.mcp.sync";
 const ORG_PROXY_HEADER = "x-openwork-legacy-org-id";
 const DEFAULT_DEN_TIMEOUT_MS = 12_000;
 
-export const DEFAULT_DEN_AUTH_NAME = "FoxWork 用户";
+export const DEFAULT_DEN_AUTH_NAME = "SeeWayWork 用户";
 const BUILD_DEN_BASE_URL =
   FOXWORK_DEN_BASE_URL;
 const BUILD_DEN_REQUIRE_SIGNIN =

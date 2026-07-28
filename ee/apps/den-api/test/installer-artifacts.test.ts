@@ -8,6 +8,7 @@ function seedRequiredEnv() {
   process.env.DEN_DB_ENCRYPTION_KEY = process.env.DEN_DB_ENCRYPTION_KEY ?? "x".repeat(32)
   process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "y".repeat(32)
   process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8790"
+  process.env.DEN_API_PUBLIC_URL = process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790"
 }
 
 let installerReleaseAssetUrl: typeof import("../src/utils/installer-artifacts.js")["installerReleaseAssetUrl"]
@@ -30,8 +31,8 @@ test("builds the installer asset URL for the configured release", () => {
 })
 
 test("does not invent an upstream release URL when the company repository is missing", () => {
-  envModule.env.installerReleaseRepo = undefined
   expect(installerReleaseAssetUrl("openwork-mac-arm64-9.9.9.dmg", {
+    releaseRepo: "",
     releaseTag: "v9.9.9",
   })).toBeNull()
 })
@@ -50,14 +51,22 @@ test.each([
   ["mac-arm64", "foxwork-v9.9.9", "foxwork-mac-arm64-9.9.9.dmg"],
   ["mac-x64", "foxwork-v9.9.9", "foxwork-mac-x64-9.9.9.dmg"],
   ["win-x64", "foxwork-v9.9.9", "foxwork-win-x64-9.9.9.exe"],
-])("maps company release %s to the FoxWork asset", (platform, releaseTag, expected) => {
+])("maps company release %s to the SeeWayWork asset", (platform, releaseTag, expected) => {
   expect(desktopReleaseAssetName(platform, releaseTag, { releaseRepo: "fox/foxwork" })).toBe(expected)
 })
 
 test.each([
-  ["mac-arm64", "OpenWork-Installer-mac-arm64.dmg"],
-  ["mac-x64", "OpenWork-Installer-mac-x64.dmg"],
-  ["win-x64", "OpenWork-Installer-win-x64.exe"],
+  ["mac-arm64", "seewaywork-v9.9.9", "SeeWayWork-mac-arm64-9.9.9.dmg"],
+  ["mac-x64", "seewaywork-v9.9.9", "SeeWayWork-mac-x64-9.9.9.dmg"],
+  ["win-x64", "seewaywork-v9.9.9", "SeeWayWork-win-x64-9.9.9.exe"],
+])("maps new company release %s to the SeeWayWork asset", (platform, releaseTag, expected) => {
+  expect(desktopReleaseAssetName(platform, releaseTag, { releaseRepo: "fox/foxwork" })).toBe(expected)
+})
+
+test.each([
+  ["mac-arm64", "SeeWayWork-Installer-mac-arm64.dmg"],
+  ["mac-x64", "SeeWayWork-Installer-mac-x64.dmg"],
+  ["win-x64", "SeeWayWork-Installer-win-x64.exe"],
   ["linux-x64", null],
   ["linux-arm64", null],
 ])("maps %s to the installer release artifact", (platform, expected) => {
@@ -66,7 +75,7 @@ test.each([
 
 test("resolves only a mounted installer asset and reports its size", async () => {
   const artifactsDir = mkdtempSync(path.join(os.tmpdir(), "ow-installer-artifacts-"))
-  const fileName = "OpenWork-Installer-win-x64.exe"
+  const fileName = "SeeWayWork-Installer-win-x64.exe"
   writeFileSync(path.join(artifactsDir, fileName), "installer-asset")
   envModule.env.installerArtifactsDir = artifactsDir
 

@@ -720,7 +720,7 @@ export function createExtensionsStore(options: {
     const nextConfig = withWorkspaceCloudImports(config, nextCloudImports);
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司扩展市场。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再管理已导入的公司扩展市场。");
     }
     setStateField("importedCloudMarketplaces", nextMarketplaces);
     void refreshPendingCloudPluginChanges();
@@ -735,7 +735,7 @@ export function createExtensionsStore(options: {
     });
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司技能。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再管理已导入的公司技能。");
     }
     setStateField("importedCloudSkills", nextSkills);
   };
@@ -750,7 +750,7 @@ export function createExtensionsStore(options: {
     const nextConfig = withWorkspaceCloudImports(config, nextCloudImports);
     const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
     if (!persisted) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司插件。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再管理已导入的公司插件。");
     }
     setStateField("importedCloudPlugins", nextPlugins);
     void refreshPendingCloudPluginChanges(nextPlugins);
@@ -797,11 +797,11 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("FoxWork 服务无法修改当前工作区的技能。");
+      throw new Error("SeeWayWork 服务无法修改当前工作区的技能。");
     }
 
     if (isRemoteWorkspace) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再导入技能。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再导入技能。");
     }
 
     if (!isDesktopRuntime()) {
@@ -869,11 +869,11 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      throw new Error("FoxWork 服务无法移除当前工作区的技能。");
+      throw new Error("SeeWayWork 服务无法移除当前工作区的技能。");
     }
 
     if (isRemoteWorkspace) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再移除技能。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再移除技能。");
     }
 
     if (!isDesktopRuntime()) {
@@ -908,7 +908,7 @@ export function createExtensionsStore(options: {
       && openworkClient
       && openworkWorkspaceId;
     if (!canReconcile) {
-      throw new Error("公司技能已发生变化，但 FoxWork 服务暂时无法同步当前工作区。请重新连接后重试。");
+      throw new Error("公司技能已发生变化，但 SeeWayWork 服务暂时无法同步当前工作区。请重新连接后重试。");
     }
 
     const result = await reconcileImportedCompanySkills({
@@ -933,7 +933,7 @@ export function createExtensionsStore(options: {
     if (result.failed.length > 0) {
       setStateField(
         "cloudOrgSkillsStatus",
-        `${result.failed.length} 个已安装的公司技能暂时无法同步，FoxWork 会在恢复连接后重试。`,
+        `${result.failed.length} 个已安装的公司技能暂时无法同步，SeeWayWork 会在恢复连接后重试。`,
       );
     }
   };
@@ -1144,7 +1144,7 @@ export function createExtensionsStore(options: {
       await openworkClient.addMcp(openworkWorkspaceId, { name, config });
       return;
     }
-    throw new Error("FoxWork 服务不可用，请重新连接后再向当前工作区导入 MCP 服务。");
+    throw new Error("SeeWayWork 服务不可用，请重新连接后再向当前工作区导入 MCP 服务。");
   };
 
   const deletePluginMcpConfig = async (name: string) => {
@@ -1160,7 +1160,7 @@ export function createExtensionsStore(options: {
       await openworkClient.removeMcp(openworkWorkspaceId, name);
       return;
     }
-    throw new Error("FoxWork 服务不可用，请重新连接后再从当前工作区移除已导入的 MCP 服务。");
+    throw new Error("SeeWayWork 服务不可用，请重新连接后再从当前工作区移除已导入的 MCP 服务。");
   };
 
   const pluginReloadReason = (objectType: string): ReloadReason => {
@@ -1191,7 +1191,7 @@ export function createExtensionsStore(options: {
       await openworkClient.writeWorkspaceFile(openworkWorkspaceId, { path, content, force: true });
       return;
     }
-    throw new Error("FoxWork 服务不可用，请重新连接后再向当前工作区导入插件文件。");
+    throw new Error("SeeWayWork 服务不可用，请重新连接后再向当前工作区导入插件文件。");
   };
 
   const deletePluginWorkspaceFiles = async (files: Array<{ path: string; recursive?: boolean }>) => {
@@ -1214,7 +1214,7 @@ export function createExtensionsStore(options: {
       }
       return;
     }
-    throw new Error("FoxWork 服务不可用，请重新连接后再从当前工作区移除已导入的插件文件。");
+    throw new Error("SeeWayWork 服务不可用，请重新连接后再从当前工作区移除已导入的插件文件。");
   };
 
   const applyCloudOrgPluginImport = async (
@@ -1672,7 +1672,7 @@ export function createExtensionsStore(options: {
   async function previewClaudePlugin(url: string): Promise<OpenworkClaudePluginPreview> {
     const target = await resolveWorkspaceServerTarget();
     if (!target.openworkClient || !target.openworkWorkspaceId) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
     }
     const result = await target.openworkClient.previewClaudePlugin(target.openworkWorkspaceId, { url });
     return result.preview;
@@ -1684,7 +1684,7 @@ export function createExtensionsStore(options: {
     try {
       const target = await resolveWorkspaceServerTarget();
       if (!target.openworkClient || !target.openworkWorkspaceId) {
-        throw new Error("FoxWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
+        throw new Error("SeeWayWork 服务不可用，请重新连接后再从 GitHub 安装插件。");
       }
       const result = await target.openworkClient.installClaudePlugin(target.openworkWorkspaceId, { url });
       await refreshSkills({ force: true });
@@ -1778,8 +1778,8 @@ export function createExtensionsStore(options: {
       openworkSnapshot.openworkServerCapabilities?.skills?.write !== false;
 
     if (!canUseOpenworkServer) {
-      if (isRemoteWorkspace) return { ok: false, message: "FoxWork 服务不可用，请重新连接后再安装技能。" };
-      return { ok: false, message: "请先连接 FoxWork 服务，再从技能中心安装。" };
+      if (isRemoteWorkspace) return { ok: false, message: "SeeWayWork 服务不可用，请重新连接后再安装技能。" };
+      return { ok: false, message: "请先连接 SeeWayWork 服务，再从技能中心安装。" };
     }
 
     options.setBusy(true);
@@ -1787,7 +1787,7 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
-      if (!openworkClient || !openworkWorkspaceId) return { ok: false, message: "请先连接 FoxWork 服务，再从技能中心安装。" };
+      if (!openworkClient || !openworkWorkspaceId) return { ok: false, message: "请先连接 SeeWayWork 服务，再从技能中心安装。" };
       const settings = readDenSettings();
       const token = settings.authToken?.trim() ?? "";
       const orgId = settings.activeOrgId?.trim() ?? "";
@@ -1846,7 +1846,7 @@ export function createExtensionsStore(options: {
         && openworkClient
         && openworkWorkspaceId;
       if (!canInstallBundle) {
-        throw new Error("FoxWork 服务不可用，请重新连接后再安装公司技能。");
+        throw new Error("SeeWayWork 服务不可用，请重新连接后再安装公司技能。");
       }
       await openworkClient.installCatalogSkill(
         openworkWorkspaceId,
@@ -2022,7 +2022,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         skills: [],
-        skillsStatus: "FoxWork 服务无法读取当前工作区的技能。",
+        skillsStatus: "SeeWayWork 服务无法读取当前工作区的技能。",
       }));
       return;
     }
@@ -2073,7 +2073,7 @@ export function createExtensionsStore(options: {
       mutateState((current) => ({
         ...current,
         skills: [],
-        skillsStatus: "FoxWork 服务不可用，请重新连接后再加载技能。",
+        skillsStatus: "SeeWayWork 服务不可用，请重新连接后再加载技能。",
       }));
       return;
     }
@@ -2193,9 +2193,9 @@ export function createExtensionsStore(options: {
     if (scope === "project" && hasOpenworkTarget) {
       mutateState((current) => ({
         ...current,
-        pluginStatus: "FoxWork 服务无法读取当前工作区的插件。",
+        pluginStatus: "SeeWayWork 服务无法读取当前工作区的插件。",
         pluginList: [],
-        sidebarPluginStatus: "FoxWork 服务无法读取当前工作区的插件。",
+        sidebarPluginStatus: "SeeWayWork 服务无法读取当前工作区的插件。",
         sidebarPluginList: [],
       }));
       refreshPluginsInFlight = false;
@@ -2217,9 +2217,9 @@ export function createExtensionsStore(options: {
     if (!isLocalWorkspace && !canUseOpenworkServer) {
       mutateState((current) => ({
         ...current,
-        pluginStatus: "FoxWork 服务不可用，请重新连接后再管理插件。",
+        pluginStatus: "SeeWayWork 服务不可用，请重新连接后再管理插件。",
         pluginList: [],
-        sidebarPluginStatus: "请连接 FoxWork 服务后再加载插件。",
+        sidebarPluginStatus: "请连接 SeeWayWork 服务后再加载插件。",
         sidebarPluginList: [],
       }));
       refreshPluginsInFlight = false;
@@ -2337,7 +2337,7 @@ export function createExtensionsStore(options: {
     }
 
     if (snapshot.pluginScope === "project" && hasOpenworkTarget) {
-      setStateField("pluginStatus", "FoxWork 服务无法修改当前工作区的插件。");
+      setStateField("pluginStatus", "SeeWayWork 服务无法修改当前工作区的插件。");
       return;
     }
 
@@ -2347,7 +2347,7 @@ export function createExtensionsStore(options: {
     }
 
     if (!isLocalWorkspace) {
-      setStateField("pluginStatus", "FoxWork 服务不可用，请重新连接后再管理插件。");
+      setStateField("pluginStatus", "SeeWayWork 服务不可用，请重新连接后再管理插件。");
       return;
     }
 
@@ -2427,7 +2427,7 @@ export function createExtensionsStore(options: {
     }
 
     if (snapshot.pluginScope === "project" && hasOpenworkTarget) {
-      setStateField("pluginStatus", "FoxWork 服务无法修改当前工作区的插件。");
+      setStateField("pluginStatus", "SeeWayWork 服务无法修改当前工作区的插件。");
       return;
     }
 
@@ -2437,7 +2437,7 @@ export function createExtensionsStore(options: {
     }
 
     if (!isLocalWorkspace) {
-      setStateField("pluginStatus", "FoxWork 服务不可用，请重新连接后再管理插件。");
+      setStateField("pluginStatus", "SeeWayWork 服务不可用，请重新连接后再管理插件。");
       return;
     }
 
@@ -2555,13 +2555,13 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      const message = "FoxWork 服务无法修改当前工作区的技能。";
+      const message = "SeeWayWork 服务无法修改当前工作区的技能。";
       setStateField("skillsStatus", message);
       return { ok: false, message };
     }
 
     if (isRemoteWorkspace) {
-      const message = "FoxWork 服务不可用，请重新连接后再安装技能。";
+      const message = "SeeWayWork 服务不可用，请重新连接后再安装技能。";
       setStateField("skillsStatus", message);
       return { ok: false, message };
     }
@@ -2718,7 +2718,7 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      setStateField("skillsStatus", "FoxWork 服务无法读取当前工作区的技能。");
+      setStateField("skillsStatus", "SeeWayWork 服务无法读取当前工作区的技能。");
       return null;
     }
 
@@ -2728,7 +2728,7 @@ export function createExtensionsStore(options: {
     }
 
     if (isRemoteWorkspace) {
-      setStateField("skillsStatus", "FoxWork 服务不可用，请重新连接后再查看技能。");
+      setStateField("skillsStatus", "SeeWayWork 服务不可用，请重新连接后再查看技能。");
       return null;
     }
     if (!isDesktopRuntime()) {
@@ -2812,7 +2812,7 @@ export function createExtensionsStore(options: {
     }
 
     if (hasOpenworkTarget) {
-      setStateField("skillsStatus", "FoxWork 服务无法修改当前工作区的技能。");
+      setStateField("skillsStatus", "SeeWayWork 服务无法修改当前工作区的技能。");
       return;
     }
 
@@ -2822,7 +2822,7 @@ export function createExtensionsStore(options: {
     }
 
     if (isRemoteWorkspace) {
-      setStateField("skillsStatus", "FoxWork 服务不可用，请重新连接后再编辑技能。");
+      setStateField("skillsStatus", "SeeWayWork 服务不可用，请重新连接后再编辑技能。");
       return;
     }
     if (!isDesktopRuntime()) {

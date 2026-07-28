@@ -83,8 +83,8 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: "FoxWork 已发出请求，但远程 MCP 未在规定时间内响应。",
-      lastConfirmedBoundary: "FoxWork 已开始发送工具调用",
+      summary: "SeeWayWork 已发出请求，但远程 MCP 未在规定时间内响应。",
+      lastConfirmedBoundary: "SeeWayWork 已开始发送工具调用",
       likelySource: "网络或远程 MCP",
       confidence: "Inferred",
       outcome: "unknown",
@@ -180,9 +180,9 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution).toMatchObject({
-      summary: "FoxWork 在请求发出前将其拦截。",
-      lastConfirmedBoundary: "FoxWork 已完成外发安全检查",
-      likelySource: "FoxWork 安全策略",
+      summary: "SeeWayWork 在请求发出前将其拦截。",
+      lastConfirmedBoundary: "SeeWayWork 已完成外发安全检查",
+      likelySource: "SeeWayWork 安全策略",
       confidence: "Confirmed",
       outcome: "failed",
     });
@@ -197,7 +197,7 @@ describe("MCP failure attribution", () => {
     });
 
     expect(attribution.summary).toBe(
-      "FoxWork 等待 160 秒后停止，本次操作结果尚未确认。",
+      "SeeWayWork 等待 160 秒后停止，本次操作结果尚未确认。",
     );
     expect(attribution.retryGuidance).toContain("不要立即重试");
     expect(attribution.retryGuidance).toContain("可能已经修改外部数据");

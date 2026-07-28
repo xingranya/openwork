@@ -154,11 +154,11 @@ const MODEL_LINEUP = Object.entries(INFERENCE_MODEL_ALIASES)
   .filter(([, model]) => model.enabled)
   .map(([id, model]) => ({
     id,
-    name: model.displayName.replace(/^OpenWork:\s*/, ""),
+    name: model.displayName.replace(/^SeeWayWork:\s*/, ""),
   }));
 
 const VALUE_POINTS = [
-  "精选开源模型由 FoxWork 统一托管并持续更新",
+  "精选开源模型由 SeeWayWork 统一托管并持续更新",
   "无需成员分别管理 API 密钥，登录后即可使用",
   "一份订阅覆盖整个公司，用量随活跃成员数量调整",
 ];
@@ -177,7 +177,7 @@ function ModelsValueProp(props: {
             为整个团队准备的精选开源模型
           </h2>
           <p className="mt-3 max-w-[560px] text-[14px] leading-6 text-gray-500">
-            FoxWork 模型服务为公司成员统一提供精选开源模型，无需分别注册服务方账号或管理密钥。
+            SeeWayWork 模型服务为公司成员统一提供精选开源模型，无需分别注册服务方账号或管理密钥。
           </p>
           <ul className="mt-6 grid gap-3">
             {VALUE_POINTS.map((point) => (
@@ -364,14 +364,14 @@ export function InferenceScreen() {
   const enabled = status?.enabled === true;
   const subscribed = status?.subscribed === true;
   const showValueProp = !loading && status !== null && !subscribed;
-  const cardTitle = enabled ? "FoxWork 模型服务已启用" : "启用 FoxWork 模型服务";
+  const cardTitle = enabled ? "SeeWayWork 模型服务已启用" : "启用 SeeWayWork 模型服务";
   const actionLabel = enabled ? "管理订阅" : "启用";
 
   return (
     <DashboardPageTemplate
       icon={Sparkles}
       badgeLabel="测试版"
-      title="FoxWork 模型服务"
+      title="SeeWayWork 模型服务"
       description="为公司成员统一提供经过筛选的模型能力。"
       colors={["#0f172a", "#3155ff", "#22d3ee", "#f8fafc"]}
     >

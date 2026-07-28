@@ -59,7 +59,7 @@ export const MICROSOFT_365_PERMISSION_GROUPS: readonly Microsoft365PermissionGro
         key: "teamsChatSend",
         label: "发送 Teams 聊天消息",
         scope: "Chat.Read + ChatMessage.Send",
-        detail: "同时包含聊天读取权限，以便 FoxWork 查找现有聊天；FoxWork 不能创建新聊天。",
+        detail: "同时包含聊天读取权限，以便 SeeWayWork 查找现有聊天；SeeWayWork 不能创建新聊天。",
       },
     ],
   },

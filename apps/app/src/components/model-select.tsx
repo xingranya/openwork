@@ -186,7 +186,7 @@ interface ModelSelectProps {
   disabled?: boolean;
   /** When set, "All models" opens the full picker scoped to this session. */
   sessionId?: string;
-  /** Den/import includes OpenWork Models — never show Subscribe while true. */
+  /** Den/import includes SeeWayWork Models — never show Subscribe while true. */
   openWorkModelsEntitled?: boolean;
 }
 

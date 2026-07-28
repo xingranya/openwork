@@ -43,20 +43,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: metadataBaseFromOrigin(metadataOrigin),
-    title: "FoxWork 公司工作区",
+    title: "SeeWayWork 公司工作区",
     description:
       "统一管理公司账号、工作区、模型、MCP、Skills 和插件。",
     openGraph: {
-      title: "FoxWork 公司工作区",
+      title: "SeeWayWork 公司工作区",
       description:
         "统一管理公司账号、工作区和 AI 能力。",
       images: ["/opengraph-image"]
     },
     twitter: {
       card: "summary_large_image",
-      title: "FoxWork 公司工作区",
+      title: "SeeWayWork 公司工作区",
       description:
-        "登录 FoxWork，进入获授权的公司工作区。",
+        "登录 SeeWayWork，进入获授权的公司工作区。",
       images: ["/opengraph-image"]
     },
     icons: {

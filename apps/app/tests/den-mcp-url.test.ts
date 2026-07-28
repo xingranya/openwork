@@ -12,7 +12,7 @@ import {
 describe("buildDenAuthUrl", () => {
   test("未配置公司地址时返回明确的中文错误", () => {
     expect(() => buildDenAuthUrl("", "sign-in"))
-      .toThrow("FoxWork 公司登录地址尚未配置，请联系管理员。");
+      .toThrow("SeeWayWork 公司登录地址尚未配置，请联系管理员。");
   });
 });
 

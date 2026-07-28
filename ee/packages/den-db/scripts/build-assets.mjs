@@ -8,7 +8,11 @@ const distDir = path.join(packageDir, "dist")
 const migrationsDir = path.join(packageDir, "drizzle")
 const distMigrationsDir = path.join(distDir, "drizzle")
 const currentSchemaPath = path.join(distDir, "current-schema.sql")
-const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
+const drizzleKitCliPath = path.join(packageDir, "node_modules", "drizzle-kit", "bin.cjs")
+
+function shortOutput(output) {
+  return output.slice(Math.max(0, output.length - 4_000))
+}
 
 function sqlFromDrizzleKitExport(stdout) {
   const lines = stdout.replace(/\r\n/g, "\n").split("\n")
@@ -22,11 +26,15 @@ function sqlFromDrizzleKitExport(stdout) {
 }
 
 function generateCurrentSchemaSql() {
-  const result = spawnSync(pnpmCommand, ["exec", "drizzle-kit", "export", "--config", "drizzle.config.ts"], {
-    cwd: packageDir,
-    encoding: "utf8",
-    env: process.env,
-  })
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", drizzleKitCliPath, "export", "--config", "drizzle.config.ts"],
+    {
+      cwd: packageDir,
+      encoding: "utf8",
+      env: process.env,
+    },
+  )
 
   if (result.status !== 0) {
     process.stdout.write(result.stdout)
@@ -34,7 +42,13 @@ function generateCurrentSchemaSql() {
     process.exit(result.status ?? 1)
   }
 
-  return sqlFromDrizzleKitExport(result.stdout)
+  try {
+    return sqlFromDrizzleKitExport(result.stdout)
+  } catch (error) {
+    process.stdout.write(shortOutput(result.stdout))
+    process.stderr.write(shortOutput(result.stderr))
+    throw error
+  }
 }
 
 mkdirSync(distDir, { recursive: true })

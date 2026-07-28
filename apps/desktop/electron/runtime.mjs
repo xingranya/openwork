@@ -210,13 +210,13 @@ function redactedExecutionSnapshot(command, args, cwd, injectedEnv) {
 
 function assertOpenworkServerReady(snapshot) {
   if (!snapshot?.running) {
-    throw new Error("FoxWork 本机服务启动后未能持续运行。");
+    throw new Error("SeeWayWork 本机服务启动后未能持续运行。");
   }
   if (!snapshot.baseUrl) {
-    throw new Error("FoxWork 本机服务启动后未返回访问地址。");
+    throw new Error("SeeWayWork 本机服务启动后未返回访问地址。");
   }
   if (!snapshot.ownerToken && !snapshot.clientToken) {
-    throw new Error("FoxWork 本机服务启动后未返回访问凭据。");
+    throw new Error("SeeWayWork 本机服务启动后未返回访问凭据。");
   }
   return snapshot;
 }
@@ -527,7 +527,7 @@ export async function resolveSystemCaEnv({
   const env = parentEnv ?? {};
   if (Object.prototype.hasOwnProperty.call(env, "NODE_EXTRA_CA_CERTS")) {
     if (typeof logInfo === "function") {
-      logInfo("OpenWork runtime: NODE_EXTRA_CA_CERTS is already set; skipping system CA bundle export.");
+      logInfo("SeeWayWork 运行环境：已设置 NODE_EXTRA_CA_CERTS，跳过系统 CA 证书导出。");
     }
     return {};
   }
@@ -1121,7 +1121,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
           "Content-Type": "application/json",
           "X-OpenWork-Host-Token": hostToken,
         },
-        body: JSON.stringify({ scope: "owner", label: "FoxWork 桌面所有者凭据" }),
+        body: JSON.stringify({ scope: "owner", label: "SeeWayWork 桌面所有者凭据" }),
       },
       5000,
     );
@@ -1182,7 +1182,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       : [...packagedPaths, devPath];
     const embeddedPath = candidates.find((candidate) => existsSync(candidate));
     if (!embeddedPath) {
-      throw new Error(`找不到 FoxWork 内置服务。已检查：${candidates.join("，")}`);
+      throw new Error(`找不到 SeeWayWork 内置服务。已检查：${candidates.join("，")}`);
     }
     const { startEmbeddedServer } = await import(embeddedServerImportUrl(embeddedPath));
     // startEmbeddedServer falls back to an OS-assigned port if `port` races
@@ -1262,7 +1262,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
           engineState.childExited = false;
         }
       } catch (error) {
-        appendOutput(openworkServerState, "lastStderr", `FoxWork 本机服务检查工作区失败：${error instanceof Error ? error.message : String(error)}\n`);
+        appendOutput(openworkServerState, "lastStderr", `SeeWayWork 本机服务检查工作区失败：${error instanceof Error ? error.message : String(error)}\n`);
       }
     }
     if (!portSelection.preferredPort || boundPort === portSelection.preferredPort) {
@@ -1278,7 +1278,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const stateFile = await readOrchestratorStateFile(orchestratorState.dataDir || orchestratorDataDir());
     const baseUrl = stateFile?.daemon?.baseUrl?.trim();
     if (!baseUrl) {
-      throw new Error("FoxWork 编排服务尚未运行。");
+      throw new Error("SeeWayWork 编排服务尚未运行。");
     }
     return baseUrl;
   }
@@ -1292,12 +1292,12 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
     const orchestratorProgram = resolveBinary("openwork-orchestrator") ?? resolveBinary("openwork");
     if (!orchestratorProgram) {
-      throw new Error("找不到 FoxWork 编排服务组件，请重新安装 FoxWork。");
+      throw new Error("找不到 SeeWayWork 编排服务组件，请重新安装 SeeWayWork。");
     }
 
     const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
     if (!opencodeBinary?.path) {
-      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
+      throw new Error("找不到 AI 运行引擎，请重新安装 SeeWayWork。");
     }
 
     const env = await buildChildEnv({
@@ -1343,7 +1343,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const health = await waitForHttpOk(`${orchestratorState.baseUrl}/health`, 180_000).then((response) => response.json());
     const opencode = health?.opencode;
     if (!opencode?.port) {
-      throw new Error("FoxWork 编排服务未返回 AI 运行引擎状态。");
+      throw new Error("SeeWayWork 编排服务未返回 AI 运行引擎状态。");
     }
 
     engineState.runtime = ORCHESTRATOR_RUNTIME;
@@ -1365,7 +1365,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
   async function startDirectRuntime(projectDir, options = {}) {
     const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
     if (!opencodeBinary?.path) {
-      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
+      throw new Error("找不到 AI 运行引擎，请重新安装 SeeWayWork。");
     }
 
     const port = await findFreePort("127.0.0.1");
@@ -1446,7 +1446,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
         opencodeBinPath: options.opencodeBinPath,
       });
     } catch (error) {
-      appendOutput(engineState, "lastStderr", `FoxWork 本机服务：${error instanceof Error ? error.message : String(error)}\n`);
+      appendOutput(engineState, "lastStderr", `SeeWayWork 本机服务：${error instanceof Error ? error.message : String(error)}\n`);
       throw error;
     }
 
@@ -1624,7 +1624,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       ok: false,
       status: -1,
       stdout: "",
-      stderr: "AI 运行引擎随 FoxWork 安装包提供。若组件缺失，请重新安装或更新 FoxWork。",
+      stderr: "AI 运行引擎随 SeeWayWork 安装包提供。若组件缺失，请重新安装或更新 SeeWayWork。",
     };
   }
 
@@ -1640,7 +1640,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
 
     const program = resolveBinary("opencode");
     if (!program) {
-      throw new Error("找不到 AI 运行引擎，请重新安装 FoxWork。");
+      throw new Error("找不到 AI 运行引擎，请重新安装 SeeWayWork。");
     }
 
     const result = await runShellCommand(program, ["mcp", "auth", safeServerName], {
@@ -1759,7 +1759,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
       throw new Error("必须提供容器名称。");
     }
     if (!name.startsWith("openwork-orchestrator-")) {
-      throw new Error("已拒绝停止容器：容器名称不属于 FoxWork 管理范围。");
+      throw new Error("已拒绝停止容器：容器名称不属于 SeeWayWork 管理范围。");
     }
     if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
       throw new Error("容器名称包含无效字符。");
@@ -1816,7 +1816,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     const openworkUrl = `http://127.0.0.1:${port}`;
     const program = resolveBinary("openwork-orchestrator") ?? resolveBinary("openwork");
     if (!program) {
-      throw new Error("找不到 FoxWork 编排服务组件，请重新安装 FoxWork。");
+      throw new Error("找不到 SeeWayWork 编排服务组件，请重新安装 SeeWayWork。");
     }
 
     const args = [

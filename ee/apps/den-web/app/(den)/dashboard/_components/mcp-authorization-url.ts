@@ -71,7 +71,7 @@ export function mcpAuthorizationPendingDocument(): string {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>正在连接 — FoxWork</title>
+    <title>正在连接 — SeeWayWork</title>
     <style>
 ${authorizationDocumentStyles}
       .loading-card { padding: 40px 40px 34px; text-align: center; }
@@ -91,10 +91,10 @@ ${authorizationDocumentStyles}
   </head>
   <body>
     <main class="card loading-card" role="status" aria-live="polite">
-      <div class="brand"><span class="brand-mark">FX</span>FoxWork 公司连接</div>
+      <div class="brand"><span class="brand-mark">FX</span>SeeWayWork 公司连接</div>
       <div class="mark" aria-hidden="true"><div class="orbit"></div><div class="core">FX</div></div>
       <h1>正在准备连接</h1>
-      <p>FoxWork 正在安全检查服务，并准备登录。</p>
+      <p>SeeWayWork 正在安全检查服务，并准备登录。</p>
       <div class="progress" aria-hidden="true"><span></span></div>
       <div class="footnote"><span class="footnote-dot" aria-hidden="true"></span>请保持此窗口打开</div>
     </main>
@@ -156,7 +156,7 @@ export function mcpAuthorizationErrorDocument(input: {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>连接失败 — FoxWork</title>
+    <title>连接失败 — SeeWayWork</title>
     <style>
 ${authorizationDocumentStyles}
       body { align-items: start; }
@@ -195,12 +195,12 @@ ${authorizationDocumentStyles}
   <body>
     <main class="card error-card" role="alert" aria-live="assertive">
       <div class="error-header">
-        <div class="brand"><span class="brand-mark">FX</span>FoxWork 公司连接</div>
+        <div class="brand"><span class="brand-mark">FX</span>SeeWayWork 公司连接</div>
         <div class="status">
           <div class="error-mark" aria-hidden="true">!</div>
           <div>
             <h1>连接失败</h1>
-            <p>FoxWork 无法启动服务登录。</p>
+            <p>SeeWayWork 无法启动服务登录。</p>
           </div>
         </div>
         <div class="message">${escapeHtml(message)}</div>
@@ -230,7 +230,7 @@ export function openMcpAuthorizationWindow(): Window {
   const popupName = `openwork-mcp-authorization-${crypto.randomUUID()}`
   const popup = window.open("", popupName, "popup,width=600,height=760")
   if (!popup) {
-    throw new Error("FoxWork 无法打开登录窗口。请允许弹窗后重试。")
+    throw new Error("SeeWayWork 无法打开登录窗口。请允许弹窗后重试。")
   }
   try {
     popup.opener = null

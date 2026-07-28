@@ -343,7 +343,7 @@ export type SkillCatalogDetail = {
   files: Array<{ path: string; contents: string }>;
 };
 
-/** OpenWork Cloud (Den) org skill surfaced in the Skills catalog. */
+/** SeeWayWork Cloud (Den) org skill surfaced in the Skills catalog. */
 export type DenOrgSkillCard = {
   id: string;
   title: string;

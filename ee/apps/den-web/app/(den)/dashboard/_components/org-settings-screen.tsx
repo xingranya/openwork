@@ -312,14 +312,14 @@ export function OrgSettingsScreen() {
           throw new Error(
             getErrorMessage(
               payload,
-              `加载 FoxWork 版本信息失败（${response.status}）。`,
+              `加载 SeeWayWork 版本信息失败（${response.status}）。`,
             ),
           );
         }
 
         const metadata = getDesktopVersionMetadata(payload);
         if (!metadata) {
-          throw new Error("FoxWork 版本信息不完整。");
+          throw new Error("SeeWayWork 版本信息不完整。");
         }
 
         if (cancelled) {
@@ -335,7 +335,7 @@ export function OrgSettingsScreen() {
         if (!cancelled) {
           setDesktopVersionOptions([]);
           setDesktopVersionRange(null);
-          setDesktopVersionOptionsError(getErrorMessage(error, "加载 FoxWork 版本失败。"));
+          setDesktopVersionOptionsError(getErrorMessage(error, "加载 SeeWayWork 版本失败。"));
         }
       } finally {
         if (!cancelled) {
@@ -689,24 +689,24 @@ export function OrgSettingsScreen() {
         <DenCard size="spacious" className="grid gap-6">
           <div className="grid gap-2">
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
-              FoxWork 客户端
+              SeeWayWork 客户端
             </p>
             <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">
-              允许登录的 FoxWork 版本
+              允许登录的 SeeWayWork 版本
             </h2>
             <p className="text-[14px] text-gray-500">
-              选择可以登录公司服务的 FoxWork 版本。
+              选择可以登录公司服务的 SeeWayWork 版本。
             </p>
             {desktopVersionRange ? (
               <p className="text-[10px] text-gray-400">
-                当前公司服务支持 FoxWork v{desktopVersionRange.minVersion} 至 v{desktopVersionRange.maxVersion}。
+                当前公司服务支持 SeeWayWork v{desktopVersionRange.minVersion} 至 v{desktopVersionRange.maxVersion}。
               </p>
             ) : null}
           </div>
 
           {desktopVersionOptionsBusy ? (
             <div className="rounded-[24px] border border-dashed border-gray-200 bg-gray-50 px-5 py-4 text-[14px] text-gray-500">
-              正在加载 FoxWork 版本...
+              正在加载 SeeWayWork 版本...
             </div>
           ) : null}
 
@@ -766,7 +766,7 @@ export function OrgSettingsScreen() {
                         type="checkbox"
                         checked={checked}
                         disabled={!canManageDesktopVersions || requiresServerUpgrade}
-                        aria-label={`允许 FoxWork v${version} 登录`}
+                        aria-label={`允许 SeeWayWork v${version} 登录`}
                         onChange={(event) =>
                           setAllowedDesktopVersionsDraft((current) =>
                             toggleAllowedDesktopVersion(

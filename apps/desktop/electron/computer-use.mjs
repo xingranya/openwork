@@ -11,7 +11,7 @@ import { app, shell } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const COMPUTER_USE_HELPER_APP_NAME = "FoxWork Computer Use.app";
+const COMPUTER_USE_HELPER_APP_NAME = "SeeWayWork Computer Use.app";
 const COMPUTER_USE_HELPER_EXECUTABLE = "ComputerUse";
 
 function computerUseHelperExecutablePath() {
@@ -41,7 +41,7 @@ function getComputerUseMcpCommand() {
   if (helperExecutable) return [helperExecutable, "mcp"];
 
   if (app.isPackaged) {
-    throw new Error("当前安装包缺少 FoxWork 电脑控制组件。请重新安装 FoxWork。");
+    throw new Error("当前安装包缺少 SeeWayWork 电脑控制组件。请重新安装 SeeWayWork。");
   }
 
   if (process.env.OPENWORK_DEV_MODE === "1") {
@@ -91,7 +91,7 @@ async function checkComputerUsePermissions() {
   // Spawn binary --check → read JSON from stdout → exit. Always fresh.
   const bin = resolveComputerUseExecutable();
   if (!bin) {
-    return { ok: false, accessibility: false, screenRecording: false, error: "找不到 FoxWork 电脑控制组件，请重新安装 FoxWork。" };
+    return { ok: false, accessibility: false, screenRecording: false, error: "找不到 SeeWayWork 电脑控制组件，请重新安装 SeeWayWork。" };
   }
   return spawnCheckPermissions(bin);
 }
@@ -154,7 +154,7 @@ async function openComputerUseSetupApp() {
 
   // Fallback: spawn the raw binary (opens the same GUI).
   const bin = resolveComputerUseExecutable();
-  if (!bin) throw new Error("找不到 FoxWork 电脑控制组件，请重新安装 FoxWork。");
+  if (!bin) throw new Error("找不到 SeeWayWork 电脑控制组件，请重新安装 SeeWayWork。");
   const child = spawn(bin, [], { detached: true, stdio: "ignore" });
   child.unref();
 }

@@ -143,7 +143,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
     expect(target.ok).toBe(false);
     if (target.ok) return;
     expect(target.state.status).toBe("error");
-    expect(target.state.message).toContain("仅支持 FoxWork 远程工作区");
+    expect(target.state.message).toContain("仅支持 SeeWayWork 远程工作区");
   });
 
   test("does not run OpenWork probes against stale OpenWork fields on non-OpenWork remotes", () => {
@@ -158,7 +158,7 @@ describe("resolveRemoteWorkspaceConnectionTarget", () => {
 
     expect(target.ok).toBe(false);
     if (target.ok) return;
-    expect(target.state.message).toContain("仅支持 FoxWork 远程工作区");
+    expect(target.state.message).toContain("仅支持 SeeWayWork 远程工作区");
   });
 });
 

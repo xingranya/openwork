@@ -781,7 +781,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
         cache: "no-store",
       });
       if (!response.ok) {
-        throw new Error(`读取 FoxWork 工作区失败（${response.status} ${response.statusText || "请求错误"}）`);
+        throw new Error(`读取 SeeWayWork 工作区失败（${response.status} ${response.statusText || "请求错误"}）`);
       }
       return await response.json();
     } finally {
@@ -876,7 +876,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       const recoveredWorkspaces = await recoverWorkspacesFromKnownState();
       if (recoveredWorkspaces.length > 0) {
         const selectedWorkspace = recoveredWorkspaces[0];
-        console.info("[migration] recovered desktop workspaces from persisted OpenWork state", {
+        console.info("[migration] 已从旧版持久化状态恢复 SeeWayWork 桌面工作区", {
           count: recoveredWorkspaces.length,
           selectedWorkspaceId: selectedWorkspace.id,
         });
@@ -1054,8 +1054,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
       if (!discovered?.id) {
         throw new Error(
           directory
-            ? `FoxWork 服务中没有与 ${directory} 匹配的工作区。`
-            : "FoxWork 服务未返回任何工作区。",
+            ? `SeeWayWork 服务中没有与 ${directory} 匹配的工作区。`
+            : "SeeWayWork 服务未返回任何工作区。",
         );
       }
       resolvedOpenworkWorkspaceId = String(discovered.id).trim();
@@ -1140,8 +1140,8 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
           if (!discovered?.id) {
             throw new Error(
               directory
-                ? `FoxWork 服务中没有与 ${directory} 匹配的工作区。`
-                : "FoxWork 服务未返回任何工作区。",
+                ? `SeeWayWork 服务中没有与 ${directory} 匹配的工作区。`
+                : "SeeWayWork 服务未返回任何工作区。",
             );
           }
           remoteWorkspaceId = String(discovered.id).trim();

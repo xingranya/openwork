@@ -151,7 +151,7 @@ export function MemberDashboardScreen() {
     <div className="mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6 md:px-8" data-testid="member-dashboard">
       <div className="flex flex-wrap items-center gap-2.5 border-b border-[#e7e9f0] pb-3">
         <span className="text-[14px] font-semibold tracking-[-0.01em] text-[#07192C]">
-          {activeOrg?.name ?? "FoxWork"}
+          {activeOrg?.name ?? "SeeWayWork"}
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-[#9AA5BA]" aria-hidden="true" />
         <span className="text-[14px] font-medium tracking-[-0.01em] text-[#5A6886]">工作台</span>
@@ -297,7 +297,7 @@ export function MemberDashboardScreen() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-gray-950">能力市场</h2>
-              <p className="mt-1 text-[13px] text-gray-500">能力市场包含插件，登录后会同步到 FoxWork。</p>
+              <p className="mt-1 text-[13px] text-gray-500">能力市场包含插件，登录后会同步到 SeeWayWork。</p>
             </div>
             <span className="rounded-full bg-gray-100 px-3 py-1 text-[12px] font-medium text-gray-600">
               可见 {marketplaces.length} 项

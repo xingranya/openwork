@@ -254,7 +254,7 @@ function describeTaskCreateError(error: unknown) {
     lower.includes("internal_error") ||
     lower.includes("unexpected server error")
   ) {
-    return "当前工作区的运行引擎暂时不可用。请稍后重试；如果仍无法使用，请重启 FoxWork。";
+    return "当前工作区的运行引擎暂时不可用。请稍后重试；如果仍无法使用，请重启 SeeWayWork。";
   }
   return message;
 }
@@ -600,7 +600,7 @@ export function SessionRoute() {
       console.error("[session-route] personal remote workspace sync failed", error);
       setPersonalRemoteWorkspaceState({
         status: "error",
-        message: toChineseUserMessage(error, "公司远程工作区暂时不可用，FoxWork 将自动重试。"),
+        message: toChineseUserMessage(error, "公司远程工作区暂时不可用，SeeWayWork 将自动重试。"),
       });
       retryTimer = window.setTimeout(() => {
         setPersonalRemoteWorkspaceRetryRevision((value) => value + 1);
@@ -1616,7 +1616,7 @@ export function SessionRoute() {
     setRenameWorkspaceBusy(true);
     try {
       if (!client) {
-        toast.error("FoxWork 服务不可用，请重新连接后再重命名工作区。");
+        toast.error("SeeWayWork 服务不可用，请重新连接后再重命名工作区。");
         return;
       }
       await client.updateWorkspaceDisplayName(renameWorkspaceId, trimmed);
@@ -1665,7 +1665,7 @@ export function SessionRoute() {
         downloadWorkspaceJson(workspaceExportFilename(workspace), payload);
         return;
       }
-      throw new Error("FoxWork 服务不可用，请重新连接后再导出工作区配置。");
+      throw new Error("SeeWayWork 服务不可用，请重新连接后再导出工作区配置。");
     },
     [endpointForWorkspace, workspaces],
   );
@@ -2256,7 +2256,7 @@ export function SessionRoute() {
           .catch(() => null);
       }
       if (!list) {
-        throw new Error("FoxWork 服务暂时不可用，请重新连接后再创建工作区。");
+        throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再创建工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       let targetWorkspaceId = createdId;
@@ -2265,7 +2265,7 @@ export function SessionRoute() {
         await workspaceSetSelected(createdId).catch(() => undefined);
         await workspaceSetRuntimeActive(createdId).catch(() => undefined);
       }
-      // First workspace on a fresh install: the OpenWork server was started
+      // First workspace on a fresh install: the SeeWayWork server was started
       // engine-less (it only spawns OpenCode at boot when a workspace already
       // exists), so sessions would hang forever. This boots the engine when
       // it isn't running, same as the old /welcome flow did.
@@ -2358,7 +2358,7 @@ export function SessionRoute() {
         handleOpenCreateWorkspace();
         return;
       }
-      const folder = await joinDesktopPath(home, "OpenWork Chat").catch(() => "");
+      const folder = await joinDesktopPath(home, "SeeWayWork Chat").catch(() => "");
       if (!folder) {
         handleOpenCreateWorkspace();
         return;
@@ -2415,7 +2415,7 @@ export function SessionRoute() {
         list = await client.createRemoteWorkspace(payload).catch(() => null);
       }
       if (!list) {
-        throw new Error("FoxWork 服务暂时不可用，请重新连接后再添加远程工作区。");
+        throw new Error("SeeWayWork 服务暂时不可用，请重新连接后再添加远程工作区。");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
@@ -2604,7 +2604,7 @@ export function SessionRoute() {
             void workspaceSetSelected(workspaceId).catch(() => undefined);
             void workspaceSetRuntimeActive(workspaceId).catch(() => undefined);
           }
-          // Tell the OpenWork server this workspace is now active so it can
+          // Tell the SeeWayWork server this workspace is now active so it can
           // emit a config reload event that the OpenCode engine picks up.
           // Without this, the permissions from opencode.jsonc are never
           // applied on the workspace the user is already on at launch. See

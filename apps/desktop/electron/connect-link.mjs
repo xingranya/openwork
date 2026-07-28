@@ -282,7 +282,7 @@ export function verifyConnectLinkToken(input) {
     return { ok: false, code: "invalid_token", message: "连接凭据内容结构无效。" };
   }
   if (payload.aud !== CONNECT_LINK_AUDIENCE) {
-    return { ok: false, code: "wrong_audience", message: "连接凭据不适用于 FoxWork 桌面端。" };
+    return { ok: false, code: "wrong_audience", message: "连接凭据不适用于 SeeWayWork 桌面端。" };
   }
   if (payload.v !== CONNECT_LINK_VERSION) {
     return { ok: false, code: "wrong_version", message: "连接凭据版本不受支持。" };
@@ -322,7 +322,7 @@ export function verifyConnectLinkToken(input) {
 export function verifyConnectLinkUrl(rawUrl, options) {
   const token = extractConnectLinkToken(rawUrl);
   if (!token) {
-    return { ok: false, code: "invalid_token", message: "这不是有效的 FoxWork 连接链接。" };
+    return { ok: false, code: "invalid_token", message: "这不是有效的 SeeWayWork 连接链接。" };
   }
   return verifyConnectLinkToken({
     token,
@@ -345,7 +345,7 @@ export function verifyConnectLinkUrl(rawUrl, options) {
 export async function resolveConnectExchangeUrl(rawUrl, options) {
   const exchange = extractConnectExchange(rawUrl);
   if (!exchange) {
-    return { ok: false, code: "invalid_token", message: "这不是有效的 FoxWork 免密连接链接。" };
+    return { ok: false, code: "invalid_token", message: "这不是有效的 SeeWayWork 免密连接链接。" };
   }
 
   const apiBaseUrl = normalizeExchangeApiBaseUrl(exchange.apiBaseUrl, options.allowInsecureLoopback === true);

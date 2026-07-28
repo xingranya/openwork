@@ -237,7 +237,7 @@ export function ShareWorkspaceAccessPanel(
         <div
           className={`${softCardClass} text-[13px] leading-relaxed text-dls-secondary`}
         >
-          启用远程访问并保存后，FoxWork 会重启 Worker，并显示当前工作区的实时连接信息。
+          启用远程访问并保存后，SeeWayWork 会重启 Worker，并显示当前工作区的实时连接信息。
         </div>
       )}
 
