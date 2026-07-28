@@ -438,8 +438,11 @@ jobs:
           # CNB 需要先调度一次仅创建 Release 的标签构建。遇到队列繁忙时，
           # 60 秒不足以等到稳定通道就绪，会让已经成功构建的安装包无法发布。
           for attempt in $(seq 1 120); do
-            if curl --fail --silent --show-error --location --max-time 10 \
-              --output /dev/null "$CNB_STABLE_RELEASE_PAGE"; then
+            # CNB 的页面路由即使 Release 尚不存在也会返回 HTTP 200；必须读取
+            # 服务端注入的 hasRelease 状态，不能只根据页面状态码继续上传。
+            page=$(curl --fail --silent --show-error --location --max-time 10 \
+              "$CNB_STABLE_RELEASE_PAGE" || true)
+            if printf '%s' "$page" | grep -Fq '"hasRelease":true'; then
               echo "CNB 稳定更新通道已就绪。"
               exit 0
             fi

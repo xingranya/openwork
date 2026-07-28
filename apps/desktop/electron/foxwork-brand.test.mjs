@@ -174,6 +174,7 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     "VITE_FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-stable",
     "PLUGIN_ATTACHMENTS: ./release/*",
     "seewaywork-stable",
+    "\"hasRelease\":true",
     "验证 CNB 稳定更新清单",
     "DMG 临时磁盘未能正常卸载，清理后重试",
     "hdiutil detach",
