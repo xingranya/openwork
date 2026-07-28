@@ -285,6 +285,8 @@ jobs:
             exit 1
           fi
 
+          # v1.1.3 上传完成后仍会输出已废弃且格式错误的 set-output 控制命令。
+          # 只把该行转为普通日志；pipefail 继续保留容器真实失败状态。
           docker run --rm \
             -e CNB_TOKEN \
             -e CNB_REPO_SLUG \
@@ -295,4 +297,5 @@ jobs:
             -e CNB_WEB_ENDPOINT=https://cnb.cool \
             -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
             -w "$GITHUB_WORKSPACE" \
-            cnbcool/attachments:v1.1.3
+            cnbcool/attachments:v1.1.3 2>&1 \
+            | sed 's/^##\[set-output /CNB 插件旧输出：/'
