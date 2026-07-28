@@ -29,7 +29,7 @@ const AUTO_RELOAD_COOLDOWN_MS = 5000;
 const RELOAD_DEDUPE_KEY = "engine-reload";
 const RELOAD_ERROR_DEDUPE_KEY = "engine-reload-error";
 
-function describeTrigger(
+export function describeReloadTrigger(
   description: string,
   trigger: ReloadTrigger | null,
 ): string {
@@ -39,69 +39,58 @@ function describeTrigger(
 
   const verb =
     trigger.action === "removed"
-      ? "was removed"
+      ? "已移除"
       : trigger.action === "added"
-        ? "was added"
-        : trigger. action === "updated"
-          ? "was updated"
-          : "changed";
+        ? "已添加"
+        : trigger.action === "updated"
+          ? "已更新"
+          : "已变更";
+  const name = trigger.name?.trim();
 
   if (trigger.type === "skill") {
-    return trigger.name
-      ? `Skill '${trigger.name}' ${verb}. Reload to use it.`
-      : "Skills changed. Reload to apply.";
+    return name ? `技能“${name}”${verb}，正在重新连接。` : "技能配置已更新，正在重新连接。";
   }
   if (trigger.type === "plugin") {
-    return trigger.name
-      ? `Plugin '${trigger.name}' ${verb}. Reload to activate.`
-      : "Plugins changed. Reload to apply.";
+    return name ? `插件“${name}”${verb}，正在重新连接。` : "插件配置已更新，正在重新连接。";
   }
   if (trigger.type === "mcp") {
-    return trigger.name
-      ? `MCP '${trigger.name}' ${verb}. Reload to connect.`
-      : "MCP config changed. Reload to apply.";
+    return name ? `MCP“${name}”${verb}，正在重新连接。` : "公司工具配置已更新，正在重新连接。";
   }
   if (trigger.type === "config") {
-    return trigger.name
-      ? `Config '${trigger.name}' ${verb}. Reload to apply.`
-      : "Config changed. Reload to apply.";
+    return "模型和工具配置已更新，正在重新连接。";
   }
   if (trigger.type === "agent") {
-    return trigger.name
-      ? `Agent '${trigger.name}' ${verb}. Reload to use it.`
-      : "Agents changed. Reload to apply.";
+    return name ? `AI 助手“${name}”${verb}，正在重新连接。` : "AI 助手配置已更新，正在重新连接。";
   }
   if (trigger.type === "command") {
-    return trigger.name
-      ? `Command '${trigger.name}' ${verb}. Reload to use it.`
-      : "Commands changed. Reload to apply.";
+    return name ? `命令“${name}”${verb}，正在重新连接。` : "命令配置已更新，正在重新连接。";
   }
-  return "Config changed. Reload to apply.";
+  return "模型和工具配置已更新，正在重新连接。";
 }
 
 /** Past-tense copy for the "reload happened automatically" receipt. */
-function describeApplied(trigger: ReloadTrigger | null): string {
-  if (!trigger) return "Latest configuration changes are now active.";
+export function describeAppliedReloadTrigger(trigger: ReloadTrigger | null): string {
+  if (!trigger) return "最新配置已经生效。";
 
   const label =
     trigger.type === "skill"
-      ? "Skill"
+      ? "技能"
       : trigger.type === "plugin"
-        ? "Plugin"
+        ? "插件"
         : trigger.type === "mcp"
           ? "MCP"
           : trigger.type === "agent"
-            ? "Agent"
+            ? "AI 助手"
             : trigger.type === "command"
-              ? "Command"
-              : "Config";
+              ? "命令"
+              : "模型和工具配置";
 
-  if (trigger.name) {
+  if (trigger.name?.trim() && trigger.type !== "config") {
     return trigger.action === "removed"
-      ? `${label} '${trigger.name}' was removed.`
-      : `${label} '${trigger.name}' is now active.`;
+      ? `${label}“${trigger.name.trim()}”已移除。`
+      : `${label}“${trigger.name.trim()}”已经生效。`;
   }
-  return `${label} changes are now active.`;
+  return `${label}已经生效。`;
 }
 
 const LIVE_ACTIVITY_STATUSES: SessionActivityStatus[] = [
@@ -195,7 +184,7 @@ export function ReloadCoordinatorProvider({ children }: { children: ReactNode })
       severity: "success",
       dedupeKey: RELOAD_DEDUPE_KEY,
       title: t("notifications.engine_reloaded"),
-      body: describeApplied(trigger),
+      body: describeAppliedReloadTrigger(trigger),
     });
   }, []);
 
@@ -271,7 +260,7 @@ export function ReloadCoordinatorProvider({ children }: { children: ReactNode })
         severity: "info",
         dedupeKey: RELOAD_DEDUPE_KEY,
         title: t("system.reload_required"),
-        body: describeTrigger(systemState.reloadCopy.body, systemState.reload.reloadTrigger),
+        body: describeReloadTrigger(systemState.reloadCopy.body, systemState.reload.reloadTrigger),
       });
       return;
     }

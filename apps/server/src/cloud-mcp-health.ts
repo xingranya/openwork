@@ -1781,17 +1781,6 @@ async function inspectOpenworkCloud(input: {
   const experimentalProviderTools = experimentalProviderToolsFromProjection(providerProjection);
   if (providerProjection.failure) failures.push(providerProjection.failure);
 
-  if (pluginCanaries.missing.length) {
-    failures.push(failure({
-      code: "extensions_plugin_missing",
-      stage: "plugin_load",
-      retryable: true,
-      recommendedAction: "Reload the OpenCode engine so OpenWork extensions are loaded",
-      message: "OpenWork extension plugin canary tools are missing.",
-      details: { missing: pluginCanaries.missing },
-    }));
-  }
-
   return { engine, engineInspection, tools, directTools, providerProjection, pluginCanaries, experimentalToolIds, experimentalProviderTools, opencodeVersion, failures };
 }
 

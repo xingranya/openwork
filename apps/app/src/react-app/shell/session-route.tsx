@@ -500,7 +500,6 @@ export function SessionRoute() {
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
     setRetryingWorkspaceIds,
-    refreshInFlightRef,
     startupRetryTimerRef,
     selectedWorkspaceId,
     selectedWorkspace,
@@ -513,6 +512,7 @@ export function SessionRoute() {
     selectedWorkspaceError,
     routeNotFoundMessage,
     endpointForWorkspace,
+    recoverWorkspaceEndpoint,
     refreshRouteState,
     loadWorkspaceSessionsInBackground,
     rememberPendingCreatedSession,
@@ -761,11 +761,17 @@ export function SessionRoute() {
     onSettingsChanged: () => setOpenworkServerSettingsVersion((value) => value + 1),
   });
 
+  const recoverSelectedWorkspaceEndpoint = useCallback(
+    async () => await recoverWorkspaceEndpoint(selectedWorkspaceId),
+    [recoverWorkspaceEndpoint, selectedWorkspaceId],
+  );
+
   const { engineReloadVersion, routeEngineInfo, reloadWorkspaceEngineFromUi } = useEngineReload({
     client,
     workspaceId: selectedWorkspaceId,
     workspace: selectedWorkspace,
     endpointForWorkspace,
+    recoverWorkspaceEndpoint,
     activeReloadBlockingSessions,
     onError: setRouteError,
     refreshRouteState,
@@ -906,6 +912,7 @@ export function SessionRoute() {
     selectedWorkspaceEndpoint,
     selectedWorkspaceRoot,
     selectedWorkspaceId,
+    recoverRuntimeWorkspace: recoverSelectedWorkspaceEndpoint,
     setProviders,
     setProviderDefaults,
     setProviderConnectedIds,
@@ -1768,7 +1775,6 @@ export function SessionRoute() {
         if (startupRetryTimerRef.current === null) {
           startupRetryTimerRef.current = window.setTimeout(() => {
             startupRetryTimerRef.current = null;
-            refreshInFlightRef.current = false;
             void refreshRouteState();
           }, 1_000);
         }

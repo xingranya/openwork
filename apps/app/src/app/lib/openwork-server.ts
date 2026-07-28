@@ -1162,6 +1162,14 @@ export class OpenworkServerError extends Error {
   }
 }
 
+export function isOpenworkWorkspaceNotFoundError(error: unknown): boolean {
+  return error instanceof OpenworkServerError && (
+    error.status === 404 ||
+    error.code === "workspace_not_found" ||
+    error.code === "openwork_cloud_resource_not_found"
+  );
+}
+
 function buildHeaders(
   token?: string,
   hostToken?: string,

@@ -40,7 +40,7 @@ describe("FoxWork 能力说明插件", () => {
       path: "account/sign-in-and-workspaces.mdx",
     });
 
-    expect(read).toContain("登录成功后，FoxWork 会自动连接属于你的远程工作区");
+    expect(read).toContain("登录成功后，SeeWayWork 会自动连接属于你的远程工作区");
     expect(read).toContain("仍可继续新增本地或远程工作区");
     expect(read).not.toContain("OpenWork");
   });

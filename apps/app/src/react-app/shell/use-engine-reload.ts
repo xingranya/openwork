@@ -15,6 +15,7 @@ import { useReloadCoordinator } from "./reload-coordinator";
 import { refreshProviderListQueries } from "@/react-app/infra/provider-list-query";
 import { getReactQueryClient } from "@/react-app/infra/query-client";
 import type { RouteWorkspace } from "./route-workspaces";
+import { reloadWorkspaceEngineWithWorkspaceRecovery } from "./workspace-engine-reload";
 import { toast } from "@/components/ui/sonner";
 
 const reloadAfterOrgOnboardingKey = "openwork.reloadAfterOrgOnboarding";
@@ -37,6 +38,7 @@ export type UseEngineReloadInput = {
   endpointForWorkspace: (
     workspace: RouteWorkspace | null | undefined,
   ) => ResolvedWorkspaceEndpoint | null;
+  recoverWorkspaceEndpoint: (workspaceId: string) => Promise<ResolvedWorkspaceEndpoint | null>;
   activeReloadBlockingSessions: { id: string; title: string }[];
   onError: (message: string) => void;
   refreshRouteState: () => Promise<void>;
@@ -48,6 +50,7 @@ export function useEngineReload(input: UseEngineReloadInput) {
     workspaceId,
     workspace,
     endpointForWorkspace,
+    recoverWorkspaceEndpoint,
     activeReloadBlockingSessions,
     onError,
     refreshRouteState,
@@ -69,7 +72,10 @@ export function useEngineReload(input: UseEngineReloadInput) {
     }
     let restartedEngine = false;
     try {
-      await endpoint.client.reloadEngine(endpoint.workspaceId);
+      await reloadWorkspaceEngineWithWorkspaceRecovery({
+        endpoint,
+        recoverEndpoint: () => recoverWorkspaceEndpoint(workspaceId),
+      });
     } catch (error) {
       if (!canRestartDesktopForReloadError(error) || !isDesktopRuntime()) {
         throw error;
@@ -95,7 +101,7 @@ export function useEngineReload(input: UseEngineReloadInput) {
     toast.dismiss(taskCreateUnavailableToastId(workspaceId));
     toast.dismiss();
     return true;
-  }, [client, endpointForWorkspace, onError, refreshRouteState, workspace, workspaceId]);
+  }, [client, endpointForWorkspace, onError, recoverWorkspaceEndpoint, refreshRouteState, workspace, workspaceId]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({

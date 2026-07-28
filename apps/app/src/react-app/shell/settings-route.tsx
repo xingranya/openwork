@@ -14,6 +14,7 @@ import { createClient, unwrap } from "@/app/lib/opencode";
 import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   createOpenworkServerClient,
+  isOpenworkWorkspaceNotFoundError,
   isLoopbackOpenworkServerUrl,
   readOpenworkServerSettings,
   OpenworkServerError,
@@ -25,6 +26,7 @@ import {
 } from "@/app/lib/openwork-server";
 import {
   shouldActivateWorkspaceEndpoint,
+  type ResolvedWorkspaceEndpoint,
 } from "@/app/lib/workspace-endpoint";
 import { buildOpenworkEnvRuntimeKey } from "@/app/lib/openwork-env-runtime";
 import {
@@ -167,6 +169,7 @@ import { resolveOpenworkConnection } from "./openwork-connection";
 import { abortSessionSafe } from "@/app/lib/opencode-session";
 import { notifyAlert } from "./notifications";
 import { useReloadCoordinator } from "./reload-coordinator";
+import { reloadWorkspaceEngineWithWorkspaceRecovery } from "./workspace-engine-reload";
 import { CommandPalette } from "./command-palette";
 import { buildCommandPaletteSessions } from "./command-palette-sessions";
 import { useCommandPaletteShortcut } from "./use-shell-shortcuts";
@@ -187,6 +190,10 @@ import {
   resolveWorkspaceScopedServerSnapshot,
 } from "./settings-workspace-connection";
 import {
+  createRouteRefreshFlight,
+  withRouteRefreshTimeout,
+} from "./route-refresh-flight";
+import {
   buildLocalProviderConfig,
   OPENAI_IMAGE_EXTENSION_ID,
   OPENAI_IMAGE_MODEL,
@@ -204,9 +211,17 @@ async function reloadEngineOrRestartDesktop(
   client: Pick<OpenworkServerClient, "reloadEngine">,
   workspaceId: string,
   afterRestart?: () => Promise<void>,
+  recoverEndpoint?: () => Promise<ResolvedWorkspaceEndpoint | null>,
 ): Promise<void> {
   try {
-    await client.reloadEngine(workspaceId);
+    if (recoverEndpoint) {
+      await reloadWorkspaceEngineWithWorkspaceRecovery({
+        endpoint: { client, workspaceId },
+        recoverEndpoint,
+      });
+    } else {
+      await client.reloadEngine(workspaceId);
+    }
   } catch (error) {
     if (!canRestartDesktopForReloadError(error) || !isDesktopRuntime()) {
       throw error;
@@ -414,7 +429,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const workspacesRef = useRef<RouteWorkspace[]>([]);
-  const refreshInFlightRef = useRef(false);
+  const recoverSelectedWorkspaceEndpointRef = useRef<
+    () => Promise<ResolvedWorkspaceEndpoint | null>
+  >(async () => null);
+  const refreshFlightRef = useRef(createRouteRefreshFlight());
   const reconnectAttemptedWorkspaceIdRef = useRef("");
   const refreshMcpServersRef = useRef<(() => void | Promise<void>) | null>(null);
   const notifyMcpReloadingRef = useRef<(() => void) | null>(null);
@@ -482,6 +500,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   const routeStateRef = useRef({
     activeClient: null as Client | null,
+    baseUrl: "",
+    token: "",
+    hostToken: "",
     providerBaseUrl: "",
     selectedWorkspaceId: "",
     selectedWorkspaceRoot: "",
@@ -547,6 +568,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   routeStateRef.current = {
     activeClient,
+    baseUrl,
+    token,
+    hostToken,
     providerBaseUrl: opencodeBaseUrl,
     selectedWorkspaceId,
     selectedWorkspaceRoot,
@@ -912,19 +936,6 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     const model = local.prefs.defaultModel?.modelID.trim() ?? "";
     return provider && model ? { provider, model } : null;
   }, [local.prefs.defaultModel]);
-  const refreshCloudMcpHealth = useCallback(async () => {
-    const client = selectedWorkspaceEndpoint?.client ?? openworkClient;
-    const workspaceId = runtimeWorkspaceId?.trim() ?? "";
-    if (!client || !workspaceId) {
-      setCloudMcpHealth(null);
-      return null;
-    }
-    // probe: the Advanced page refresh should verify the Cloud endpoint
-    // directly (outside the engine), not just report the engine's cached state.
-    const health = await client.getOpenworkCloudMcpHealth(workspaceId, currentCloudMcpModel ?? undefined, { probe: true });
-    setCloudMcpHealth(health);
-    return health;
-  }, [currentCloudMcpModel, openworkClient, runtimeWorkspaceId, selectedWorkspaceEndpoint]);
   const { commandPaletteOpen, setCommandPaletteOpen } = useCommandPaletteShortcut(!props.embedded);
   const paletteSessionOptions = useMemo(
     () => buildCommandPaletteSessions(workspaces, sessionsByWorkspaceId, selectedWorkspaceId),
@@ -1137,13 +1148,21 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setLocalProviderStatus(null);
     setLocalProviderError(null);
     try {
-      await client.patchConfig(workspaceId, {
+      const patch = {
         opencode: {
           provider: {
             [input.providerId]: buildLocalProviderConfig({ ...input, modelId }),
           },
         },
-      });
+      };
+      try {
+        await client.patchConfig(workspaceId, patch);
+      } catch (error) {
+        if (!isOpenworkWorkspaceNotFoundError(error)) throw error;
+        const recoveredEndpoint = await recoverSelectedWorkspaceEndpointRef.current();
+        if (!recoveredEndpoint) throw error;
+        await recoveredEndpoint.client.patchConfig(recoveredEndpoint.workspaceId, patch);
+      }
       if (input.setDefault) {
         local.setPrefs((previous) => ({
           ...previous,
@@ -1153,7 +1172,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }
       reloadCoordinator.markReloadRequired("config", { type: "config", name: "opencode.json", action: "updated" });
       try {
-        await reloadEngineOrRestartDesktop(client, workspaceId);
+        await reloadEngineOrRestartDesktop(
+          client,
+          workspaceId,
+          undefined,
+          recoverSelectedWorkspaceEndpointRef.current,
+        );
       } catch {
         // The reload toast still lets the user retry if the immediate reload fails.
       }
@@ -1193,16 +1217,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [updateAutoDownload]);
 
   const { markRouteReady: markBootRouteReady } = useBootState();
-  const refreshRouteState = useMemo(() => async () => {
-    if (refreshInFlightRef.current) return;
-    refreshInFlightRef.current = true;
+  const refreshRouteState = useMemo(() => () => refreshFlightRef.current.run(async () => {
     setLoading(true);
     let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
       if (isDesktopRuntime()) {
         try {
-          desktopList = await workspaceBootstrap() as WorkspaceList;
+          desktopList = await withRouteRefreshTimeout(
+            workspaceBootstrap(),
+            "本机工作区准备",
+          ) as WorkspaceList;
           desktopWorkspaces = (desktopList.workspaces ?? []).map(mapDesktopWorkspace);
         } catch (error) {
           const message = describeRouteError(error);
@@ -1215,9 +1240,15 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           desktopWorkspaces = workspacesRef.current;
         }
       }
-      const { normalizedBaseUrl, resolvedToken, resolvedHostToken } = await resolveOpenworkConnection();
+      const { normalizedBaseUrl, resolvedToken, resolvedHostToken } = await withRouteRefreshTimeout(
+        resolveOpenworkConnection(),
+        "SeeWayWork 服务连接",
+      );
 
       if (!normalizedBaseUrl || !resolvedToken) {
+        routeStateRef.current.baseUrl = "";
+        routeStateRef.current.token = "";
+        routeStateRef.current.hostToken = "";
         setOpenworkClient(null);
         setBaseUrl("");
         setToken("");
@@ -1238,7 +1269,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         token: resolvedToken,
         hostToken: resolvedHostToken || undefined,
       });
-      const list = await client.listWorkspaces();
+      const list = await withRouteRefreshTimeout(client.listWorkspaces(), "工作区列表");
       const serverWorkspaceIds = new Set(list.items.map((workspace) => workspace.id));
       const nextWorkspaces = mergeRouteWorkspaces(list.items, desktopWorkspaces);
       const routeWorkspaceServerClientResolver = createWorkspaceServerClientResolver({
@@ -1256,7 +1287,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             return { workspaceId: workspace.id, sessions: [], error: null as string | null };
           }
           try {
-            const response = await endpoint.client.listSessions(endpoint.workspaceId, { limit: 200 });
+            const response = await withRouteRefreshTimeout(
+              endpoint.client.listSessions(endpoint.workspaceId, { limit: 200 }),
+              "工作区会话读取",
+            );
             const workspaceRoot = normalizeDirectoryPath(workspace.path ?? "");
             const items = workspaceRoot && !endpoint.isRemote
               ? (response.items ?? []).filter((session) =>
@@ -1272,7 +1306,14 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           } catch (error) {
             const fallback = toChineseUserMessage(error, "无法加载此工作区的会话，请稍后重试。");
             if (workspace.workspaceType === "remote") {
-              const connectionState = await diagnoseRemoteWorkspaceTaskLoadFailure(workspace, fallback);
+              const connectionState = await withRouteRefreshTimeout(
+                diagnoseRemoteWorkspaceTaskLoadFailure(workspace, fallback),
+                "远程工作区连接诊断",
+              ).catch(() => ({
+                status: "error" as const,
+                message: "远程工作区连接诊断超时，请检查网络后重试。",
+                checkedAt: Date.now(),
+              }));
               const connectionMessage = toChineseUserMessage(
                 connectionState.message,
                 "无法连接远程工作区，请检查连接地址与访问权限后重试。",
@@ -1295,9 +1336,13 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       );
 
       setOpenworkClient(client);
+      routeStateRef.current.baseUrl = normalizedBaseUrl;
+      routeStateRef.current.token = resolvedToken;
+      routeStateRef.current.hostToken = resolvedHostToken;
       setBaseUrl(normalizedBaseUrl);
       setToken(resolvedToken);
       setHostToken(resolvedHostToken);
+      workspacesRef.current = nextWorkspaces;
       setWorkspaces(nextWorkspaces);
       setSessionsByWorkspaceId(Object.fromEntries(sessionEntries.map((entry) => [entry.workspaceId, entry.sessions])));
       setErrorsByWorkspaceId(Object.fromEntries(sessionEntries.map((entry) => [entry.workspaceId, entry.error])));
@@ -1344,13 +1389,52 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       }
     } finally {
       setLoading(false);
-      refreshInFlightRef.current = false;
       // Settings can be the first route a user lands on (direct link, deep
       // link, or after reload). Let the boot overlay dismiss once we've
       // completed our first data load.
       markBootRouteReady();
     }
-  }, [markBootRouteReady, navigationSessionId, navigationWorkspaceId, routeWorkspaceId]);
+  }), [markBootRouteReady, navigationSessionId, navigationWorkspaceId, routeWorkspaceId]);
+
+  const recoverSelectedWorkspaceEndpoint = useCallback(async () => {
+    const previousWorkspaceId = routeStateRef.current.selectedWorkspaceId.trim();
+    await refreshRouteState();
+    const workspace = workspacesRef.current.find((item) => item.id === previousWorkspaceId) ?? null;
+    return createWorkspaceServerClientResolver({
+      baseUrl: routeStateRef.current.baseUrl,
+      token: routeStateRef.current.token,
+      hostToken: routeStateRef.current.hostToken,
+    })(workspace);
+  }, [refreshRouteState]);
+  recoverSelectedWorkspaceEndpointRef.current = recoverSelectedWorkspaceEndpoint;
+
+  const refreshCloudMcpHealth = useCallback(async () => {
+    const endpoint = selectedWorkspaceEndpoint;
+    if (!endpoint) {
+      setCloudMcpHealth(null);
+      return null;
+    }
+    const readHealth = async (target: ResolvedWorkspaceEndpoint) =>
+      await target.client.getOpenworkCloudMcpHealth(
+        target.workspaceId,
+        currentCloudMcpModel ?? undefined,
+        { probe: true },
+      );
+    try {
+      const health = await readHealth(endpoint);
+      setCloudMcpHealth(health);
+      return health;
+    } catch (error) {
+      if (!isOpenworkWorkspaceNotFoundError(error)) throw error;
+      const recoveredEndpoint = await recoverSelectedWorkspaceEndpoint();
+      if (!recoveredEndpoint) {
+        throw new Error("公司工作区已更新，正在重新连接。请稍后重试。", { cause: error });
+      }
+      const health = await readHealth(recoveredEndpoint);
+      setCloudMcpHealth(health);
+      return health;
+    }
+  }, [currentCloudMcpModel, recoverSelectedWorkspaceEndpoint, selectedWorkspaceEndpoint]);
 
   const reloadWorkspaceEngineFromUi = useCallback(async () => {
     const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId.trim();
@@ -1359,7 +1443,12 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       return false;
     }
 
-    await reloadEngineOrRestartDesktop(openworkClient, workspaceId, refreshRouteState);
+    await reloadEngineOrRestartDesktop(
+      openworkClient,
+      workspaceId,
+      refreshRouteState,
+      recoverSelectedWorkspaceEndpoint,
+    );
     await refreshProviderListQueries(getReactQueryClient());
 
     try {
@@ -1373,7 +1462,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     void pollMcpServersAfterReloadRef.current?.();
 
     return true;
-  }, [openworkClient, refreshRouteState, selectedWorkspaceId]);
+  }, [openworkClient, recoverSelectedWorkspaceEndpoint, refreshRouteState, selectedWorkspaceId]);
 
   useEffect(() => {
     return reloadCoordinator.registerWorkspaceReloadControls({

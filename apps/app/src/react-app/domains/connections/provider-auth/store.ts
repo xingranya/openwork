@@ -21,7 +21,12 @@ import {
   workspaceOpenworkRead,
   workspaceOpenworkWrite,
 } from "../../../../app/lib/desktop";
-import { OpenworkServerError } from "../../../../app/lib/openwork-server";
+import {
+  isOpenworkWorkspaceNotFoundError,
+  OpenworkServerError,
+  type OpenworkServerClient,
+} from "../../../../app/lib/openwork-server";
+import type { ResolvedWorkspaceEndpoint } from "../../../../app/lib/workspace-endpoint";
 import { toChineseUserMessage } from "../../../../app/lib/user-facing-error";
 import type {
   Client,
@@ -104,12 +109,16 @@ type CloudProviderSyncReason =
   | "settings_cloud_opened"
   | "manual";
 
+type CloudProviderSyncResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 let lastGlobalProviderDisposeRefreshAt = 0;
-const globalCloudProviderSyncByContext = new Map<string, Promise<void>>();
+const globalCloudProviderSyncByContext = new Map<string, Promise<CloudProviderSyncResult>>();
 
 function enqueueGlobalCloudProviderSync(
   contextKey: string,
-  sync: () => Promise<void>,
+  sync: () => Promise<CloudProviderSyncResult>,
 ) {
   const previous = globalCloudProviderSyncByContext.get(contextKey) ?? Promise.resolve();
   const request = previous.catch(() => undefined).then(sync);
@@ -205,6 +214,7 @@ type CreateProviderAuthStoreOptions = {
   selectedWorkspaceRoot: () => string;
   runtimeWorkspaceId: () => string | null;
   ensureRuntimeWorkspaceId?: () => Promise<string | null | undefined>;
+  recoverRuntimeWorkspace?: () => Promise<ResolvedWorkspaceEndpoint | null>;
   openworkServer: ProviderAuthOpenworkServer;
   setProviders: (value: ProviderListItem[]) => void;
   setProviderDefaults: (value: Record<string, string>) => void;
@@ -261,7 +271,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   let cloudOrgProvidersLoadKey = "";
   let cloudOrgProvidersInFlightKey = "";
   let cloudOrgProvidersInFlight: Promise<DenOrgLlmProvider[]> | null = null;
-  let cloudProviderSyncTail: Promise<void> = Promise.resolve();
+  let cloudProviderSyncTail: Promise<CloudProviderSyncResult> = Promise.resolve({ ok: true });
   let cloudProviderSyncContextKey = "";
 
   const emitChange = () => {
@@ -335,6 +345,30 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       hasOpenworkTarget,
       canUseOpenworkServer,
     };
+  };
+
+  type RuntimeWorkspaceTarget = {
+    openworkClient: OpenworkServerClient;
+    openworkWorkspaceId: string;
+  };
+
+  const retryWithRecoveredRuntimeWorkspace = async <T>(
+    target: RuntimeWorkspaceTarget,
+    operation: (next: RuntimeWorkspaceTarget) => Promise<T>,
+  ): Promise<T> => {
+    try {
+      return await operation(target);
+    } catch (error) {
+      if (!isOpenworkWorkspaceNotFoundError(error) || !options.recoverRuntimeWorkspace) {
+        throw error;
+      }
+      const endpoint = await options.recoverRuntimeWorkspace();
+      if (!endpoint) throw error;
+      return await operation({
+        openworkClient: endpoint.client,
+        openworkWorkspaceId: endpoint.workspaceId,
+      });
+    }
   };
 
   const refreshSnapshot = () => {
@@ -416,7 +450,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       await resolveOpenworkConfigTarget("read");
 
     if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-      const config = await openworkClient.getConfig(openworkWorkspaceId);
+      const config = await retryWithRecoveredRuntimeWorkspace(
+        { openworkClient, openworkWorkspaceId },
+        (target) => target.openworkClient.getConfig(target.openworkWorkspaceId),
+      );
       return config.openwork ?? {};
     }
 
@@ -443,7 +480,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       await resolveOpenworkConfigTarget("write");
 
     if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-      await openworkClient.patchConfig(openworkWorkspaceId, { openwork: config });
+      await retryWithRecoveredRuntimeWorkspace(
+        { openworkClient, openworkWorkspaceId },
+        (target) => target.openworkClient.patchConfig(target.openworkWorkspaceId, { openwork: config }),
+      );
       return true;
     }
 
@@ -500,7 +540,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       await resolveOpenworkConfigTarget("read");
 
     if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-      return await openworkClient.readOpencodeConfigFile(openworkWorkspaceId, "project");
+      return await retryWithRecoveredRuntimeWorkspace(
+        { openworkClient, openworkWorkspaceId },
+        (target) => target.openworkClient.readOpencodeConfigFile(target.openworkWorkspaceId, "project"),
+      );
     }
 
     if (hasOpenworkTarget) {
@@ -522,11 +565,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       await resolveOpenworkConfigTarget("write");
 
     if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-      const result = await openworkClient.writeOpencodeConfigFile(
-        openworkWorkspaceId,
-        "project",
-        content,
-      ) as { ok: boolean; stderr?: string; stdout?: string };
+      const result = await retryWithRecoveredRuntimeWorkspace(
+        { openworkClient, openworkWorkspaceId },
+        (target) => target.openworkClient.writeOpencodeConfigFile(
+          target.openworkWorkspaceId,
+          "project",
+          content,
+        ) as Promise<{ ok: boolean; stderr?: string; stdout?: string }>,
+      );
       if (!result.ok) {
         throw new Error(toChineseUserMessage(
           result.stderr || result.stdout,
@@ -570,10 +616,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       throw new Error("SeeWayWork 服务不可用，请重新连接后再管理公司模型供应商。");
     }
     try {
-      await openworkClient.setRuntimeProviders(
-        openworkWorkspaceId,
-        providers,
-        importedProviders,
+      await retryWithRecoveredRuntimeWorkspace(
+        { openworkClient, openworkWorkspaceId },
+        (target) => target.openworkClient.setRuntimeProviders(
+          target.openworkWorkspaceId,
+          providers,
+          importedProviders,
+        ),
       );
     } catch (error) {
       if (
@@ -824,7 +873,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
         await resolveOpenworkConfigTarget("write");
       if (canUseOpenworkServer && openworkClient && openworkWorkspaceId) {
-        const merged = await openworkClient.getConfig(openworkWorkspaceId);
+        const merged = await retryWithRecoveredRuntimeWorkspace(
+          { openworkClient, openworkWorkspaceId },
+          (target) => target.openworkClient.getConfig(target.openworkWorkspaceId),
+        );
         const runtimeProvider = isRecord(merged.opencode) ? merged.opencode.provider : null;
         const runtimeOrphans = isRecord(runtimeProvider)
           ? Object.keys(runtimeProvider).filter((key) => /^lpr_/i.test(key))
@@ -1339,7 +1391,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
                 "";
               if (workspaceId) {
                 try {
-                  await openworkClient.reloadEngine(workspaceId);
+                  await retryWithRecoveredRuntimeWorkspace(
+                    { openworkClient, openworkWorkspaceId: workspaceId },
+                    (target) => target.openworkClient.reloadEngine(target.openworkWorkspaceId),
+                  );
                 } catch (error) {
                   const unreachable =
                     error instanceof OpenworkServerError && error.code === "opencode_engine_unreachable";
@@ -1764,9 +1819,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     if (replacement) writeStoredDefaultModel(replacement);
   };
 
-  async function performCloudProviderSync(reason: CloudProviderSyncReason) {
+  async function performCloudProviderSync(reason: CloudProviderSyncReason): Promise<CloudProviderSyncResult> {
     if (!hasCloudProviderSyncPrerequisites()) {
-      return;
+      return { ok: false, error: "公司模型服务尚未准备好，请稍后重试。" };
     }
 
     // Imports, baseline reads, and persistence all go through the SeeWayWork
@@ -1775,15 +1830,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     // and re-import every org provider — engine dispose churn on settings open.
     const target = await resolveOpenworkConfigTarget("write");
     if (!target.canUseOpenworkServer || !target.openworkClient || !target.openworkWorkspaceId) {
-      return;
+      return { ok: false, error: "当前工作区尚未连接 SeeWayWork 服务，请稍后重试。" };
     }
 
     let importedProviders: Record<string, CloudImportedProvider>;
     try {
       importedProviders = await refreshImportedCloudProviders({ strict: true });
     } catch (error) {
-      logCloudProviderSyncError(reason, error);
-      return;
+      throw new Error(logCloudProviderSyncError(reason, error), { cause: error });
     }
     const liveProviders = await refreshCloudOrgProviders({ force: true });
     const liveProviderMap = new Map(liveProviders.map((provider) => [provider.id, provider]));
@@ -1853,6 +1907,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const syncedProviderList = configChanged
       ? await refreshProviders({ dispose: true }).catch(() => null)
       : await refreshProviders({ force: true }).catch(() => null);
+    if (!syncedProviderList) {
+      return { ok: false, error: "公司模型服务暂时不可用，模型列表正在重新连接。" };
+    }
     preselectEntitledOrgDefaultModel(syncedProviderList);
 
     // Notify the UI about newly imported providers so the global toast
@@ -1867,6 +1924,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     if (failures.length > 0) {
       throw new Error(failures.join("\n"));
     }
+    return { ok: true };
   }
 
   async function runCloudProviderSync(reason: CloudProviderSyncReason) {
@@ -1881,16 +1939,21 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
           () => performCloudProviderSync(reason),
         ),
       )
-      .then(() => {
-        if (reason === "settings_cloud_opened") {
+      .then((result) => {
+        if (result.ok && reason === "settings_cloud_opened") {
           setStateField("providerAuthError", null);
         }
+        if (!result.ok && reason === "settings_cloud_opened") {
+          setStateField("providerAuthError", result.error);
+        }
+        return result;
       })
       .catch((error) => {
         const message = logCloudProviderSyncError(reason, error);
         if (reason === "settings_cloud_opened") {
           setStateField("providerAuthError", message);
         }
+        return { ok: false, error: message } as const;
       });
 
     cloudProviderSyncTail = request;

@@ -625,13 +625,15 @@ describe("公司能力 MCP 严格同步", () => {
     });
   });
 
-  test("reports extension canary missing when docs canary is present but extension canary is absent", async () => {
+  test("本机辅助插件索引缺项不阻断公司 MCP", async () => {
     const root = await createRoot();
     const mock = startMockOpencode({ toolIds: [...OPENWORK_CLOUD_EXPECTED_TOOLS, "openwork_docs_search"] });
     const openwork = await startOpenwork([workspace("ws_1", root, `http://127.0.0.1:${mock.server.port}`)]);
 
     const body = await responseRecord(await reconcile(openwork.base));
-    expect(firstFailure(body).code).toBe("extensions_plugin_missing");
+    expect(body.phase).toBe("ready");
+    expect(body.usable).toBe(true);
+    expect(body.firstFailure).toBeNull();
     expect(requireArray(requireRecord(body.pluginCanaries, "pluginCanaries").missing, "missing")).toContain("openwork_query");
   });
 

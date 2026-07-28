@@ -26,6 +26,32 @@ const emptyWorkspaceDisplay: WorkspaceDisplay = {
   workspaceType: "local",
 };
 
+export function cloudProviderSyncRetryDelay(completedAttempts: number): number | null {
+  if (completedAttempts === 1) return 1_000;
+  if (completedAttempts === 2) return 3_000;
+  return null;
+}
+
+/**
+ * 公司模型同步必须绑定到实际登录员工、公司和工作区。账号切换时即使仍处于
+ * “已登录”状态，也要重新同步，不能沿用上一位员工的完成标记。
+ */
+export function buildCloudProviderSyncContextIdentity(input: {
+  userId: string | null | undefined;
+  denBaseUrl: string;
+  activeOrgId: string | null | undefined;
+  workspaceId: string | null | undefined;
+  workspaceRoot: string;
+}) {
+  return [
+    input.userId?.trim() ?? "",
+    input.denBaseUrl.trim(),
+    input.activeOrgId?.trim() ?? "",
+    input.workspaceId?.trim() ?? "",
+    input.workspaceRoot.trim(),
+  ].join("\u001f");
+}
+
 export type UseSessionProviderAuthInput = {
   opencodeClient: Client | null;
   opencodeBaseUrl: string;
@@ -37,6 +63,7 @@ export type UseSessionProviderAuthInput = {
   selectedWorkspaceEndpoint: ResolvedWorkspaceEndpoint | null;
   selectedWorkspaceRoot: string;
   selectedWorkspaceId: string;
+  recoverRuntimeWorkspace?: () => Promise<ResolvedWorkspaceEndpoint | null>;
   setProviders: (value: ProviderListItem[]) => void;
   setProviderDefaults: (value: Record<string, string>) => void;
   setProviderConnectedIds: (value: string[]) => void;
@@ -55,6 +82,7 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
     selectedWorkspaceEndpoint,
     selectedWorkspaceRoot,
     selectedWorkspaceId,
+    recoverRuntimeWorkspace,
     setProviders,
     setProviderDefaults,
     setProviderConnectedIds,
@@ -78,6 +106,7 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
     selectedWorkspace,
     selectedWorkspaceEndpoint,
     selectedWorkspaceRoot,
+    recoverRuntimeWorkspace,
   });
   stateRef.current = {
     opencodeClient,
@@ -89,6 +118,7 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
     selectedWorkspace,
     selectedWorkspaceEndpoint,
     selectedWorkspaceRoot,
+    recoverRuntimeWorkspace,
   };
 
   // Depend on the stable callback, not the coordinator object: the context
@@ -114,6 +144,8 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
             : emptyWorkspaceDisplay,
         selectedWorkspaceRoot: () => stateRef.current.selectedWorkspaceRoot,
         runtimeWorkspaceId: () => stateRef.current.selectedWorkspaceEndpoint?.workspaceId ?? null,
+        recoverRuntimeWorkspace: async () =>
+          await stateRef.current.recoverRuntimeWorkspace?.() ?? null,
         openworkServer: {
           getSnapshot: () => ({
             openworkServerStatus: stateRef.current.selectedWorkspaceEndpoint ? "connected" : "disconnected",
@@ -151,7 +183,15 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
 
   const cloudProviderSyncContext = useMemo(() => {
     const settings = readDenSettings();
+    const identity = buildCloudProviderSyncContextIdentity({
+      userId: denAuth.user?.id,
+      denBaseUrl: settings.baseUrl,
+      activeOrgId: settings.activeOrgId,
+      workspaceId: selectedWorkspaceEndpoint?.workspaceId,
+      workspaceRoot: selectedWorkspaceRoot,
+    });
     return {
+      identity,
       client: opencodeClient,
       workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? null,
       workspaceRoot: selectedWorkspaceRoot,
@@ -159,7 +199,7 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
       activeOrgId: settings.activeOrgId?.trim() ?? "",
       signedIn: denAuth.isSignedIn && Boolean(settings.authToken?.trim()),
     };
-  }, [denAuth.isSignedIn, denSettingsVersion, opencodeClient, selectedWorkspaceEndpoint?.workspaceId, selectedWorkspaceRoot]);
+  }, [denAuth.isSignedIn, denAuth.user?.id, denSettingsVersion, opencodeClient, selectedWorkspaceEndpoint?.workspaceId, selectedWorkspaceRoot]);
   const [completedCloudProviderSync, setCompletedCloudProviderSync] = useState<{
     context: typeof cloudProviderSyncContext;
     providerList: ProviderListResponse | null;
@@ -250,15 +290,35 @@ export function useSessionProviderAuth(input: UseSessionProviderAuthInput) {
     ) return;
 
     let cancelled = false;
-    void (async () => {
-      await store.runCloudProviderSync("app_launch");
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let completedAttempts = 0;
+    const retryOrStop = () => {
+      const delay = cloudProviderSyncRetryDelay(completedAttempts);
+      if (delay === null || cancelled) return;
+      retryTimer = setTimeout(() => {
+        void syncCloudProviders();
+      }, delay);
+    };
+    const syncCloudProviders = async () => {
+      completedAttempts += 1;
+      const syncResult = await store.runCloudProviderSync("app_launch");
+      if (!syncResult.ok) {
+        retryOrStop();
+        return;
+      }
       const providerList = await store.refreshProviders({ force: true });
+      if (!providerList) {
+        retryOrStop();
+        return;
+      }
       if (!cancelled) {
         setCompletedCloudProviderSync({ context: cloudProviderSyncContext, providerList });
       }
-    })();
+    };
+    void syncCloudProviders();
     return () => {
       cancelled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
     };
   }, [cloudProviderSyncContext, store]);
 

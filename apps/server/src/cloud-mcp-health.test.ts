@@ -31,7 +31,7 @@ const roots: string[] = [];
 const runtimeDbRoots: string[] = [];
 const stops: Array<() => void> = [];
 
-type DirectProbeMode = "ok" | "missing" | "unauthorized";
+type DirectProbeMode = "ok" | "missing" | "unauthorized" | "plugin_canary_missing";
 type ReadHealthOptions = {
   probe?: boolean;
   beforeRead?: (directUrl: string) => void;
@@ -82,7 +82,13 @@ function startMockOpencode(mode: DirectProbeMode) {
           "sibling-remote": { status: "failed", error: "fetch failed" },
         });
       }
-      if (url.pathname === "/experimental/tool/ids") return Response.json([...OPENWORK_CLOUD_EXPECTED_TOOLS, ...OPENWORK_CLOUD_PLUGIN_CANARIES]);
+      if (url.pathname === "/experimental/tool/ids") {
+        return Response.json(
+          mode === "plugin_canary_missing"
+            ? [...OPENWORK_CLOUD_EXPECTED_TOOLS, "openwork_docs_search"]
+            : [...OPENWORK_CLOUD_EXPECTED_TOOLS, ...OPENWORK_CLOUD_PLUGIN_CANARIES],
+        );
+      }
       if (url.pathname === "/cloud-mcp/mcp/agent" && request.method === "POST") {
         if (mode === "unauthorized") return Response.json({ error: "invalid token" }, { status: 401 });
         const body: unknown = await request.json();
@@ -338,6 +344,16 @@ describe("cloud MCP health foundation", () => {
     const { health } = await readHealthForDirectProbe("ok");
 
     expect(health.delivery.state).toBe("ready");
+    expect(health.delivery.appliedRevision).toBe(health.desired.revision);
+  });
+
+  test("本机辅助插件索引不完整时，公司 MCP 仍保持可用", async () => {
+    const { health } = await readHealthForDirectProbe("plugin_canary_missing");
+
+    expect(health.usable).toBe(true);
+    expect(health.phase).toBe("ready");
+    expect(health.firstFailure).toBeNull();
+    expect(health.pluginCanaries.missing).toEqual(["openwork_query"]);
     expect(health.delivery.appliedRevision).toBe(health.desired.revision);
   });
 

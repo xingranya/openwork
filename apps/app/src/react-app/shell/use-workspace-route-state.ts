@@ -63,6 +63,10 @@ import {
   writeActiveWorkspaceId,
 } from "./session-memory";
 import {
+  createRouteRefreshFlight,
+  withRouteRefreshTimeout,
+} from "./route-refresh-flight";
+import {
   legacySessionRoute,
   mergeWorkspaceRouteSession,
   preserveWorkspaceRouteSession,
@@ -82,30 +86,6 @@ export type UseWorkspaceRouteStateInput = {
 type ModernRouteSessionResolution =
   | { key: string; status: "loading" }
   | { key: string; status: "not-found" | "error"; message: string };
-
-/** Hard ceiling for each blocking await of a route refresh. A hung desktop
- * bridge or unresponsive server otherwise leaves `loading` true forever,
- * which the session pane renders as an indefinite loading state. */
-const ROUTE_REFRESH_STEP_TIMEOUT_MS = 15_000;
-
-function withRouteRefreshTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(
-      () => reject(new Error(`${label} did not respond within ${ROUTE_REFRESH_STEP_TIMEOUT_MS / 1000}s`)),
-      ROUTE_REFRESH_STEP_TIMEOUT_MS,
-    );
-    promise.then(
-      (value) => {
-        window.clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        window.clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
 
 export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const { developerMode, onServerSettingsChanged, onHostInfo } = input;
@@ -170,7 +150,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       workspaceServerClientResolverRef.current(workspace),
     [],
   );
-  const refreshInFlightRef = useRef(false);
+  const refreshFlightRef = useRef(createRouteRefreshFlight());
   const workspacesRef = useRef<RouteWorkspace[]>([]);
   const workspaceOrderIdsRef = useRef(workspaceOrderIds);
   const remoteWorkspaceCheckRunRef = useRef<Record<string, string>>({});
@@ -342,7 +322,14 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
           // Final failure: keep local workspace startup quiet, but give
           // remote workers a precise endpoint/token/workspace diagnostic.
           if (workspace.workspaceType === "remote") {
-            const connectionState = await diagnoseRemoteWorkspaceTaskLoadFailure(workspace, message);
+            const connectionState = await withRouteRefreshTimeout(
+              diagnoseRemoteWorkspaceTaskLoadFailure(workspace, message),
+              "远程工作区连接诊断",
+            ).catch(() => ({
+              status: "error" as const,
+              message: "远程工作区连接诊断超时，请检查网络后重试。",
+              checkedAt: Date.now(),
+            }));
             const connectionMessage = toChineseUserMessage(
               connectionState.message,
               "无法连接远程工作区，请检查连接地址与访问权限后重试。",
@@ -373,13 +360,9 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     [endpointForWorkspace, mergeFetchedSessionsWithPending],
   );
 
-  const refreshRouteState = useCallback(async () => {
-    // Dedupe: if a refresh is already running, skip this call. Fast workspace
-    // switches used to fire 5-6 overlapping refreshRouteState() calls which
-    // each fetched workspaces + sessions for every workspace. That workload
-    // multiplied quickly on the event loop and caused the UI to freeze.
-    if (refreshInFlightRef.current) return;
-    refreshInFlightRef.current = true;
+  const refreshRouteState = useCallback(() => refreshFlightRef.current.run(async () => {
+    // 快速切换工作区会同时触发多次刷新。它们共同等待同一轮请求，既避免
+    // 重复请求，也保证恢复旧远程工作区时拿到的是刷新后的新绑定。
     setLoading(true);
     setRouteError(null);
     let desktopList: WorkspaceList | null = null;
@@ -388,7 +371,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     try {
       if (isDesktopRuntime()) {
         try {
-          desktopList = await withRouteRefreshTimeout(workspaceBootstrap(), "Desktop workspace bootstrap") as WorkspaceList;
+          desktopList = await withRouteRefreshTimeout(workspaceBootstrap(), "本机工作区准备") as WorkspaceList;
           desktopWorkspaces = (desktopList.workspaces ?? []).map(mapDesktopWorkspace);
         } catch (error) {
           const message = describeRouteError(error);
@@ -417,6 +400,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         setToken("");
         setHostToken("");
         const orderedDesktopWorkspaces = orderRouteWorkspaces(desktopWorkspaces, workspaceOrderIdsRef.current);
+        workspacesRef.current = orderedDesktopWorkspaces;
         setWorkspaces(orderedDesktopWorkspaces);
         sessionsByWorkspaceIdRef.current = {};
         setSessionsByWorkspaceId({});
@@ -444,7 +428,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         token: resolvedToken,
         hostToken: resolvedHostToken || undefined,
       });
-      const list = await withRouteRefreshTimeout(openworkClient.listWorkspaces(), "Workspace list");
+      const list = await withRouteRefreshTimeout(openworkClient.listWorkspaces(), "工作区列表");
       const nextWorkspaces = orderRouteWorkspaces(
         mergeRouteWorkspaces(list.items, desktopWorkspaces),
         workspaceOrderIdsRef.current,
@@ -489,6 +473,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       setBaseUrl(normalizedBaseUrl);
       setToken(resolvedToken);
       setHostToken(resolvedHostToken);
+      workspacesRef.current = nextWorkspaces;
       setWorkspaces(nextWorkspaces);
       const nextSessionsByWorkspaceId = Object.fromEntries(cachedEntries.map((entry) => [entry.workspaceId, entry.sessions]));
       sessionsByWorkspaceIdRef.current = nextSessionsByWorkspaceId;
@@ -553,6 +538,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       setRouteError(message);
       if (desktopWorkspaces.length > 0) {
         const orderedDesktopWorkspaces = orderRouteWorkspaces(desktopWorkspaces, workspaceOrderIdsRef.current);
+        workspacesRef.current = orderedDesktopWorkspaces;
         setWorkspaces(orderedDesktopWorkspaces);
         setLegacySelectedWorkspaceId((current) =>
           current || resolveWorkspaceListSelectedId(desktopList) || orderedDesktopWorkspaces[0]?.id || "",
@@ -560,7 +546,6 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       }
     } finally {
       setLoading(false);
-      refreshInFlightRef.current = false;
       setRouteRefreshVersion((current) => current + 1);
       // Tell the boot overlay the first route data load has completed so
       // the overlay dismisses after BOTH the desktop boot and the workspace
@@ -569,7 +554,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         markBootRouteReady();
       }
     }
-  }, [loadWorkspaceSessionsInBackground, markBootRouteReady, routeWorkspaceId, updateLocalServer, workspaceInferenceSessionId]);
+  }), [loadWorkspaceSessionsInBackground, markBootRouteReady, routeWorkspaceId, updateLocalServer, workspaceInferenceSessionId]);
   const handleRuntimeSessionUpdated = useCallback((update: { sessionId: string; info: Record<string, unknown> }) => {
     if (!selectedWorkspaceId) return;
     setSessionsByWorkspaceId((current) => {
@@ -585,6 +570,12 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       return next;
     });
   }, [selectedWorkspaceId]);
+
+  const recoverWorkspaceEndpoint = useCallback(async (workspaceId: string) => {
+    await refreshRouteState();
+    const workspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? null;
+    return endpointForWorkspace(workspace);
+  }, [endpointForWorkspace, refreshRouteState]);
   const handleRuntimeSessionCreated = useCallback((session: Session) => {
     if (!selectedWorkspaceId) return;
     rememberPendingCreatedSession(selectedWorkspaceId, session.id);
@@ -666,10 +657,6 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
 
     const handleSettingsChange = () => {
       onServerSettingsChanged();
-      // Self-heal: if the previous refresh got stuck mid-flight (e.g. macOS
-      // backgrounded the webview and never let a fetch resolve), clear the
-      // guard so a re-entry after resume actually goes through.
-      refreshInFlightRef.current = false;
       void refreshRouteState();
     };
     window.addEventListener("openwork-server-settings-changed", handleSettingsChange);
@@ -679,7 +666,6 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     const handleVisibility = () => {
       if (typeof document === "undefined") return;
       if (document.visibilityState !== "visible") return;
-      refreshInFlightRef.current = false;
       void refreshRouteState();
     };
     if (typeof document !== "undefined") {
@@ -1073,7 +1059,6 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
     setRetryingWorkspaceIds,
-    refreshInFlightRef,
     startupRetryTimerRef,
     selectedWorkspaceId,
     selectedWorkspace,
@@ -1086,6 +1071,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     selectedWorkspaceError,
     routeNotFoundMessage,
     endpointForWorkspace,
+    recoverWorkspaceEndpoint,
     refreshRouteState,
     loadWorkspaceSessionsInBackground,
     rememberPendingCreatedSession,

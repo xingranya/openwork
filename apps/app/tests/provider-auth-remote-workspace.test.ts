@@ -9,6 +9,123 @@ import { buildProviderAuthEntries } from "../src/react-app/domains/connections/p
 import { createProviderAuthStore } from "../src/react-app/domains/connections/provider-auth/store";
 
 describe("工作区模型服务", () => {
+  test("运行工作区尚未就绪时不同步为已完成", async () => {
+    const workspace = {
+      id: "rem_company",
+      name: "我的远程工作区",
+      path: "/workspace/company",
+      preset: "starter",
+      workspaceType: "remote",
+    } as WorkspaceDisplay;
+    const store = createProviderAuthStore({
+      client: () => null,
+      providers: () => [],
+      providerDefaults: () => ({}),
+      providerConnectedIds: () => [],
+      disabledProviders: () => [],
+      checkDesktopAppRestriction: () => false,
+      selectedWorkspaceDisplay: () => workspace,
+      providerBaseUrl: () => "",
+      selectedWorkspaceRoot: () => workspace.path,
+      runtimeWorkspaceId: () => null,
+      openworkServer: {
+        getSnapshot: () => ({
+          openworkServerStatus: "disconnected" as const,
+          openworkServerClient: null,
+          openworkServerCapabilities: null,
+        }),
+      },
+      setProviders: () => {},
+      setProviderDefaults: () => {},
+      setProviderConnectedIds: () => {},
+      setDisabledProviders: () => {},
+      markOpencodeConfigReloadRequired: () => {},
+    });
+
+    const result = await store.runCloudProviderSync("app_launch");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("尚未准备好");
+    }
+  });
+
+  test("远程工作区重建后自动使用最新绑定保存模型配置", async () => {
+    let oldWrites = 0;
+    let writes = 0;
+    let recoveries = 0;
+    const oldClient = {
+      setRuntimeProviders: async () => {
+        oldWrites += 1;
+        throw new OpenworkServerError(404, "workspace_not_found", "Workspace not found");
+      },
+    } as OpenworkServerClient;
+    const newClient = {
+      setRuntimeProviders: async () => {
+        writes += 1;
+      },
+    } as OpenworkServerClient;
+    const workspace = {
+      id: "rem_company",
+      name: "我的远程工作区",
+      path: "/workspace/company",
+      preset: "starter",
+      workspaceType: "remote",
+    } as WorkspaceDisplay;
+    const store = createProviderAuthStore({
+      client: () => ({
+        auth: { set: async () => ({}) },
+        global: { health: async () => ({ data: { healthy: true } }) },
+      }) as Client,
+      providers: () => [],
+      providerDefaults: () => ({}),
+      providerConnectedIds: () => [],
+      disabledProviders: () => [],
+      checkDesktopAppRestriction: () => false,
+      selectedWorkspaceDisplay: () => workspace,
+      providerBaseUrl: () => "https://worker.example.test/workspace/company/opencode",
+      selectedWorkspaceRoot: () => workspace.path,
+      runtimeWorkspaceId: () => "workspace-old",
+      recoverRuntimeWorkspace: async () => {
+        recoveries += 1;
+        return {
+          baseUrl: "https://worker.example.test",
+          token: "client-token",
+          workspaceId: "workspace-new",
+          isRemote: true,
+          client: newClient,
+          mountedBaseUrl: "https://worker.example.test/workspace/workspace-new",
+          opencodeBaseUrl: "https://worker.example.test/workspace/workspace-new/opencode",
+        };
+      },
+      openworkServer: {
+        getSnapshot: () => ({
+          openworkServerStatus: "connected" as const,
+          openworkServerClient: oldClient,
+          openworkServerCapabilities: { config: { read: true, write: true } },
+        }),
+      },
+      setProviders: () => {},
+      setProviderDefaults: () => {},
+      setProviderConnectedIds: () => {},
+      setDisabledProviders: () => {},
+      markOpencodeConfigReloadRequired: () => {},
+    });
+
+    await store.submitLocalProvider({
+      kind: "custom-openai",
+      providerId: "company-gateway",
+      name: "公司模型网关",
+      baseUrl: "https://models.example.test",
+      apiKey: "test-key",
+      modelIds: ["company-model"],
+    });
+
+    expect(oldWrites).toBe(1);
+    expect(writes).toBe(1);
+    expect(recoveries).toBe(1);
+  });
+
   test("远程工作区允许提交自定义模型配置，并在缺少配置权限时说明原因", async () => {
     let runtimeProviderWriteCount = 0;
     const remoteClient = {
