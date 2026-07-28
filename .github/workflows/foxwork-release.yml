@@ -163,6 +163,10 @@ jobs:
             sleep 10
           done
 
+      - name: 验证桌面更新安装契约
+        shell: bash
+        run: pnpm --filter @openwork/desktop exec node --test electron/updater.test.mjs electron/foxwork-brand.test.mjs
+
       - name: 校验并整理自动更新附件
         shell: bash
         run: |
@@ -226,6 +230,40 @@ jobs:
           esac
           echo "Sidecar 架构："
           file "$APP_DIR/SeeWayWork.app/Contents/Resources/sidecars/opencode"
+
+      - name: 验证 Windows 完整安装与卸载
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "apps/desktop/dist-electron/SeeWayWork-win-x64-*.exe" | Select-Object -First 1
+          if ($null -eq $installer) {
+            throw "未找到 Windows 完整安装包。"
+          }
+
+          $installRoot = Join-Path $env:LOCALAPPDATA "Programs/SeeWayWork"
+          if (Test-Path $installRoot) {
+            Remove-Item -Recurse -Force $installRoot
+          }
+
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            throw "Windows 安装包静默安装失败，退出码：$($install.ExitCode)"
+          }
+
+          $application = Join-Path $installRoot "SeeWayWork.exe"
+          if (-not (Test-Path $application)) {
+            throw "安装完成后未找到 SeeWayWork.exe：$application"
+          }
+
+          $uninstaller = Get-ChildItem $installRoot -Filter "Uninstall *.exe" | Select-Object -First 1
+          if ($null -eq $uninstaller) {
+            throw "安装完成后未找到卸载程序。"
+          }
+
+          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path $installRoot)) {
+            throw "Windows 安装包卸载失败，退出码：$($uninstall.ExitCode)"
+          }
 
       - name: 生成 SHA-256 校验文件
         shell: bash

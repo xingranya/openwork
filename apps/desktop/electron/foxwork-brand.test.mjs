@@ -178,6 +178,9 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
     "验证 CNB 稳定更新清单",
     "DMG 临时磁盘未能正常卸载，清理后重试",
     "hdiutil detach",
+    "验证桌面更新安装契约",
+    "验证 Windows 完整安装与卸载",
+    "Uninstall *.exe",
   ]) {
     assert.ok(releaseWorkflowSource.includes(contract), `缺少发行契约：${contract}`);
   }

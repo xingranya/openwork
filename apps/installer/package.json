@@ -1,6 +1,6 @@
 {
   "name": "@openwork/installer",
-  "version": "0.18.16",
+  "version": "0.18.17",
   "private": true,
   "type": "module",
   "description": "SeeWayWork desktop installer: resolves an install-link config, writes desktop bootstrap config, then downloads and installs the newest supported desktop app.",
