@@ -10,6 +10,36 @@ import { isDesktopRuntime } from "../../../app/lib/runtime-env";
 import { t } from "../../../i18n";
 import type { RemoteWorkspaceInput } from "./types";
 
+type RemoteWorkspaceCredentialSource = Pick<
+  WorkspaceInfo,
+  "openworkToken" | "openworkClientToken" | "openworkHostToken"
+> | null | undefined;
+
+/**
+ * 会话令牌和配置管理令牌是两种独立权限。编辑连接地址时必须保留
+ * 已授权的配置管理令牌，不能把普通会话令牌误当成主机令牌。
+ */
+export function resolveRemoteWorkspaceConnectionCredentials(
+  workspace: RemoteWorkspaceCredentialSource,
+  fields: Pick<RemoteWorkspaceInput, "openworkToken" | "openworkHostToken">,
+) {
+  const existingSessionToken =
+    workspace?.openworkToken?.trim() ??
+    workspace?.openworkClientToken?.trim() ??
+    "";
+  const existingHostToken = workspace?.openworkHostToken?.trim() ?? "";
+  return {
+    openworkToken:
+      fields.openworkToken === undefined
+        ? existingSessionToken
+        : fields.openworkToken?.trim() ?? "",
+    openworkHostToken:
+      fields.openworkHostToken === undefined
+        ? existingHostToken
+        : fields.openworkHostToken?.trim() ?? "",
+  };
+}
+
 function describeEditorError(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -53,8 +83,8 @@ export function useRemoteWorkspaceConnectionEditor<TWorkspace extends WorkspaceI
         openworkToken:
           workspace?.openworkToken ??
           workspace?.openworkClientToken ??
-          workspace?.openworkHostToken ??
           "",
+        openworkHostToken: workspace?.openworkHostToken ?? "",
         directory: workspace?.directory ?? workspace?.path ?? "",
         displayName: workspace?.displayName ?? workspace?.name ?? "",
       };
@@ -92,15 +122,15 @@ export function useRemoteWorkspaceConnectionEditor<TWorkspace extends WorkspaceI
       try {
         const displayName = fields.displayName?.trim() || null;
         const directory = fields.directory?.trim() || null;
-        const openworkToken = fields.openworkToken?.trim() ?? "";
+        const credentials = resolveRemoteWorkspaceConnectionCredentials(workspace, fields);
         if (isDesktopRuntime()) {
           await workspaceUpdateRemote({
             workspaceId: id,
             baseUrl,
             openworkHostUrl: baseUrl,
-            openworkToken,
+            openworkToken: credentials.openworkToken,
             openworkClientToken: "",
-            openworkHostToken: "",
+            openworkHostToken: credentials.openworkHostToken,
             displayName,
             directory,
             remoteType: "openwork",
@@ -109,13 +139,15 @@ export function useRemoteWorkspaceConnectionEditor<TWorkspace extends WorkspaceI
         } else {
           if (!client) throw new Error(t("app.error_connect_first"));
           const connectionChanged = baseUrl !== (initialValues.openworkHostUrl?.trim() ?? "") ||
-            openworkToken !== (initialValues.openworkToken?.trim() ?? "") ||
+            credentials.openworkToken !== (initialValues.openworkToken?.trim() ?? "") ||
+            credentials.openworkHostToken !== (workspace?.openworkHostToken?.trim() ?? "") ||
             directory !== (initialValues.directory?.trim() || null);
           if (connectionChanged) {
             const result = await client.createRemoteWorkspace({
               baseUrl,
               openworkHostUrl: baseUrl,
-              openworkToken: openworkToken || null,
+              openworkToken: credentials.openworkToken || null,
+              openworkHostToken: credentials.openworkHostToken || null,
               displayName,
               directory,
               remoteType: "openwork",
@@ -133,7 +165,7 @@ export function useRemoteWorkspaceConnectionEditor<TWorkspace extends WorkspaceI
         setBusy(false);
       }
     },
-    [client, initialValues.directory, initialValues.openworkHostUrl, initialValues.openworkToken, onSaved, workspaceId],
+    [client, initialValues.directory, initialValues.openworkHostUrl, initialValues.openworkToken, onSaved, workspace, workspaceId],
   );
 
   return {

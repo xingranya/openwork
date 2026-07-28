@@ -42,7 +42,7 @@ import {
   type LocalProviderPlan,
 } from "./local-provider-config";
 
-type ProviderAuthEntry = {
+export type ProviderAuthEntry = {
   id: string;
   name: string;
   methods: ProviderAuthMethod[];
@@ -62,6 +62,103 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
   openrouter: "OpenRouter",
 };
+
+function formatProviderName(id: string, fallback?: string) {
+  const named = fallback?.trim();
+  if (named) return named;
+
+  const normalized = id.trim();
+  const mapped = PROVIDER_LABELS[normalized.toLowerCase()];
+  if (mapped) return mapped;
+
+  const cleaned = normalized.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!cleaned) return id;
+
+  return cleaned
+    .split(" ")
+    .flatMap((word) => {
+      if (!word) return [];
+      if (/\d/.test(word) || word.length <= 3) {
+        return [word.toUpperCase()];
+      }
+      const lower = word.toLowerCase();
+      return [lower.charAt(0).toUpperCase() + lower.slice(1)];
+    })
+    .join(" ");
+}
+
+/**
+ * 汇总当前工作区可使用的模型。公司模型和自定义模型对所有工作区
+ * 使用同一入口，不能因工作区位于远程 Worker 而隐藏或降级。
+ */
+export function buildProviderAuthEntries(input: {
+  providers: ProviderAuthProvider[];
+  connectedProviderIds: string[];
+  authMethods: Record<string, ProviderAuthMethod[]>;
+}): ProviderAuthEntry[] {
+  const connected = new Set(input.connectedProviderIds ?? []);
+  const providersById = new Map((input.providers ?? []).map((provider) => [provider.id, provider]));
+  const entriesById = new Map<string, ProviderAuthEntry>();
+
+  for (const plan of LOCAL_PROVIDER_PLANS) {
+    const id = plan.providerId ?? plan.kind;
+    const configuredMethods = input.authMethods?.[id] ?? [];
+    entriesById.set(id, {
+      id,
+      name: plan.name,
+      methods: [
+        { type: "api", label: "配置模型服务" },
+        ...configuredMethods.filter((method) => method.type !== "api"),
+      ],
+      connected: connected.has(id),
+      env: plan.env ? [plan.env] : [],
+      localPlan: plan,
+    });
+  }
+
+  for (const [id, methods] of Object.entries(input.authMethods ?? {})) {
+    const existing = entriesById.get(id);
+    if (existing) {
+      const mergedMethods = [
+        ...existing.methods,
+        ...methods.filter((method) => !existing.methods.some((current) => (
+          current.type === method.type &&
+          current.methodIndex === method.methodIndex &&
+          current.cloudProviderId === method.cloudProviderId &&
+          current.label === method.label
+        ))),
+      ];
+      entriesById.set(id, { ...existing, methods: mergedMethods });
+      continue;
+    }
+    const provider = providersById.get(id);
+    entriesById.set(id, {
+      id,
+      name: formatProviderName(id, provider?.name),
+      methods,
+      connected: connected.has(id),
+      env: Array.isArray(provider?.env) ? provider.env : [],
+    });
+  }
+
+  for (const provider of input.providers ?? []) {
+    const id = provider.id.trim();
+    if (!id || entriesById.has(id) || provider.env.length === 0) continue;
+    entriesById.set(id, {
+      id,
+      name: formatProviderName(id, provider.name),
+      methods: [{ type: "api", label: "API 密钥" }],
+      connected: connected.has(id),
+      env: provider.env,
+    });
+  }
+
+  return Array.from(entriesById.values()).toSorted((left, right) => {
+    if (left.localPlan && !right.localPlan) return -1;
+    if (!left.localPlan && right.localPlan) return 1;
+    return compareProviders(left, right);
+  });
+}
 
 export type ProviderAuthModalProps = {
   open: boolean;
@@ -89,8 +186,7 @@ export type ProviderAuthModalProps = {
 };
 
 export default function ProviderAuthModal(props: ProviderAuthModalProps) {
-  const workerType = props.workerType === "remote" ? "remote" : "local";
-  const isRemoteWorker = workerType === "remote";
+  const isRemoteWorker = props.workerType === "remote";
 
   const [view, setView] = useState<
     "list" | "method" | "local" | "api" | "cloud" | "oauth-code" | "oauth-auto"
@@ -119,30 +215,6 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const oauthCodeCopiedResetRef = useRef<number | null>(null);
   const autoOpenedPreferredProviderIdRef = useRef<string | null>(null);
 
-  const formatProviderName = (id: string, fallback?: string) => {
-    const named = fallback?.trim();
-    if (named) return named;
-
-    const normalized = id.trim();
-    const mapped = PROVIDER_LABELS[normalized.toLowerCase()];
-    if (mapped) return mapped;
-
-    const cleaned = normalized.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!cleaned) return id;
-
-    return cleaned
-      .split(" ")
-      .flatMap((word) => {
-        if (!word) return [];
-        if (/\d/.test(word) || word.length <= 3) {
-          return [word.toUpperCase()];
-        }
-        const lower = word.toLowerCase();
-        return [lower.charAt(0).toUpperCase() + lower.slice(1)];
-      })
-      .join(" ");
-  };
-
   const isOpenAiHeadlessMethod = (method: ProviderAuthMethod) => {
     const label = method.label.toLowerCase();
     return method.type === "oauth" && (label.includes("headless") || label.includes("device"));
@@ -163,51 +235,14 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const entries = useMemo<ProviderAuthEntry[]>(() => {
-    const methods = props.authMethods ?? {};
-    const connected = new Set(props.connectedProviderIds ?? []);
-    const providers = props.providers ?? [];
-    const providersById = new Map(providers.map((provider) => [provider.id, provider]));
-    const cloudMethodsById = new Map(
-      Object.entries(methods).flatMap(([id, providerMethods]) => {
-        const cloudMethods = providerMethods.filter((method) => method.type === "cloud");
-        return cloudMethods.length > 0 ? [[id, cloudMethods] as const] : [];
-      }),
-    );
-
-    const localEntries = isRemoteWorker
-      ? []
-      : LOCAL_PROVIDER_PLANS.map((plan) => {
-          const id = plan.providerId ?? plan.kind;
-          return {
-            id,
-            name: plan.name,
-            methods: [
-              { type: "api" as const, label: "本地配置" },
-              ...(cloudMethodsById.get(id) ?? []),
-            ],
-            connected: connected.has(id),
-            env: plan.env ? [plan.env] : [],
-            localPlan: plan,
-          } satisfies ProviderAuthEntry;
-        });
-    const localIds = new Set(localEntries.map((entry) => entry.id));
-    const companyEntries = [...cloudMethodsById.entries()]
-      .filter(([id]) => !localIds.has(id))
-      .map(([id, providerMethods]) => {
-        const provider = providersById.get(id);
-        return {
-          id,
-          name: formatProviderName(id, provider?.name),
-          methods: providerMethods,
-          connected: connected.has(id),
-          env: Array.isArray(provider?.env) ? provider.env : [],
-        } satisfies ProviderAuthEntry;
-      })
-      .sort(compareProviders);
-
-    return [...localEntries, ...companyEntries];
-  }, [isRemoteWorker, props.authMethods, props.connectedProviderIds, props.providers]);
+  const entries = useMemo(
+    () => buildProviderAuthEntries({
+      providers: props.providers,
+      connectedProviderIds: props.connectedProviderIds,
+      authMethods: props.authMethods,
+    }),
+    [props.authMethods, props.connectedProviderIds, props.providers],
+  );
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedProviderId) ?? null,
@@ -613,7 +648,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     } catch (error) {
       const message = error instanceof Error
         ? error.message
-        : "保存本地模型服务失败，请检查填写内容后重试。";
+        : "保存模型服务失败，请检查填写内容后重试。";
       setLocalError(message);
     }
   };
@@ -679,7 +714,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
   const submittingLabel = () => {
     if (!props.submitting) return null;
-    if (resolvedView === "local") return "正在保存本地模型服务…";
+    if (resolvedView === "local") return "正在保存模型服务…";
     if (resolvedView === "api") return "正在保存 API 密钥…";
     if (resolvedView === "cloud") return "正在连接公司模型服务…";
     if (resolvedView === "oauth-code") return "正在验证授权码…";
@@ -744,7 +779,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         : "使用公司统一管理的模型服务和凭据。";
     }
     if (entry.localPlan && method.type === "api") {
-      return "为当前本地工作区保存接口地址、API 密钥和模型 ID。";
+      return "为当前工作区保存接口地址、API 密钥和模型 ID。";
     }
     return "粘贴 API 密钥；密钥仅由 SeeWayWork 本地运行环境保存。";
   };
@@ -908,7 +943,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                         {selectedEntry.name}
                       </div>
                       <div className="mt-1 text-xs text-gray-10">
-                        配置只作用于当前本地工作区。
+                        配置只作用于当前工作区。
                       </div>
                     </div>
                     <Button variant="outline" onClick={handleBack} disabled={actionDisabled}>

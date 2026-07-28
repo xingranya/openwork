@@ -56,8 +56,10 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
     projectLabel,
     remoteUrl,
     remoteToken,
+    remoteHostToken,
     remoteDisplayName,
     remoteTokenVisible,
+    remoteHostTokenVisible,
   } = localState;
   const setLocal = <K extends keyof CreateWorkspaceLocalState>(
     key: K,
@@ -71,8 +73,10 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
   const setProjectLabel = (value: SetStateAction<string>) => setLocal("projectLabel", value);
   const setRemoteUrl = (value: SetStateAction<string>) => setLocal("remoteUrl", value);
   const setRemoteToken = (value: SetStateAction<string>) => setLocal("remoteToken", value);
+  const setRemoteHostToken = (value: SetStateAction<string>) => setLocal("remoteHostToken", value);
   const setRemoteDisplayName = (value: SetStateAction<string>) => setLocal("remoteDisplayName", value);
   const setRemoteTokenVisible = (value: SetStateAction<boolean>) => setLocal("remoteTokenVisible", value);
+  const setRemoteHostTokenVisible = (value: SetStateAction<boolean>) => setLocal("remoteHostTokenVisible", value);
   const preset = props.defaultPreset ?? "starter";
 
   const showClose = props.showClose ?? true;
@@ -167,6 +171,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
       props.onConfirmRemote({
         openworkHostUrl: remoteUrl.trim(),
         openworkToken: remoteToken.trim() || null,
+        openworkHostToken: remoteHostToken.trim() || null,
         directory: null,
         displayName: remoteDisplayName.trim() || null,
         closeModal: true,
@@ -308,6 +313,12 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                 onTokenInput={setRemoteToken}
                 onToggleTokenVisible={() =>
                   setRemoteTokenVisible((prev) => !prev)
+                }
+                hostToken={remoteHostToken}
+                hostTokenVisible={remoteHostTokenVisible}
+                onHostTokenInput={setRemoteHostToken}
+                onToggleHostTokenVisible={() =>
+                  setRemoteHostTokenVisible((prev) => !prev)
                 }
                 displayName={remoteDisplayName}
                 onDisplayNameInput={setRemoteDisplayName}

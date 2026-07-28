@@ -292,6 +292,7 @@ export function WelcomeRoute() {
     async (input: {
       openworkHostUrl?: string | null;
       openworkToken?: string | null;
+      openworkHostToken?: string | null;
       directory?: string | null;
       displayName?: string | null;
     }) => {
@@ -304,6 +305,7 @@ export function WelcomeRoute() {
           baseUrl: baseUrlValue,
           openworkHostUrl: baseUrlValue,
           openworkToken: input.openworkToken?.trim() || null,
+          openworkHostToken: input.openworkHostToken?.trim() || null,
           displayName: input.displayName?.trim() || null,
           directory: input.directory?.trim() || null,
           remoteType,

@@ -72,12 +72,14 @@ export type CreateRemoteWorkspaceModalProps = {
   onConfirm: (input: {
     openworkHostUrl?: string | null;
     openworkToken?: string | null;
+    openworkHostToken?: string | null;
     directory?: string | null;
     displayName?: string | null;
   }) => void;
   initialValues?: {
     openworkHostUrl?: string | null;
     openworkToken?: string | null;
+    openworkHostToken?: string | null;
     directory?: string | null;
     displayName?: string | null;
   };

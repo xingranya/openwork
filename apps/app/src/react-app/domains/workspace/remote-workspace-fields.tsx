@@ -18,6 +18,10 @@ export type RemoteWorkspaceFieldsProps = {
   tokenVisible: boolean;
   onTokenInput: (value: string) => void;
   onToggleTokenVisible: () => void;
+  hostToken?: string;
+  hostTokenVisible?: boolean;
+  onHostTokenInput?: (value: string) => void;
+  onToggleHostTokenVisible?: () => void;
   displayName: string;
   onDisplayNameInput: (value: string) => void;
   directory?: string;
@@ -36,6 +40,10 @@ export function RemoteWorkspaceFields({
   tokenVisible,
   onTokenInput,
   onToggleTokenVisible,
+  hostToken,
+  hostTokenVisible,
+  onHostTokenInput,
+  onToggleHostTokenVisible,
   displayName,
   onDisplayNameInput,
   directory,
@@ -103,6 +111,35 @@ export function RemoteWorkspaceFields({
             仅在 Worker 要求时填写访问令牌。
           </span>
         </label>
+
+        {onHostTokenInput && onToggleHostTokenVisible ? (
+          <label className="grid gap-2">
+            <span className={inputLabelClass}>
+              模型配置管理令牌 <span className="font-normal text-dls-secondary">（可选）</span>
+            </span>
+            <div className="flex items-center gap-2 rounded-xl border border-dls-border bg-dls-surface p-1.5">
+              <input
+                type={hostTokenVisible ? "text" : "password"}
+                value={hostToken ?? ""}
+                onChange={(event) => onHostTokenInput(event.currentTarget.value)}
+                placeholder="可选"
+                disabled={submitting}
+                className="min-w-0 flex-1 border-none bg-transparent px-2 py-1.5 text-[14px] text-dls-text outline-none placeholder:text-dls-secondary"
+              />
+              <button
+                type="button"
+                className={pillSecondaryClass}
+                onClick={onToggleHostTokenVisible}
+                disabled={submitting}
+              >
+                {hostTokenVisible ? "隐藏" : "显示"}
+              </button>
+            </div>
+            <span className={inputHintClass}>
+              仅在需要添加公司模型或自定义模型时填写；普通访问令牌不能替代它。
+            </span>
+          </label>
+        ) : null}
 
         {showDirectory ? (
           <label className="grid gap-2">

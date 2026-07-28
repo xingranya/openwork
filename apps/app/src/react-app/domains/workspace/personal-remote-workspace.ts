@@ -32,6 +32,7 @@ type RemoteWorkspacePayload = {
   openworkHostUrl: string;
   openworkToken: string;
   openworkClientToken: string;
+  openworkHostToken: string;
   openworkWorkspaceId: string;
   openworkWorkspaceName: string;
   sandboxBackend: string;
@@ -97,6 +98,7 @@ function workspaceIdFromList(list: WorkspaceList, workerId: string, serverWorksp
 function toRemoteWorkspacePayload(worker: DenWorkerSummary, tokens: DenWorkerTokens): RemoteWorkspacePayload | null {
   const baseUrl = stripOpenworkWorkspaceMount(tokens.openworkUrl?.trim() ?? "");
   const clientToken = tokens.clientToken?.trim() ?? "";
+  const hostToken = tokens.hostToken?.trim() ?? "";
   const workspaceId = tokens.workspaceId?.trim() ?? "";
   if (!baseUrl || !clientToken || !workspaceId) return null;
 
@@ -107,6 +109,7 @@ function toRemoteWorkspacePayload(worker: DenWorkerSummary, tokens: DenWorkerTok
     openworkHostUrl: baseUrl,
     openworkToken: clientToken,
     openworkClientToken: clientToken,
+    openworkHostToken: hostToken,
     openworkWorkspaceId: workspaceId,
     openworkWorkspaceName: PERSONAL_REMOTE_WORKSPACE_NAME,
     sandboxBackend: PERSONAL_REMOTE_WORKSPACE_BACKEND,

@@ -110,6 +110,10 @@ function pickRemoteToken(workspace: WorkspaceEndpointInput): string {
   ).trim();
 }
 
+function pickRemoteHostToken(workspace: WorkspaceEndpointInput): string {
+  return workspace?.openworkHostToken?.trim() ?? "";
+}
+
 /**
  * Resolve the right server endpoint for a workspace. Returns null when the
  * workspace can't be reached (remote with no baseUrl, or local with no local
@@ -126,10 +130,12 @@ export function resolveWorkspaceEndpoint(
     const baseUrl = pickRemoteBaseUrl(workspace);
     if (!baseUrl) return null;
     const token = pickRemoteToken(workspace);
+    const hostToken = pickRemoteHostToken(workspace);
     const workspaceId = workspaceServerId(workspace);
     const client = createOpenworkServerClient({
       baseUrl,
       token: token || undefined,
+      hostToken: hostToken || undefined,
     });
     const mountedBaseUrl = (
       buildOpenworkWorkspaceBaseUrl(baseUrl, workspaceId) ?? baseUrl

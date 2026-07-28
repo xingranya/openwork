@@ -21,7 +21,9 @@ import type { CreateRemoteWorkspaceModalProps } from "./types";
 type RemoteWorkspaceFormState = {
   openworkHostUrl: string;
   openworkToken: string;
+  openworkHostToken: string;
   openworkTokenVisible: boolean;
+  openworkHostTokenVisible: boolean;
   directory: string;
   displayName: string;
 };
@@ -29,7 +31,9 @@ type RemoteWorkspaceFormState = {
 const emptyRemoteWorkspaceForm: RemoteWorkspaceFormState = {
   openworkHostUrl: "",
   openworkToken: "",
+  openworkHostToken: "",
   openworkTokenVisible: false,
+  openworkHostTokenVisible: false,
   directory: "",
   displayName: "",
 };
@@ -40,7 +44,15 @@ export function CreateRemoteWorkspaceModal(
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [form, setForm] = useState<RemoteWorkspaceFormState>(emptyRemoteWorkspaceForm);
-  const { openworkHostUrl, openworkToken, openworkTokenVisible, directory, displayName } = form;
+  const {
+    openworkHostUrl,
+    openworkToken,
+    openworkHostToken,
+    openworkTokenVisible,
+    openworkHostTokenVisible,
+    directory,
+    displayName,
+  } = form;
 
   const showClose = props.showClose ?? true;
   const title = props.title ?? t("dashboard.create_remote_workspace_title");
@@ -67,7 +79,9 @@ export function CreateRemoteWorkspaceModal(
     setForm({
       openworkHostUrl: defaults.openworkHostUrl?.trim() ?? "",
       openworkToken: defaults.openworkToken?.trim() ?? "",
+      openworkHostToken: defaults.openworkHostToken?.trim() ?? "",
       openworkTokenVisible: false,
+      openworkHostTokenVisible: false,
       directory: defaults.directory?.trim() ?? "",
       displayName: defaults.displayName?.trim() ?? "",
     });
@@ -98,6 +112,12 @@ export function CreateRemoteWorkspaceModal(
             onTokenInput={(value) => setForm((current) => ({ ...current, openworkToken: value }))}
             onToggleTokenVisible={() =>
               setForm((current) => ({ ...current, openworkTokenVisible: !current.openworkTokenVisible }))
+            }
+            hostToken={openworkHostToken}
+            hostTokenVisible={openworkHostTokenVisible}
+            onHostTokenInput={(value) => setForm((current) => ({ ...current, openworkHostToken: value }))}
+            onToggleHostTokenVisible={() =>
+              setForm((current) => ({ ...current, openworkHostTokenVisible: !current.openworkHostTokenVisible }))
             }
             displayName={displayName}
             onDisplayNameInput={(value) => setForm((current) => ({ ...current, displayName: value }))}
@@ -130,6 +150,7 @@ export function CreateRemoteWorkspaceModal(
                 props.onConfirm({
                   openworkHostUrl: openworkHostUrl.trim(),
                   openworkToken: openworkToken.trim(),
+                  openworkHostToken: openworkHostToken.trim(),
                   directory: directory.trim() ? directory.trim() : null,
                   displayName: displayName.trim() ? displayName.trim() : null,
                 })

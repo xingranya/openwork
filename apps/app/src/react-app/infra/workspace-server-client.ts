@@ -43,6 +43,10 @@ function remoteToken(workspace: NonNullable<WorkspaceServerClientWorkspace>): st
   );
 }
 
+function remoteHostToken(workspace: NonNullable<WorkspaceServerClientWorkspace>): string {
+  return trim(workspace.openworkHostToken);
+}
+
 function cacheKey(parts: string[]): string {
   return parts.join("\u001f");
 }
@@ -59,6 +63,7 @@ export function createWorkspaceServerClientCacheKey(
       workspaceServerId(workspace),
       remoteBaseUrl(workspace),
       remoteToken(workspace),
+      remoteHostToken(workspace),
     ]);
   }
 

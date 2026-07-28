@@ -24,6 +24,11 @@ const remoteWorkspace: WorkspaceServerClientWorkspace = {
   openworkWorkspaceId: "server-workspace-id",
 };
 
+const companyRemoteWorkspace: WorkspaceServerClientWorkspace = {
+  ...remoteWorkspace,
+  openworkHostToken: "company-remote-host-token",
+};
+
 describe("workspace server client primitive", () => {
   test("memoizes local workspace endpoints by selected local server credentials", () => {
     const resolver = createWorkspaceServerClientResolver({
@@ -101,6 +106,65 @@ describe("workspace server client primitive", () => {
     }
   });
 
+  test("创建其他远程工作区时保留其独立的模型配置管理令牌", async () => {
+    const originalFetch = globalThis.fetch;
+    let receivedHostToken = "";
+    globalThis.fetch = async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { openworkHostToken?: string };
+      receivedHostToken = body.openworkHostToken ?? "";
+      return new Response(JSON.stringify({ workspaces: [], activeId: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      const endpoint = createWorkspaceServerClientResolver({
+        baseUrl: "http://127.0.0.1:4096",
+        token: "local-token",
+      })(localWorkspace);
+      if (!endpoint) throw new Error("Expected a local workspace endpoint.");
+
+      await endpoint.client.createRemoteWorkspace({
+        baseUrl: "https://worker.example.test",
+        openworkHostToken: "remote-host-token",
+      });
+
+      expect(receivedHostToken).toBe("remote-host-token");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("公司个人远程工作区写入运行时配置时携带自己的主机令牌", async () => {
+    const originalFetch = globalThis.fetch;
+    let receivedHostToken = "";
+    globalThis.fetch = async (_input, init) => {
+      receivedHostToken = new Headers(init?.headers).get("x-openwork-host-token") ?? "";
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      const endpoint = createWorkspaceServerClientResolver({
+        baseUrl: "http://127.0.0.1:4096",
+        token: "local-token",
+        hostToken: "local-host-token",
+      })(companyRemoteWorkspace);
+      if (!endpoint) throw new Error("Expected a company remote workspace endpoint.");
+
+      await endpoint.client.setRuntimeProviders(endpoint.workspaceId, {
+        company: { name: "Company" },
+      });
+
+      expect(receivedHostToken).toBe("company-remote-host-token");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("changed local credentials produce a distinct endpoint and client", () => {
     const firstResolver = createWorkspaceServerClientResolver({
       baseUrl: "http://127.0.0.1:4096",
@@ -119,6 +183,25 @@ describe("workspace server client primitive", () => {
     expect(changed.client).not.toBe(first.client);
     expect(first.token).toBe("local-token-a");
     expect(changed.token).toBe("local-token-b");
+  });
+
+  test("公司个人远程工作区主机令牌轮换后创建新的端点客户端", () => {
+    const resolver = createWorkspaceServerClientResolver({
+      baseUrl: "http://127.0.0.1:4096",
+      token: "local-token",
+    });
+    const first = resolver({
+      ...companyRemoteWorkspace,
+      openworkHostToken: "company-host-token-a",
+    });
+    const changed = resolver({
+      ...companyRemoteWorkspace,
+      openworkHostToken: "company-host-token-b",
+    });
+    if (!first || !changed) throw new Error("Expected company remote workspace endpoints.");
+
+    expect(changed).not.toBe(first);
+    expect(changed.client).not.toBe(first.client);
   });
 
   test("keys remote workspace endpoints from the owning worker, not the local server", () => {

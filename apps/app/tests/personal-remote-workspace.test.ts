@@ -57,7 +57,7 @@ describe("员工个人远程工作区", () => {
     ])?.workerId).toBe("wrk_legacy");
   });
 
-  test("首次登录自动创建 Worker 并保存远程工作区，不保存主机凭据", async () => {
+  test("首次登录自动创建 Worker 并保存员工自己的远程工作区主机令牌", async () => {
     const createdPayloads: Array<Record<string, unknown>> = [];
     const workerInputs: Array<Record<string, unknown>> = [];
     const result = await reconcilePersonalRemoteWorkspace({
@@ -118,11 +118,11 @@ describe("员工个人远程工作区", () => {
       openworkHostUrl: "https://worker.company.test",
       openworkToken: "client-token",
       openworkClientToken: "client-token",
+      openworkHostToken: "host-token",
       openworkWorkspaceId: "ws_personal",
       sandboxBackend: PERSONAL_REMOTE_WORKSPACE_BACKEND,
       sandboxRunId: "wrk_personal",
     });
-    expect(createdPayloads[0]).not.toHaveProperty("openworkHostToken");
   });
 
   test("切换账号时替换旧账号的个人远程工作区并保留手动工作区", async () => {
@@ -234,7 +234,7 @@ describe("员工个人远程工作区", () => {
         getWorkerTokens: async () => ({
           clientToken: "new-client-token",
           ownerToken: null,
-          hostToken: null,
+          hostToken: "new-host-token",
           openworkUrl: "https://worker.company.test/w/ws_personal",
           workspaceId: "ws_personal",
         }),
@@ -261,6 +261,7 @@ describe("员工个人远程工作区", () => {
     expect(updatedPayload).toMatchObject({
       baseUrl: "https://worker.company.test",
       openworkHostUrl: "https://worker.company.test",
+      openworkHostToken: "new-host-token",
     });
   });
 

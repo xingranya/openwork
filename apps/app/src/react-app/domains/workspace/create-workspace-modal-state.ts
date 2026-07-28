@@ -11,8 +11,10 @@ export type CreateWorkspaceLocalState = {
   projectLabel: string;
   remoteUrl: string;
   remoteToken: string;
+  remoteHostToken: string;
   remoteDisplayName: string;
   remoteTokenVisible: boolean;
+  remoteHostTokenVisible: boolean;
 };
 
 type CreateWorkspaceLocalAction<K extends keyof CreateWorkspaceLocalState = keyof CreateWorkspaceLocalState> =
@@ -30,8 +32,10 @@ export function createInitialWorkspaceLocalState(): CreateWorkspaceLocalState {
     projectLabel: "",
     remoteUrl: "",
     remoteToken: "",
+    remoteHostToken: "",
     remoteDisplayName: "",
     remoteTokenVisible: false,
+    remoteHostTokenVisible: false,
   };
 }
 

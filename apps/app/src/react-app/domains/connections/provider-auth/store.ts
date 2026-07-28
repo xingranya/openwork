@@ -560,13 +560,38 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
    * values upsert, explicit `null` deletes — per-key on the server, so there
    * is no read-modify-write race and no edit of the user's opencode.jsonc.
    */
-  const patchRuntimeProviders = async (update: Record<string, unknown>) => {
+  const writeRuntimeProviders = async (
+    providers: Record<string, unknown>,
+    importedProviders?: Record<string, CloudImportedProvider>,
+  ) => {
     const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
       await resolveOpenworkConfigTarget("write");
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
       throw new Error("SeeWayWork 服务不可用，请重新连接后再管理公司模型供应商。");
     }
-    await openworkClient.setRuntimeProviders(openworkWorkspaceId, update);
+    try {
+      await openworkClient.setRuntimeProviders(
+        openworkWorkspaceId,
+        providers,
+        importedProviders,
+      );
+    } catch (error) {
+      if (
+        getProviderAuthWorkerType() === "remote" &&
+        error instanceof OpenworkServerError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        throw new Error(
+          "当前远程工作区的服务端未授予模型配置权限，无法将新模型保存到该工作区。已配置的模型仍可正常使用；请由远程服务管理员授权配置权限。",
+          { cause: error },
+        );
+      }
+      throw error;
+    }
+  };
+
+  const patchRuntimeProviders = async (update: Record<string, unknown>) => {
+    await writeRuntimeProviders(update);
   };
 
   const patchRuntimeProviderAndImportedCloudProviders = async (
@@ -584,8 +609,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       ...cloudImports,
       providers: nextProviders,
     });
-    await openworkClient.setRuntimeProviders(
-      openworkWorkspaceId,
+    await writeRuntimeProviders(
       providerUpdate,
       readWorkspaceCloudImports(nextConfig).providers,
     );
@@ -1497,9 +1521,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     if (!c) {
       throw new Error(t("providers.not_connected"));
     }
-    if (getProviderAuthWorkerType() !== "local") {
-      throw new Error("远程工作区只能使用公司下发的模型服务。请让管理员在公司后台完成配置。");
-    }
 
     try {
       const resolved = buildLocalProviderConfig(input);
@@ -1528,10 +1549,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     } catch (error) {
       const message = describeProviderError(
         error,
-        "保存本地模型服务失败，请检查地址、密钥和模型 ID。",
+        "保存模型服务失败，请检查地址、密钥和模型 ID。",
       );
       setStateField("providerAuthError", message);
-      throw error instanceof Error ? error : new Error(message);
+      throw new Error(message, { cause: error });
     }
   }
 

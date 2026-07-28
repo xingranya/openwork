@@ -1448,6 +1448,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       baseUrl: string;
       openworkHostUrl?: string | null;
       openworkToken?: string | null;
+      openworkHostToken?: string | null;
       openworkWorkspaceId?: string | null;
       openworkWorkspaceName?: string | null;
       displayName?: string | null;
