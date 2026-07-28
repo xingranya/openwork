@@ -1,8 +1,8 @@
 /**
  * SeeWayWork 的发行配置只在桌面主进程读取。
  *
- * 公司构建必须显式提供 Den、文档和更新地址；缺少配置时返回空值，
- * 让调用方安全地禁用对应入口，不得回退到上游服务。
+ * 正式更新地址固定指向公司 CNB Release；Den 和文档地址仍由公司构建
+ * 显式提供。任何配置都不得回退到上游服务。
  */
 
 export const FOXWORK_APP_NAME = "SeeWayWork";
@@ -11,6 +11,8 @@ export const FOXWORK_APP_IDENTIFIER = "com.foxwork.desktop";
 export const FOXWORK_DEV_APP_IDENTIFIER = "com.foxwork.desktop.dev";
 export const FOXWORK_PROTOCOL_SCHEME = "foxwork";
 export const FOXWORK_DEV_PROTOCOL_SCHEME = "foxwork-dev";
+export const FOXWORK_RELEASE_PAGE_URL = "https://cnb.cool/xingranya/foxwork/-/releases";
+export const FOXWORK_UPDATE_BASE_URL = `${FOXWORK_RELEASE_PAGE_URL}/latest/download`;
 
 export const FOXWORK_LEGACY_PROTOCOL_SCHEMES = Object.freeze([
   "openwork",
@@ -56,8 +58,8 @@ export function resolveFoxWorkBrandConfig(env = process.env) {
     protocolScheme: FOXWORK_PROTOCOL_SCHEME,
     devProtocolScheme: FOXWORK_DEV_PROTOCOL_SCHEME,
     docsUrl: httpUrl(env.FOXWORK_DOCS_URL),
-    releasePageUrl: httpUrl(env.FOXWORK_RELEASE_PAGE_URL),
-    updateBaseUrl: baseUrl(env.FOXWORK_UPDATE_BASE_URL),
+    releasePageUrl: httpUrl(env.FOXWORK_RELEASE_PAGE_URL) || FOXWORK_RELEASE_PAGE_URL,
+    updateBaseUrl: baseUrl(env.FOXWORK_UPDATE_BASE_URL) || FOXWORK_UPDATE_BASE_URL,
     alphaUpdateBaseUrl: baseUrl(env.FOXWORK_ALPHA_UPDATE_BASE_URL),
     denBaseUrl: baseUrl(env.FOXWORK_DEN_BASE_URL),
   });

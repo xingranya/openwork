@@ -5,6 +5,8 @@ import {
   FOXWORK_APP_IDENTIFIER,
   FOXWORK_APP_NAME,
   FOXWORK_PROTOCOL_SCHEME,
+  FOXWORK_RELEASE_PAGE_URL,
+  FOXWORK_UPDATE_BASE_URL,
   isFoxWorkProtocolUrl,
   isLegacyFoxWorkProtocolUrl,
   resolveFoxWorkBrandConfig,
@@ -28,6 +30,15 @@ const computerUsePermissionSource = readFileSync(
   "utf8",
 );
 const desktopPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const releaseWorkflowSource = readFileSync(
+  new URL("../../../.github/workflows/foxwork-release.yml", import.meta.url),
+  "utf8",
+);
+const cnbWorkflowSource = readFileSync(new URL("../../../.cnb.yml", import.meta.url), "utf8");
+const rendererBrandSource = readFileSync(
+  new URL("../../app/src/app/lib/foxwork-brand.ts", import.meta.url),
+  "utf8",
+);
 
 test("默认发行身份固定为 SeeWayWork，且不带上游服务回退", () => {
   const config = resolveFoxWorkBrandConfig({});
@@ -36,7 +47,8 @@ test("默认发行身份固定为 SeeWayWork，且不带上游服务回退", () 
   assert.equal(FOXWORK_PROTOCOL_SCHEME, "foxwork");
   assert.equal(config.appName, "SeeWayWork");
   assert.equal(config.docsUrl, null);
-  assert.equal(config.updateBaseUrl, null);
+  assert.equal(config.updateBaseUrl, FOXWORK_UPDATE_BASE_URL);
+  assert.equal(config.releasePageUrl, FOXWORK_RELEASE_PAGE_URL);
   assert.equal(config.denBaseUrl, null);
 });
 
@@ -122,6 +134,31 @@ test("桌面发行构建先生成共享类型产物", () => {
   assert.notEqual(typesBuildIndex, -1);
   assert.notEqual(appBuildIndex, -1);
   assert.ok(typesBuildIndex < appBuildIndex);
+});
+
+test("正式发行自动同步安装包和更新清单到 CNB", () => {
+  assert.equal(FOXWORK_RELEASE_PAGE_URL, "https://cnb.cool/xingranya/foxwork/-/releases");
+  assert.equal(
+    FOXWORK_UPDATE_BASE_URL,
+    "https://cnb.cool/xingranya/foxwork/-/releases/latest/download",
+  );
+  assert.match(rendererBrandSource, /CNB_STABLE_UPDATE_BASE_URL/);
+  assert.match(builderConfigSource, /provider: generic/);
+  assert.match(builderConfigSource, /cnb\.cool\/xingranya\/foxwork\/-\/releases\/latest\/download/);
+
+  for (const contract of [
+    "builder_args: --mac dmg zip --arm64",
+    "builder_args: --mac dmg zip --x64",
+    "latest-arm64-mac.yml",
+    "latest-x64-mac.yml",
+    "latest.yml",
+    "apps/desktop/dist-electron/*.blockmap",
+    "PLUGIN_ATTACHMENTS: ./release/*",
+  ]) {
+    assert.ok(releaseWorkflowSource.includes(contract), `缺少发行契约：${contract}`);
+  }
+  assert.match(releaseWorkflowSource, /prerelease: false/);
+  assert.match(cnbWorkflowSource, /preRelease: false/);
 });
 
 test("桌面运行时不从上游地址安装引擎且关键错误保持中文", () => {

@@ -6,6 +6,7 @@ const nextConfig = {
   reactStrictMode: true,
   skipTrailingSlashRedirect: true,
   transpilePackages: ["@openwork/ui", "@openwork-ee/utils"],
+  output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../.."),
 };
 

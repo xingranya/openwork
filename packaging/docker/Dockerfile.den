@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim AS build
 
 RUN corepack enable
 
@@ -68,6 +68,23 @@ RUN --mount=type=secret,id=sentry_auth_token,required=false \
     : "$DEN_SENTRY_UPLOAD_BUILD_ID"; \
   fi; \
   pnpm --dir /app/ee/apps/den-api run build
+
+# 只收集 Den API 的生产依赖与已编译工作区包，避免把根目录 3 GB 以上的
+# 开发依赖、源码和构建缓存写入最终镜像层。
+RUN pnpm --filter @openwork-ee/den-api --prod deploy --legacy /runtime/den-api
+
+FROM node:22-bookworm-slim AS runtime
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=8788
+
+COPY --from=build /runtime/den-api /app/ee/apps/den-api/
+
+# 保留既有迁移 Job 使用的路径，真实文件仍来自生产部署目录中的 den-db 包。
+RUN mkdir -p /app/ee/packages \
+  && ln -s /app/ee/apps/den-api/node_modules/@openwork-ee/den-db /app/ee/packages/den-db
 
 EXPOSE 8788
 

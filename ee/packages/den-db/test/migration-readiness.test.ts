@@ -90,6 +90,37 @@ describe("Den DB migration readiness wiring", () => {
     assert.ok(typesBuildIndex < denWebBuildIndex)
   })
 
+  test("Den API 运行镜像只复制生产部署目录", () => {
+    const dockerfile = readRepoFile("packaging/docker/Dockerfile.den")
+    const runtimeStage = requireSlice(dockerfile, "FROM node:22-bookworm-slim AS runtime", "EXPOSE 8788")
+
+    assert.match(dockerfile, /pnpm --filter @openwork-ee\/den-api --prod deploy --legacy \/runtime\/den-api/)
+    assert.match(runtimeStage, /COPY --from=build \/runtime\/den-api \/app\/ee\/apps\/den-api/)
+    assert.match(runtimeStage, /ln -s \/app\/ee\/apps\/den-api\/node_modules\/@openwork-ee\/den-db \/app\/ee\/packages\/den-db/)
+    assertNoForbiddenDeployTools(runtimeStage)
+  })
+
+  test("Den Compose 使用预编译迁移入口", () => {
+    const compose = readRepoFile("packaging/docker/docker-compose.den-dev.yml")
+    const denService = requireSlice(compose, "\n  den:\n", "\n  web:\n")
+
+    assert.match(denService, /node \/app\/ee\/packages\/den-db\/dist\/scripts\/bootstrap\.js/)
+    assert.match(denService, /node \/app\/ee\/apps\/den-api\/dist\/main\.js/)
+    assertNoForbiddenDeployTools(denService)
+  })
+
+  test("Den Web 使用 standalone 运行镜像", () => {
+    const nextConfig = readRepoFile("ee/apps/den-web/next.config.js")
+    const dockerfile = readRepoFile("packaging/docker/Dockerfile.den-web")
+    const runtimeStage = requireSlice(dockerfile, "FROM node:22-bookworm-slim AS runtime", "EXPOSE 3005")
+
+    assert.match(nextConfig, /output: ["']standalone["']/)
+    assert.match(runtimeStage, /COPY --from=build \/app\/ee\/apps\/den-web\/\.next\/standalone \/app/)
+    assert.match(runtimeStage, /COPY --from=build \/app\/ee\/apps\/den-web\/\.next\/static/)
+    assert.match(dockerfile, /CMD \["node", "\/app\/ee\/apps\/den-web\/server\.js"\]/)
+    assertNoForbiddenDeployTools(runtimeStage)
+  })
+
   test("Den API version changes do not invalidate dependency installation layers", () => {
     const dockerfile = readRepoFile("packaging/docker/Dockerfile.den")
     const dependencyInstallIndex = dockerfile.indexOf("RUN pnpm install --frozen-lockfile")

@@ -77,19 +77,22 @@ jobs:
             label: macOS arm64
             artifact: SeeWayWork-mac-arm64
             target: aarch64-apple-darwin
-            builder_args: --mac dmg --arm64
+            builder_args: --mac dmg zip --arm64
+            update_manifest: latest-arm64-mac.yml
           # macos-15-intel 是当前受支持的 Intel Runner。macos-13 已被 GitHub
           # 退役，指定它会导致作业永远排队且分配不到 Runner。
           - os: macos-15-intel
             label: macOS x64
             artifact: SeeWayWork-mac-x64
             target: x86_64-apple-darwin
-            builder_args: --mac dmg --x64
+            builder_args: --mac dmg zip --x64
+            update_manifest: latest-x64-mac.yml
           - os: windows-latest
             label: Windows x64
             artifact: SeeWayWork-win-x64
             target: x86_64-pc-windows-msvc
             builder_args: --win nsis --x64
+            update_manifest: latest.yml
 
     steps:
       - name: 检出代码
@@ -121,7 +124,36 @@ jobs:
         # 否则会打出架构不匹配的包。
         env:
           TARGET: ${{ matrix.target }}
+          FOXWORK_RELEASE_PAGE_URL: https://cnb.cool/xingranya/foxwork/-/releases
+          FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/latest/download
+          VITE_FOXWORK_RELEASE_PAGE_URL: https://cnb.cool/xingranya/foxwork/-/releases
+          VITE_FOXWORK_UPDATE_BASE_URL: https://cnb.cool/xingranya/foxwork/-/releases/latest/download
         run: pnpm --filter @openwork/desktop run build:electron && pnpm --filter @openwork/desktop exec electron-builder --config electron-builder.yml ${{ matrix.builder_args }} --publish never
+
+      - name: 校验并整理自动更新附件
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/desktop/dist-electron
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            test -s latest-mac.yml
+            mv latest-mac.yml "${{ matrix.update_manifest }}"
+            update_packages=(SeeWayWork-mac-*-*.zip)
+            if [ "${#update_packages[@]}" -ne 1 ] || [ ! -s "${update_packages[0]}.blockmap" ]; then
+              echo "macOS 自动更新 ZIP 或 blockmap 不完整。" >&2
+              exit 1
+            fi
+          else
+            test -s latest.yml
+            update_packages=(SeeWayWork-win-x64-*.exe)
+            if [ "${#update_packages[@]}" -ne 1 ] || [ ! -s "${update_packages[0]}.blockmap" ]; then
+              echo "Windows 自动更新 EXE 或 blockmap 不完整。" >&2
+              exit 1
+            fi
+          fi
+          test -s "${{ matrix.update_manifest }}"
+          grep -Eq '^version: [0-9]+\.[0-9]+\.[0-9]+' "${{ matrix.update_manifest }}"
+          echo "自动更新清单：${{ matrix.update_manifest }}"
 
       - name: 拒绝二段式下载器和异常小包
         shell: bash
@@ -174,7 +206,7 @@ jobs:
           else
             hash_cmd="shasum -a 256"
           fi
-          for f in *.dmg *.exe; do
+          for f in *.dmg *.zip *.exe; do
             [ -e "$f" ] || continue
             $hash_cmd "$f" >> SHA256SUMS.txt
           done
@@ -187,7 +219,10 @@ jobs:
           name: ${{ matrix.artifact }}
           path: |
             apps/desktop/dist-electron/*.dmg
+            apps/desktop/dist-electron/*.zip
             apps/desktop/dist-electron/*.exe
+            apps/desktop/dist-electron/*.blockmap
+            apps/desktop/dist-electron/latest*.yml
             apps/desktop/dist-electron/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -210,8 +245,28 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          find artifacts -type f \( -name '*.dmg' -o -name '*.exe' \) -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' -o -name 'latest*.yml' \) -exec cp {} release/ \;
           cat artifacts/*/SHA256SUMS.txt > release/SHA256SUMS.txt
+
+          for required in latest-arm64-mac.yml latest-x64-mac.yml latest.yml; do
+            if [ ! -s "release/$required" ]; then
+              echo "缺少自动更新清单：$required" >&2
+              exit 1
+            fi
+          done
+
+          for pattern in \
+            'SeeWayWork-mac-arm64-*.dmg' \
+            'SeeWayWork-mac-arm64-*.zip' \
+            'SeeWayWork-mac-x64-*.dmg' \
+            'SeeWayWork-mac-x64-*.zip' \
+            'SeeWayWork-win-x64-*.exe'; do
+            matches=(release/$pattern)
+            if [ "${#matches[@]}" -ne 1 ] || [ ! -s "${matches[0]}" ]; then
+              echo "发布附件不完整：$pattern" >&2
+              exit 1
+            fi
+          done
           echo "本次发布资产："
           ls -la release
           echo "校验值："
@@ -222,7 +277,7 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           name: SeeWayWork ${{ inputs.release_tag || github.ref_name }}
-          prerelease: true
+          prerelease: false
           fail_on_unmatched_files: true
           files: release/*
           body: |
@@ -244,6 +299,10 @@ jobs:
             | macOS Intel | `SeeWayWork-mac-x64-*.dmg` |
             | Windows x64 | `SeeWayWork-win-x64-*.exe` |
 
+            `*.zip`、`*.blockmap`、`latest-arm64-mac.yml`、
+            `latest-x64-mac.yml` 和 `latest.yml` 是应用内自动更新所需附件，
+            员工无需手动下载。
+
             ### 校验方式
 
             `SHA256SUMS.txt` 包含全部产物的 SHA-256 校验值。
@@ -257,7 +316,7 @@ jobs:
             Windows PowerShell：
 
             ```powershell
-            Get-FileHash .\SeeWayWork-win-x64-0.18.4.exe -Algorithm SHA256
+            Get-FileHash .\SeeWayWork-win-x64-*.exe -Algorithm SHA256
             ```
 
             ### 服务器要求
@@ -271,7 +330,7 @@ jobs:
             本项目基于 OpenWork 定制，其中 `ee/**` 采用 `FSL-1.1-MIT`，
             仅限公司内部使用和修改，必须保留许可证与版权声明。
 
-      - name: 同步完整安装包到 CNB Release
+      - name: 同步安装包和自动更新清单到 CNB Release
         env:
           CNB_TOKEN: ${{ secrets.CNB_RELEASE_TOKEN }}
           CNB_REPO_SLUG: xingranya/foxwork

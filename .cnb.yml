@@ -19,7 +19,7 @@ $:
             overlying: true
             title: SeeWayWork ${CNB_BRANCH}
             description: SeeWayWork 公司内部发布，桌面安装包由 GitHub Actions 构建后自动同步。
-            preRelease: true
+            preRelease: false
 
         - name: 构建并推送 Den API 和 Den Web
           script: |

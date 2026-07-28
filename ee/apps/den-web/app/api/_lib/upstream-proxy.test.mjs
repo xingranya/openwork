@@ -10,6 +10,7 @@ const previousDenWebPublicOrigin = process.env.DEN_WEB_PUBLIC_ORIGIN;
 describe("Den upstream proxy", () => {
   let server;
   let observed = null;
+  let observedBodyBytes = null;
   let logs = [];
 
   beforeAll(() => {
@@ -17,10 +18,12 @@ describe("Den upstream proxy", () => {
       port: 0,
       async fetch(request) {
         const url = new URL(request.url);
+        const bodyBytes = new Uint8Array(await request.arrayBuffer());
+        observedBodyBytes = [...bodyBytes];
         observed = {
           method: request.method,
           path: `${url.pathname}${url.search}`,
-          body: await request.text(),
+          body: new TextDecoder().decode(bodyBytes),
           cookie: request.headers.get("cookie"),
           authorization: request.headers.get("authorization"),
           custom: request.headers.get("x-custom-proxy-test"),
@@ -60,6 +63,7 @@ describe("Den upstream proxy", () => {
 
   beforeEach(() => {
     logs = [];
+    observedBodyBytes = null;
     setStructuredLogSink({
       log(level, message, fields) {
         logs.push({ level, message, fields });
@@ -215,6 +219,20 @@ describe("Den upstream proxy", () => {
     expect(serializedLog).not.toContain("tok_test");
     expect(serializedLog).not.toContain("sess_test");
     expect(serializedLog).not.toContain(JSON.stringify({ ok: true }));
+  });
+
+  test("原样转发二进制请求体", async () => {
+    const { proxyUpstream } = await import("./upstream-proxy.ts");
+    const bytes = new Uint8Array([0, 255, 1, 128, 10]);
+    const request = new NextRequest("https://app.example.com/api/den/v1/upload", {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: bytes,
+    });
+
+    await proxyUpstream(request, [], { routePrefix: "/api/den" });
+
+    expect(observedBodyBytes).toEqual([...bytes]);
   });
 
   test("drops content-encoding after upstream fetch decompresses the body", async () => {

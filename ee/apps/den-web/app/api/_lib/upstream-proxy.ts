@@ -251,9 +251,9 @@ function errorName(error: unknown): string {
   return error instanceof Error ? error.name : typeof error;
 }
 
-async function readRequestBody(request: NextRequest): Promise<Uint8Array | null> {
+async function readRequestBody(request: NextRequest): Promise<ArrayBuffer | null> {
   if (request.method === "GET" || request.method === "HEAD") return null;
-  return new Uint8Array(await request.arrayBuffer());
+  return request.arrayBuffer();
 }
 
 export async function proxyUpstream(

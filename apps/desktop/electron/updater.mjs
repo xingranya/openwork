@@ -149,22 +149,34 @@ function isVersionNewer(candidate, current) {
   return comparison === null ? candidate !== current : comparison > 0;
 }
 
+/** 根据稳定版号生成可直接读取清单的更新目录。 */
 export function targetedStableUpdaterFeed(currentVersion, targetVersion, baseUrl = ELECTRON_UPDATER_FEEDS.stable) {
   if (!baseUrl) {
     throw new Error("SeeWayWork 公司更新源尚未配置。");
   }
   const normalizedTarget = normalizeStableTargetVersion(targetVersion);
   if (!normalizedTarget) {
-    throw new Error("Target update version must use the stable x.y.z format.");
+    throw new Error("目标更新版本必须使用 x.y.z 格式。");
   }
   const comparison = compareVersions(normalizedTarget, currentVersion);
   if (comparison === null) {
-    throw new Error("Installed version could not be validated for a targeted update.");
+    throw new Error("无法校验当前安装版本，已停止定向更新。");
   }
   if (comparison <= 0) {
-    throw new Error("Target update version must be newer than the installed version.");
+    throw new Error("目标更新版本必须高于当前安装版本。");
   }
-  return `${String(baseUrl).replace(/\/+$/, "")}/v${normalizedTarget}`;
+  const normalizedBaseUrl = String(baseUrl).replace(/\/+$/, "");
+  const cnbLatestSuffix = "/releases/latest/download";
+  if (normalizedBaseUrl.endsWith(cnbLatestSuffix)) {
+    return `${normalizedBaseUrl.slice(0, -cnbLatestSuffix.length)}/releases/download/seewaywork-v${normalizedTarget}`;
+  }
+  return `${normalizedBaseUrl}/v${normalizedTarget}`;
+}
+
+/** 为不同桌面平台选择不会互相覆盖的稳定版更新清单。 */
+export function stableUpdaterManifestChannel(platform = process.platform, arch = process.arch) {
+  if (platform !== "darwin") return "latest";
+  return arch === "arm64" ? "latest-arm64" : "latest-x64";
 }
 
 function updaterChannelState(app, channel, targetVersion = null) {
@@ -185,12 +197,13 @@ function updaterChannelState(app, channel, targetVersion = null) {
 async function applyElectronUpdaterFeed(app, updater, targetVersion = null) {
   const channel = await readElectronUpdaterChannel(app);
   if (targetVersion && channel !== "stable") {
-    throw new Error("Version-specific update feeds are supported only on the stable channel.");
+    throw new Error("只有稳定版渠道支持指定更新版本。");
   }
   const state = updaterChannelState(app, channel, targetVersion);
   if (!state.feedUrl) {
     throw new Error("SeeWayWork 公司更新源尚未配置。");
   }
+  updater.channel = state.channel === "stable" ? stableUpdaterManifestChannel() : "alpha";
   updater.allowPrerelease = state.channel === "alpha";
   // Moving from alpha back to stable can be a semver downgrade; still show
   // the latest stable so users can return to the stable channel deliberately.
@@ -353,7 +366,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
         ? null
         : normalizeStableTargetVersion(rawTargetVersion);
       if (rawTargetVersion !== undefined && !targetVersion) {
-        throw new Error("Target update version must use the stable x.y.z format.");
+        throw new Error("目标更新版本必须使用 x.y.z 格式。");
       }
       const channelState = updater
         ? await applyElectronUpdaterFeed(app, updater, targetVersion)
@@ -364,7 +377,7 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
       const info = result?.updateInfo ?? null;
       const currentVersion = resolveAppVersion(app);
       if (targetVersion && compareVersions(info?.version ?? "", targetVersion) !== 0) {
-        throw new Error(`Target update manifest did not resolve to v${targetVersion}.`);
+        throw new Error(`更新清单返回的版本与指定版本 ${targetVersion} 不一致。`);
       }
       const available = Boolean(info?.version && isVersionNewer(info.version, currentVersion));
       checkedUpdateVersion = available ? info.version : null;
@@ -403,14 +416,14 @@ export function registerUpdaterIpc({ app, ipcMain, getMainWindow }) {
           checkedUpdateTargetVersion &&
           compareVersions(info?.version ?? "", checkedUpdateTargetVersion) !== 0
         ) {
-          throw new Error(`Target update manifest did not resolve to v${checkedUpdateTargetVersion}.`);
+          throw new Error(`更新清单返回的版本与指定版本 ${checkedUpdateTargetVersion} 不一致。`);
         }
         checkedUpdateVersion = info?.version && isVersionNewer(info.version, currentVersion)
           ? info.version
           : null;
       }
       if (!checkedUpdateVersion) {
-        return { ok: false, reason: "No update available." };
+        return { ok: false, reason: "当前没有可用更新。" };
       }
       // Clear any stuck ShipIt state from a prior aborted install so this
       // download applies cleanly on quit.

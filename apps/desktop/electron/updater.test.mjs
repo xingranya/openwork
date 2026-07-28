@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   preventPendingUpdaterInstall,
   registerUpdaterIpc,
+  stableUpdaterManifestChannel,
   staleUpdaterStatePaths,
   targetedStableUpdaterFeed,
 } from "./updater.mjs";
@@ -30,32 +31,43 @@ describe("targetedStableUpdaterFeed", () => {
     );
   });
 
+  it("把 CNB 最新版入口转换为指定版本入口", () => {
+    assert.equal(
+      targetedStableUpdaterFeed(
+        "0.18.4",
+        "0.18.5",
+        "https://cnb.cool/xingranya/foxwork/-/releases/latest/download",
+      ),
+      "https://cnb.cool/xingranya/foxwork/-/releases/download/seewaywork-v0.18.5",
+    );
+  });
+
   it("rejects arbitrary URLs and prerelease targets", () => {
     assert.throws(
       () => targetedStableUpdaterFeed("0.17.22", "https://example.test/latest.yml", "https://updates.example.test/foxwork"),
-      /stable x\.y\.z format/,
+      /x\.y\.z 格式/,
     );
     assert.throws(
       () => targetedStableUpdaterFeed("0.17.22", "0.17.23-alpha.1", "https://updates.example.test/foxwork"),
-      /stable x\.y\.z format/,
+      /x\.y\.z 格式/,
     );
   });
 
   it("rejects equal and older targets", () => {
     assert.throws(
       () => targetedStableUpdaterFeed("0.17.23", "0.17.23", "https://updates.example.test/foxwork"),
-      /newer than the installed version/,
+      /高于当前安装版本/,
     );
     assert.throws(
       () => targetedStableUpdaterFeed("0.17.23", "0.17.22", "https://updates.example.test/foxwork"),
-      /newer than the installed version/,
+      /高于当前安装版本/,
     );
   });
 
   it("fails closed when the installed version cannot be compared", () => {
     assert.throws(
       () => targetedStableUpdaterFeed("unknown", "0.17.23", "https://updates.example.test/foxwork"),
-      /could not be validated/,
+      /无法校验当前安装版本/,
     );
   });
 
@@ -64,6 +76,17 @@ describe("targetedStableUpdaterFeed", () => {
       () => targetedStableUpdaterFeed("0.17.22", "0.17.23", ""),
       /公司更新源尚未配置/,
     );
+  });
+});
+
+describe("stableUpdaterManifestChannel", () => {
+  it("为 macOS 两种架构选择独立清单", () => {
+    assert.equal(stableUpdaterManifestChannel("darwin", "arm64"), "latest-arm64");
+    assert.equal(stableUpdaterManifestChannel("darwin", "x64"), "latest-x64");
+  });
+
+  it("Windows 使用标准稳定版清单", () => {
+    assert.equal(stableUpdaterManifestChannel("win32", "x64"), "latest");
   });
 });
 
