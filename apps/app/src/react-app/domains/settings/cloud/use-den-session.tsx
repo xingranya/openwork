@@ -243,7 +243,7 @@ export function useDenSession({
   const openBrowserAuth = React.useCallback(
     (mode: "sign-in" | "sign-up") => {
       const url = buildDenAuthUrl(baseUrl, mode);
-      setSigninFallbackUrl(null);
+      setSigninFallbackUrl(url);
       setStatusMessage(
         mode === "sign-up"
           ? t("den.status_browser_signup")
@@ -253,7 +253,6 @@ export function useDenSession({
       void tryOpenBrowserAuthUrl(url).then((opened) => {
         if (opened) return;
         setStatusMessage(null);
-        setSigninFallbackUrl(url);
       });
     },
     [baseUrl, setStatusMessage],

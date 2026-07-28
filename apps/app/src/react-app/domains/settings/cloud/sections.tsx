@@ -1,11 +1,10 @@
 /** @jsxImportSource react */
-import type { CloudImportedPlugin, CloudImportedProvider, CloudImportedSkill } from "../../../../app/cloud/import-state";
+import type { CloudImportedPlugin, CloudImportedProvider } from "../../../../app/cloud/import-state";
 import type {
   DenOrgMarketplaceResolved,
   DenOrgLlmProvider,
   DenOrgPlugin,
 } from "../../../../app/lib/den";
-import type { DenOrgSkillCard } from "../../../../app/types";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { cva } from "class-variance-authority";
 import fuzzysort from "fuzzysort";
@@ -50,16 +49,6 @@ export type CloudProviderRow = {
   name: string;
 };
 
-export type CloudSkillRow = {
-  key: string;
-  cloudSkillId: string;
-  skill: DenOrgSkillCard | null;
-  imported: CloudImportedSkill | null;
-  status: "available" | "installed" | "out_of_sync" | "removed_from_cloud";
-  title: string;
-  installedName: string | null;
-};
-
 export type CloudPluginRow = {
   marketplaceId: string;
   plugin: DenOrgPlugin;
@@ -78,7 +67,6 @@ const statusBadgeVariants = cva("", {
   },
 });
 
-const skillSearchKeys = ["title"];
 const pluginSearchKeys = ["plugin.name"];
 const nameSearchKeys = ["name"];
 
@@ -110,96 +98,6 @@ function useSearch<T>({ items, keys, query }: UseSearchProps<T>) {
 
     return fuzzysort.go(query, items, { keys }).map((result) => result.obj);
   }, [items, keys, query]);
-}
-
-interface CloudSkillListItemProps {
-  actionId: string | null;
-  actionKind: ResourceActionKind | null;
-  row: CloudSkillRow;
-  onImportSkill: (cloudSkillId: string, title: string) => void | Promise<void>;
-  onRemoveSkill: (cloudSkillId: string, title: string) => void | Promise<void>;
-  onSyncSkill: (cloudSkillId: string, title: string) => void | Promise<void>;
-}
-
-function CloudSkillListItem({
-  actionId,
-  actionKind,
-  row,
-  onImportSkill,
-  onRemoveSkill,
-  onSyncSkill,
-}: CloudSkillListItemProps) {
-  const actionBusy = actionId === row.cloudSkillId;
-  const actionLabel = !actionBusy
-    ? null
-    : actionKind === "import"
-      ? t("den.importing")
-      : actionKind === "sync"
-        ? t("den.syncing")
-        : t("den.removing");
-
-  return (
-    <SettingsListItem>
-      <SettingsListItemContent>
-        <SettingsListTitle>
-          <SettingsListItemTitle>{row.title}</SettingsListItemTitle>
-          {row.skill?.shared === "public" ? <SettingsPill>{t("skills.cloud_shared_public")}</SettingsPill> : null}
-          {row.skill?.shared === null ? <SettingsPill>{t("den.private_badge")}</SettingsPill> : null}
-          {row.installedName ? <SettingsPill>{t("den.installed_name_badge", { name: row.installedName })}</SettingsPill> : null}
-          {row.status !== "available" ? (
-            <SettingsPill className={statusBadgeVariants({ tone: resourceStatusTone(row.status) })}>
-              {row.status === "installed"
-                ? t("den.imported_badge")
-                : row.status === "out_of_sync"
-                  ? t("den.out_of_sync_badge")
-                  : t("den.removed_from_cloud_badge")}
-            </SettingsPill>
-          ) : null}
-        </SettingsListTitle>
-        <SettingsListItemDescription>
-          {row.status === "available"
-            ? t("den.cloud_skill_detail", { title: row.title })
-            : row.status === "installed"
-              ? t("den.cloud_skill_imported_detail", { name: row.installedName ?? row.title })
-              : row.status === "out_of_sync"
-                ? t("den.cloud_skill_sync_detail", { name: row.installedName ?? row.title })
-                : t("den.cloud_skill_removed_detail", { name: row.installedName ?? row.title })}
-        </SettingsListItemDescription>
-      </SettingsListItemContent>
-      <SettingsListItemActions>
-        {row.status === "out_of_sync" && row.skill ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void onSyncSkill(row.cloudSkillId, row.title)}
-            disabled={actionId !== null}
-          >
-            {actionBusy && actionKind === "sync" ? t("den.syncing") : t("den.sync")}
-          </Button>
-        ) : null}
-        {row.status === "available" && row.skill ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void onImportSkill(row.cloudSkillId, row.title)}
-            disabled={actionId !== null}
-          >
-            {actionBusy ? actionLabel : t("den.import_skill")}
-          </Button>
-        ) : null}
-        {row.status !== "available" ? (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => void onRemoveSkill(row.cloudSkillId, row.title)}
-            disabled={actionId !== null}
-          >
-            {actionBusy ? actionLabel : t("den.uninstall")}
-          </Button>
-        ) : null}
-      </SettingsListItemActions>
-    </SettingsListItem>
-  );
 }
 
 interface MarketplacePluginListItemProps {

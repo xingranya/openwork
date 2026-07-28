@@ -10,11 +10,12 @@ import type {
   DenOrgLlmProviderModel,
 } from "../../../../app/lib/den";
 import type { CloudImportedProvider } from "../../../../app/cloud/import-state";
+import type { DenOrgLlmProviderConnection } from "../../../../app/lib/den";
 import {
+  buildCloudProviderConfig,
   getCloudManagedProviderId,
   getProviderModelIds,
   isCloudProviderOutOfSync,
-  buildCloudProviderConfig,
 } from "./cloud-provider-config";
 
 const UPDATED_AT = "2024-02-01T00:00:00.000Z";

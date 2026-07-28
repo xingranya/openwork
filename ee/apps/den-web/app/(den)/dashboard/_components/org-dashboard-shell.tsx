@@ -7,6 +7,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  Cloud,
   FileText,
   Home,
   LogOut,
@@ -29,6 +30,7 @@ import {
   getApiKeysRoute,
   getBrandAppearanceRoute,
   getBillingRoute,
+  getCloudRoute,
   getCustomLlmProvidersRoute,
   getDiagnosticsRoute,
   getDesktopPoliciesRoute,
@@ -166,24 +168,33 @@ export function SidebarBrandMark({
   );
 }
 
+const DEFAULT_WORKSPACE_FAVICON_HREF = "/openwork-mark.svg";
+
 export function WorkspaceFavicon({
   metadata,
 }: {
   metadata: string | null | undefined;
 }) {
+  const orgContextLoading = metadata === undefined;
   const iconUrl = getManagedBrandIconUrl(metadata ?? null);
 
   useEffect(() => {
-    if (!iconUrl) {
+    if (orgContextLoading) {
+      // Keep the server-rendered favicon until the org context is known.
       return;
     }
 
     let favicon = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    const created = favicon === null;
     if (!favicon) {
       favicon = document.createElement("link");
       favicon.rel = "icon";
       document.head.appendChild(favicon);
+    }
+
+    if (!iconUrl) {
+      favicon.href = DEFAULT_WORKSPACE_FAVICON_HREF;
+      favicon.removeAttribute("type");
+      return;
     }
 
     const previousHref = favicon.getAttribute("href");
@@ -195,12 +206,8 @@ export function WorkspaceFavicon({
       : "image/png";
 
     return () => {
-      if (created) {
-        favicon.remove();
-        return;
-      }
       if (previousHref === null) {
-        favicon.removeAttribute("href");
+        favicon.setAttribute("href", DEFAULT_WORKSPACE_FAVICON_HREF);
       } else {
         favicon.setAttribute("href", previousHref);
       }
@@ -210,7 +217,7 @@ export function WorkspaceFavicon({
         favicon.setAttribute("type", previousType);
       }
     };
-  }, [iconUrl]);
+  }, [orgContextLoading, iconUrl]);
 
   return null;
 }
@@ -254,6 +261,9 @@ function getDashboardPageTitle(pathname: string, orgSlug: string | null) {
   }
   if (pathname.startsWith(getInferenceRoute(orgSlug))) {
     return "平台模型";
+  }
+  if (pathname.startsWith(getCloudRoute(orgSlug))) {
+    return "Cloud";
   }
   if (pathname.startsWith(getPluginsRoute(orgSlug))) {
     return "插件";
@@ -340,6 +350,10 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
     orgSlug: activeOrg?.slug,
   });
   const mcpConnectionsEnabled = orgContext?.capabilities.mcpConnections === true;
+  // Cloud is a hosted alpha. The org payload only reports `cloud` after the
+  // server rollout helper has verified the multi-org deployment gate, so the
+  // sidebar stays hidden by default until both config and org context load.
+  const showCloud = runtimeConfigLoaded && orgContext?.capabilities.cloud === true;
 
   // 顶层导航保持精简。扩展、模型和设置类页面分别收进对应分组。
   const extensionsGroup: DashboardNavItem | null = access.isAdmin && activeOrg
@@ -374,7 +388,7 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
     : null;
   const settingsChildren: DashboardNavChild[] = activeOrg
     ? [
-        ...(access.isAdmin
+        ...(access.canViewSettings
           ? [
               { href: getOrgSettingsRoute(activeOrg.slug), label: "常规" },
               { href: getDiagnosticsRoute(activeOrg.slug), label: "连接诊断" },
@@ -410,6 +424,14 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
           label: "我的连接",
           icon: Plug,
           badge: "测试版",
+        }]
+      : []),
+    ...(showCloud
+      ? [{
+          href: activeOrg ? getCloudRoute(activeOrg.slug) : "#",
+          label: "Cloud",
+          icon: Cloud,
+          badge: "Alpha",
         }]
       : []),
     ...(extensionsGroup ? [extensionsGroup] : []),

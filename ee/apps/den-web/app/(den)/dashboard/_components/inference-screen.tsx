@@ -7,7 +7,7 @@ import { INFERENCE_MODEL_ALIASES } from "@openwork/types/den/inference";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
 import { DenButton } from "../../_components/ui/button";
 import { getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
-import { getBillingRoute, getCustomLlmProvidersRoute } from "../../_lib/den-org";
+import { getBillingRoute, getCustomLlmProvidersRoute, getOrgAccessFlags } from "../../_lib/den-org";
 import { useDenFlow } from "../../_providers/den-flow-provider";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 
@@ -164,7 +164,7 @@ const VALUE_POINTS = [
 ];
 
 function ModelsValueProp(props: {
-  isOwner: boolean;
+  canManage: boolean;
   memberCount: number;
   subscribeBusy: boolean;
   onSubscribe: () => void;
@@ -190,7 +190,7 @@ function ModelsValueProp(props: {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <DenButton
               type="button"
-              disabled={!props.isOwner}
+              disabled={!props.canManage}
               loading={props.subscribeBusy}
               onClick={props.onSubscribe}
             >
@@ -200,7 +200,7 @@ function ModelsValueProp(props: {
               每位成员每月 10 美元 · {props.memberCount > 0 ? `${props.memberCount} 位活跃成员` : "按活跃成员计费"} · 可随时取消
             </p>
           </div>
-          {props.isOwner ? null : (
+          {props.canManage ? null : (
             <p className="mt-3 text-[13px] leading-5 text-amber-700">
               只有公司所有者可以订阅，请联系所有者为团队启用模型服务。
             </p>
@@ -274,6 +274,11 @@ export function InferenceScreen() {
 
   // 在当前页面直接进入 Stripe 结算；账单页只负责查看订阅状态和管理入口。
   async function startSubscribeCheckout() {
+    if (!canManageModels) {
+      setError("Only workspace admins can start OpenWork Models checkout.");
+      return;
+    }
+
     setError(null);
     try {
       await runReauthableAction("inference-checkout", async () => {
@@ -303,6 +308,10 @@ export function InferenceScreen() {
   }
 
   async function toggleEnabled() {
+    if (!canManageModels) {
+      setError("Only workspace admins can manage OpenWork Models.");
+      return;
+    }
     if (!status) return;
     if (status.enabled || !status.subscribed) {
       router.push(getBillingRoute(activeOrg?.slug));
@@ -370,7 +379,7 @@ export function InferenceScreen() {
 
         {showValueProp ? (
           <ModelsValueProp
-            isOwner={isOwner}
+            canManage={canManageModels}
             memberCount={status?.memberCount ?? 0}
             subscribeBusy={subscribeBusy}
             onSubscribe={() => void startSubscribeCheckout()}
@@ -386,7 +395,7 @@ export function InferenceScreen() {
                   {cardTitle}
                 </h2>
               </div>
-              <DenButton type="button" onClick={toggleEnabled} loading={saving || loading} variant={enabled ? "secondary" : "primary"}>
+              <DenButton type="button" onClick={toggleEnabled} loading={saving || loading} disabled={!canManageModels} variant={enabled ? "secondary" : "primary"}>
                 {actionLabel}
               </DenButton>
             </div>

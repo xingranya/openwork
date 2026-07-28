@@ -4,6 +4,7 @@ import { ImageUp, Palette, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
 import {
+  getOrgAccessFlags,
   getManagedBrandAssetFromMetadata,
   parseOrganizationMetadata,
   type DenManagedBrandAsset,
@@ -178,7 +179,12 @@ export function BrandAppearanceScreen() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageSuccess, setPageSuccess] = useState<string | null>(null);
 
-  const isOwner = orgContext?.currentMember.isOwner ?? false;
+  const access = getOrgAccessFlags(
+    orgContext?.currentMember.role ?? "member",
+    orgContext?.currentMember.isOwner ?? false,
+    orgContext?.roles,
+  );
+  const canManageBrandAppearance = access.canManageSettings;
   const metadata = parseOrganizationMetadata(orgContext?.organization.metadata ?? null);
   const currentLogoUrl = typeof metadata?.brandLogoUrl === "string" ? metadata.brandLogoUrl : null;
   const currentIconUrl = typeof metadata?.brandIconUrl === "string" ? metadata.brandIconUrl : null;
@@ -216,6 +222,7 @@ export function BrandAppearanceScreen() {
 
   async function handleAssetSelection(kind: BrandAssetKind, file: File | null) {
     setPageError(null);
+    if (!canManageBrandAppearance) return;
     if (!file) return;
     try {
       const draft = await createBrandAssetDraft(file, kind);
@@ -233,6 +240,7 @@ export function BrandAppearanceScreen() {
 
   function handleAssetClear(kind: BrandAssetKind) {
     setPageError(null);
+    if (!canManageBrandAppearance) return;
     if (kind === "logo") {
       setLogoDraft(null);
       setLogoClearPending(true);
@@ -246,6 +254,11 @@ export function BrandAppearanceScreen() {
     event.preventDefault();
     setPageError(null);
     setPageSuccess(null);
+
+    if (!canManageBrandAppearance) {
+      setPageError("Only workspace owners and super-admins can change brand appearance.");
+      return;
+    }
 
     try {
       if (logoDraft || iconDraft) {

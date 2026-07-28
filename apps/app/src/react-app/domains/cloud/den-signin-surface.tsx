@@ -4,8 +4,8 @@ import {
   Cloud,
   ChevronDown,
   ChevronUp,
-  Users,
   Share2,
+  Users,
 } from "lucide-react";
 import { PaperGrainGradient } from "@openwork/ui/react/paper-grain-gradient";
 
@@ -233,10 +233,6 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
         </div>
       ) : null}
 
-      {props.signinFallbackUrl ? (
-        <SignInFallbackNotice url={props.signinFallbackUrl} />
-      ) : null}
-
       <div className="space-y-2">
         <div className="max-w-[54ch] text-sm text-dls-secondary">
           {t("den.auto_reconnect_hint")}
@@ -267,6 +263,10 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
             : t("den.paste_signin_code")}
         </Button>
       </div>
+
+      {props.signinFallbackUrl ? (
+        <SignInFallbackNotice url={props.signinFallbackUrl} />
+      ) : null}
 
       {props.manualAuthOpen ? (
         <div className={`${settingsPanelSoftClass} space-y-3`}>
@@ -314,18 +314,17 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
   if (variant === "fullscreen") {
     return (
       <div className="relative min-h-screen bg-dls-background text-dls-text">
-        {/* Subtle background texture */}
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
           <div className="absolute -left-[20%] -top-[30%] h-[70%] w-[60%] rounded-full bg-[radial-gradient(ellipse,rgba(14,51,217,0.06),transparent_70%)] blur-3xl" />
           <div className="absolute -bottom-[20%] -right-[10%] h-[50%] w-[50%] rounded-full bg-[radial-gradient(ellipse,rgba(255,126,46,0.05),transparent_70%)] blur-3xl" />
           <div className="absolute left-[30%] top-[60%] h-[40%] w-[40%] rounded-full bg-[radial-gradient(ellipse,rgba(255,227,64,0.04),transparent_70%)] blur-3xl" />
         </div>
 
-        {/* Titlebar drag region */}
+        {/* 桌面标题栏拖拽区域 */}
         <div className="absolute inset-x-0 top-0 z-20 h-10 mac:titlebar-drag" />
 
         <div className="relative z-10 flex min-h-screen">
-          {/* ---- Left: sign-in (transparent on page bg) ---- */}
+          {/* 左侧：公司账号登录 */}
           <div className="flex w-full flex-col items-center justify-center px-8 py-16 lg:w-[45%] lg:px-12">
             <div className="w-full max-w-md space-y-8">
               <div className="space-y-2">
@@ -342,10 +341,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
 
               <button
                 type="button"
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-dls-accent text-sm font-semibold text-[var(--dls-accent-fg)] transition-all hover:bg-[var(--dls-accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed"
-                // Opens on the sign-up tab (label stays "Sign in"): most
-                // people hitting this are new, and the web page's tabs let
-                // returning users switch to sign-in in one tap.
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-dls-accent text-sm font-semibold text-[var(--dls-accent-fg)] transition-all hover:bg-[var(--dls-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => props.onOpenBrowserAuth("sign-up")}
                 disabled={props.authBusy || props.sessionBusy}
               >
@@ -380,7 +376,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                 </div>
               ) : null}
 
-              {/* Paste code disclosure */}
+              {/* 手动粘贴登录码 */}
               <div className="space-y-3">
                 <button
                   type="button"
@@ -428,7 +424,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                 ) : null}
               </div>
 
-              {/* Developer mode */}
+              {/* 开发者模式下的公司服务地址 */}
               {props.developerMode ? (
                 <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4">
                   <TextInput
@@ -475,11 +471,9 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
             </div>
           </div>
 
-          {/* ---- Right: shader outer card > white inner card ---- */}
+          {/* 右侧：公司能力概览 */}
           <div className="hidden lg:flex lg:w-[55%] lg:items-center lg:justify-center lg:p-6">
-            {/* Outer: shader card */}
             <div className="relative w-full max-w-xl overflow-hidden rounded-3xl">
-              {/* Shader background */}
               <div className="absolute inset-0 z-0">
                 <PaperGrainGradient
                   speed={0}
@@ -497,8 +491,6 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                   style={{ backgroundColor: "#FFFFFF", width: "100%", height: "100%" }}
                 />
               </div>
-
-              {/* Inner: card with capabilities */}
               <div className="relative z-10 m-3 rounded-2xl bg-dls-surface p-7">
                 <ShowcasePanel />
               </div>

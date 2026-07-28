@@ -41,7 +41,7 @@ function statusLabel(status: EgressDiagnosticStep["status"]) {
 
 function ownerLabel(owner: EgressDiagnosticStep["owner"]) {
   if (owner === "network-administrator") return "网络管理员";
-  if (owner === "openwork-support") return "OpenWork 技术支持";
+  if (owner === "openwork-support") return "FoxWork 技术支持";
   return "Den 运维人员";
 }
 
@@ -84,7 +84,7 @@ function StepResult({ step }: { step: EgressDiagnosticStep }) {
   );
 }
 
-export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
+export function EgressDiagnosticsCard({ canView, canManage }: { canView: boolean; canManage: boolean }) {
   const [available, setAvailable] = useState(false);
   const [targetOrigin, setTargetOrigin] = useState<string | null>(null);
   const [missingConfiguration, setMissingConfiguration] = useState<string[]>([]);
@@ -98,12 +98,13 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
   const [editingBearerToken, setEditingBearerToken] = useState(false);
 
   useEffect(() => {
-    if (!canRun) {
+    if (!canView) {
       setLoading(false);
       return;
     }
     let cancelled = false;
     async function loadConfiguration() {
+      setLoading(true);
       try {
         const { response, payload } = await requestJson("/v1/diagnostics/egress", { method: "GET" }, 12_000);
         if (!response.ok) {
@@ -125,7 +126,7 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
     }
     void loadConfiguration();
     return () => { cancelled = true; };
-  }, [canRun]);
+  }, [canView]);
 
   useEffect(() => {
     if (!copied) return;
@@ -134,6 +135,11 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
   }, [copied]);
 
   async function runDiagnostic() {
+    if (!canManage) {
+      setError("只有公司所有者和超级管理员可以运行此诊断。");
+      return;
+    }
+
     setRunning(true);
     setError(null);
     setResult(null);
@@ -153,6 +159,11 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
   }
 
   async function saveBearerToken() {
+    if (!canManage) {
+      setError("只有公司所有者和超级管理员可以更换诊断令牌。");
+      return;
+    }
+
     const bearerToken = bearerTokenDraft.trim();
     if (bearerToken.length < 24) {
       setError("诊断令牌至少需要 24 个字符。");
@@ -197,7 +208,7 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
           type="button"
           icon={Activity}
           loading={running}
-          disabled={!canRun || loading || !available}
+          disabled={!canManage || loading || !available}
           onClick={() => void runDiagnostic()}
         >
           运行出站连接诊断
@@ -209,17 +220,17 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
         <p className="mt-1">浏览器无法更改此目标。诊断不会发送公司数据、客户凭据或服务商凭据。</p>
       </div>
 
-      {!canRun ? <p className="text-[13px] text-gray-500">只有工作区所有者和管理员可以运行此诊断。</p> : null}
+      {canView && !canManage ? <p className="text-[13px] text-gray-500">当前为只读模式；公司所有者和超级管理员可以运行诊断或更换令牌。</p> : null}
       {loading ? <p className="text-[13px] text-gray-500" role="status">正在加载诊断配置...</p> : null}
-      {!loading && canRun && available && !editingBearerToken ? (
+      {!loading && canView && available && !editingBearerToken ? (
         <div className="flex items-center justify-between gap-3 rounded-[22px] border border-gray-200 bg-gray-50 px-4 py-3 text-[13px] text-gray-600">
           <p>Den 已配置诊断令牌。</p>
-          <DenButton type="button" size="sm" variant="secondary" onClick={() => setEditingBearerToken(true)}>
+          <DenButton type="button" size="sm" variant="secondary" onClick={() => setEditingBearerToken(true)} disabled={!canManage}>
             更换令牌
           </DenButton>
         </div>
       ) : null}
-      {!loading && canRun && (!available || editingBearerToken) ? (
+      {!loading && canView && (!available || editingBearerToken) ? (
         <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-4 text-[13px] text-amber-800" role="status">
           <p className="font-medium">{available ? "更换诊断令牌。" : "请先添加诊断令牌。"}</p>
           <p className="mt-1">Den 会加密保存公司的诊断令牌，保存后不再显示。</p>
@@ -233,9 +244,10 @@ export function EgressDiagnosticsCard({ canRun }: { canRun: boolean }) {
                 placeholder="粘贴合成诊断令牌"
                 type="password"
                 value={bearerTokenDraft}
+                disabled={!canManage}
               />
             </label>
-            <DenButton type="button" loading={savingBearerToken} onClick={() => void saveBearerToken()}>
+            <DenButton type="button" loading={savingBearerToken} onClick={() => void saveBearerToken()} disabled={!canManage}>
               保存令牌
             </DenButton>
             {available ? (

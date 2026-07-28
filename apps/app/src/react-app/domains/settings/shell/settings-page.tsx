@@ -42,8 +42,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { t } from "../../../../i18n";
+import type { PlatformCapabilities } from "../../../../app/lib/platform-capabilities";
 import type { SettingsTab } from "../../../../app/types";
 import { cn } from "@/lib/utils";
+import { usePlatform } from "../../../kernel/platform";
 import { useOrgRestrictions } from "../../cloud/desktop-config-provider";
 import {
   SettingsContent,
@@ -57,7 +59,6 @@ import {
   SettingsPanelToolbarMessage,
   SettingsPanelToolbarStatus,
 } from "./panel";
-import { WorkspaceIcon } from "../../../design-system/workspace-icon";
 import { useFeatureFlagsPreferences } from "../state/feature-flags-preferences";
 
 export function getSettingsTabIcon(tab: SettingsTab) {
@@ -191,8 +192,13 @@ export function getWorkspaceSettingsTabs(): SettingsTab[] {
   return ["preferences", "permissions", "skills", "extensions", "advanced"];
 }
 
-export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "shell", "appearance", "environment", "updates", "recovery"];
+export function getGlobalSettingsTabs(
+  developerMode: boolean,
+  capabilities: Pick<PlatformCapabilities, "autoUpdate" | "localRuntimeControl">,
+): SettingsTab[] {
+  const tabs: SettingsTab[] = ["ai", "shell", "appearance", "environment"];
+  if (capabilities.autoUpdate) tabs.push("updates");
+  if (capabilities.localRuntimeControl) tabs.push("recovery");
   if (developerMode) tabs.push("debug");
   return tabs;
 }
@@ -214,7 +220,7 @@ export function SettingsBetaBadge({ className }: { className?: string }) {
         className,
       )}
     >
-      {t("common.alpha")}
+      {t("common.beta")}
     </span>
   );
 }
@@ -263,9 +269,10 @@ type SettingsSidebarProps = Pick<SettingsPageProps, "activeTab" | "onSelectTab" 
 };
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
+  const platform = usePlatform();
   const { memoryEnabled } = useFeatureFlagsPreferences();
   const workspaceTabs = getWorkspaceSettingsTabs();
-  const globalTabs = getGlobalSettingsTabs(props.developerMode);
+  const globalTabs = getGlobalSettingsTabs(props.developerMode, platform.capabilities);
   const cloudTabs = getCloudSettingsTabs(memoryEnabled);
 
   return (
@@ -284,7 +291,6 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
               <DropdownMenuTrigger
                 render={
                   <SidebarMenuButton type="button">
-                    <WorkspaceIcon workspaceId={props.selectedWorkspaceId} sizeClass="size-4" />
                     <span className="truncate">{props.selectedWorkspaceName}</span>
                     <ChevronDown className="ml-auto" />
                   </SidebarMenuButton>
@@ -297,7 +303,6 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
                     onClick={() => props.onSelectWorkspace(workspace.id)}
                     disabled={workspace.id === props.selectedWorkspaceId}
                   >
-                    <WorkspaceIcon workspaceId={workspace.id} sizeClass="size-4" />
                     <span className="truncate">{workspace.name}</span>
                   </DropdownMenuItem>
                 ))}

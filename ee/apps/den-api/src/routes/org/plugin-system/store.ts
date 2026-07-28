@@ -22,10 +22,6 @@ import {
   PluginConfigObjectTable,
   PluginMcpRequirementBindingTable,
   PluginTable,
-  SkillHubMemberTable,
-  SkillHubSkillTable,
-  SkillHubTable,
-  SkillTable,
   TeamTable,
 } from "@openwork-ee/den-db/schema"
 import { createDenTypeId, normalizeDenTypeId } from "@openwork-ee/utils/typeid"
@@ -69,6 +65,11 @@ import { appLogger } from "../../../observability/logger.js"
 import { roleIncludesOwner } from "../../../orgs.js"
 import { memberFacingMcpConnectionsEnabled } from "../../../capability-sources/external-mcp-rollout.js"
 import { comparablePluginMcpRequirementUrl, marketplaceMcpServerEntries, resolveMarketplacePluginCloudReadiness } from "../../../mcp/marketplace-capabilities.js"
+import {
+  COMPANY_SKILL_BUNDLE_SCHEMA_VERSION,
+  companySkillRelativePath,
+  parseCompanySkillVersionPayload,
+} from "../company-skill-bundle.js"
 import { assertPublicUrl } from "../../../capability-sources/url-guard.js"
 import {
   createExternalMcpConnection,
@@ -117,7 +118,6 @@ type MarketplaceId = MarketplaceRow["id"]
 type MarketplaceMembershipId = MarketplaceMembershipRow["id"]
 type PluginId = PluginRow["id"]
 type PluginMembershipId = PluginMembershipRow["id"]
-type SkillId = typeof SkillTable.$inferSelect.id
 type AccessGrantRow =
   | typeof ConfigObjectAccessGrantTable.$inferSelect
   | typeof MarketplaceAccessGrantTable.$inferSelect
@@ -553,7 +553,92 @@ async function getPublicGithubDiscoveryFileTexts(snapshot: PublicGithubTreeSnaps
   return fileTextByPath
 }
 
+const STANDARD_SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+function deriveSkillProjection(value: ConfigObjectInput) {
+  const rawSourceText = normalizeOptionalString(value.rawSourceText)
+  if (!rawSourceText) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_source",
+      "Skill components require rawSourceText containing the complete SKILL.md.",
+    )
+  }
+
+  const parsed = parseSkillMarkdown(rawSourceText)
+  if (!parsed.hasFrontmatter) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_frontmatter",
+      "SKILL.md must start with YAML frontmatter delimited by --- lines.",
+    )
+  }
+
+  const name = parsed.name.trim()
+  if (!name) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_name",
+      "SKILL.md frontmatter requires a non-empty name.",
+    )
+  }
+  if (name.length > 64 || !STANDARD_SKILL_NAME_PATTERN.test(name)) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_name",
+      "SKILL.md frontmatter name must be 1-64 characters, contain only lowercase letters, numbers, and hyphens, and cannot start, end, or use consecutive hyphens.",
+    )
+  }
+
+  const description = parsed.description.trim()
+  if (!description) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_description",
+      "SKILL.md frontmatter requires a non-empty description.",
+    )
+  }
+  if (description.length > 1_024) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_description",
+      "SKILL.md frontmatter description must be 1024 characters or fewer.",
+    )
+  }
+
+  const body = parsed.body.trim()
+  if (!body) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_skill_body",
+      "SKILL.md requires a non-empty Markdown instruction body after the frontmatter.",
+    )
+  }
+
+  return {
+    description,
+    searchText: [name, description, body].join("\n"),
+    title: name,
+  }
+}
+
 function deriveProjection(input: { objectType: ConfigObjectRow["objectType"]; value: ConfigObjectInput }) {
+  if (input.objectType === "skill") {
+    const companySkill = deriveCompanySkillFileProjection(input)
+    if (companySkill) {
+      return {
+        description: companySkill.bundle.description,
+        searchText: [
+          companySkill.bundle.title,
+          companySkill.bundle.description,
+          companySkill.bundle.skillText,
+        ].filter(Boolean).join("\n"),
+        title: companySkill.bundle.title,
+      }
+    }
+    return deriveSkillProjection(input.value)
+  }
+
   const metadata = input.value.metadata ?? {}
   const payload = input.value.normalizedPayloadJson ?? {}
   const rawSourceText = normalizeOptionalString(input.value.rawSourceText)
@@ -588,6 +673,41 @@ function deriveProjection(input: { objectType: ConfigObjectRow["objectType"]; va
     description,
     searchText,
     title,
+  }
+}
+
+function deriveCompanySkillFileProjection(input: {
+  objectType: ConfigObjectRow["objectType"]
+  value: ConfigObjectInput
+}) {
+  if (input.objectType !== "skill") return null
+  const payload = input.value.normalizedPayloadJson
+  const hasCompanyBundle = isRecord(payload)
+    && Object.prototype.hasOwnProperty.call(payload, "foxworkSkillBundle")
+  if (!hasCompanyBundle) return null
+  if (input.value.schemaVersion !== COMPANY_SKILL_BUNDLE_SCHEMA_VERSION) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_company_skill_schema",
+      "公司技能文件包的 Schema 版本无效。",
+    )
+  }
+  const bundle = parseCompanySkillVersionPayload({
+    normalizedPayloadJson: payload,
+    rawSourceText: input.value.rawSourceText ?? null,
+  })
+  if (!bundle) {
+    throw new PluginArchRouteFailure(
+      400,
+      "invalid_company_skill_bundle",
+      "公司技能文件包不完整或摘要不一致。",
+    )
+  }
+  return {
+    bundle,
+    currentFileExtension: "md",
+    currentFileName: "SKILL.md",
+    currentRelativePath: companySkillRelativePath(bundle.slug),
   }
 }
 
@@ -1531,6 +1651,7 @@ export async function createConfigObject(input: {
 
   const now = new Date()
   const projection = deriveProjection({ objectType: input.objectType, value: input.value })
+  const companySkillFile = deriveCompanySkillFileProjection({ objectType: input.objectType, value: input.value })
   const organizationId = input.context.organizationContext.organization.id
   const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
   const configObjectId = createDenTypeId("configObject")
@@ -1540,9 +1661,9 @@ export async function createConfigObject(input: {
     await tx.insert(ConfigObjectTable).values({
       createdAt: now,
       createdByOrgMembershipId,
-      currentFileExtension: null,
-      currentFileName: null,
-      currentRelativePath: null,
+      currentFileExtension: companySkillFile?.currentFileExtension ?? null,
+      currentFileName: companySkillFile?.currentFileName ?? null,
+      currentRelativePath: companySkillFile?.currentRelativePath ?? null,
       deletedAt: null,
       description: projection.description,
       id: configObjectId,
@@ -1566,10 +1687,11 @@ export async function createConfigObject(input: {
         isDeletedVersion: false,
         normalizedPayloadJson: input.value.normalizedPayloadJson ?? null,
         organizationId,
-        rawSourceText: normalizeOptionalString(input.value.rawSourceText),
-      schemaVersion: normalizeOptionalString(input.value.schemaVersion),
-      sourceRevisionRef: null,
-    })
+        rawSourceText: companySkillFile?.bundle.skillText
+          ?? normalizeOptionalString(input.value.rawSourceText),
+        schemaVersion: normalizeOptionalString(input.value.schemaVersion),
+        sourceRevisionRef: null,
+      })
 
       await tx.insert(ConfigObjectAccessGrantTable).values({
         configObjectId,
@@ -1578,10 +1700,10 @@ export async function createConfigObject(input: {
         id: createDenTypeId("configObjectAccessGrant"),
         organizationId,
         orgMembershipId: createdByOrgMembershipId,
-      orgWide: false,
-      role: "manager",
-      teamId: null,
-    })
+        orgWide: false,
+        role: "manager",
+        teamId: null,
+      })
 
     for (const pluginId of input.pluginIds ?? []) {
       const existing = await tx
@@ -1661,6 +1783,7 @@ export async function createConfigObjectVersion(input: { context: PluginArchActo
 
   const now = new Date()
   const projection = deriveProjection({ objectType: row.objectType, value: input.value })
+  const companySkillFile = deriveCompanySkillFileProjection({ objectType: row.objectType, value: input.value })
   await db.transaction(async (tx) => {
     await tx.insert(ConfigObjectVersionTable).values({
       configObjectId: row.id,
@@ -1672,12 +1795,20 @@ export async function createConfigObjectVersion(input: { context: PluginArchActo
       isDeletedVersion: false,
       normalizedPayloadJson: input.value.normalizedPayloadJson ?? null,
       organizationId: row.organizationId,
-      rawSourceText: normalizeOptionalString(input.value.rawSourceText),
+      rawSourceText: companySkillFile?.bundle.skillText
+        ?? normalizeOptionalString(input.value.rawSourceText),
       schemaVersion: normalizeOptionalString(input.value.schemaVersion),
       sourceRevisionRef: normalizeOptionalString(input.reason),
     })
 
     await tx.update(ConfigObjectTable).set({
+      ...(companySkillFile
+        ? {
+            currentFileExtension: companySkillFile.currentFileExtension,
+            currentFileName: companySkillFile.currentFileName,
+            currentRelativePath: companySkillFile.currentRelativePath,
+          }
+        : {}),
       description: projection.description,
       searchText: projection.searchText,
       title: projection.title,
@@ -1933,6 +2064,11 @@ export async function createPluginBundle(input: {
   name: string
   orgWide?: boolean
 }) {
+  for (const component of input.components ?? []) {
+    deriveProjection({ objectType: component.type, value: component.value })
+    deriveCompanySkillFileProjection({ objectType: component.type, value: component.value })
+  }
+
   if (input.marketplaceId) {
     // Validate the publish target before creating anything so a bad marketplace cannot leave an orphan plugin.
     await ensureEditableMarketplace(input.context, input.marketplaceId)
@@ -2068,25 +2204,39 @@ export async function listMarketplaces(input: { context: PluginArchActorContext;
 }
 
 async function ensureDefaultFoxWorkMarketplace(context: PluginArchActorContext) {
-  const now = new Date()
-  const marketplace = await ensureDefaultMarketplace({
-    context,
-    createdAt: now,
-    description: DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
-    logoUrl: DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
-    name: DEFAULT_FOXWORK_MARKETPLACE_NAME,
-  })
-  await ensureDefaultMarketplacePlugins({
-    context,
-    createdAt: now,
-    entries: DEFAULT_FOXWORK_EXTENSION_MANIFESTS.map((manifest) => ({ description: manifest.description, name: manifest.name })),
-    marketplaceId: marketplace.id,
+  const organizationId = context.organizationContext.organization.id
+  await db.transaction(async (tx) => {
+    const organization = (await tx
+      .select({ id: OrganizationTable.id })
+      .from(OrganizationTable)
+      .where(eq(OrganizationTable.id, organizationId))
+      .limit(1)
+      .for("update"))[0]
+    if (!organization) throw new Error("初始化默认能力市场时未找到公司组织。")
+
+    const now = new Date()
+    const marketplace = await ensureDefaultMarketplace({
+      context,
+      createdAt: now,
+      database: tx,
+      description: DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
+      logoUrl: DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
+      name: DEFAULT_FOXWORK_MARKETPLACE_NAME,
+    })
+    await ensureDefaultMarketplacePlugins({
+      context,
+      createdAt: now,
+      database: tx,
+      entries: DEFAULT_FOXWORK_EXTENSION_MANIFESTS.map((manifest) => ({ description: manifest.description, name: manifest.name })),
+      marketplaceId: marketplace.id,
+    })
   })
 }
 
 async function ensureDefaultMarketplacePlugins(input: {
   context: PluginArchActorContext
   createdAt: Date
+  database: DbTransaction
   entries: DefaultMarketplacePluginEntry[]
   marketplaceId: MarketplaceId
 }) {
@@ -2094,7 +2244,7 @@ async function ensureDefaultMarketplacePlugins(input: {
   const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
 
   for (const entry of input.entries) {
-    let plugin = (await db
+    let plugin = (await input.database
       .select()
       .from(PluginTable)
       .where(and(
@@ -2117,13 +2267,13 @@ async function ensureDefaultMarketplacePlugins(input: {
         status: "active" as const,
         updatedAt: input.createdAt,
       }
-      await db.insert(PluginTable).values(pluginRow)
+      await input.database.insert(PluginTable).values(pluginRow)
       plugin = pluginRow
     }
 
-    await ensureOrgWidePluginAccess({ context: input.context, pluginId: plugin.id, role: "viewer" })
+    await ensureOrgWidePluginAccess({ context: input.context, database: input.database, pluginId: plugin.id, role: "viewer" })
 
-    const existingMembership = (await db
+    const existingMembership = (await input.database
       .select()
       .from(MarketplacePluginTable)
       .where(and(
@@ -2134,12 +2284,12 @@ async function ensureDefaultMarketplacePlugins(input: {
 
     if (existingMembership) {
       if (existingMembership.removedAt) {
-        await db.update(MarketplacePluginTable).set({ membershipSource: "system", removedAt: null }).where(eq(MarketplacePluginTable.id, existingMembership.id))
+        await input.database.update(MarketplacePluginTable).set({ membershipSource: "system", removedAt: null }).where(eq(MarketplacePluginTable.id, existingMembership.id))
       }
       continue
     }
 
-    await db.insert(MarketplacePluginTable).values({
+    await input.database.insert(MarketplacePluginTable).values({
       createdAt: input.createdAt,
       createdByOrgMembershipId,
       id: createDenTypeId("marketplacePlugin"),
@@ -2155,6 +2305,7 @@ async function ensureDefaultMarketplacePlugins(input: {
 async function ensureDefaultMarketplace(input: {
   context: PluginArchActorContext
   createdAt: Date
+  database: DbTransaction
   description: string
   logoUrl: string
   name: string
@@ -2162,7 +2313,7 @@ async function ensureDefaultMarketplace(input: {
   const organizationId = input.context.organizationContext.organization.id
   const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
 
-  let marketplace = (await db
+  let marketplace = (await input.database
     .select()
     .from(MarketplaceTable)
     .where(and(
@@ -2185,19 +2336,20 @@ async function ensureDefaultMarketplace(input: {
       status: "active" as const,
       updatedAt: input.createdAt,
     }
-    await db.insert(MarketplaceTable).values(marketplaceRow)
+    await input.database.insert(MarketplaceTable).values(marketplaceRow)
     marketplace = marketplaceRow
   } else if (!marketplace.logoUrl) {
-    await db.update(MarketplaceTable).set({ logoUrl: input.logoUrl }).where(eq(MarketplaceTable.id, marketplace.id))
+    await input.database.update(MarketplaceTable).set({ logoUrl: input.logoUrl }).where(eq(MarketplaceTable.id, marketplace.id))
     marketplace = { ...marketplace, logoUrl: input.logoUrl }
   }
 
-  await ensureOrgWideMarketplaceAccess({ context: input.context, marketplaceId: marketplace.id, role: "viewer" })
+  await ensureOrgWideMarketplaceAccess({ context: input.context, database: input.database, marketplaceId: marketplace.id, role: "viewer" })
   return marketplace
 }
 
 async function ensureOrgWideMarketplaceAccess(input: {
   context: PluginArchActorContext
+  database: DbTransaction
   marketplaceId: MarketplaceId
   role: PluginArchRole
 }) {
@@ -2205,18 +2357,18 @@ async function ensureOrgWideMarketplaceAccess(input: {
   const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
   const organizationId = input.context.organizationContext.organization.id
 
-  const existing = (await db
+  const existing = (await input.database
     .select()
     .from(MarketplaceAccessGrantTable)
     .where(and(eq(MarketplaceAccessGrantTable.marketplaceId, input.marketplaceId), eq(MarketplaceAccessGrantTable.orgWide, true)))
     .limit(1))[0]
   if (existing) {
     if (existing.removedAt || existing.role !== input.role) {
-      await db.update(MarketplaceAccessGrantTable).set({ createdByOrgMembershipId, removedAt: null, role: input.role }).where(eq(MarketplaceAccessGrantTable.id, existing.id))
+      await input.database.update(MarketplaceAccessGrantTable).set({ createdByOrgMembershipId, removedAt: null, role: input.role }).where(eq(MarketplaceAccessGrantTable.id, existing.id))
     }
     return
   }
-  await db.insert(MarketplaceAccessGrantTable).values({
+  await input.database.insert(MarketplaceAccessGrantTable).values({
     createdAt,
     createdByOrgMembershipId,
     id: createDenTypeId("marketplaceAccessGrant"),
@@ -2231,6 +2383,7 @@ async function ensureOrgWideMarketplaceAccess(input: {
 
 async function ensureOrgWidePluginAccess(input: {
   context: PluginArchActorContext
+  database: DbTransaction
   pluginId: PluginId
   role: PluginArchRole
 }) {
@@ -2238,18 +2391,18 @@ async function ensureOrgWidePluginAccess(input: {
   const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
   const organizationId = input.context.organizationContext.organization.id
 
-  const existing = (await db
+  const existing = (await input.database
     .select()
     .from(PluginAccessGrantTable)
     .where(and(eq(PluginAccessGrantTable.pluginId, input.pluginId), eq(PluginAccessGrantTable.orgWide, true)))
     .limit(1))[0]
   if (existing) {
     if (existing.removedAt || existing.role !== input.role) {
-      await db.update(PluginAccessGrantTable).set({ createdByOrgMembershipId, removedAt: null, role: input.role }).where(eq(PluginAccessGrantTable.id, existing.id))
+      await input.database.update(PluginAccessGrantTable).set({ createdByOrgMembershipId, removedAt: null, role: input.role }).where(eq(PluginAccessGrantTable.id, existing.id))
     }
     return
   }
-  await db.insert(PluginAccessGrantTable).values({
+  await input.database.insert(PluginAccessGrantTable).values({
     createdAt,
     createdByOrgMembershipId,
     id: createDenTypeId("pluginAccessGrant"),
@@ -2316,15 +2469,35 @@ export async function updateMarketplace(input: { context: PluginArchActorContext
   return getMarketplaceDetail(input.context, row.id)
 }
 
-export async function setMarketplaceLifecycle(input: { action: "archive" | "restore"; context: PluginArchActorContext; marketplaceId: MarketplaceId }) {
+export async function setMarketplaceLifecycle(input: { action: "archive" | "delete" | "restore"; context: PluginArchActorContext; marketplaceId: MarketplaceId }) {
   const row = await ensureVisibleMarketplace(input.context, input.marketplaceId)
   await requirePluginArchResourceRole({ context: input.context, resourceId: row.id, resourceKind: "marketplace", role: "manager" })
   const updatedAt = new Date()
-  await db.update(MarketplaceTable).set({
-    deletedAt: input.action === "archive" ? row.deletedAt : null,
-    status: input.action === "archive" ? "archived" : "active",
-    updatedAt,
-  }).where(eq(MarketplaceTable.id, row.id))
+  if (input.action === "delete") {
+    const memberships = await db
+      .select()
+      .from(MarketplacePluginTable)
+      .where(eq(MarketplacePluginTable.marketplaceId, row.id))
+    if (memberships.some((membership) => membership.removedAt === null && (membership.membershipSource === "system" || membership.membershipSource === "connector"))) {
+      throw new PluginArchRouteFailure(409, "managed_marketplace_cannot_be_deleted", "Built-in and connected marketplaces cannot be deleted here.")
+    }
+    await db.transaction(async (tx) => {
+      await tx.delete(MarketplaceAccessGrantTable).where(eq(MarketplaceAccessGrantTable.marketplaceId, row.id))
+      await tx.delete(MarketplacePluginTable).where(eq(MarketplacePluginTable.marketplaceId, row.id))
+      await tx.delete(MarketplaceTable).where(eq(MarketplaceTable.id, row.id))
+    })
+    for (const pluginId of new Set(memberships.map((membership) => membership.pluginId))) {
+      await syncPluginMcpRequirementAccessForResource({ context: input.context, resourceId: pluginId, resourceKind: "plugin" })
+    }
+    return serializeMarketplace({ ...row, deletedAt: updatedAt, status: "deleted", updatedAt }, memberships.filter((membership) => membership.removedAt === null).length)
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(MarketplaceTable).set({
+      deletedAt: input.action === "restore" ? null : row.deletedAt,
+      status: input.action === "archive" ? "archived" : "active",
+      updatedAt,
+    }).where(eq(MarketplaceTable.id, row.id))
+  })
   await syncPluginMcpRequirementAccessForResource({
     context: input.context,
     resourceId: row.id,
@@ -2478,7 +2651,10 @@ export async function getMarketplaceResolved(input: { context: PluginArchActorCo
   }
 
   return {
-    marketplace: serializeMarketplace(marketplaceRow, plugins.length),
+    marketplace: {
+      ...serializeMarketplace(marketplaceRow, plugins.length),
+      canDelete: memberships.every((membership) => membership.membershipSource === "manual"),
+    },
     plugins,
     source,
   }
@@ -2486,7 +2662,9 @@ export async function getMarketplaceResolved(input: { context: PluginArchActorCo
 
 export async function attachPluginToMarketplace(input: { context: PluginArchActorContext; marketplaceId: MarketplaceId; membershipSource?: MarketplaceMembershipRow["membershipSource"]; pluginId: PluginId }) {
   await ensureVisiblePlugin(input.context, input.pluginId)
-  await ensureEditableMarketplace(input.context, input.marketplaceId)
+  if (input.marketplaceId) {
+    await ensureEditableMarketplace(input.context, input.marketplaceId)
+  }
 
   const existing = await db
     .select()
@@ -4267,105 +4445,6 @@ function importedConnectionBackedMcpPayload(input: {
   }
 }
 
-function importedDenSkillPayload(skillId: SkillId) {
-  return {
-    denSkillId: skillId,
-    openworkManaged: "den_skill",
-  }
-}
-
-async function createSkillHubForImportedSkills(input: {
-  access: GithubPluginMcpImportAccess
-  context: PluginArchActorContext
-  name: string
-}) {
-  if (input.access.orgWide) return null
-  const now = new Date()
-  const skillHubId = createDenTypeId("skillHub")
-  const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
-  const organizationId = input.context.organizationContext.organization.id
-  const accessRows: (typeof SkillHubMemberTable.$inferInsert)[] = []
-  for (const memberId of new Set(input.access.memberIds)) {
-    accessRows.push({
-      id: createDenTypeId("skillHubMember"),
-      skillHubId,
-      orgMembershipId: memberId,
-      teamId: null,
-      createdAt: now,
-    })
-  }
-  for (const teamId of new Set(input.access.teamIds)) {
-    accessRows.push({
-      id: createDenTypeId("skillHubMember"),
-      skillHubId,
-      orgMembershipId: null,
-      teamId,
-      createdAt: now,
-    })
-  }
-
-  await db.transaction(async (tx) => {
-    await tx.insert(SkillHubTable).values({
-      id: skillHubId,
-      organizationId,
-      createdByOrgMembershipId,
-      name: input.name,
-      description: "Skills imported from a GitHub plugin.",
-      createdAt: now,
-      updatedAt: now,
-    })
-    if (accessRows.length > 0) {
-      await tx.insert(SkillHubMemberTable).values(accessRows)
-    }
-  })
-  return skillHubId
-}
-
-async function createImportedSkill(input: {
-  access: GithubPluginMcpImportAccess
-  context: PluginArchActorContext
-  skill: GithubPluginSkillImportSkill
-  skillHubId: typeof SkillHubTable.$inferSelect.id | null
-}) {
-  const skillText = input.skill.rawSourceText
-  if (!skillText) {
-    throw new PluginArchRouteFailure(400, "invalid_skill_import", "Selected skill content was unavailable.")
-  }
-  const metadata = skillMetadataFromText(skillText)
-  const now = new Date()
-  const skillId = createDenTypeId("skill")
-  const createdByOrgMembershipId = input.context.organizationContext.currentMember.id
-  const organizationId = input.context.organizationContext.organization.id
-  await db.transaction(async (tx) => {
-    await tx.insert(SkillTable).values({
-      id: skillId,
-      organizationId,
-      createdByOrgMembershipId,
-      title: metadata.title,
-      description: metadata.description,
-      skillText,
-      shared: input.access.orgWide ? "org" : null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    if (input.skillHubId) {
-      await tx.insert(SkillHubSkillTable).values({
-        id: createDenTypeId("skillHubSkill"),
-        skillHubId: input.skillHubId,
-        skillId,
-        addedByOrgMembershipId: createdByOrgMembershipId,
-        createdAt: now,
-      })
-    }
-  })
-  return {
-    description: metadata.description,
-    id: skillId,
-    skillText,
-    title: metadata.title,
-  }
-}
-
 function importedPluginName(plan: GithubPluginMcpImportPlan) {
   if (plan.plugins.length === 1) return plan.plugins[0].name
   return plan.marketplace?.name?.trim() || plan.rootPath.split("/").filter(Boolean).at(-1) || plan.repositoryFullName.split("/").at(-1) || "GitHub MCP Plugin"
@@ -4592,7 +4671,7 @@ export async function importGithubPluginMcps(input: {
   })
 
   const imported: Array<{ connectionId: string; name: string; url: string }> = []
-  const importedSkills: Array<{ name: string; skillId: SkillId; sourcePath: string }> = []
+  const importedSkills: Array<{ configObjectId: ConfigObjectId; name: string; sourcePath: string }> = []
   for (const server of supportedServers) {
     const authType = resolveGithubPluginMcpImportAuthType({
       declaredAuthType: server.authType,
@@ -4654,20 +4733,12 @@ export async function importGithubPluginMcps(input: {
     imported.push({ connectionId: connection.id, name: server.name, url: server.url ?? "" })
   }
 
-  const skillHubId = supportedSkills.length > 0
-    ? await createSkillHubForImportedSkills({
-      access,
-      context: input.context,
-      name: `${plugin.name} skills`,
-    })
-    : null
   for (const skill of supportedSkills) {
-    const createdSkill = await createImportedSkill({
-      access,
-      context: input.context,
-      skill,
-      skillHubId,
-    })
+    const skillText = skill.rawSourceText
+    if (!skillText) {
+      throw new PluginArchRouteFailure(400, "invalid_skill_import", "Selected skill content was unavailable.")
+    }
+    const metadata = skillMetadataFromText(skillText)
     const configObject = await createConfigObject({
       context: input.context,
       objectType: "skill",
@@ -4675,16 +4746,13 @@ export async function importGithubPluginMcps(input: {
       sourceMode: "import",
       value: {
         metadata: {
-          description: createdSkill.description ?? `Den skill imported from ${skill.sourcePath}.`,
-          denSkillId: createdSkill.id,
+          description: metadata.description ?? `Skill imported from ${skill.sourcePath}.`,
           githubUrl: input.githubUrl,
-          name: createdSkill.title,
-          openworkManaged: "den_skill",
+          name: metadata.title,
           repositoryFullName: plan.repositoryFullName,
           sourcePath: skill.sourcePath,
         },
-        normalizedPayloadJson: importedDenSkillPayload(createdSkill.id),
-        schemaVersion: "openwork.den_skill.v1",
+        rawSourceText: skillText,
       },
     })
     await grantImportAccessToPluginArchResource({
@@ -4693,7 +4761,7 @@ export async function importGithubPluginMcps(input: {
       resourceId: configObject.id,
       resourceKind: "config_object",
     })
-    importedSkills.push({ name: createdSkill.title, skillId: createdSkill.id, sourcePath: skill.sourcePath })
+    importedSkills.push({ configObjectId: configObject.id, name: metadata.title, sourcePath: skill.sourcePath })
   }
 
   if (input.marketplaceId) {

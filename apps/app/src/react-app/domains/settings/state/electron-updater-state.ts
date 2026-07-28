@@ -48,10 +48,30 @@ type UseElectronUpdaterStateOptions = {
   setError: (message: string | null) => void;
 };
 
-type ElectronUpdaterEnvState = {
+export type ElectronUpdaterEnvState = {
   appVersion: string | null;
   updateEnv: { supported?: boolean; reason?: string | null } | null;
 };
+
+export const ELECTRON_UPDATER_UNSUPPORTED_REASON = "Electron updater bridge is unavailable.";
+
+export function unsupportedElectronUpdaterEnvState(): ElectronUpdaterEnvState {
+  return {
+    appVersion: null,
+    updateEnv: { supported: false, reason: ELECTRON_UPDATER_UNSUPPORTED_REASON },
+  };
+}
+
+export function shouldScheduleElectronUpdateAutoCheck(input: {
+  updateAutoCheck: boolean;
+  updateEnv: ElectronUpdaterEnvState["updateEnv"];
+  autoCheckKey: string | null;
+  nextAutoCheckKey: string;
+}) {
+  return input.updateAutoCheck &&
+    input.updateEnv?.supported !== false &&
+    input.autoCheckKey !== input.nextAutoCheckKey;
+}
 
 type ElectronUpdaterEnvAction =
   | { type: "app-version"; appVersion: string | null }
@@ -125,7 +145,9 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   const [updateStatus, setUpdateStatus] = useState<SettingsUpdateStatus>(null);
   const [envState, dispatchEnvState] = useReducer(electronUpdaterEnvReducer, {
     appVersion: null,
-    updateEnv: null,
+    updateEnv: isElectronRuntime()
+      ? null
+      : { supported: false, reason: ELECTRON_UPDATER_UNSUPPORTED_REASON },
   });
   const { appVersion, updateEnv } = envState;
   const autoCheckKeyRef = useRef<string | null>(null);
@@ -180,10 +202,13 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   ]);
 
   useEffect(() => {
-    if (!isElectronRuntime()) return;
+    if (!isElectronRuntime()) {
+      dispatchEnvState({ type: "unsupported", reason: ELECTRON_UPDATER_UNSUPPORTED_REASON });
+      return;
+    }
     const bridge = electronUpdaterBridge();
     if (!bridge?.getChannel) {
-      dispatchEnvState({ type: "unsupported", reason: "Electron updater bridge is unavailable." });
+      dispatchEnvState({ type: "unsupported", reason: ELECTRON_UPDATER_UNSUPPORTED_REASON });
       return;
     }
     let cancelled = false;
@@ -301,6 +326,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     channelOverride?: ReleaseChannel,
     manual = false,
   ) => {
+    if (!isElectronRuntime()) return;
     const requestedReleaseChannel = channelOverride ?? releaseChannel;
     const bridge = electronUpdaterBridge();
     if (!bridge?.check) {
@@ -446,9 +472,13 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   );
 
   useEffect(() => {
-    if (!updateAutoCheck || updateEnv?.supported === false) return;
     const key = `${policyReleaseChannel}:${appVersion ?? "unknown"}`;
-    if (autoCheckKeyRef.current === key) return;
+    if (!shouldScheduleElectronUpdateAutoCheck({
+      updateAutoCheck,
+      updateEnv,
+      autoCheckKey: autoCheckKeyRef.current,
+      nextAutoCheckKey: key,
+    })) return;
     autoCheckKeyRef.current = key;
     void runCheckForUpdates(undefined, false);
   }, [appVersion, policyReleaseChannel, runCheckForUpdates, updateAutoCheck, updateEnv?.supported]);
@@ -456,10 +486,10 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
   // Run a check when the native "Check for Updates..." menu item was used.
   const updateCheckRequestedAt = useUpdateCheckRequestStore((state) => state.requestedAt);
   useEffect(() => {
-    if (updateCheckRequestedAt == null) return;
+    if (updateCheckRequestedAt == null || updateEnv?.supported === false) return;
     useUpdateCheckRequestStore.getState().clearUpdateCheckRequest();
     void checkForUpdates();
-  }, [checkForUpdates, updateCheckRequestedAt]);
+  }, [checkForUpdates, updateCheckRequestedAt, updateEnv?.supported]);
 
   const installUpdateAndRestart = useCallback(async () => {
     const bridge = electronUpdaterBridge();

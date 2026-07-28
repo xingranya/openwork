@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 
 import { t } from "@/i18n";
+import { isCloudManagedProviderKey } from "@/react-app/domains/connections/provider-auth/cloud-provider-config";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import { SettingsNotice, SettingsStatusBadge } from "../settings-section";
 import {
@@ -45,10 +46,20 @@ export type AiSettingsViewProps = {
 
 function providerSourceLabel(source?: ConnectedProvider["source"]) {
   if (source === "env") return t("settings.provider_source_env");
-  if (source === "api") return t("providers.api_key_label");
+  if (source === "api") return t("settings.provider_source_api");
   if (source === "config") return t("settings.provider_source_config");
-  if (source === "custom") return t("settings.provider_source_custom");
+  if (source === "custom") return t("settings.provider_source_config");
   return null;
+}
+
+function providerSourceBadgeClassName(input: { orgManaged: boolean; source?: ConnectedProvider["source"] }) {
+  if (input.orgManaged) {
+    return "shrink-0 rounded-full border border-blue-6 bg-blue-2 px-2 py-0.5 text-[10px] font-medium text-blue-11";
+  }
+  if (input.source === "env") {
+    return "shrink-0 rounded-full border border-amber-6 bg-amber-2 px-2 py-0.5 text-[10px] font-medium text-amber-11";
+  }
+  return "shrink-0 rounded-full border border-dls-border bg-dls-sidebar/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground";
 }
 
 function providerStatusTone(label: string): "ready" | "warning" | "neutral" {
@@ -72,6 +83,8 @@ export function employeeFacingProvider(provider: ConnectedProvider) {
 }
 
 export function AiSettingsView(props: AiSettingsViewProps) {
+  const organizationProviderLabel = props.organizationName?.trim() || t("settings.provider_source_organization");
+
   return (
     <LayoutStack>
       {/* 模型服务 */}
@@ -90,16 +103,18 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 label={props.providerStatusLabel}
               />
             </LayoutSectionItemTitle>
-            <LayoutSectionItemHeaderActions>
-              <Button
-                onClick={() => void props.onOpenProviderAuth()}
-                disabled={props.busy || props.providerAuthBusy}
-              >
-                {props.providerAuthBusy
-                  ? t("settings.loading_providers")
-                  : t("settings.connect_provider")}
-              </Button>
-            </LayoutSectionItemHeaderActions>
+            {props.canAddProviders ? (
+              <LayoutSectionItemHeaderActions>
+                <Button
+                  onClick={() => void props.onOpenProviderAuth()}
+                  disabled={props.busy || props.providerAuthBusy}
+                >
+                  {props.providerAuthBusy
+                    ? t("settings.loading_providers")
+                    : t("settings.connect_provider")}
+                </Button>
+              </LayoutSectionItemHeaderActions>
+            ) : null}
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
 

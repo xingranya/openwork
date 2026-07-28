@@ -7,7 +7,7 @@ import { DenButton, buttonVariants } from "../../_components/ui/button";
 import { DenNotice } from "../../_components/ui/notice";
 import { formatMoneyMinor, formatSubscriptionStatus, getErrorMessage, getRequestError, requestJson } from "../../_lib/den-flow";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
-import { getInferenceRoute, getMembersRoute } from "../../_lib/den-org";
+import { getInferenceRoute, getMembersRoute, getOrgAccessFlags } from "../../_lib/den-org";
 import { useDenFlow } from "../../_providers/den-flow-provider";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 
@@ -142,7 +142,12 @@ export function BillingDashboardScreen() {
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [stripeReturnChecking, setStripeReturnChecking] = useState(false);
 
-  const isOwner = orgContext?.currentMember.isOwner === true;
+  const access = getOrgAccessFlags(
+    orgContext?.currentMember.role ?? "member",
+    orgContext?.currentMember.isOwner ?? false,
+    orgContext?.roles,
+  );
+  const canManageBillingSettings = access.canManageSettings;
 
   async function refreshStripeBilling(quiet = false) {
     setStripeBusy(true);
@@ -222,6 +227,11 @@ export function BillingDashboardScreen() {
   }, [sessionHydrated, user, orgContext?.organization.id]);
 
   async function startSeatCheckout() {
+    if (!canManageBillingSettings) {
+      setStripeError("Admins can start seat checkout from Members. Owners and super-admins manage Stripe settings here.");
+      return;
+    }
+
     setStripeError(null);
     try {
       await runReauthableAction("seat-checkout", async () => {
@@ -244,6 +254,11 @@ export function BillingDashboardScreen() {
   }
 
   async function openStripePortal() {
+    if (!canManageBillingSettings) {
+      setStripeError("Only workspace owners and super-admins can open billing portals from Settings.");
+      return;
+    }
+
     setStripeError(null);
     try {
       await runReauthableAction("billing-portal", async () => {
@@ -279,7 +294,7 @@ export function BillingDashboardScreen() {
         <DenNotice message={stripeError} className="mb-6" />
       ) : null}
 
-      {isOwner ? null : (
+      {canManageBillingSettings ? null : (
         <div className="mb-6 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
           只有公司所有者可以购买订阅或打开账单管理页，其他成员只能查看当前账单状态。
         </div>
@@ -326,7 +341,7 @@ export function BillingDashboardScreen() {
                 当前 Polar 订阅状态：{formatSubscriptionStatus(polarBilling?.subscription?.status ?? "active")}。
               </p>
             </div>
-            {polarBilling?.portalUrl ? (
+            {canManageBillingSettings && polarBilling?.portalUrl ? (
               <a href={polarBilling.portalUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "secondary" })}>
                 打开 Polar 管理页
               </a>

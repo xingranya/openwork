@@ -39,7 +39,7 @@ on:
         type: boolean
         default: true
       publish_npm:
-        description: "Publish openwork-orchestrator/openwork-server to npm if versions changed"
+        description: "Publish openwork-server to npm if its version changed"
         required: false
         type: boolean
         default: true
@@ -590,6 +590,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release/publish-electron-assets.mjs --manifests-only "${{ runner.temp }}/electron-dist" "$RELEASE_TAG"
 
+  publish-installers:
+    name: Build + Upload Installer Assets
+    needs: [resolve-release, verify-release]
+    uses: ./.github/workflows/release-generic-installer.yml
+    with:
+      release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      publish_mode: release
+      platforms: mac-arm64,mac-x64,win-x64
+      sign_windows: ${{ needs.resolve-release.outputs.sign_windows == 'true' }}
+    secrets: inherit
+
   release-orchestrator-sidecars:
     name: Build + Upload openwork-orchestrator Sidecars
     needs: [resolve-release, verify-release]
@@ -698,7 +709,7 @@ jobs:
           gh release upload "$tag" apps/orchestrator/dist/bin/* apps/orchestrator/dist/sidecars/* --repo "$GITHUB_REPOSITORY" --clobber
 
   publish-npm:
-    name: Publish npm packages
+    name: Publish openwork-server
     needs: [resolve-release, verify-release, release-orchestrator-sidecars]
     if: |
       always() &&
@@ -755,38 +766,26 @@ jobs:
         id: package-versions
         shell: bash
         run: |
-          node -e "const fs=require('fs'); const orchestrator=JSON.parse(fs.readFileSync('apps/orchestrator/package.json','utf8')); const server=JSON.parse(fs.readFileSync('apps/server/package.json','utf8')); console.log('orchestrator=' + orchestrator.version); console.log('server=' + server.version);" >> "$GITHUB_OUTPUT"
+          node -e "const fs=require('fs'); const server=JSON.parse(fs.readFileSync('apps/server/package.json','utf8')); console.log('server=' + server.version);" >> "$GITHUB_OUTPUT"
 
       - name: Check npm versions
         id: npm-versions
         shell: bash
         env:
-          ORCHESTRATOR_VERSION: ${{ steps.package-versions.outputs.orchestrator }}
           SERVER_VERSION: ${{ steps.package-versions.outputs.server }}
         run: |
           set -euo pipefail
           # npm view exits non-zero for packages that don't exist yet (404).
           # Treat missing packages as "not published" so release can publish them.
-          orchestrator_current="$(npm view openwork-orchestrator version 2>/dev/null || true)"
           server_current="$(npm view openwork-server version 2>/dev/null || true)"
-
-          if [ "$orchestrator_current" = "$ORCHESTRATOR_VERSION" ]; then
-            echo "publish_orchestrator=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish_orchestrator=true" >> "$GITHUB_OUTPUT"
-          fi
 
           if [ "$server_current" = "$SERVER_VERSION" ]; then
             echo "publish_server=false" >> "$GITHUB_OUTPUT"
+            echo "publish_any=false" >> "$GITHUB_OUTPUT"
           else
             echo "publish_server=true" >> "$GITHUB_OUTPUT"
+            echo "publish_any=true" >> "$GITHUB_OUTPUT"
           fi
-
-          publish_any=false
-          if [ "$orchestrator_current" != "$ORCHESTRATOR_VERSION" ] || [ "$server_current" != "$SERVER_VERSION" ]; then
-            publish_any=true
-          fi
-          echo "publish_any=$publish_any" >> "$GITHUB_OUTPUT"
 
       - name: Ensure npm auth
         id: npm-auth
@@ -813,22 +812,7 @@ jobs:
 
       - name: Publish openwork-server
         if: steps.npm-auth.outputs.enabled == 'true' && steps.npm-versions.outputs.publish_server == 'true'
-        run: pnpm --filter openwork-server publish --access public --no-git-checks
-
-      - name: Publish openwork-orchestrator
-        if: steps.npm-auth.outputs.enabled == 'true' && steps.npm-versions.outputs.publish_orchestrator == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ORCHESTRATOR_VERSION: ${{ steps.package-versions.outputs.orchestrator }}
-        run: |
-          set -euo pipefail
-          tag="openwork-orchestrator-v${ORCHESTRATOR_VERSION}"
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "openwork-orchestrator sidecar release $tag not found. Publish sidecars before openwork-orchestrator." >&2
-            exit 1
-          fi
-          pnpm --filter openwork-orchestrator build:bin:all
-          node apps/orchestrator/scripts/publish-npm.mjs
+        run: pnpm --filter openwork-server publish:npm --access public
 
   publish-daytona-snapshot:
     name: Build + Push Daytona Snapshot
@@ -904,6 +888,7 @@ jobs:
       - verify-release
       - publish-electron
       - publish-electron-assets
+      - publish-installers
       - release-orchestrator-sidecars
       - publish-npm
       - publish-daytona-snapshot
@@ -913,6 +898,7 @@ jobs:
       needs.verify-release.result == 'success' &&
       (needs.publish-electron.result == 'success' || needs.publish-electron.result == 'skipped') &&
       (needs.publish-electron-assets.result == 'success' || needs.publish-electron-assets.result == 'skipped') &&
+      needs.publish-installers.result == 'success' &&
       (needs.release-orchestrator-sidecars.result == 'success' || needs.release-orchestrator-sidecars.result == 'skipped') &&
       (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped') &&
       (needs.publish-daytona-snapshot.result == 'success' || needs.publish-daytona-snapshot.result == 'skipped')

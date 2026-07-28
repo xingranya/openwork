@@ -4,8 +4,8 @@ import { ExternalLink, Eye, FolderOpen, Loader2 } from "lucide-react";
 
 import type { DesktopApplication } from "@/app/lib/desktop";
 import { getDesktopApplicationsForFile, openDesktopWithApp } from "@/app/lib/desktop";
-import { isElectronRuntime } from "@/app/utils";
 import type { OpenTarget } from "@/react-app/domains/session/artifacts/open-target";
+import { usePlatform } from "@/react-app/kernel/platform";
 import type { OpenTargetOptions } from "@/lib/target-provider";
 
 const SUPPORTED_PANEL_PREVIEWS = new Set(["markdown", "sheet", "slides", "image", "pdf", "html", "text"]);
@@ -18,11 +18,12 @@ type LinkActionMenuProps = {
 };
 
 export function LinkActionMenu({ target, anchorRect, onOpenTarget, onClose }: LinkActionMenuProps) {
+  const platform = usePlatform();
   const menuRef = useRef<HTMLDivElement>(null);
   const [apps, setApps] = useState<DesktopApplication[] | null>(null);
   const [appsLoading, setAppsLoading] = useState(false);
   const canOpenInPanel = target.kind === "file" && SUPPORTED_PANEL_PREVIEWS.has(target.preview);
-  const canOpenExternally = isElectronRuntime() && target.kind === "file";
+  const canOpenExternally = platform.capabilities.revealInFileManager && target.kind === "file";
 
   useEffect(() => {
     function handleOutside(event: MouseEvent) {

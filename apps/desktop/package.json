@@ -1,7 +1,7 @@
 {
   "name": "@openwork/desktop",
   "private": true,
-  "version": "0.18.0",
+  "version": "0.18.3",
   "description": "FoxWork 公司桌面客户端",
   "author": {
     "name": "Fox"
@@ -19,9 +19,10 @@
     "check:electron": "node ./scripts/check-electron-bridge.mjs",
     "typecheck:electron": "pnpm --dir ../server exec tsc -p ../desktop/tsconfig.electron.json --noEmit",
     "prepare:sidecar": "node ./scripts/prepare-sidecar.mjs",
-    "test": "node --test electron/agent-context-diagnostics-fetch.test.mjs electron/brand-icon-windows.test.mjs electron/connect-link.test.mjs electron/deep-link-delivery.test.mjs electron/foxwork-brand.test.mjs electron/open-external.test.mjs electron/runtime.test.mjs electron/runtime-ca.test.mjs electron/updater.test.mjs electron/remote-workspace.test.mjs electron/workspace-store.test.mjs"
+    "test": "node --test electron/agent-context-diagnostics-fetch.test.mjs electron/brand-app-name.test.mjs electron/brand-icon-windows.test.mjs electron/connect-link.test.mjs electron/deep-link-delivery.test.mjs electron/dev-profile.test.mjs electron/foxwork-brand.test.mjs electron/no-bare-external-fetch.test.mjs electron/nuke.test.mjs electron/open-external.test.mjs electron/runtime.test.mjs electron/runtime-ca.test.mjs electron/ui-control-server.test.mjs electron/updater.test.mjs electron/remote-workspace.test.mjs electron/workspace-store.test.mjs"
   },
   "dependencies": {
+    "@openwork/paths": "workspace:*",
     "@opencode-ai/sdk": "^1.17.11",
     "better-sqlite3": "^11.10.0",
     "drizzle-orm": "^0.45.1",

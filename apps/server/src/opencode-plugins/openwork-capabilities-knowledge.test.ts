@@ -16,6 +16,11 @@ describe("FoxWork 能力说明插件", () => {
     expect(knowledge).toContain("只能创建待确认事项");
     expect(knowledge).toContain("必须经过 FoxWork 本机授权");
     expect(knowledge).toContain("openwork_docs_search");
+    expect(knowledge).toContain("不能代替真实的公司连接、在线技能或服务操作");
+    expect(knowledge).toContain("当前账号运行时实际返回");
+    expect(knowledge).toContain("当前运行时实际列出的远程“创建技能”能力");
+    expect(knowledge).toContain("openwork_context");
+    expect(knowledge).toContain("openwork_execute");
     expect(knowledge).not.toContain("OpenWork Cloud");
     expect(knowledge).not.toContain("OpenCode");
     expect(knowledge).not.toContain("openworklabs.com");

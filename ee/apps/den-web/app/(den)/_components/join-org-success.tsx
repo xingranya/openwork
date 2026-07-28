@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { createOrganizationInstallLink } from "../_lib/install-link-data";
 import { isMobileUserAgent } from "../_lib/platform";
+import { useDesktopHandoffStatus } from "../_lib/use-desktop-handoff-status";
+import { OnboardingShell } from "./onboarding-shell";
+import { OrganizationBrandIdentity, type OrganizationBrand } from "./organization-brand-identity";
 
 const capabilities = [
   {
@@ -34,13 +37,26 @@ const capabilities = [
 type JoinOrgSuccessProps = {
   organizationId: string;
   organizationName: string;
+  brand: OrganizationBrand;
+  desktopAuthRequested: boolean;
+  desktopAuthScheme: string;
   onContinueInBrowser: () => void;
 };
 
-export function JoinOrgSuccess({ organizationId, organizationName, onContinueInBrowser }: JoinOrgSuccessProps) {
+export function JoinOrgSuccess({
+  organizationId,
+  organizationName,
+  brand,
+  desktopAuthRequested,
+  desktopAuthScheme,
+  onContinueInBrowser,
+}: JoinOrgSuccessProps) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [installBusy, setInstallBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [desktopOpenworkUrl, setDesktopOpenworkUrl] = useState<string | null>(null);
+  const [desktopGrant, setDesktopGrant] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMobile(isMobileUserAgent());
@@ -51,7 +67,7 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
     setActionError(null);
 
     try {
-      window.location.assign(await createOrganizationInstallLink(organizationId));
+      window.location.assign(await createOrganizationInstallLink(organizationId, false));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "暂时无法准备安装包，请重试。");
     } finally {
@@ -80,6 +96,7 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
               <button type="button" className="den-button-primary w-full sm:w-auto" onClick={onContinueInBrowser}>
                 先在浏览器中继续
               </button>
+              {emailSent ? <div className="den-notice is-info">Sent — check your inbox when you&apos;re back at your desk.</div> : null}
             </div>
           </div>
         ) : (
@@ -96,10 +113,10 @@ export function JoinOrgSuccess({ organizationId, organizationName, onContinueInB
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                className="den-button-primary w-full sm:w-auto"
-                onClick={() => void handleGetApp()}
-                disabled={installBusy}
-                data-testid="join-org-get-app"
+                className="den-button-primary w-full sm:w-fit"
+                onClick={() => void handleReturnToOpenWork()}
+                disabled={handoffBusy}
+                data-testid="join-org-return-openwork"
               >
                 {installBusy ? "正在准备安装包..." : "下载 FoxWork"}
               </button>

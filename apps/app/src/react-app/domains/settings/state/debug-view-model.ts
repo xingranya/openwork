@@ -7,6 +7,7 @@ import {
   engineStart as engineStartCmd,
   getDesktopBootstrapConfig,
   debugDesktopBootstrapConfig,
+  nukeOpenworkAndOpencodeConfigPreview,
   nukeOpenworkAndOpencodeConfigAndExit,
   openDesktopUrl,
   openworkServerInfo as openworkServerInfoCmd,
@@ -20,9 +21,11 @@ import {
   type AppBuildInfo,
   type DesktopBootstrapConfig,
   type EngineInfo,
+  type NukeManifestPreview,
   type OpenworkServerInfo,
   type SandboxDebugProbeResult,
 } from "../../../../app/lib/desktop";
+import { createDenClient, readDenSettings } from "../../../../app/lib/den";
 import {
   ELECTRON_ALPHA_RELEASE_PAGE_URL,
   type ElectronAlphaArtifact,
@@ -52,6 +55,8 @@ const STARTUP_PREFERENCE_KEY = "openwork.startupPreference";
 const ENGINE_SOURCE_KEY = "openwork.engineSource";
 const ENGINE_CUSTOM_BIN_KEY = "openwork.engineCustomBinPath";
 const OPENCODE_ENABLE_EXA_KEY = "openwork.opencodeEnableExa";
+const NUKE_CONFIRMATION_WORD = "NUKE";
+const NUKE_SIGN_OUT_TIMEOUT_MS = 5000;
 
 type ResetModalMode = "onboarding" | "all";
 
@@ -117,6 +122,20 @@ function clearOpenworkLocalStorageForReset(mode: ResetModalMode): void {
   } catch {
     // ignore persistence failures
   }
+}
+
+async function revokeDenSessionBeforeNuke(): Promise<void> {
+  const settings = readDenSettings();
+  const token = settings.authToken?.trim() ?? "";
+  if (!token) return;
+  const client = createDenClient({ baseUrl: settings.baseUrl, token });
+  const signOut = client.signOut().catch(() => undefined);
+  await Promise.race([
+    signOut,
+    new Promise<void>((resolve) => {
+      globalThis.setTimeout(resolve, NUKE_SIGN_OUT_TIMEOUT_MS);
+    }),
+  ]);
 }
 
 function readEngineSource(): "path" | "sidecar" | "custom" {
@@ -278,6 +297,11 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   const [resetModalBusy, setResetModalBusy] = useState(false);
   const [nukeConfigBusy, setNukeConfigBusy] = useState(false);
   const [nukeConfigStatus, setNukeConfigStatus] = useState<string | null>(null);
+  const [nukePreviewBusy, setNukePreviewBusy] = useState(false);
+  const [nukeDialogOpen, setNukeDialogOpen] = useState(false);
+  const [nukeConfirmationText, setNukeConfirmationText] = useState("");
+  const [nukePreserveBootstrap, setNukePreserveBootstrap] = useState(true);
+  const [nukeManifestPreview, setNukeManifestPreview] = useState<NukeManifestPreview | null>(null);
   const [engineSource, setEngineSourceState] = useState<"path" | "sidecar" | "custom">(readEngineSource);
   const [engineCustomBinPath, setEngineCustomBinPath] = useState<string>(() =>
     readStoredString(ENGINE_CUSTOM_BIN_KEY, ""),
@@ -940,7 +964,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     [pushDeveloperLog, setRouteError],
   );
 
-  const onNukeOpenworkAndOpencodeConfig = useCallback(async () => {
+  const onOpenNukeDialog = useCallback(async () => {
     if (!isDesktopRuntime()) return;
     const confirmed =
       typeof window === "undefined"
@@ -952,13 +976,54 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     setNukeConfigBusy(true);
     setNukeConfigStatus(null);
     try {
-      await nukeOpenworkAndOpencodeConfigAndExit();
+      const preview = await nukeOpenworkAndOpencodeConfigPreview({ preserveBootstrap: true });
+      setNukeManifestPreview(preview);
+      setNukeConfirmationText("");
+      setNukePreserveBootstrap(true);
+      setNukeDialogOpen(true);
     } catch (error) {
       setNukeConfigStatus(toChineseUserMessage(error, "删除本机设置失败，请重试。"));
     } finally {
-      setNukeConfigBusy(false);
+      setNukePreviewBusy(false);
     }
   }, []);
+
+  const onSetNukePreserveBootstrap = useCallback(async (preserveBootstrap: boolean) => {
+    if (nukeConfigBusy || nukePreviewBusy) return;
+    setNukePreserveBootstrap(preserveBootstrap);
+    setNukePreviewBusy(true);
+    setNukeConfigStatus(null);
+    try {
+      const preview = await nukeOpenworkAndOpencodeConfigPreview({ preserveBootstrap });
+      setNukeManifestPreview(preview);
+    } catch (error) {
+      setNukePreserveBootstrap(!preserveBootstrap);
+      setNukeConfigStatus(error instanceof Error ? error.message : safeStringify(error));
+    } finally {
+      setNukePreviewBusy(false);
+    }
+  }, [nukeConfigBusy, nukePreviewBusy]);
+
+  const onCloseNukeDialog = useCallback(() => {
+    if (nukeConfigBusy) return;
+    setNukeDialogOpen(false);
+  }, [nukeConfigBusy]);
+
+  const onConfirmNukeOpenworkAndOpencodeConfig = useCallback(async () => {
+    if (!isDesktopRuntime() || nukeConfirmationText.trim().toUpperCase() !== NUKE_CONFIRMATION_WORD) return;
+    setNukeConfigBusy(true);
+    setNukeConfigStatus(null);
+    try {
+      await revokeDenSessionBeforeNuke();
+      await nukeOpenworkAndOpencodeConfigAndExit({ preserveBootstrap: nukePreserveBootstrap });
+    } catch (error) {
+      setNukeConfigStatus(error instanceof Error ? error.message : safeStringify(error));
+      setNukeConfigBusy(false);
+      return;
+    } finally {
+      setNukeDialogOpen(false);
+    }
+  }, [nukeConfirmationText, nukePreserveBootstrap]);
 
   const [workspaceDebugEventsStatus, setWorkspaceDebugEventsStatus] = useState<string | null>(null);
   const onClearWorkspaceDebugEvents = useCallback(async () => {
@@ -1059,7 +1124,16 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       opencodeDevModeEnabled: appBuild?.openworkDevMode === true,
       nukeConfigBusy,
       nukeConfigStatus,
-      onNukeOpenworkAndOpencodeConfig,
+      nukePreviewBusy,
+      nukeDialogOpen,
+      nukeConfirmationText,
+      nukePreserveBootstrap,
+      nukeManifestPreview,
+      onOpenNukeDialog,
+      onCloseNukeDialog,
+      onSetNukeConfirmationText: setNukeConfirmationText,
+      onSetNukePreserveBootstrap,
+      onConfirmNukeOpenworkAndOpencodeConfig,
     }),
     [
       appBuild?.openworkDevMode,
@@ -1081,17 +1155,25 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       engineSource,
       nukeConfigBusy,
       nukeConfigStatus,
+      nukeConfirmationText,
+      nukeDialogOpen,
+      nukeManifestPreview,
+      nukePreserveBootstrap,
+      nukePreviewBusy,
       onClearDeveloperLog,
       onClearEngineCustomBinPath,
       onClearWorkspaceDebugEvents,
+      onCloseNukeDialog,
+      onSetNukePreserveBootstrap,
       onCopyDeveloperLog,
       onCopyRuntimeDebugReport,
       onExportDeveloperLog,
       onExportRuntimeDebugReport,
       onInstallElectronPreviewFromTauri,
       onCheckElectronAlphaUpdates,
-      onNukeOpenworkAndOpencodeConfig,
+      onConfirmNukeOpenworkAndOpencodeConfig,
       onOpenElectronPreviewRelease,
+      onOpenNukeDialog,
       onOpenResetModal,
       onPrepareElectronMigrationSnapshot,
       onPickEngineBinary,

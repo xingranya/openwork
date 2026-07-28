@@ -51,8 +51,10 @@ function ShellWireframe({ config }: { config: ShellConfig }) {
 
         {/* 侧边栏 */}
         <g className="transition-all duration-300" style={{ opacity: config.sidebar ? 1 : 0.1 }}>
-          <rect x="0.5" y="31" width="100" height="195" fill="var(--dls-hover)" />
-          <line x1="101" y1="31" x2="101" y2="226" stroke="var(--dls-border)" strokeWidth="0.5" />
+          <rect x="0.5" y="31" width="100" height="200.5" fill="var(--dls-hover)" />
+          {/* Bottom-left corner */}
+          <rect x="0.5" y="221" width="100" height="10.5" rx="10" fill="var(--dls-hover)" />
+          <line x1="101" y1="31" x2="101" y2="231.5" stroke="var(--dls-border)" strokeWidth="0.5" />
 
           {/* 工作区标题 */}
           <circle cx="16" cy="44" r="5" fill="var(--dls-accent)" opacity="0.3" />

@@ -138,29 +138,34 @@ async function seedCapability(input: {
   objectType: ConfigObjectType
   owner: SeededMember
   pluginName?: string
+  publishToMarketplace?: boolean
   rawSourceText?: string | null
   title: string
   withVersion?: boolean
 }): Promise<SeededCapability> {
   const now = new Date()
-  const marketplaceId = createDenTypeId("marketplace")
+  const marketplaceId = input.publishToMarketplace === false
+    ? null
+    : createDenTypeId("marketplace")
   const pluginId = createDenTypeId("plugin")
   const configObjectId = createDenTypeId("configObject")
   const description = input.description ?? null
   const rawSourceText = input.rawSourceText ?? null
 
-  await db.insert(MarketplaceTable).values({
-    id: marketplaceId,
-    organizationId: input.owner.organizationId,
-    name: "Team Marketplace",
-    description: "Curated marketplace for tests",
-    logoUrl: null,
-    status: "active",
-    createdByOrgMembershipId: input.owner.memberId,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-  })
+  if (marketplaceId) {
+    await db.insert(MarketplaceTable).values({
+      id: marketplaceId,
+      organizationId: input.owner.organizationId,
+      name: "Team Marketplace",
+      description: "Curated marketplace for tests",
+      logoUrl: null,
+      status: "active",
+      createdByOrgMembershipId: input.owner.memberId,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+  }
   await db.insert(PluginTable).values({
     id: pluginId,
     organizationId: input.owner.organizationId,
@@ -190,16 +195,18 @@ async function seedCapability(input: {
     updatedAt: now,
     deletedAt: null,
   })
-  await db.insert(MarketplacePluginTable).values({
-    id: createDenTypeId("marketplacePlugin"),
-    organizationId: input.owner.organizationId,
-    marketplaceId,
-    pluginId,
-    membershipSource: "manual",
-    createdByOrgMembershipId: input.owner.memberId,
-    createdAt: now,
-    removedAt: null,
-  })
+  if (marketplaceId) {
+    await db.insert(MarketplacePluginTable).values({
+      id: createDenTypeId("marketplacePlugin"),
+      organizationId: input.owner.organizationId,
+      marketplaceId,
+      pluginId,
+      membershipSource: "manual",
+      createdByOrgMembershipId: input.owner.memberId,
+      createdAt: now,
+      removedAt: null,
+    })
+  }
   await db.insert(PluginConfigObjectTable).values({
     id: createDenTypeId("pluginConfigObject"),
     organizationId: input.owner.organizationId,
@@ -230,6 +237,7 @@ async function seedCapability(input: {
 
   const grant = input.grant ?? "marketplace"
   if (grant === "marketplace") {
+    if (!marketplaceId) throw new Error("direct plugin fixtures cannot use marketplace grants")
     await db.insert(MarketplaceAccessGrantTable).values({
       id: createDenTypeId("marketplaceAccessGrant"),
       organizationId: input.owner.organizationId,
@@ -471,6 +479,107 @@ function expectOrganizationConnectionsUrl(value: string | undefined) {
 }
 
 describe("marketplace capabilities source", () => {
+  test("公司直接授权的技能无需 Marketplace 也能下发完整文件包", async () => {
+    const owner = await seedMember()
+    const files = [
+      { path: "SKILL.md", contents: "---\nname: research\n---\n\n执行研究。" },
+      { path: "references/checklist.md", contents: "# 检查表" },
+    ]
+    const seeded = await seedCapability({
+      owner,
+      objectType: "skill",
+      title: "Research",
+      description: "执行公司研究流程",
+      pluginName: "公司研究技能",
+      publishToMarketplace: false,
+      grant: "config_object",
+      rawSourceText: files[0]!.contents,
+      normalizedPayloadJson: {
+        foxworkSkillBundle: {
+          version: 1,
+          bundleHash: "2242bfeebebb3edf1d747dc0333ff9471c05a5b066fb71b0fcba37e4368dfc0d",
+          files,
+          shared: "org",
+        },
+      },
+    })
+
+    const descriptors = await marketplaceCapabilities.listAccessibleMarketplaceSkillDescriptors({
+      organizationId: owner.organizationId,
+      member: owner.member,
+      enabled: true,
+    })
+    expect(descriptors).toHaveLength(1)
+    expect(descriptors[0]).toMatchObject({
+      title: "Research",
+      pluginName: "公司研究技能",
+      capability: seeded.name,
+    })
+    expect(descriptors[0]?.marketplaceName).toBeUndefined()
+
+    const matches = await marketplaceCapabilities.searchMarketplaceCapabilities({
+      organizationId: owner.organizationId,
+      member: owner.member,
+      query: "research",
+      enabled: true,
+    })
+    expect(matches.some((match) => match.name === seeded.name)).toBe(true)
+
+    const result = await execute(owner, seeded)
+    if (!result.ok) throw new Error(result.message)
+    expect(result.result).toMatchObject({
+      kind: "skill",
+      plugin: "公司研究技能",
+      marketplace: "公司直接授权",
+      content: files[0]!.contents,
+      bundleHash: "2242bfeebebb3edf1d747dc0333ff9471c05a5b066fb71b0fcba37e4368dfc0d",
+      files,
+      shared: "org",
+    })
+  })
+
+  test("lists only marketplace plugin skills assigned to the member for prompt discovery", async () => {
+    const owner = await seedMember()
+    const assigned = await seedCapability({
+      owner,
+      objectType: "skill",
+      title: "Renewal Playbook",
+      description: "Use for enterprise renewal strategy",
+      rawSourceText: "# Renewal Playbook\n\nAlways mention expansion risk.",
+    })
+    const unassigned = await seedCapability({
+      owner,
+      objectType: "skill",
+      title: "Private Acquisition Playbook",
+      grant: "none",
+      rawSourceText: "# Private Acquisition Playbook",
+    })
+    await seedCapability({
+      owner,
+      objectType: "command",
+      title: "Assigned Command",
+      rawSourceText: "Draft a follow-up.",
+    })
+
+    const descriptors = await marketplaceCapabilities.listAccessibleMarketplaceSkillDescriptors({
+      organizationId: owner.organizationId,
+      member: owner.member,
+      enabled: true,
+    })
+
+    expect(descriptors).toHaveLength(1)
+    expect(descriptors[0]).toMatchObject({
+      title: "Renewal Playbook",
+      description: "Use for enterprise renewal strategy",
+      marketplaceName: "Team Marketplace",
+      pluginName: "Revenue Ops Plugin",
+      capability: assigned.name,
+    })
+    expect(descriptors[0]?.name).toStartWith("renewal-playbook-")
+    expect(descriptors[0]?.location).toBe(`skill://${descriptors[0]?.name}/SKILL.md`)
+    expect(descriptors.some((descriptor) => descriptor.capability === unassigned.name)).toBe(false)
+  })
+
   test("search finds a published plugin skill and execute returns provenance-framed raw content", async () => {
     const owner = await seedMember()
     const seeded = await seedCapability({

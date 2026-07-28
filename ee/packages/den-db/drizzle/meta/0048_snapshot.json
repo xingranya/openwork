@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "8cf6f89e-c697-46da-b238-19c25052858a",
-  "prevId": "7f67dc62-ad32-4d2f-9f0c-27def02c451e",
+  "id": "654ec20b-4a9e-4b76-acd8-566773a7d9e5",
+  "prevId": "f66a65bf-8f5c-4d5a-acd0-1619506b1105",
   "tables": {
     "account": {
       "name": "account",
@@ -924,6 +924,13 @@
         }
       },
       "indexes": {
+        "oauth_access_token_token": {
+          "name": "oauth_access_token_token",
+          "columns": [
+            "`token`(191)"
+          ],
+          "isUnique": false
+        },
         "oauth_access_token_client_id": {
           "name": "oauth_access_token_client_id",
           "columns": [
@@ -1972,13 +1979,6 @@
           ],
           "isUnique": false
         },
-        "desktop_policy_member_policy_id": {
-          "name": "desktop_policy_member_policy_id",
-          "columns": [
-            "desktop_policy_id"
-          ],
-          "isUnique": false
-        },
         "desktop_policy_member_org_member_id": {
           "name": "desktop_policy_member_org_member_id",
           "columns": [
@@ -2109,13 +2109,6 @@
         }
       },
       "indexes": {
-        "desktop_policy_organization_id": {
-          "name": "desktop_policy_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "desktop_policy_created_by_member_id": {
           "name": "desktop_policy_created_by_member_id",
           "columns": [
@@ -2386,13 +2379,6 @@
         }
       },
       "indexes": {
-        "inference_org_limit_policies_organization_id": {
-          "name": "inference_org_limit_policies_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "inference_org_limit_policies_org_window_type": {
           "name": "inference_org_limit_policies_org_window_type",
           "columns": [
@@ -2500,13 +2486,6 @@
         }
       },
       "indexes": {
-        "inference_org_upstream_provider_keys_organization_id": {
-          "name": "inference_org_upstream_provider_keys_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "inference_org_upstream_provider_keys_external_key_hash": {
           "name": "inference_org_upstream_provider_keys_external_key_hash",
           "columns": [
@@ -2619,13 +2598,6 @@
             "organization_id",
             "window_start_at",
             "window_end_at"
-          ],
-          "isUnique": false
-        },
-        "inference_org_usage_buckets_policy_id": {
-          "name": "inference_org_usage_buckets_policy_id",
-          "columns": [
-            "policy_id"
           ],
           "isUnique": false
         },
@@ -3488,13 +3460,6 @@
         }
       },
       "indexes": {
-        "member_organization_id": {
-          "name": "member_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "member_user_id": {
           "name": "member_user_id",
           "columns": [
@@ -3606,13 +3571,6 @@
         }
       },
       "indexes": {
-        "organization_brand_asset_organization_id": {
-          "name": "organization_brand_asset_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "organization_brand_asset_version": {
           "name": "organization_brand_asset_version",
           "columns": [
@@ -3685,13 +3643,6 @@
         }
       },
       "indexes": {
-        "organization_role_organization_id": {
-          "name": "organization_role_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "organization_role_name": {
           "name": "organization_role_name",
           "columns": [
@@ -4230,13 +4181,6 @@
             "organization_id"
           ],
           "isUnique": false
-        },
-        "scim_group_provider_id": {
-          "name": "scim_group_provider_id",
-          "columns": [
-            "provider_id"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -4455,13 +4399,6 @@
           ],
           "isUnique": false
         },
-        "connected_account_org_membership_id": {
-          "name": "connected_account_org_membership_id",
-          "columns": [
-            "org_membership_id"
-          ],
-          "isUnique": false
-        },
         "connected_account_member_provider": {
           "name": "connected_account_member_provider",
           "columns": [
@@ -4649,13 +4586,6 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "varchar(1000)",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "url": {
@@ -4872,13 +4802,6 @@
         }
       },
       "indexes": {
-        "org_oauth_client_organization_id": {
-          "name": "org_oauth_client_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "org_oauth_client_org_provider": {
           "name": "org_oauth_client_org_provider",
           "columns": [
@@ -4985,13 +4908,6 @@
         }
       },
       "indexes": {
-        "plugin_mcp_req_binding_organization_id": {
-          "name": "plugin_mcp_req_binding_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "plugin_mcp_req_binding_plugin_id": {
           "name": "plugin_mcp_req_binding_plugin_id",
           "columns": [
@@ -5077,13 +4993,6 @@
         }
       },
       "indexes": {
-        "llm_provider_access_llm_provider_id": {
-          "name": "llm_provider_access_llm_provider_id",
-          "columns": [
-            "llm_provider_id"
-          ],
-          "isUnique": false
-        },
         "llm_provider_access_org_membership_id": {
           "name": "llm_provider_access_org_membership_id",
           "columns": [
@@ -5175,13 +5084,6 @@
         }
       },
       "indexes": {
-        "llm_provider_model_llm_provider_id": {
-          "name": "llm_provider_model_llm_provider_id",
-          "columns": [
-            "llm_provider_id"
-          ],
-          "isUnique": false
-        },
         "llm_provider_model_model_id": {
           "name": "llm_provider_model_model_id",
           "columns": [
@@ -5268,14 +5170,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "default_enabled": {
-          "name": "default_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -5417,13 +5311,6 @@
           "name": "config_object_access_grant_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "config_object_access_grant_config_object_id": {
-          "name": "config_object_access_grant_config_object_id",
-          "columns": [
-            "config_object_id"
           ],
           "isUnique": false
         },
@@ -5685,14 +5572,14 @@
         },
         "normalized_payload_json": {
           "name": "normalized_payload_json",
-          "type": "text",
+          "type": "mediumtext",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
         "raw_source_text": {
           "name": "raw_source_text",
-          "type": "text",
+          "type": "mediumtext",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -5754,13 +5641,6 @@
           "name": "config_object_version_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "config_object_version_config_object_id": {
-          "name": "config_object_version_config_object_id",
-          "columns": [
-            "config_object_id"
           ],
           "isUnique": false
         },
@@ -5892,13 +5772,6 @@
         }
       },
       "indexes": {
-        "connector_account_organization_id": {
-          "name": "connector_account_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "connector_account_created_by_org_membership_id": {
           "name": "connector_account_created_by_org_membership_id",
           "columns": [
@@ -5910,6 +5783,13 @@
           "name": "connector_account_connector_type",
           "columns": [
             "connector_type"
+          ],
+          "isUnique": false
+        },
+        "idx_connector_account_on_remote_id": {
+          "name": "idx_connector_account_on_remote_id",
+          "columns": [
+            "remote_id"
           ],
           "isUnique": false
         },
@@ -6023,13 +5903,6 @@
           "name": "connector_instance_access_grant_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "connector_instance_access_grant_instance_id": {
-          "name": "connector_instance_access_grant_instance_id",
-          "columns": [
-            "connector_instance_id"
           ],
           "isUnique": false
         },
@@ -6189,13 +6062,6 @@
         }
       },
       "indexes": {
-        "connector_instance_organization_id": {
-          "name": "connector_instance_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "connector_instance_connector_account_id": {
           "name": "connector_instance_connector_account_id",
           "columns": [
@@ -6365,13 +6231,6 @@
           ],
           "isUnique": false
         },
-        "connector_mapping_connector_target_id": {
-          "name": "connector_mapping_connector_target_id",
-          "columns": [
-            "connector_target_id"
-          ],
-          "isUnique": false
-        },
         "connector_mapping_object_type": {
           "name": "connector_mapping_object_type",
           "columns": [
@@ -6525,13 +6384,6 @@
           "name": "connector_source_binding_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "connector_source_binding_config_object_id": {
-          "name": "connector_source_binding_config_object_id",
-          "columns": [
-            "config_object_id"
           ],
           "isUnique": false
         },
@@ -6972,13 +6824,6 @@
           ],
           "isUnique": false
         },
-        "connector_target_connector_instance_id": {
-          "name": "connector_target_connector_instance_id",
-          "columns": [
-            "connector_instance_id"
-          ],
-          "isUnique": false
-        },
         "connector_target_connector_type": {
           "name": "connector_target_connector_type",
           "columns": [
@@ -7095,13 +6940,6 @@
           "name": "marketplace_access_grant_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "marketplace_access_grant_marketplace_id": {
-          "name": "marketplace_access_grant_marketplace_id",
-          "columns": [
-            "marketplace_id"
           ],
           "isUnique": false
         },
@@ -7222,13 +7060,6 @@
           "name": "marketplace_plugin_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "marketplace_plugin_marketplace_id": {
-          "name": "marketplace_plugin_marketplace_id",
-          "columns": [
-            "marketplace_id"
           ],
           "isUnique": false
         },
@@ -7463,13 +7294,6 @@
           ],
           "isUnique": false
         },
-        "plugin_access_grant_plugin_id": {
-          "name": "plugin_access_grant_plugin_id",
-          "columns": [
-            "plugin_id"
-          ],
-          "isUnique": false
-        },
         "plugin_access_grant_org_membership_id": {
           "name": "plugin_access_grant_org_membership_id",
           "columns": [
@@ -7594,13 +7418,6 @@
           "name": "plugin_config_object_organization_id",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "plugin_config_object_plugin_id": {
-          "name": "plugin_config_object_plugin_id",
-          "columns": [
-            "plugin_id"
           ],
           "isUnique": false
         },
@@ -7751,418 +7568,6 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "skill_hub_member": {
-      "name": "skill_hub_member",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "skill_hub_id": {
-          "name": "skill_hub_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "org_membership_id": {
-          "name": "org_membership_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {
-        "skill_hub_member_skill_hub_id": {
-          "name": "skill_hub_member_skill_hub_id",
-          "columns": [
-            "skill_hub_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_member_org_membership_id": {
-          "name": "skill_hub_member_org_membership_id",
-          "columns": [
-            "org_membership_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_member_team_id": {
-          "name": "skill_hub_member_team_id",
-          "columns": [
-            "team_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_member_hub_org_membership": {
-          "name": "skill_hub_member_hub_org_membership",
-          "columns": [
-            "skill_hub_id",
-            "org_membership_id"
-          ],
-          "isUnique": true
-        },
-        "skill_hub_member_hub_team": {
-          "name": "skill_hub_member_hub_team",
-          "columns": [
-            "skill_hub_id",
-            "team_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "skill_hub_member_id": {
-          "name": "skill_hub_member_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "skill_hub_skill": {
-      "name": "skill_hub_skill",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "skill_hub_id": {
-          "name": "skill_hub_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "skill_id": {
-          "name": "skill_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "org_membership_id": {
-          "name": "org_membership_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {
-        "skill_hub_skill_skill_hub_id": {
-          "name": "skill_hub_skill_skill_hub_id",
-          "columns": [
-            "skill_hub_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_skill_skill_id": {
-          "name": "skill_hub_skill_skill_id",
-          "columns": [
-            "skill_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_skill_hub_skill": {
-          "name": "skill_hub_skill_hub_skill",
-          "columns": [
-            "skill_hub_id",
-            "skill_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "skill_hub_skill_id": {
-          "name": "skill_hub_skill_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "skill_hub": {
-      "name": "skill_hub",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by_org_membership_id": {
-          "name": "created_by_org_membership_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "managed_key": {
-          "name": "managed_key",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
-        }
-      },
-      "indexes": {
-        "skill_hub_organization_id": {
-          "name": "skill_hub_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_created_by_org_membership_id": {
-          "name": "skill_hub_created_by_org_membership_id",
-          "columns": [
-            "created_by_org_membership_id"
-          ],
-          "isUnique": false
-        },
-        "skill_hub_organization_managed_key": {
-          "name": "skill_hub_organization_managed_key",
-          "columns": [
-            "organization_id",
-            "managed_key"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "skill_hub_id": {
-          "name": "skill_hub_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "skill": {
-      "name": "skill",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by_org_membership_id": {
-          "name": "created_by_org_membership_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "skill_text": {
-          "name": "skill_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "source_key": {
-          "name": "source_key",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bundle_hash": {
-          "name": "bundle_hash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bundle_files_json": {
-          "name": "bundle_files_json",
-          "type": "mediumtext",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "shared": {
-          "name": "shared",
-          "type": "enum('org','public')",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"
-        }
-      },
-      "indexes": {
-        "skill_organization_id": {
-          "name": "skill_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
-        "skill_created_by_org_membership_id": {
-          "name": "skill_created_by_org_membership_id",
-          "columns": [
-            "created_by_org_membership_id"
-          ],
-          "isUnique": false
-        },
-        "skill_shared": {
-          "name": "skill_shared",
-          "columns": [
-            "shared"
-          ],
-          "isUnique": false
-        },
-        "skill_slug": {
-          "name": "skill_slug",
-          "columns": [
-            "slug"
-          ],
-          "isUnique": false
-        },
-        "skill_organization_source_key": {
-          "name": "skill_organization_source_key",
-          "columns": [
-            "organization_id",
-            "source_key"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "skill_id": {
-          "name": "skill_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
     "org_subscriptions": {
       "name": "org_subscriptions",
       "columns": {
@@ -8299,13 +7704,6 @@
         }
       },
       "indexes": {
-        "org_subscriptions_organization_id": {
-          "name": "org_subscriptions_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "org_subscriptions_customer_id": {
           "name": "org_subscriptions_customer_id",
           "columns": [
@@ -8382,13 +7780,6 @@
         }
       },
       "indexes": {
-        "team_member_team_id": {
-          "name": "team_member_team_id",
-          "columns": [
-            "team_id"
-          ],
-          "isUnique": false
-        },
         "team_member_org_membership_id": {
           "name": "team_member_org_membership_id",
           "columns": [
@@ -8459,13 +7850,6 @@
         }
       },
       "indexes": {
-        "team_organization_id": {
-          "name": "team_organization_id",
-          "columns": [
-            "organization_id"
-          ],
-          "isUnique": false
-        },
         "team_organization_name": {
           "name": "team_organization_name",
           "columns": [
@@ -9361,13 +8745,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "last_heartbeat_at": {
           "name": "last_heartbeat_at",
           "type": "timestamp(3)",
@@ -9413,15 +8790,6 @@
             "created_by_user_id"
           ],
           "isUnique": false
-        },
-        "worker_org_user_idempotency_key": {
-          "name": "worker_org_user_idempotency_key",
-          "columns": [
-            "org_id",
-            "created_by_user_id",
-            "idempotency_key"
-          ],
-          "isUnique": true
         },
         "worker_status": {
           "name": "worker_status",
@@ -9898,6 +9266,14 @@
   },
   "internal": {
     "tables": {},
-    "indexes": {}
+    "indexes": {
+      "oauth_access_token_token": {
+        "columns": {
+          "`token`(191)": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

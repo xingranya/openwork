@@ -70,10 +70,24 @@ export type McpRegistrationStatus =
   | "needs-auth"
   | "needs-client-registration"
   | "not-recorded";
+export type McpRegistrationSource = "transport_failure" | "engine_status";
+export type McpRegistrationInspection = {
+  status: McpRegistrationStatus;
+  source?: McpRegistrationSource | null;
+  recordAgeMs?: number | null;
+};
 export type InspectMcpRegistration = (
   name: string,
   config: Record<string, unknown>,
-) => McpRegistrationStatus;
+) => McpRegistrationStatus | McpRegistrationInspection;
+
+type FailedRegistrationDetail = {
+  name: string;
+  status: McpRegistrationStatus;
+  source: McpRegistrationSource | null;
+  recordAgeMs: number | null;
+  engineReachableNow: boolean;
+};
 
 type ProjectAgentInspection = {
   available: boolean;
@@ -386,9 +400,22 @@ function cloudTerminalPathEvidence(
   }
 }
 
+function normalizeRegistrationInspection(
+  value: McpRegistrationStatus | McpRegistrationInspection,
+): McpRegistrationInspection {
+  if (typeof value === "string") return { status: value, source: null, recordAgeMs: null };
+  return {
+    status: value.status,
+    source: value.source ?? null,
+    recordAgeMs: typeof value.recordAgeMs === "number" && Number.isFinite(value.recordAgeMs)
+      ? Math.max(0, Math.round(value.recordAgeMs))
+      : null,
+  };
+}
+
 function mcpEvidence(
   item: DiagnosticMcpItem,
-  registration: InspectMcpRegistration,
+  syncStatus: AgentContextMcpEvidence["syncStatus"],
   managedMcpNames: ReadonlySet<string>,
 ): AgentContextMcpEvidence {
   const type = mcpType(item.config);
@@ -402,9 +429,7 @@ function mcpEvidence(
     path: cloudTerminalPathEvidence(item.name, item.source, item.config),
     hasHeaders: isRecord(item.config.headers) && Object.keys(item.config.headers).length > 0,
     oauthMode: mcpOauthMode(type, item.config),
-    syncStatus: item.source === "config.remote" && managedMcpNames.has(item.name)
-      ? registration(item.name, item.config)
-      : "not-applicable",
+    syncStatus: item.source === "config.remote" && managedMcpNames.has(item.name) ? syncStatus : "not-applicable",
     liveEngineStatus: "unavailable",
   };
 }
@@ -495,8 +520,8 @@ function cloudCatalogCheck(probe: CloudCatalogProbe): AgentContextDiagnosticChec
       action = "Reconnect OpenWork Cloud to restore its managed endpoint, then rerun diagnostics.";
       break;
     case "untrusted_endpoint":
-      message = "The managed OpenWork Cloud endpoint is outside the server's diagnostics trust policy.";
-      action = "Use the hosted OpenWork Cloud endpoint or have the server administrator explicitly trust the development origin.";
+      message = "The server did not send the credentialed cloud catalog request because the Cloud endpoint origin is not in the diagnostics trust list.";
+      action = "Set OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS on the OpenWork desktop/server process to include the Cloud endpoint origin, then rerun diagnostics.";
       break;
     case "credential_missing":
     case "duplicate_authorization":
@@ -1083,22 +1108,47 @@ export async function runAgentContextDiagnostics(input: {
   input.dependencies?.signal?.throwIfAborted();
 
   const remoteMcps = inventory.items.filter((item) => item.source === "config.remote");
-  const registrationStatuses = remoteMcps.map((item) => input.inspectRegistration(item.name, item.config));
+  const engineReachableNow = engineInspectionStatus === "observed" || engineInspectionStatus === "invalid";
+  const registrationInspections = remoteMcps.map((item) => registrationForItem(item));
   const enabledRemoteMcps = remoteMcps.filter((item) => item.config.enabled !== false);
   const disabledRemoteMcps = remoteMcps.filter((item) => item.config.enabled === false);
-  const enabledRegistrationStatuses = enabledRemoteMcps.map(
-    (item) => input.inspectRegistration(item.name, item.config),
-  );
-  const disabledRegistrationStatuses = disabledRemoteMcps.map(
-    (item) => input.inspectRegistration(item.name, item.config),
-  );
+  const enabledRegistrationInspections = enabledRemoteMcps.map((item) => registrationForItem(item));
+  const disabledRegistrationInspections = disabledRemoteMcps.map((item) => registrationForItem(item));
+  const enabledRegistrationStatuses = enabledRegistrationInspections.map((inspection) => inspection.status);
+  const disabledRegistrationStatuses = disabledRegistrationInspections.map((inspection) => inspection.status);
   const connectedRegistrationCount = enabledRegistrationStatuses.filter((status) => status === "connected").length;
   const missingRegistrationCount = enabledRegistrationStatuses.filter((status) => status === "not-recorded").length;
-  const failedRegistrationCount = enabledRegistrationStatuses.filter(
-    (status) => status !== "connected" && status !== "not-recorded",
-  ).length + disabledRegistrationStatuses.filter(
-    (status) => status !== "disabled" && status !== "not-recorded",
-  ).length;
+  const enabledFailedRegistrationDetails = enabledRemoteMcps.flatMap((item): FailedRegistrationDetail[] => {
+    const inspection = registrationForItem(item);
+    if (inspection.status === "connected" || inspection.status === "not-recorded") return [];
+    return [{
+      name: safeText(item.name, 160, "unnamed-mcp"),
+      status: inspection.status,
+      source: inspection.source ?? null,
+      recordAgeMs: inspection.recordAgeMs ?? null,
+      engineReachableNow,
+    }];
+  });
+  const disabledFailedRegistrationDetails = disabledRemoteMcps.flatMap((item): FailedRegistrationDetail[] => {
+    const inspection = registrationForItem(item);
+    if (inspection.status === "disabled" || inspection.status === "not-recorded") return [];
+    return [{
+      name: safeText(item.name, 160, "unnamed-mcp"),
+      status: inspection.status,
+      source: inspection.source ?? null,
+      recordAgeMs: inspection.recordAgeMs ?? null,
+      engineReachableNow,
+    }];
+  });
+  const failedRegistrationDetails = [
+    ...enabledFailedRegistrationDetails,
+    ...disabledFailedRegistrationDetails,
+  ];
+  const failedRegistrationCount = failedRegistrationDetails.length;
+  const staleRegistrationFailure = failedRegistrationDetails.length > 0
+    && failedRegistrationDetails.every((failure) =>
+      failure.engineReachableNow && failure.recordAgeMs !== null && failure.recordAgeMs > 60_000,
+    );
   const layerHealthProblem = inventory.layerStatus.project === "invalid"
     || inventory.layerStatus.project === "unreadable"
     || inventory.layerStatus.global === "invalid"
@@ -1393,7 +1443,7 @@ export async function runAgentContextDiagnostics(input: {
     diagnosticCheck({
       id: "engine-mcp-sync",
       status: failedRegistrationCount > 0
-        ? "failed"
+        ? staleRegistrationFailure ? "warning" : "failed"
         : missingRegistrationCount > 0
           ? "warning"
           : remoteMcps.length > 0
@@ -1401,14 +1451,16 @@ export async function runAgentContextDiagnostics(input: {
             : "skipped",
       evidenceKind: "derived",
       code: failedRegistrationCount > 0
-        ? "mcp_registration_not_connected"
+        ? staleRegistrationFailure ? "mcp_registration_stale_failure" : "mcp_registration_not_connected"
         : missingRegistrationCount > 0
           ? "mcp_registration_not_recorded"
           : remoteMcps.length > 0
             ? "managed_mcp_registration_states_healthy"
             : "no_managed_mcp_registration",
       message: failedRegistrationCount > 0
-        ? "One or more enabled managed MCPs are not connected, or a disabled managed MCP has an unexpected engine state."
+        ? staleRegistrationFailure
+          ? "Managed MCP registration failure evidence is stale while the engine is reachable."
+          : "One or more enabled managed MCPs are not connected, or a disabled managed MCP has an unexpected engine state."
         : missingRegistrationCount > 0
           ? "One or more enabled managed MCPs do not have a current engine registration record."
           : remoteMcps.length > 0
@@ -1416,20 +1468,24 @@ export async function runAgentContextDiagnostics(input: {
             : "No server-managed MCP registration was available to inspect.",
       owner: failedRegistrationCount > 0 || missingRegistrationCount > 0 ? "opencode-engine" : "openwork-server",
       action: failedRegistrationCount > 0 || missingRegistrationCount > 0
-        ? "Start or repair the workspace runtime and rerun diagnostics."
+        ? staleRegistrationFailure
+          ? "The engine is reachable and this evidence is stale; rerun diagnostics. No repair is needed unless it persists."
+          : "Start or repair the workspace runtime and rerun diagnostics."
         : "No action is required.",
       details: {
         managedMcpCount: remoteMcps.length,
         enabledManagedMcpCount: enabledRemoteMcps.length,
         disabledManagedMcpCount: disabledRemoteMcps.length,
         connectedCount: connectedRegistrationCount,
-        disabledCount: registrationStatuses.filter((status) => status === "disabled").length,
+        disabledCount: registrationInspections.filter((inspection) => inspection.status === "disabled").length,
         failedCount: failedRegistrationCount,
-        needsAuthCount: registrationStatuses.filter((status) => status === "needs-auth").length,
-        needsClientRegistrationCount: registrationStatuses.filter(
-          (status) => status === "needs-client-registration",
+        needsAuthCount: registrationInspections.filter((inspection) => inspection.status === "needs-auth").length,
+        needsClientRegistrationCount: registrationInspections.filter(
+          (inspection) => inspection.status === "needs-client-registration",
         ).length,
         notRecordedCount: missingRegistrationCount,
+        engineReachableNow,
+        failedRegistrations: failedRegistrationDetails,
         registrationConnectionEvidenceClaimed: connectedRegistrationCount > 0,
         completeLiveToolRegistryClaimed: false,
       },

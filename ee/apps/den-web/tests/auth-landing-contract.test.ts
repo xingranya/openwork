@@ -52,4 +52,15 @@ describe("Den auth landing contract", () => {
     expect(source).toContain("先输入邮箱，我们会为你找到对应的登录方式。");
     expect(source).not.toContain('title: "Start using OpenWork"');
   });
+
+  test("signed-in desktop handoff shows account email and a pasteable link by default", () => {
+    const source = readFileSync(authPanelPath, "utf8");
+
+    expect(source).toContain('data-testid="desktop-signed-in-handoff"');
+    expect(source).toContain("Logged in as");
+    expect(source).toContain("showCopyLinkByDefault");
+    expect(source).toContain('data-testid="desktop-handoff-copy-link"');
+    expect(source).toContain("desktopAuthRequested && user && !authError");
+    expect(source).not.toContain("showAuthFeedback && authInfo && !authError");
+  });
 });

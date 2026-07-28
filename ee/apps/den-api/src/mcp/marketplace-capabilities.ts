@@ -28,12 +28,45 @@ import { db } from "../db.js"
 import { resolvePluginArchGrantRole } from "../routes/org/plugin-system/access.js"
 import { openworkOrganizationConnectionsUrl, openworkYourConnectionsUrl } from "./connection-navigation.js"
 import { listPluginMcpRequirementBindings, type PluginMcpRequirementBindingRow } from "./plugin-mcp-requirement-bindings.js"
+import { serializeSkillCapabilityBundle } from "./skill-capability-bundle.js"
 import { scoreText, tokenize } from "./search.js"
 import type { McpMemberIdentity } from "./external-capabilities.js"
 import type { CapabilityMatch } from "./search.js"
 
 const MARKETPLACE_CAPABILITY_PREFIX = "plugin:"
 const PROVENANCE_SUFFIX = "in your organization's library."
+const AGENT_SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+export type RemoteSkillDescriptor = {
+  name: string
+  title: string
+  description: string
+  marketplaceName?: string
+  pluginName?: string
+  capability: string
+  location: string
+}
+
+export function normalizeRemoteSkillDescription(input: {
+  description: string | null
+  name: string
+  title: string
+}): string {
+  const description = input.description?.replace(/\s+/g, " ").trim()
+  return (description || input.title.trim() || input.name).slice(0, 1_024)
+}
+
+export function standardSkillName(title: string, stableId: string): string {
+  const suffix = stableId.replace(/^skill_/, "").slice(-8).toLowerCase()
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+  const bounded = base.slice(0, Math.max(1, 64 - suffix.length - 1)).replace(/-+$/g, "")
+  const name = `${bounded || "skill"}-${suffix}`
+  return AGENT_SKILL_NAME_PATTERN.test(name) ? name : `skill-${suffix}`
+}
 
 type OrganizationId = DenTypeId<"organization">
 type PluginId = DenTypeId<"plugin">
@@ -46,7 +79,7 @@ type MemberRow = Pick<typeof MemberTable.$inferSelect, "id" | "role">
 type UsableExternalMcpConnection = Awaited<ReturnType<typeof listUsableExternalMcpConnections>>[number]
 type MarketplaceCapabilityRow = {
   configObject: ConfigObjectRow
-  marketplace: typeof MarketplaceTable.$inferSelect
+  marketplace: typeof MarketplaceTable.$inferSelect | null
   plugin: typeof PluginTable.$inferSelect
 }
 type GrantRow = {
@@ -95,6 +128,8 @@ export type MarketplaceMcpRequirementStatus = {
 }
 
 export type MarketplaceCapabilityExecutePayload = {
+  bundleHash?: string
+  files?: Array<{ path: string; contents: string }>
   kind: ConfigObjectType
   plugin: string
   marketplace: string
@@ -104,6 +139,7 @@ export type MarketplaceCapabilityExecutePayload = {
   content?: string
   definition?: string | null
   serverSpec?: Record<string, unknown>
+  shared?: "org" | "private"
   source?: string | null
   status?: MarketplaceCapabilityStatus
   hint?: string
@@ -244,20 +280,30 @@ function pluginPath(row: MarketplaceCapabilityRow): string {
   return `plugin://${pluginSlug}/${relativePath.replace(/^\/+/, "")}`
 }
 
-function provenance(pluginName: string): string {
-  return `Content from marketplace plugin ${pluginName} ${PROVENANCE_SUFFIX}`
+function capabilityLibraryName(row: MarketplaceCapabilityRow): string {
+  return row.marketplace?.name ?? "公司直接授权"
+}
+
+function provenance(row: MarketplaceCapabilityRow): string {
+  return row.marketplace
+    ? `Content from marketplace plugin ${row.plugin.name} ${PROVENANCE_SUFFIX}`
+    : `公司直接授权的插件“${row.plugin.name}”。`
 }
 
 function objectHint(row: MarketplaceCapabilityRow): string {
-  return `Install marketplace plugin "${row.plugin.name}" from "${row.marketplace.name}" locally to use "${row.configObject.title}".`
+  return row.marketplace
+    ? `Install marketplace plugin "${row.plugin.name}" from "${row.marketplace.name}" locally to use "${row.configObject.title}".`
+    : `请先在 FoxWork 本地安装公司插件“${row.plugin.name}”，再使用“${row.configObject.title}”。`
 }
 
 function contentNotSyncedHint(row: MarketplaceCapabilityRow): string {
-  return `Marketplace plugin "${row.plugin.name}" has not synced content for "${row.configObject.title}" yet. Connect or sync the source, then try again.`
+  return row.marketplace
+    ? `Marketplace plugin "${row.plugin.name}" has not synced content for "${row.configObject.title}" yet. Connect or sync the source, then try again.`
+    : `公司插件“${row.plugin.name}”尚未同步“${row.configObject.title}”的内容，请稍后重试或联系管理员。`
 }
 
 function summaryFor(row: MarketplaceCapabilityRow): string {
-  const prefix = `[${row.marketplace.name} / ${row.plugin.name}] ${row.configObject.title}`
+  const prefix = `[${capabilityLibraryName(row)} / ${row.plugin.name}] ${row.configObject.title}`
   const description = row.configObject.description?.trim()
   return description ? `${prefix}: ${description}` : prefix
 }
@@ -279,10 +325,10 @@ function basePayload(row: MarketplaceCapabilityRow): MarketplaceCapabilityExecut
   return {
     kind: row.configObject.objectType,
     plugin: row.plugin.name,
-    marketplace: row.marketplace.name,
+    marketplace: capabilityLibraryName(row),
     name: row.configObject.title,
     description: row.configObject.description,
-    provenance: provenance(row.plugin.name),
+    provenance: provenance(row),
   }
 }
 
@@ -316,13 +362,22 @@ async function listActiveMarketplaceRows(organizationId: OrganizationId): Promis
       PluginTable,
       eq(PluginTable.id, PluginConfigObjectTable.pluginId),
     )
-    .innerJoin(
+    .leftJoin(
       MarketplacePluginTable,
-      eq(MarketplacePluginTable.pluginId, PluginTable.id),
+      and(
+        eq(MarketplacePluginTable.pluginId, PluginTable.id),
+        eq(MarketplacePluginTable.organizationId, organizationId),
+        isNull(MarketplacePluginTable.removedAt),
+      ),
     )
-    .innerJoin(
+    .leftJoin(
       MarketplaceTable,
-      eq(MarketplaceTable.id, MarketplacePluginTable.marketplaceId),
+      and(
+        eq(MarketplaceTable.id, MarketplacePluginTable.marketplaceId),
+        eq(MarketplaceTable.organizationId, organizationId),
+        eq(MarketplaceTable.status, "active"),
+        isNull(MarketplaceTable.deletedAt),
+      ),
     )
     .where(and(
       eq(ConfigObjectTable.organizationId, organizationId),
@@ -333,11 +388,6 @@ async function listActiveMarketplaceRows(organizationId: OrganizationId): Promis
       eq(PluginTable.organizationId, organizationId),
       eq(PluginTable.status, "active"),
       isNull(PluginTable.deletedAt),
-      eq(MarketplacePluginTable.organizationId, organizationId),
-      isNull(MarketplacePluginTable.removedAt),
-      eq(MarketplaceTable.organizationId, organizationId),
-      eq(MarketplaceTable.status, "active"),
-      isNull(MarketplaceTable.deletedAt),
     ))
     .orderBy(PluginTable.name, ConfigObjectTable.title, MarketplaceTable.name)
   return rows
@@ -363,13 +413,22 @@ async function listActiveMarketplaceRowsForCapability(input: {
       PluginTable,
       eq(PluginTable.id, PluginConfigObjectTable.pluginId),
     )
-    .innerJoin(
+    .leftJoin(
       MarketplacePluginTable,
-      eq(MarketplacePluginTable.pluginId, PluginTable.id),
+      and(
+        eq(MarketplacePluginTable.pluginId, PluginTable.id),
+        eq(MarketplacePluginTable.organizationId, input.organizationId),
+        isNull(MarketplacePluginTable.removedAt),
+      ),
     )
-    .innerJoin(
+    .leftJoin(
       MarketplaceTable,
-      eq(MarketplaceTable.id, MarketplacePluginTable.marketplaceId),
+      and(
+        eq(MarketplaceTable.id, MarketplacePluginTable.marketplaceId),
+        eq(MarketplaceTable.organizationId, input.organizationId),
+        eq(MarketplaceTable.status, "active"),
+        isNull(MarketplaceTable.deletedAt),
+      ),
     )
     .where(and(
       eq(ConfigObjectTable.id, input.configObjectId),
@@ -383,11 +442,6 @@ async function listActiveMarketplaceRowsForCapability(input: {
       eq(PluginTable.organizationId, input.organizationId),
       eq(PluginTable.status, "active"),
       isNull(PluginTable.deletedAt),
-      eq(MarketplacePluginTable.organizationId, input.organizationId),
-      isNull(MarketplacePluginTable.removedAt),
-      eq(MarketplaceTable.organizationId, input.organizationId),
-      eq(MarketplaceTable.status, "active"),
-      isNull(MarketplaceTable.deletedAt),
     ))
     .orderBy(MarketplaceTable.name)
   return rows
@@ -465,7 +519,7 @@ async function filterVisibleRows(input: {
   )
   const marketplaceGrantRows = await listMarketplaceGrants(
     input.organizationId,
-    unique(input.rows.map((row) => row.marketplace.id)),
+    unique(input.rows.flatMap((row) => row.marketplace ? [row.marketplace.id] : [])),
   )
   const configObjectGrants = groupGrants(configObjectGrantRows)
   const pluginGrants = groupGrants(pluginGrantRows)
@@ -474,8 +528,53 @@ async function filterVisibleRows(input: {
   return input.rows.filter((row) => {
     if (grantRole(input.member, configObjectGrants.get(row.configObject.id) ?? [])) return true
     if (grantRole(input.member, pluginGrants.get(row.plugin.id) ?? [])) return true
-    return Boolean(grantRole(input.member, marketplaceGrants.get(row.marketplace.id) ?? []))
+    return row.marketplace
+      ? Boolean(grantRole(input.member, marketplaceGrants.get(row.marketplace.id) ?? []))
+      : false
   })
+}
+
+export async function listAccessibleMarketplaceSkillDescriptors(input: {
+  enabled?: boolean
+  member: McpMemberIdentity | null
+  organizationId: string
+}): Promise<RemoteSkillDescriptor[]> {
+  if (input.enabled === false || !input.member) return []
+
+  const organizationId = normalizeDenTypeId("organization", input.organizationId)
+  const memberRow = await getActiveMember(organizationId, input.member)
+  if (!memberRow) return []
+
+  const rows = await filterVisibleRows({
+    organizationId,
+    member: input.member,
+    memberRow,
+    rows: (await listActiveMarketplaceRows(organizationId))
+      .filter((row) => row.configObject.objectType === "skill"),
+  })
+  const descriptors = new Map<string, RemoteSkillDescriptor>()
+  for (const row of rows) {
+    const capability = buildMarketplaceCapabilityName(row.plugin.id, row.configObject.id)
+    if (descriptors.has(capability)) continue
+    const uniqueSuffix = `${row.plugin.id.slice(-4)}${row.configObject.id.slice(-4)}`
+    const name = standardSkillName(row.configObject.title, uniqueSuffix)
+    descriptors.set(capability, {
+      name,
+      title: row.configObject.title,
+      description: normalizeRemoteSkillDescription({
+        description: row.configObject.description,
+        name,
+        title: row.configObject.title,
+      }),
+      ...(row.marketplace ? { marketplaceName: row.marketplace.name } : {}),
+      pluginName: row.plugin.name,
+      capability,
+      location: `skill://${name}/SKILL.md`,
+    })
+  }
+
+  return [...descriptors.values()]
+    .sort((a, b) => a.name.localeCompare(b.name) || a.capability.localeCompare(b.capability))
 }
 
 async function latestVersion(configObjectId: ConfigObjectId, organizationId: OrganizationId) {
@@ -1159,7 +1258,7 @@ export async function searchMarketplaceCapabilities(input: {
       hasBody: row.configObject.objectType === "command",
       kind: row.configObject.objectType,
       plugin: row.plugin.name,
-      marketplace: row.marketplace.name,
+      ...(row.marketplace ? { marketplace: row.marketplace.name } : {}),
     }
     if (row.configObject.objectType === "tool") {
       match.status = "needs_install"
@@ -1272,7 +1371,26 @@ export async function executeMarketplaceCapability(input: {
 
   if (
     row.configObject.objectType === "skill"
-    || row.configObject.objectType === "context"
+  ) {
+    const bundle = serializeSkillCapabilityBundle(version)
+    return {
+      ok: true,
+      result: {
+        ...basePayload(row),
+        content: bundle?.skillText ?? version.rawSourceText ?? "",
+        ...(bundle
+          ? {
+              bundleHash: bundle.bundleHash,
+              files: bundle.files,
+              shared: bundle.shared,
+            }
+          : {}),
+      },
+    }
+  }
+
+  if (
+    row.configObject.objectType === "context"
     || row.configObject.objectType === "custom"
     || row.configObject.objectType === "agent"
   ) {

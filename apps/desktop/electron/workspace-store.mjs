@@ -2,10 +2,15 @@
 // on-disk workspace state, per-workspace openwork.json files, remote workspace
 // normalization/discovery, and the workspace-facing command operations.
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import {
+  desktopBootstrapPath as resolveDesktopBootstrapPath,
+  legacyDesktopBootstrapPath as resolveLegacyDesktopBootstrapPath,
+  openworkServerConfigPath as resolveOpenworkServerConfigPath,
+} from "@openwork/paths";
 
 import { openworkWorkspaceDisplayName, selectOpenworkWorkspaceForConnection } from "./remote-workspace.mjs";
 import { exportWorkspaceConfig, importWorkspaceConfig } from "./workspace-archive.mjs";
@@ -101,25 +106,15 @@ async function readJsonFile(targetPath, fallback) {
   }
 }
 
-// The bootstrap CLI (packages/openwork-bootstrap) and this app must agree on
-// where desktop-bootstrap.json lives: %LOCALAPPDATA% on Windows, XDG_CONFIG_HOME
-// (falling back to ~/.config) elsewhere. Resolved once at module load so a
-// mid-session process.env mutation (runtime.mjs buildChildEnv ->
-// Object.assign(process.env)) can never retarget reads to a different file.
-const DEFAULT_DESKTOP_BOOTSTRAP_PATH = (() => {
-  // Same precedence as the CLI's configHomeDir(): XDG_CONFIG_HOME everywhere,
-  // then LOCALAPPDATA on Windows, then ~/.config.
-  const configHome =
-    process.env.XDG_CONFIG_HOME?.trim() ||
-    (process.platform === "win32" ? process.env.LOCALAPPDATA?.trim() : "") ||
-    path.join(os.homedir(), process.platform === "win32" ? path.join("AppData", "Local") : ".config");
-  return path.join(configHome, "openwork", "desktop-bootstrap.json");
-})();
+// Resolved once at module load so a mid-session process.env mutation
+// (runtime.mjs buildChildEnv -> Object.assign(process.env)) can never retarget
+// reads to a different file.
+const DEFAULT_DESKTOP_BOOTSTRAP_PATH = resolveDesktopBootstrapPath({ homeDir: os.homedir() });
 
 // Older builds resolved the default as ~/.config on every OS, ignoring
 // LOCALAPPDATA and XDG_CONFIG_HOME. Keep reading that file when the canonical one
 // is missing so existing installs keep their deployment config.
-const LEGACY_DESKTOP_BOOTSTRAP_PATH = path.join(os.homedir(), ".config", "openwork", "desktop-bootstrap.json");
+const LEGACY_DESKTOP_BOOTSTRAP_PATH = resolveLegacyDesktopBootstrapPath({ homeDir: os.homedir() });
 const DESKTOP_BOOTSTRAP_FILENAME = "desktop-bootstrap.json";
 const STANDARD_DESKTOP_INSTALLER_PATTERN = /^openwork-(?:mac-(?:arm64|x64)-.+\.dmg|win-x64-.+\.exe)$/i;
 const HOSTED_DESKTOP_WEB_URL = "https://app.openworklabs.com";
@@ -142,21 +137,14 @@ function isHostedDesktopBootstrapConfig(config) {
 export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSignin, forceRequireSignin }) {
   function desktopBootstrapPath() {
     if (process.env.OPENWORK_DESKTOP_BOOTSTRAP_PATH?.trim()) {
-      return process.env.OPENWORK_DESKTOP_BOOTSTRAP_PATH.trim();
+      return resolveDesktopBootstrapPath({ env: process.env, homeDir: os.homedir(), userDataDir: app.getPath("userData") });
     }
     // Dev mode swaps process.env.HOME to the sandboxed dev-data home midway
     // through startup (runtime.mjs buildChildEnv -> Object.assign(process.env)),
     // which changes what os.homedir() returns. Resolve the dev-data home
     // deterministically so early and late IPC reads target the same file.
     if (process.env.OPENWORK_DEV_MODE === "1") {
-      return path.join(
-        app.getPath("userData"),
-        "openwork-dev-data",
-        "home",
-        ".config",
-        "openwork",
-        "desktop-bootstrap.json",
-      );
+      return resolveDesktopBootstrapPath({ env: process.env, homeDir: os.homedir(), userDataDir: app.getPath("userData") });
     }
     return DEFAULT_DESKTOP_BOOTSTRAP_PATH;
   }
@@ -178,9 +166,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
   }
 
   function openworkServerConfigPath() {
-    if (process.env.OPENWORK_SERVER_CONFIG?.trim()) return path.resolve(process.env.OPENWORK_SERVER_CONFIG.trim());
-    if (process.platform === "win32") return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "openwork", "server.json");
-    return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "openwork", "server.json");
+    return resolveOpenworkServerConfigPath({ env: process.env, homeDir: os.homedir() });
   }
 
   // Earlier Electron alpha builds copied Tauri's openwork-workspaces.json into
@@ -331,6 +317,44 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     }
   }
 
+  function readDesktopBootstrapCandidateSync(candidatePath) {
+    let exists = false;
+    let mtimeMs = 0;
+    try {
+      const stats = statSync(candidatePath);
+      exists = true;
+      mtimeMs = stats.mtimeMs;
+    } catch {
+      // Missing paths are normal; keep the read error below for diagnostics.
+    }
+
+    try {
+      const raw = readFileSync(candidatePath, "utf8");
+      const parsed = JSON.parse(raw);
+      return {
+        ok: true,
+        path: candidatePath,
+        exists: true,
+        raw,
+        parsed,
+        normalized: normalizeDesktopBootstrapConfig(parsed),
+        mtimeMs,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        path: candidatePath,
+        exists,
+        raw: null,
+        parsed: null,
+        normalized: null,
+        mtimeMs,
+        error,
+      };
+    }
+  }
+
   async function migrateLegacyDesktopBootstrapConfig(configPath, legacyCandidate) {
     try {
       await mkdir(path.dirname(configPath), { recursive: true });
@@ -428,16 +452,16 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     if (primary.ok && legacy?.ok) {
       if (compareDesktopBootstrapCandidates(legacy, primary) > 0) {
         await migrateLegacyDesktopBootstrapConfig(configPath, legacy);
-        return legacy.normalized;
+        return { ...legacy.normalized, fromFile: true };
       }
-      return primary.normalized;
+      return { ...primary.normalized, fromFile: true };
     }
 
-    if (primary.ok) return primary.normalized;
+    if (primary.ok) return { ...primary.normalized, fromFile: true };
 
     if (legacy?.ok) {
       await migrateLegacyDesktopBootstrapConfig(configPath, legacy);
-      return legacy.normalized;
+      return { ...legacy.normalized, fromFile: true };
     }
 
     console.warn("[desktop-bootstrap] falling back to defaults", {
@@ -447,6 +471,30 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     return {
       baseUrl: defaultDenBaseUrl,
       requireSignin: defaultRequireSignin,
+      fromFile: false,
+    };
+  }
+
+  function readDesktopBootstrapConfigSync() {
+    const configPath = desktopBootstrapPath();
+    const primary = readDesktopBootstrapCandidateSync(configPath);
+    const legacyPath = legacyDesktopBootstrapPath();
+    const legacy = legacyPath ? readDesktopBootstrapCandidateSync(legacyPath) : null;
+
+    if (primary.ok && legacy?.ok) {
+      return {
+        ...(compareDesktopBootstrapCandidates(legacy, primary) > 0 ? legacy.normalized : primary.normalized),
+        fromFile: true,
+      };
+    }
+
+    if (primary.ok) return { ...primary.normalized, fromFile: true };
+    if (legacy?.ok) return { ...legacy.normalized, fromFile: true };
+
+    return {
+      baseUrl: defaultDenBaseUrl,
+      requireSignin: defaultRequireSignin,
+      fromFile: false,
     };
   }
 
@@ -1230,6 +1278,7 @@ export function createWorkspaceStore({ app, defaultDenBaseUrl, defaultRequireSig
     importBundledDesktopBootstrapConfigIfPreferred,
     listLocalWorkspacePaths,
     migrateLegacyElectronWorkspaceStateIfNeeded,
+    readDesktopBootstrapConfigSync,
     readWorkspaceOpenworkConfig,
     readWorkspaceState,
     resetOpenworkState,

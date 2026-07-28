@@ -1,10 +1,7 @@
-import {
-  installConfigSchema,
-} from "@openwork/install-config"
+import { installConfigSchema, installExperienceConfigSchema } from "@openwork/install-config"
 import { connectLinkClaimsSchema } from "@openwork/connect-link"
 import { and, eq, gt, isNull, or } from "@openwork-ee/den-db/drizzle"
-import { InstallLinkTable, OrganizationTable, RateLimitTable } from "@openwork-ee/den-db/schema"
-import { createDenTypeId } from "@openwork-ee/utils/typeid"
+import { InstallLinkTable, OrganizationTable } from "@openwork-ee/den-db/schema"
 import { createReadStream } from "node:fs"
 import type { MiddlewareHandler } from "hono"
 import type { Hono } from "hono"
@@ -17,6 +14,7 @@ import { db } from "../../db.js"
 import { mintDesktopConnectLink } from "../../desktop-connect-link.js"
 import {
   consumeDesktopConnectGrant,
+  inspectDesktopConnectGrant,
   mintDesktopConnectGrant,
   previewDesktopConnectGrant,
 } from "../../desktop-connect-grants.js"
@@ -27,10 +25,14 @@ import { denTypeIdSchema, emptyResponse, forbiddenSchema, invalidRequestSchema, 
 import { organizationCapabilityKeySchema } from "../../organization-capabilities.js"
 import { normalizeOrganizationMetadata } from "../../organization-limits.js"
 import {
-  desktopReleaseAssetName,
+  DEFAULT_INSTALLER_RELEASE_REPO,
+  FIRST_GENERIC_INSTALLER_RELEASE,
+  genericInstallerArtifactName,
+  installerLatestReleaseAssetUrl,
   installerReleaseAssetUrl,
   resolveConfiguredInstallerArtifact,
 } from "../../utils/installer-artifacts.js"
+import { checkRateLimit, enforceRateLimit } from "../../utils/rate-limit.js"
 import type { OrgRouteVariables } from "./shared.js"
 import { ensureOrganizationAdmin, orgAccessFailureStatus } from "./shared.js"
 
@@ -38,6 +40,7 @@ const INSTALL_LINK_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 60
 const INSTALL_LINK_MINT_RATE_LIMIT_MAX = 30
 const INSTALL_CONFIG_RATE_LIMIT_MAX = 60
 const INSTALL_ARTIFACT_RATE_LIMIT_MAX = 20
+const INSTALL_CONNECT_STATUS_RATE_LIMIT_MAX = 300
 const INSTALL_LINK_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,}$/
 const CONNECT_GRANT_CODE_PATTERN = /^[A-Za-z0-9_-]{24,128}$/
 
@@ -61,6 +64,12 @@ const connectGrantBodySchema = z.object({
 const connectGrantResponseSchema = z.object({
   claims: connectLinkClaimsSchema,
 }).meta({ ref: "DesktopConnectGrantResponse" })
+
+const connectGrantStatusResponseSchema = z.object({
+  status: z.enum(["pending", "connected"]),
+  claims: connectLinkClaimsSchema,
+  expiresAt: z.string().datetime(),
+}).meta({ ref: "DesktopConnectGrantStatusResponse" })
 
 const connectGrantFailureSchema = z.object({
   error: z.enum(["connect_grant_invalid", "connect_grant_expired", "connect_grant_replayed"]),
@@ -103,6 +112,7 @@ export type InstallExperienceDependencies = {
   resolveDirectUrl: (platform: InstallPlatform, releaseTag: string) => string | null
   mintConnectGrant: typeof mintDesktopConnectGrant
   previewConnectGrant: typeof previewDesktopConnectGrant
+  inspectConnectGrant: typeof inspectDesktopConnectGrant
   consumeConnectGrant: typeof consumeDesktopConnectGrant
 }
 
@@ -114,44 +124,8 @@ const defaultInstallerDependencies: InstallExperienceDependencies = {
   },
   mintConnectGrant: mintDesktopConnectGrant,
   previewConnectGrant: previewDesktopConnectGrant,
+  inspectConnectGrant: inspectDesktopConnectGrant,
   consumeConnectGrant: consumeDesktopConnectGrant,
-}
-
-function requestAddress(headers: Headers) {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-  return forwarded || headers.get("x-real-ip")?.trim() || "unknown"
-}
-
-async function checkRateLimit(key: string, maxRequests: number, now: number) {
-  const [row] = await db
-    .select({ id: RateLimitTable.id, count: RateLimitTable.count, lastRequest: RateLimitTable.lastRequest })
-    .from(RateLimitTable)
-    .where(eq(RateLimitTable.key, key))
-    .limit(1)
-
-  if (row && now - row.lastRequest <= INSTALL_LINK_RATE_LIMIT_WINDOW_MS && row.count >= maxRequests) {
-    return Math.max(1, Math.ceil((INSTALL_LINK_RATE_LIMIT_WINDOW_MS - (now - row.lastRequest)) / 1000))
-  }
-
-  if (!row) {
-    await db.insert(RateLimitTable).values({
-      id: createDenTypeId("rateLimit"),
-      key,
-      count: 1,
-      lastRequest: now,
-    })
-    return null
-  }
-
-  await db
-    .update(RateLimitTable)
-    .set({ count: now - row.lastRequest > INSTALL_LINK_RATE_LIMIT_WINDOW_MS ? 1 : row.count + 1, lastRequest: now })
-    .where(eq(RateLimitTable.id, row.id))
-  return null
-}
-
-async function enforceRateLimit(headers: Headers, scope: string, maxRequests: number) {
-  return checkRateLimit(`install:${scope}:${requestAddress(headers)}`, maxRequests, Date.now())
 }
 
 function organizationMetadataInput(value: unknown): Record<string, unknown> | string | null {
@@ -257,15 +231,29 @@ function maxAllowedDesktopVersion(versions: string[]) {
   return maxVersion
 }
 
+function clampInstallerReleaseTag(releaseTag: string) {
+  const comparison = compareVersions(releaseTag, FIRST_GENERIC_INSTALLER_RELEASE)
+  if (env.installerReleaseRepo === DEFAULT_INSTALLER_RELEASE_REPO && comparison !== null && comparison < 0) {
+    // The generic installer is version-agnostic: it installs /v1/app-version,
+    // so allowedDesktopVersions still governs app updates. This only selects
+    // an installer binary release that actually has OpenWork-Installer-* assets.
+    return `v${FIRST_GENERIC_INSTALLER_RELEASE}`
+  }
+  return releaseTag
+}
+
 function installerReleaseTagForMetadata(metadataInput: unknown) {
   const metadata = normalizeOrganizationMetadata(organizationMetadataInput(metadataInput)).metadata
   const allowedVersions = metadata.allowedDesktopVersions
   if (!allowedVersions?.length) {
-    return env.installerReleaseTag
+    if (env.installerReleaseRepo === DEFAULT_INSTALLER_RELEASE_REPO && !env.installerReleaseTagExplicit) {
+      return null
+    }
+    return clampInstallerReleaseTag(env.installerReleaseTag)
   }
 
   const maxVersion = maxAllowedDesktopVersion(allowedVersions)
-  return maxVersion ? `v${maxVersion}` : env.installerReleaseTag
+  return clampInstallerReleaseTag(maxVersion ? `v${maxVersion}` : env.installerReleaseTag)
 }
 
 async function resolveInstallConfigForToken(token: string, request: Request) {
@@ -291,16 +279,21 @@ async function resolveInstallConfigForToken(token: string, request: Request) {
   return {
     config: buildInstallConfig({ organization: row.organization, request }),
     installLinkId: row.installLink.id,
+    organizationSlug: row.organization.slug,
     installerReleaseTag: installerReleaseTagForMetadata(row.organization.metadata),
   }
 }
 
-function contentDisposition(filename: string) {
-  return `attachment; filename="${filename.replace(/["\\]/g, "-")}"`
+function safeAttachmentSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "workspace"
 }
 
-function artifactFileName(platform: InstallPlatform, releaseTag: string) {
-  return desktopReleaseAssetName(platform, releaseTag)
+function contentDisposition(filename: string) {
+  return `attachment; filename="${filename.replace(/["\\]/g, "-")}"`
 }
 
 function installerContentType(platform: InstallPlatform) {
@@ -309,6 +302,64 @@ function installerContentType(platform: InstallPlatform) {
   return "application/vnd.appimage"
 }
 
+function shellQuote(value: string) {
+  return `'${value.replace(/'/g, "'\\''")}'`
+}
+
+function installConfigEndpoint(apiUrl: string, token: string) {
+  return new URL(`/v1/install-config?token=${encodeURIComponent(token)}`, new URL(apiUrl).origin).toString()
+}
+
+function linuxInstallScript(input: { token: string; config: z.infer<typeof installConfigSchema> }) {
+  const configUrl = installConfigEndpoint(input.config.apiUrl, input.token)
+  return `#!/usr/bin/env sh
+# OpenWork Linux setup for ${input.config.clientName}.
+# Downloads no code. It writes the desktop bootstrap config, then tells you
+# where to download the current OpenWork AppImage.
+set -eu
+
+CONFIG_URL=${shellQuote(configUrl)}
+CLIENT_NAME=${shellQuote(input.config.clientName)}
+WEB_URL=${shellQuote(input.config.webUrl)}
+API_URL=${shellQuote(input.config.apiUrl)}
+DOWNLOAD_URL=${shellQuote(OPENWORK_DOWNLOAD_URL)}
+
+if command -v curl >/dev/null 2>&1; then
+  FETCH="curl -fsSL"
+elif command -v wget >/dev/null 2>&1; then
+  FETCH="wget -qO-"
+else
+  echo "OpenWork setup requires curl or wget." >&2
+  exit 1
+fi
+
+echo "Checking your OpenWork install link..."
+# shellcheck disable=SC2086
+$FETCH "$CONFIG_URL" >/dev/null
+
+CONFIG_HOME="\${XDG_CONFIG_HOME:-$HOME/.config}"
+BOOTSTRAP_DIR="$CONFIG_HOME/openwork"
+BOOTSTRAP_PATH="$BOOTSTRAP_DIR/desktop-bootstrap.json"
+mkdir -p "$BOOTSTRAP_DIR"
+
+cat > "$BOOTSTRAP_PATH" <<EOF
+{
+  "baseUrl": "$WEB_URL",
+  "apiBaseUrl": "$API_URL",
+  "requireSignin": true
+}
+EOF
+
+echo
+echo "This sets up OpenWork for $CLIENT_NAME."
+echo "Wrote $BOOTSTRAP_PATH"
+echo
+echo "Download the OpenWork AppImage here:"
+echo "  $DOWNLOAD_URL"
+echo
+echo "Run the AppImage, then sign in — your team's workspace is preconfigured."
+`
+}
 
 const setActiveOrganizationFromParam: MiddlewareHandler<{ Variables: OrgRouteVariables }> = async (c, next) => {
   const parsed = denTypeIdSchema("organization").safeParse(c.req.param("organizationId"))
@@ -363,6 +414,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
       const retryAfter = await checkRateLimit(
         `install:mint:user:${payload.currentMember.userId}`,
         INSTALL_LINK_MINT_RATE_LIMIT_MAX,
+        INSTALL_LINK_RATE_LIMIT_WINDOW_MS,
         Date.now(),
       )
       if (retryAfter !== null) {
@@ -401,7 +453,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
     publicRoute,
     queryValidator(installLinkQuerySchema),
     async (c) => {
-      const retryAfter = await enforceRateLimit(c.req.raw.headers, "config", INSTALL_CONFIG_RATE_LIMIT_MAX)
+      const retryAfter = await enforceRateLimit(c.req.raw.headers, "install:config", INSTALL_CONFIG_RATE_LIMIT_MAX, INSTALL_LINK_RATE_LIMIT_WINDOW_MS)
       if (retryAfter !== null) {
         c.header("Retry-After", String(retryAfter))
         return c.json({ error: "rate_limited", message: "Too many install-link attempts. Try again later." }, 429)
@@ -413,15 +465,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
         return c.json({ error: "install_link_not_found" }, 404)
       }
 
-      const connectLink = mintDesktopConnectLink({
-        organizationName: resolved.config.clientName,
-        appName: resolved.config.appName,
-        logoUrl: resolved.config.logoUrl,
-        iconUrl: resolved.config.iconUrl,
-        webUrl: resolved.config.webUrl,
-        apiUrl: resolved.config.apiUrl,
-      })
-      const handoff = connectLink ?? await installer.mintConnectGrant({
+      const connectInput = {
         installLinkId: resolved.installLinkId,
         organizationName: resolved.config.clientName,
         appName: resolved.config.appName,
@@ -429,13 +473,55 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
         iconUrl: resolved.config.iconUrl,
         webUrl: resolved.config.webUrl,
         apiUrl: resolved.config.apiUrl,
-      })
+      }
+      const exchangeHandoff = await installer.mintConnectGrant(connectInput)
+      const handoff = mintDesktopConnectLink(connectInput) ?? exchangeHandoff
 
       return c.json({
         ...resolved.config,
         connectUrl: handoff.connectUrl,
         connectExpiresAt: handoff.connectExpiresAt,
+        activationUrl: exchangeHandoff.activationUrl,
+        activationExpiresAt: exchangeHandoff.connectExpiresAt,
       })
+    },
+  )
+
+  app.post(
+    "/v1/install-connect/status",
+    describeRoute({
+      tags: ["Organizations"],
+      summary: "Inspect desktop connection status",
+      description: "Reports whether a short-lived organization connection code is still pending or has been accepted by a desktop.",
+      responses: {
+        200: jsonResponse("Desktop connection status resolved successfully.", connectGrantStatusResponseSchema),
+        400: jsonResponse("The connection code body was invalid.", invalidRequestSchema),
+        404: jsonResponse("The connection code was not found.", connectGrantFailureSchema),
+        410: jsonResponse("The connection code expired.", connectGrantFailureSchema),
+        429: jsonResponse("Too many connection attempts.", rateLimitedSchema),
+      },
+    }),
+    publicRoute,
+    jsonValidator(connectGrantBodySchema),
+    async (c) => {
+      const retryAfter = await enforceRateLimit(c.req.raw.headers, "install:connect-status", INSTALL_CONNECT_STATUS_RATE_LIMIT_MAX, INSTALL_LINK_RATE_LIMIT_WINDOW_MS)
+      if (retryAfter !== null) {
+        c.header("Retry-After", String(retryAfter))
+        return c.json({ error: "rate_limited", message: "Too many connection attempts. Try again later." }, 429)
+      }
+
+      const result = await installer.inspectConnectGrant(c.req.valid("json").code)
+      if (result.ok) {
+        return c.json({
+          status: result.status,
+          claims: result.claims,
+          expiresAt: result.expiresAt.toISOString(),
+        })
+      }
+      if (result.code === "expired") {
+        return c.json({ error: "connect_grant_expired" }, 410)
+      }
+      return c.json({ error: "connect_grant_invalid" }, 404)
     },
   )
 
@@ -461,7 +547,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
       publicRoute,
       jsonValidator(connectGrantBodySchema),
       async (c) => {
-        const retryAfter = await enforceRateLimit(c.req.raw.headers, `connect-${mode}`, INSTALL_CONFIG_RATE_LIMIT_MAX)
+        const retryAfter = await enforceRateLimit(c.req.raw.headers, `install:connect-${mode}`, INSTALL_CONFIG_RATE_LIMIT_MAX, INSTALL_LINK_RATE_LIMIT_WINDOW_MS)
         if (retryAfter !== null) {
           c.header("Retry-After", String(retryAfter))
           return c.json({ error: "rate_limited", message: "Too many connection attempts. Try again later." }, 429)
@@ -489,11 +575,11 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
     "/v1/install/:platform",
     describeRoute({
       tags: ["Organizations"],
-      summary: "Download OpenWork desktop",
-      description: "Streams an explicitly provisioned standard OpenWork installer or redirects directly to the configured standard release. Organization setup remains a separate Den deep-link step.",
+      summary: "Download OpenWork installer",
+      description: "Always serves the OpenWork installer for the requested platform. By default Den redirects to the public release asset; unrestricted official-repo organizations follow the latest published release. Operators can optionally mount installer artifacts for an air-gapped mirror.",
       responses: {
         200: textResponse("Installer artifact returned successfully."),
-        302: emptyResponse("Den redirected the browser to a verified normal desktop download."),
+        302: emptyResponse("Den redirected the browser to the public OpenWork installer release asset."),
         400: jsonResponse("The install-link token or platform was invalid.", invalidRequestSchema),
         404: jsonResponse("The install link was missing, expired, or revoked.", installLinkNotFoundSchema),
         503: jsonResponse("The FoxWork installer is not configured on this deployment.", installerNotConfiguredSchema),
@@ -508,7 +594,7 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
         return c.json({ error: "invalid_request", details: platformResult.error.issues }, 400)
       }
 
-      const retryAfter = await enforceRateLimit(c.req.raw.headers, "artifact", INSTALL_ARTIFACT_RATE_LIMIT_MAX)
+      const retryAfter = await enforceRateLimit(c.req.raw.headers, "install:artifact", INSTALL_ARTIFACT_RATE_LIMIT_MAX, INSTALL_LINK_RATE_LIMIT_WINDOW_MS)
       if (retryAfter !== null) {
         c.header("Retry-After", String(retryAfter))
         return c.json({ error: "rate_limited", message: "Too many installer download attempts. Try again later." }, 429)
@@ -521,25 +607,39 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
       }
 
       const platform = platformResult.data.platform
-      const fileName = artifactFileName(platform, resolved.installerReleaseTag)
-      if (!fileName) {
+      if (platform.startsWith("linux-")) {
+        return new Response(linuxInstallScript({ token: input.token, config: resolved.config }), {
+          headers: {
+            "content-type": "text/x-shellscript; charset=utf-8",
+            "content-disposition": contentDisposition(`openwork-linux-setup-${safeAttachmentSlug(resolved.organizationSlug)}.sh`),
+            "cache-control": "no-store",
+          },
+        })
+      }
+
+      const genericFileName = genericInstallerArtifactName(platform)
+      if (genericFileName) {
+        const configuredArtifact = await installer.resolveConfiguredArtifact(genericFileName)
+        if (configuredArtifact) {
+          c.header("content-type", installerContentType(platform))
+          c.header("content-length", String(configuredArtifact.size))
+          c.header("content-disposition", contentDisposition(genericFileName))
+          c.header("cache-control", "private, max-age=300")
+          return stream(c, async (body) => {
+            for await (const chunk of createReadStream(configuredArtifact.filePath)) {
+              await body.write(chunk)
+            }
+          })
+        }
+      }
+
+      if (!genericFileName) {
         return c.json({ error: "invalid_request", details: [{ message: "Unsupported installer platform." }] }, 400)
       }
 
-      // Organization setup is always a separate deep-link step, so every Den
-      // deployment can return the ordinary installer without keys, wrapping,
-      // or a per-pod artifact cache.
-      const configuredArtifact = await installer.resolveConfiguredArtifact(fileName)
-      if (configuredArtifact) {
-        c.header("content-type", installerContentType(platform))
-        c.header("content-length", String(configuredArtifact.size))
-        c.header("content-disposition", contentDisposition(fileName))
-        c.header("cache-control", "private, max-age=300")
-        return stream(c, async (body) => {
-          for await (const chunk of createReadStream(configuredArtifact.filePath)) {
-            await body.write(chunk)
-          }
-        })
+      if (resolved.installerReleaseTag === null) {
+        // Follow GitHub latest published release so draft-release windows cannot 404.
+        return c.redirect(installerLatestReleaseAssetUrl(genericFileName), 302)
       }
       const directUrl = installer.resolveDirectUrl(platform, resolved.installerReleaseTag)
       if (!directUrl) {

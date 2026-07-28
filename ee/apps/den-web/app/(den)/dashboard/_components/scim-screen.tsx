@@ -60,7 +60,7 @@ export function ScimScreen() {
   );
 
   async function loadScimConfig(isCurrent = () => true) {
-    if (!orgId || !access.canManageScim) {
+    if (!orgId || !access.canViewSettings) {
       if (isCurrent()) {
         setBaseUrl(null);
         setSsoReady(false);
@@ -130,7 +130,7 @@ export function ScimScreen() {
     return () => {
       active = false;
     };
-  }, [orgId, access.canManageScim]);
+  }, [orgId, access.canViewSettings]);
 
   useEffect(() => {
     if (!copiedValue) {
@@ -155,6 +155,11 @@ export function ScimScreen() {
   }
 
   async function handleRotateToken() {
+    if (!access.canManageScim) {
+      setError("Only workspace owners and super-admins can create or rotate SCIM tokens.");
+      return;
+    }
+
     if (!orgId) {
       setError("没有找到公司信息，请刷新后重试。");
       return;
@@ -201,6 +206,11 @@ export function ScimScreen() {
   }
 
   async function handleRunReconciliation() {
+    if (!access.canManageScim) {
+      setError("Only workspace owners and super-admins can run SCIM reconciliation.");
+      return;
+    }
+
     if (!orgId) {
       setError("没有找到公司信息，请刷新后重试。");
       return;
@@ -236,6 +246,11 @@ export function ScimScreen() {
   }
 
   async function handleGroupMappingChange() {
+    if (!access.canManageScim) {
+      setError("Only workspace owners and super-admins can change SCIM mappings.");
+      return;
+    }
+
     if (!connection) {
       setError("请先创建 SCIM 连接，再启用团队同步。");
       return;
@@ -273,6 +288,11 @@ export function ScimScreen() {
   }
 
   async function handleDeleteConnection() {
+    if (!access.canManageScim) {
+      setError("Only workspace owners and super-admins can delete SCIM connections.");
+      return;
+    }
+
     if (
       !orgId ||
       !window.confirm(
@@ -338,12 +358,17 @@ export function ScimScreen() {
       description="为公司创建 SCIM 连接，并将这里的服务地址和令牌配置到身份服务中。"
       colors={["#ECFEFF", "#155E75", "#06B6D4", "#A5F3FC"]}
     >
-      {!access.canManageScim ? (
+      {!access.canViewSettings ? (
         <div className="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-5 text-[14px] text-amber-900">
           只有公司所有者和管理员可以管理 SCIM。
         </div>
       ) : (
         <>
+          {!access.canManageScim ? (
+            <div className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">
+              Read-only: owners and super-admins can create tokens, reconcile, change mappings, or delete SCIM connections.
+            </div>
+          ) : null}
           <div className="mb-6 flex flex-wrap gap-2 rounded-[24px] border border-gray-200 bg-white px-5 py-4 text-[12px] font-semibold shadow-[0_18px_48px_-34px_rgba(15,23,42,0.22)]">
             <span className={`rounded-full px-3 py-1.5 ${orgContext.authMethods.sso ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
               {orgContext.authMethods.sso ? "SAML/SSO 已启用" : "SAML/SSO 未配置"}
@@ -439,7 +464,7 @@ export function ScimScreen() {
                 variant={connection?.groupMappingMode === "create_teams" ? "secondary" : "primary"}
                 onClick={() => void handleGroupMappingChange()}
                 loading={updatingGroupMapping}
-                disabled={!connection}
+                disabled={!access.canManageScim || !connection}
               >
                 {connection?.groupMappingMode === "create_teams" ? "关闭同步" : "启用团队同步"}
               </DenButton>
@@ -469,6 +494,7 @@ export function ScimScreen() {
                     icon={Trash2}
                     onClick={() => void handleDeleteConnection()}
                     loading={deleting}
+                    disabled={!access.canManageScim}
                   >
                     删除连接
                   </DenButton>

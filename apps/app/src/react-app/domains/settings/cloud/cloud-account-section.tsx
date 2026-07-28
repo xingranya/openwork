@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { Building2, Check, LogOut, Loader2 } from "lucide-react";
+import { ArrowUpRight, Building2, Check, LogOut, Loader2 } from "lucide-react";
 
 import type { DenOrgSummary } from "../../../../app/lib/den";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export interface CloudAccountSectionProps {
   orgsError: string | null;
   sessionBusy: boolean;
   onActiveOrgChange: (orgId: string) => void | Promise<void>;
+  onOpenDashboard: () => void;
   onRefreshOrgs: () => void | Promise<void>;
   onSignOut: () => void | Promise<void>;
 }
@@ -34,6 +35,7 @@ export function CloudAccountSection({
   orgsError,
   sessionBusy,
   onActiveOrgChange,
+  onOpenDashboard,
   onRefreshOrgs,
   onSignOut,
 }: CloudAccountSectionProps) {
@@ -58,16 +60,26 @@ export function CloudAccountSection({
             ) : null}
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={() => void onSignOut()}
-          disabled={controlsDisabled}
-        >
-          <LogOut className="size-3.5" />
-          {authBusy ? t("den.signing_out") : t("den.sign_out")}
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenDashboard}
+            disabled={controlsDisabled}
+          >
+            {t("den.open_dashboard")}
+            <ArrowUpRight className="size-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void onSignOut()}
+            disabled={controlsDisabled}
+          >
+            <LogOut className="size-3.5" />
+            {authBusy ? t("den.signing_out") : t("den.sign_out")}
+          </Button>
+        </div>
       </div>
 
       {/* 待选择公司时显示选择器，否则显示当前公司 */}

@@ -4,9 +4,11 @@ import {
   LEGACY_OPENWORK_CLOUD_NAME,
   readOpenworkCloudMcpHealth,
   reconcileOpenworkCloudMcp,
+  refreshOpenworkCloudMcpEngine,
   type CloudMcpServerMetadata,
   type CloudMcpProviderModelContext,
   type CloudMcpRuntimeRegistrar,
+  type CloudMcpLiveStatusObserver,
 } from "../cloud-mcp-health.js";
 import { ApiError } from "../errors.js";
 import type { ServerConfig, TokenScope, WorkspaceInfo } from "../types.js";
@@ -27,6 +29,7 @@ export type RegisterCloudMcpRoutesOptions = {
   resolveOpencodeDirectory: (workspace: WorkspaceInfo) => string | null;
   createWorkspaceOpencodeClient: (config: ServerConfig, workspace: WorkspaceInfo) => WorkspaceOpencodeClient;
   registerRuntimeMcp: CloudMcpRuntimeRegistrar;
+  refreshRegistrationFromLiveStatus?: CloudMcpLiveStatusObserver;
   serverMetadata?: CloudMcpServerMetadata;
 };
 
@@ -91,6 +94,7 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
     resolveOpencodeDirectory,
     createWorkspaceOpencodeClient,
     registerRuntimeMcp,
+    refreshRegistrationFromLiveStatus,
     serverMetadata,
   } = options;
 
@@ -105,6 +109,7 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
       serverMetadata,
       probe: probeFromQuery(ctx.url),
       createWorkspaceOpencodeClient,
+      refreshRegistrationFromLiveStatus,
     });
     return jsonResponse(health);
   };
@@ -128,6 +133,7 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
       serverMetadata,
       createWorkspaceOpencodeClient,
       registerRuntimeMcp,
+      refreshRegistrationFromLiveStatus,
     });
     return jsonResponse(health);
   };

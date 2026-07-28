@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, test } from "node:test"
 import { fileURLToPath } from "node:url"
@@ -12,6 +12,21 @@ const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
 
 function readRepoFile(relativePath: string) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8")
+}
+
+function readDenDbMigrations() {
+  return readdirSync(path.join(packageDir, "drizzle"))
+    .filter((entry) => entry.endsWith(".sql"))
+    .map((entry) => readFileSync(path.join(packageDir, "drizzle", entry), "utf8"))
+    .join("\n")
+}
+
+function readMigrationJournal() {
+  return JSON.parse(
+    readFileSync(path.join(packageDir, "drizzle", "meta", "_journal.json"), "utf8"),
+  ) as {
+    entries: Array<{ idx: number; when: number; tag: string }>
+  }
 }
 
 function requireSlice(contents: string, start: string, end: string) {
@@ -35,6 +50,14 @@ function shortOutput(output: string) {
 }
 
 describe("Den DB migration readiness wiring", () => {
+  test("oauth access token lookup has a token prefix index", () => {
+    const authSchema = readRepoFile("ee/packages/den-db/src/schema/auth.ts")
+    const migrations = readDenDbMigrations()
+
+    assert.equal(authSchema.includes('index("oauth_access_token_token").on(sql`${table.token}(191)`)'), true)
+    assert.match(migrations, /CREATE INDEX `oauth_access_token_token` ON `oauthAccessToken` \(`token`\(191\)\);/)
+  })
+
   test("Helm migration defaults execute the precompiled dist runner", () => {
     const values = readRepoFile("packaging/helm/openwork-ee/values.yaml")
     const migrationsBlock = requireSlice(values, "migrations:\n", "\ningress:")
@@ -114,22 +137,122 @@ describe("Den DB migration readiness wiring", () => {
     assertNoForbiddenDeployTools(bootstrap)
   })
 
+  test("FoxWork 上游兼容迁移补齐 0.18.3 结构且保留旧公司 Skill 数据", () => {
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0050_foxwork_upstream_compatibility.sql")
+    const legacySkillTables = ["skill_hub_member", "skill_hub_skill", "skill_hub", "skill"]
+    const removedIndexes = [
+      "desktop_policy_member_policy_id",
+      "desktop_policy_organization_id",
+      "inference_org_limit_policies_organization_id",
+      "inference_org_upstream_provider_keys_organization_id",
+      "inference_org_usage_buckets_policy_id",
+      "member_organization_id",
+      "organization_brand_asset_organization_id",
+      "organization_role_organization_id",
+      "scim_group_provider_id",
+      "connected_account_org_membership_id",
+      "org_oauth_client_organization_id",
+      "plugin_mcp_req_binding_organization_id",
+      "llm_provider_access_llm_provider_id",
+      "llm_provider_model_llm_provider_id",
+      "config_object_access_grant_config_object_id",
+      "config_object_version_config_object_id",
+      "connector_account_organization_id",
+      "connector_instance_access_grant_instance_id",
+      "connector_instance_organization_id",
+      "connector_mapping_connector_target_id",
+      "connector_source_binding_config_object_id",
+      "connector_target_connector_instance_id",
+      "marketplace_access_grant_marketplace_id",
+      "marketplace_plugin_marketplace_id",
+      "plugin_access_grant_plugin_id",
+      "plugin_config_object_plugin_id",
+      "org_subscriptions_organization_id",
+      "team_member_team_id",
+      "team_organization_id",
+    ]
+
+    assert.match(migration, /information_schema\.(tables|columns|statistics)/)
+    for (const table of legacySkillTables) {
+      assert.match(migration, new RegExp("RENAME TABLE `" + table + "` TO `foxwork_legacy_" + table + "`"))
+      assert.equal(
+        new RegExp("DROP TABLE(?: IF EXISTS)? `" + table + "`", "i").test(migration),
+        false,
+        `${table} 必须改名保留，不能删除`,
+      )
+    }
+    for (const index of removedIndexes) {
+      assert.match(migration, new RegExp("DROP INDEX `" + index + "`"))
+    }
+    assert.match(migration, /CREATE INDEX `oauth_access_token_token`/)
+    assert.match(migration, /CREATE INDEX `idx_connector_account_on_remote_id`/)
+    assert.match(migration, /MODIFY COLUMN `normalized_payload_json` mediumtext/)
+    assert.match(migration, /MODIFY COLUMN `raw_source_text` mediumtext/)
+    assert.match(migration, /ADD `role` varchar\(64\)/)
+  })
+
+  test("FoxWork 兼容迁移编号晚于旧发布迁移并保持唯一顺序", () => {
+    const journal = readMigrationJournal()
+    const tags = journal.entries.map((entry) => entry.tag)
+    const compatibilityTags = [
+      "0050_foxwork_upstream_compatibility",
+      "0051_worker_creation_idempotency",
+      "0052_mcp_connection_description",
+      "0053_llm_provider_default_enabled",
+    ]
+    const retiredMigrationNames = [
+      "0045_worker_creation_idempotency.sql",
+      "0046_gifted_sleeper.sql",
+      "0047_mcp_connection_description.sql",
+      "0048_llm_provider_default_enabled.sql",
+    ]
+    const migrationNames = readdirSync(path.join(packageDir, "drizzle"))
+
+    for (const tag of compatibilityTags) assert.equal(tags.filter((entry) => entry === tag).length, 1)
+    for (const name of retiredMigrationNames) assert.equal(migrationNames.includes(name), false)
+
+    const compatibilityEntries = journal.entries.filter((entry) => compatibilityTags.includes(entry.tag))
+    assert.deepEqual(
+      compatibilityEntries.map((entry) => entry.tag),
+      compatibilityTags,
+    )
+    assert.ok(
+      compatibilityEntries[0]!.when > 1_785_108_501_780,
+      "0050 必须晚于已经发布的 FoxWork 0048，避免升级时被 Drizzle 跳过",
+    )
+    for (let index = 1; index < compatibilityEntries.length; index += 1) {
+      assert.ok(compatibilityEntries[index]!.when > compatibilityEntries[index - 1]!.when)
+      assert.equal(compatibilityEntries[index]!.idx, compatibilityEntries[index - 1]!.idx + 1)
+    }
+  })
+
+  test("Worker 创建幂等迁移只增加可空键和组织内唯一约束", () => {
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0051_worker_creation_idempotency.sql")
+    const schema = readRepoFile("ee/packages/den-db/src/schema/workers.ts")
+
+    assert.match(migration, /ADD `idempotency_key` varchar\(128\)/)
+    assert.match(migration, /UNIQUE\(`org_id`,`created_by_user_id`,`idempotency_key`\)/)
+    assert.equal(/DROP\s+(TABLE|COLUMN)/i.test(migration), false)
+    assert.match(schema, /idempotency_key: varchar\("idempotency_key", \{ length: 128 \}\)/)
+    assert.match(schema, /uniqueIndex\("worker_org_user_idempotency_key"\)/)
+  })
+
   test("MCP 连接说明迁移只新增可空字段并保留既有数据", () => {
-    const migration = readRepoFile("ee/packages/den-db/drizzle/0047_mcp_connection_description.sql")
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0052_mcp_connection_description.sql")
     const schema = readRepoFile("ee/packages/den-db/src/schema/sharables/capability-credentials.ts")
 
-    assert.match(migration, /ALTER TABLE `external_mcp_connection` ADD `description` varchar\(1000\);/)
+    assert.match(migration, /ALTER TABLE `external_mcp_connection` ADD `description` varchar\(1000\)/)
     assert.equal(/DROP\s+(TABLE|COLUMN)/i.test(migration), false)
     assert.match(schema, /description: varchar\("description", \{ length: 1000 \}\)/)
   })
 
   test("模型默认全员策略迁移为旧数据保留受限访问语义", () => {
-    const migration = readRepoFile("ee/packages/den-db/drizzle/0048_llm_provider_default_enabled.sql")
+    const migration = readRepoFile("ee/packages/den-db/drizzle/0053_llm_provider_default_enabled.sql")
     const schema = readRepoFile("ee/packages/den-db/src/schema/sharables/llm-providers.ts")
 
     assert.match(
       migration,
-      /ALTER TABLE `llm_provider` ADD `default_enabled` boolean DEFAULT false NOT NULL;/,
+      /ALTER TABLE `llm_provider` ADD `default_enabled` boolean DEFAULT false NOT NULL/,
     )
     assert.equal(/DROP\s+(TABLE|COLUMN)/i.test(migration), false)
     assert.match(

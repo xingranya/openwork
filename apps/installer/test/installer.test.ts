@@ -1,9 +1,23 @@
 import { describe, expect, test } from "bun:test"
+import { Buffer } from "node:buffer"
+import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { installConfigUrlFor, parseInstallerFilenameTag } from "@openwork/install-config"
+import { installConfigUrlFor } from "@openwork/install-config"
 
+import {
+  appleScriptString,
+  buildCompressedDmgArgs,
+  buildFinderLayoutScript,
+  buildReadWriteDmgArgs,
+  buildTiffutilArgs,
+  dmgBackgroundPaths,
+  dmgLayout,
+  dmgVolumeName,
+  dmgWindowBounds,
+} from "../scripts/dmg-layout.mjs"
+import { resolveInstallerVersion, versionFromReleaseTag, windowsFileVersion } from "../scripts/installer-version.mjs"
 import { desktopBootstrapPath, legacyDesktopBootstrapPath } from "../src/bootstrap-path"
 import { installerConfigSourceLabel, parseInstallLinkInput, resolveInstallerConfig } from "../src/config"
 import { isTranslocatedPath, parseMountTableLine, readSidecarConfig, resolveTranslocatedOriginalPath } from "../src/config-sources"
@@ -99,6 +113,28 @@ describe("releaseAssetFor", () => {
   })
 })
 
+test("browser activation uses each platform's standard URL opener", () => {
+  const url = "https://den.example.test/activate?code=one-time-code"
+  expect(externalUrlCommand(url, "darwin")).toEqual(["open", url])
+  expect(externalUrlCommand(url, "win32")).toEqual(["cmd", "/c", "start", "", url])
+  expect(externalUrlCommand(url, "linux")).toEqual(["xdg-open", url])
+  expect(() => externalUrlCommand("openwork://connect", "darwin")).toThrow()
+})
+
+describe("windowsInstalledExePath", () => {
+  test("reports the installed electron-builder package directory", () => {
+    const temp = mkdtempSync(path.join(os.tmpdir(), "openwork-installed-path-"))
+    const installed = path.join(temp, "Programs", "@openworkdesktop", "OpenWork.exe")
+    mkdirSync(path.dirname(installed), { recursive: true })
+    writeFileSync(installed, "")
+    try {
+      expect(windowsInstalledExePath(temp)).toBe(installed)
+    } finally {
+      rmSync(temp, { recursive: true, force: true })
+    }
+  })
+})
+
 describe("resolveInstallerConfig", () => {
   test("reads env overrides and normalizes URLs", async () => {
     const { config, source } = await resolveInstallerConfig({ env: {
@@ -140,189 +176,107 @@ describe("resolveInstallerConfig", () => {
   })
 
   test("fails without a configured deployment", async () => {
-    await expect(resolveInstallerConfig({ env: {}, execPath: path.join(os.tmpdir(), "openwork-installer") })).rejects.toThrow()
+    await expect(resolveInstallerConfig({ env: {} })).rejects.toThrow()
   })
 
-  test("prefers env overrides over sidecar config", async () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-precedence-"))
-    try {
-      const execPath = path.join(dir, "openwork-installer")
-      writeFileSync(execPath, "")
-      writeFileSync(path.join(dir, "openwork-installer.json"), JSON.stringify({
-        clientName: "Sidecar",
-        webUrl: "https://sidecar.example.com",
-        apiUrl: "https://sidecar-api.example.com",
+  test("prefers env overrides over pasted install links", async () => {
+    const resolution = await resolveInstallerConfig({
+      env: {
+        OPENWORK_INSTALLER_CLIENT_NAME: "Env",
+        OPENWORK_INSTALLER_WEB_URL: "https://env.example.com",
+        OPENWORK_INSTALLER_API_URL: "https://env-api.example.com",
+      },
+      installLink: "not an install link",
+    })
+
+    expect(resolution.source).toBe("env")
+    expect(resolution.config.clientName).toBe("Env")
+  })
+
+  test("reads build constants before pasted install links", async () => {
+    const resolution = await resolveInstallerConfig({
+      env: {},
+      buildConstants: {
+        appName: "Build Work",
+        clientName: "Build Corp",
+        webUrl: "https://build.example.com/",
+        apiUrl: "https://build-api.example.com/",
+        logoUrl: "https://build.example.com/logo.svg",
+        requireSignin: true,
+      },
+      installLink: "https://app.example.com/install?token=abcDEF12",
+      fetcher: () => {
+        throw new Error("install link should not be fetched when build constants exist")
+      },
+    })
+
+    expect(resolution.source).toBe("build")
+    expect(resolution.config).toEqual({
+      appName: "Build Work",
+      clientName: "Build Corp",
+      webUrl: "https://build.example.com",
+      apiUrl: "https://build-api.example.com",
+      logoUrl: "https://build.example.com/logo.svg",
+      requireSignin: true,
+    })
+  })
+
+  test("ignores empty placeholder build constants", () => {
+    expect(buildConstantsConfig({
+      appName: "",
+      clientName: "",
+      webUrl: "",
+      apiUrl: "",
+      logoUrl: "",
+      requireSignin: false,
+    })).toBeNull()
+  })
+
+  test("resolves pasted install links", async () => {
+    const configServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({
+        clientName: "Linked Corp",
+        webUrl: "https://linked.example.com/",
+        apiUrl: "https://linked-api.example.com/",
         requireSignin: true,
         logoUrl: null,
-      }))
-
+        iconUrl: null,
+        connectUrl: "openwork://connect?code=abcdefghijklmnopqrstuvwxyz123456&apiBaseUrl=https%3A%2F%2Flinked-api.example.com",
+        connectExpiresAt: "2030-01-01T00:00:00.000Z",
+        activationUrl: "https://linked.example.com/activate?code=abcdefghijklmnopqrstuvwxyz123456",
+        activationExpiresAt: "2030-01-01T00:00:00.000Z",
+      }),
+    })
+    try {
       const resolution = await resolveInstallerConfig({
-        env: {
-          OPENWORK_INSTALLER_CLIENT_NAME: "Env",
-          OPENWORK_INSTALLER_WEB_URL: "https://env.example.com",
-          OPENWORK_INSTALLER_API_URL: "https://env-api.example.com",
-        },
-        execPath,
+        env: {},
+        installLink: `http://127.0.0.1:${configServer.port}/install?token=abcDEF12`,
       })
 
-      expect(resolution.source).toBe("env")
-      expect(resolution.config.clientName).toBe("Env")
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  // macOS-only semantics: .app bundles (and their slash-separated exec paths)
-  // do not exist on Windows, where path.join builds a backslashed path the
-  // bundle matcher rightly rejects.
-  test.skipIf(process.platform === "win32")("reads sidecar next to the enclosing app bundle", async () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-app-sidecar-"))
-    try {
-      const macOsDir = path.join(dir, "OpenWork Installer.app", "Contents", "MacOS")
-      mkdirSync(macOsDir, { recursive: true })
-      const execPath = path.join(macOsDir, "OpenWork Installer")
-      writeFileSync(execPath, "")
-      writeFileSync(path.join(dir, "openwork-installer.json"), JSON.stringify({
-        clientName: "Bundle Sidecar",
-        webUrl: "https://bundle.example.com",
-        apiUrl: "https://bundle-api.example.com",
-        requireSignin: true,
-        logoUrl: null,
-      }))
-
-      const resolution = await resolveInstallerConfig({ env: {}, execPath })
-      expect(resolution.source).toBe("sidecar")
-      expect(resolution.config.clientName).toBe("Bundle Sidecar")
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  })
-})
-
-describe("macOS App Translocation helpers", () => {
-  test("parses a normal mount table line", () => {
-    expect(parseMountTableLine("/private/tmp/OpenWork Installer.app on /private/var/folders/abc/T/AppTranslocation/123 (nullfs, local, read-only)")).toEqual({
-      source: "/private/tmp/OpenWork Installer.app",
-      mountPoint: "/private/var/folders/abc/T/AppTranslocation/123",
-      options: "nullfs, local, read-only",
-    })
-  })
-
-  test("parses paths with spaces and on in the source", () => {
-    expect(parseMountTableLine("/private/tmp/folder with spaces/source on disk/OpenWork Installer.app on /private/var/folders/abc/T/AppTranslocation/UUID With Space (nullfs, local)")).toEqual({
-      source: "/private/tmp/folder with spaces/source on disk/OpenWork Installer.app",
-      mountPoint: "/private/var/folders/abc/T/AppTranslocation/UUID With Space",
-      options: "nullfs, local",
-    })
-  })
-
-  test("ignores junk mount table lines", () => {
-    expect(parseMountTableLine("not a mount table line")).toBeNull()
-    expect(parseMountTableLine("/private/tmp/OpenWork Installer.app on /private/var/folders/abc/T/AppTranslocation/123")).toBeNull()
-  })
-
-  test("resolves the original app through the translocated /d path", () => {
-    const mountPoint = "/private/var/folders/abc/T/AppTranslocation/123"
-    const source = "/private/tmp/OpenWork Installer.app"
-    const execPath = `${mountPoint}/d/OpenWork Installer.app/Contents/MacOS/openwork-installer`
-
-    expect(resolveTranslocatedOriginalPath(execPath, `${source} on ${mountPoint} (nullfs, local, nodev)\n`)).toBe(source)
-  })
-
-  test("skips non-nullfs mounts", () => {
-    const mountPoint = "/private/var/folders/abc/T/AppTranslocation/123"
-    const source = "/private/tmp/OpenWork Installer.app"
-    const execPath = `${mountPoint}/d/OpenWork Installer.app/Contents/MacOS/openwork-installer`
-
-    expect(resolveTranslocatedOriginalPath(execPath, `${source} on ${mountPoint} (apfs, local)\n`)).toBeNull()
-  })
-
-  test("requires a mountpoint path-prefix boundary", () => {
-    const mountPoint = "/private/var/folders/abc/T/AppTranslocation/123"
-    const source = "/private/tmp/OpenWork Installer.app"
-    const execPath = `${mountPoint}-suffix/d/OpenWork Installer.app/Contents/MacOS/openwork-installer`
-
-    expect(resolveTranslocatedOriginalPath(execPath, `${source} on ${mountPoint} (nullfs, local)\n`)).toBeNull()
-  })
-
-  test("returns null when no translocation mount matches", () => {
-    const execPath = "/private/var/folders/abc/T/AppTranslocation/123/d/OpenWork Installer.app/Contents/MacOS/openwork-installer"
-    const mountTable = "/private/tmp/OpenWork Installer.app on /private/var/folders/abc/T/AppTranslocation/other (nullfs, local)\n"
-
-    expect(resolveTranslocatedOriginalPath(execPath, mountTable)).toBeNull()
-  })
-
-  test("detects App Translocation paths", () => {
-    expect(isTranslocatedPath("/private/var/folders/abc/T/AppTranslocation/123/d/OpenWork Installer.app/Contents/MacOS/openwork-installer")).toBe(true)
-    expect(isTranslocatedPath("/Applications/OpenWork Installer.app/Contents/MacOS/openwork-installer")).toBe(false)
-  })
-
-  test("reads the sidecar next to the original translocated app", () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-translocated-"))
-    try {
-      const originalAppPath = path.join(dir, "OpenWork Installer.app")
-      const mountPoint = "/private/var/folders/abc/T/AppTranslocation/123"
-      const execPath = `${mountPoint}/d/OpenWork Installer.app/Contents/MacOS/openwork-installer`
-      mkdirSync(originalAppPath, { recursive: true })
-      writeFileSync(path.join(dir, "openwork-installer.json"), JSON.stringify({
-        clientName: "Translocated Sidecar",
-        webUrl: "https://translocated.example.com",
-        apiUrl: "https://translocated-api.example.com",
-        requireSignin: true,
-        logoUrl: null,
-      }))
-
-      expect(readSidecarConfig({
-        execPath,
-        readMountTable: () => `${originalAppPath} on ${mountPoint} (nullfs, local, read-only)\n`,
-        warn: () => undefined,
-      })).toEqual({
+      expect(resolution.source).toBe("install-link")
+      expect(resolution.activation).toEqual({
+        url: "https://linked.example.com/activate?code=abcdefghijklmnopqrstuvwxyz123456",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+      })
+      expect(resolution.installLink).toBe(`http://127.0.0.1:${configServer.port}/install?token=abcDEF12`)
+      expect(resolution.config).toEqual({
         appName: "OpenWork",
-        clientName: "Translocated Sidecar",
-        webUrl: "https://translocated.example.com",
-        apiUrl: "https://translocated-api.example.com",
+        clientName: "Linked Corp",
+        webUrl: "https://linked.example.com",
+        apiUrl: "https://linked-api.example.com",
         requireSignin: true,
         logoUrl: null,
       })
     } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  test("falls through when the translocation mount is missing", () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "openwork-installer-translocated-missing-"))
-    try {
-      const originalAppPath = path.join(dir, "OpenWork Installer.app")
-      const execPath = "/private/var/folders/abc/T/AppTranslocation/123/d/OpenWork Installer.app/Contents/MacOS/openwork-installer"
-      writeFileSync(path.join(dir, "openwork-installer.json"), JSON.stringify({
-        clientName: "Missing Mount Sidecar",
-        webUrl: "https://missing.example.com",
-        apiUrl: "https://missing-api.example.com",
-        requireSignin: false,
-        logoUrl: null,
-      }))
-
-      expect(readSidecarConfig({
-        execPath,
-        readMountTable: () => `${originalAppPath} on /private/var/folders/abc/T/AppTranslocation/other (nullfs, local)\n`,
-        warn: () => undefined,
-      })).toBeNull()
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
+      configServer.stop(true)
     }
   })
 })
 
 describe("install link helpers", () => {
-  test("parses filename stamps and install config URLs", () => {
-    expect(parseInstallerFilenameTag("OpenWork-Installer--127.0.0.1_8790--abcDEF12.exe")).toEqual({
-      host: "127.0.0.1:8790",
-      token: "abcDEF12",
-    })
-    expect(parseInstallerFilenameTag("OpenWork-Installer--api.example.com--abcDEF12")).toEqual({
-      host: "api.example.com",
-      token: "abcDEF12",
-    })
+  test("builds install config URLs", () => {
     expect(installConfigUrlFor("127.0.0.1:8790", "abcDEF12")).toBe("http://127.0.0.1:8790/v1/install-config?token=abcDEF12")
     expect(installConfigUrlFor("api.example.com", "abcDEF12")).toBe("https://api.example.com/v1/install-config?token=abcDEF12")
   })
@@ -338,6 +292,372 @@ describe("install link helpers", () => {
       "https://api.example.com/v1/install-config?token=abcDEF12",
     )
     expect(parseInstallLinkInput("http://api.example.com/install?token=abcDEF12")).toBeNull()
+  })
+})
+
+describe("system CA fetch", () => {
+  test("classifies a default self-signed HTTPS install config as a TLS trust failure", async () => {
+    const certificate = createSelfSignedCertificate()
+    const configServer = startTlsInstallConfigServer(certificate)
+    try {
+      const result = await resolveInstallLinkConfig(`https://127.0.0.1:${configServer.port}/install?token=abcDEF12`)
+
+      expect(result).toEqual({ status: "unreachable", reason: "tls" })
+    } finally {
+      configServer.stop(true)
+      certificate.cleanup()
+    }
+  })
+
+  test("resolves a self-signed HTTPS install config when the system CA loader supplies its certificate", async () => {
+    const certificate = createSelfSignedCertificate()
+    const configServer = startTlsInstallConfigServer(certificate)
+    try {
+      const result = await resolveInstallLinkConfig(`https://127.0.0.1:${configServer.port}/install?token=abcDEF12`, {
+        fetcher: createSystemCaFetch(async () => [certificate.cert]),
+      })
+
+      expect(result).toEqual({
+        status: "resolved",
+        activation: null,
+        config: {
+          appName: "OpenWork",
+          clientName: "TLS Corp",
+          webUrl: "https://tls.example.com",
+          apiUrl: "https://tls-api.example.com",
+          requireSignin: true,
+          logoUrl: null,
+        },
+      })
+    } finally {
+      configServer.stop(true)
+      certificate.cleanup()
+    }
+  })
+
+  test("parses darwin security PEM output", () => {
+    const first = "-----BEGIN CERTIFICATE-----\nfirst\n-----END CERTIFICATE-----"
+    const second = "-----BEGIN CERTIFICATE-----\nsecond\n-----END CERTIFICATE-----"
+
+    expect(parseDarwinSecurityCertificates(`noise\n${first}\nmore noise\n${second}\n`)).toEqual([first, second])
+  })
+
+  test("parses and dedupes windows PowerShell certificate output", () => {
+    const first = Buffer.from("first certificate with enough bytes to require PEM wrapping across more than one output line").toString("base64")
+    const second = Buffer.from("second certificate").toString("base64")
+    const output = [
+      windowsPowerShellCertBlock(first),
+      "noise",
+      windowsPowerShellCertBlock(second),
+      windowsPowerShellCertBlock(first),
+    ].join("\n")
+
+    expect(parseWindowsPowerShellCertificates(output)).toEqual([pemForBase64(first), pemForBase64(second)])
+  })
+
+  test("ignores garbage certificate command output", () => {
+    expect(parseDarwinSecurityCertificates("not certificate output")).toEqual([])
+    expect(parseWindowsPowerShellCertificates("not certificate output")).toEqual([])
+  })
+
+  test("passes through without TLS options when no system CAs are available", async () => {
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("ok"),
+    })
+    try {
+      const fetcher = createSystemCaFetch(async () => [])
+      const response = await fetcher(`http://127.0.0.1:${server.port}/`)
+
+      expect(response.status).toBe(200)
+      expect(await response.text()).toBe("ok")
+    } finally {
+      server.stop(true)
+    }
+  })
+})
+
+describe("OS trust store sources", () => {
+  const CORPORATE_ROOT = "-----BEGIN CERTIFICATE-----\ncorporate-root\n-----END CERTIFICATE-----"
+  const PUBLIC_ROOT = "-----BEGIN CERTIFICATE-----\npublic-root\n-----END CERTIFICATE-----"
+
+  function loaders(overrides: Partial<SystemCaLoaders> = {}): SystemCaLoaders {
+    return {
+      runtime: () => [],
+      platform: { name: "windows-cert-stores", load: async () => [] },
+      extra: () => [],
+      ...overrides,
+    }
+  }
+
+  test("keeps enumerating the platform stores when the runtime already returned roots", async () => {
+    // The shape of the failure on an inspected network: the runtime knows the
+    // public roots, and only the platform store holds the corporate one.
+    const bundle = await resolveSystemCaBundle(
+      loaders({
+        runtime: () => [PUBLIC_ROOT],
+        platform: { name: "windows-cert-stores", load: async () => [CORPORATE_ROOT] },
+      }),
+    )
+
+    expect(bundle.certificates).toEqual([PUBLIC_ROOT, CORPORATE_ROOT])
+  })
+
+  test("dedupes roots reported by more than one source", async () => {
+    const bundle = await resolveSystemCaBundle(
+      loaders({
+        runtime: () => [PUBLIC_ROOT],
+        platform: { name: "macos-keychains", load: async () => [PUBLIC_ROOT, CORPORATE_ROOT] },
+        extra: () => [CORPORATE_ROOT],
+      }),
+    )
+
+    expect(bundle.certificates).toEqual([PUBLIC_ROOT, CORPORATE_ROOT])
+  })
+
+  test("still contributes the other sources when platform enumeration fails", async () => {
+    const bundle = await resolveSystemCaBundle(
+      loaders({
+        runtime: () => [PUBLIC_ROOT],
+        platform: {
+          name: "windows-cert-stores",
+          load: async () => {
+            throw new Error("powershell blocked by policy")
+          },
+        },
+        extra: () => [CORPORATE_ROOT],
+      }),
+    )
+
+    expect(bundle.certificates).toEqual([PUBLIC_ROOT, CORPORATE_ROOT])
+  })
+
+  test("reports what every source contributed so an empty bundle is explainable", async () => {
+    const bundle = await resolveSystemCaBundle(
+      loaders({ platform: { name: "windows-cert-stores", load: async () => [PUBLIC_ROOT] } }),
+    )
+
+    expect(summarizeSystemCaSources(bundle.sources)).toBe("runtime=0 windows-cert-stores=1 NODE_EXTRA_CA_CERTS=0")
+  })
+
+  test("reads every certificate out of a NODE_EXTRA_CA_CERTS bundle", () => {
+    const bundlePath = path.join(mkdtempSync(path.join(os.tmpdir(), "ow-ca-")), "corporate.pem")
+    writeFileSync(bundlePath, `# corporate bundle\n${CORPORATE_ROOT}\n${PUBLIC_ROOT}\n`)
+
+    expect(loadExtraCaCertificates(bundlePath)).toEqual([CORPORATE_ROOT, PUBLIC_ROOT])
+  })
+
+  test("ignores an unset or unreadable NODE_EXTRA_CA_CERTS instead of failing the install", () => {
+    const previous = process.env.NODE_EXTRA_CA_CERTS
+    delete process.env.NODE_EXTRA_CA_CERTS
+    try {
+      expect(loadExtraCaCertificates()).toEqual([])
+      expect(loadExtraCaCertificates("   ")).toEqual([])
+      expect(loadExtraCaCertificates(path.join(os.tmpdir(), "ow-ca-does-not-exist.pem"))).toEqual([])
+    } finally {
+      if (previous !== undefined) process.env.NODE_EXTRA_CA_CERTS = previous
+    }
+  })
+
+  test("leaves the user-writable login keychain out of the trusted set", () => {
+    // `security find-certificate` ignores trust settings, so enumerating a
+    // keychain any local process can write to would widen what we trust.
+    expect(DARWIN_KEYCHAINS.some((keychain) => keychain.includes("login.keychain"))).toBe(false)
+    expect(DARWIN_KEYCHAINS).toContain("/Library/Keychains/System.keychain")
+  })
+
+  test("a corporate root supplied only through NODE_EXTRA_CA_CERTS resolves a real TLS install link", async () => {
+    const certificate = createSelfSignedCertificate()
+    const configServer = startTlsInstallConfigServer(certificate)
+    const bundlePath = path.join(mkdtempSync(path.join(os.tmpdir(), "ow-ca-")), "corporate.pem")
+    writeFileSync(bundlePath, certificate.cert)
+    try {
+      const bundle = await resolveSystemCaBundle(loaders({ extra: () => loadExtraCaCertificates(bundlePath) }))
+      const result = await resolveInstallLinkConfig(`https://127.0.0.1:${configServer.port}/install?token=abcDEF12`, {
+        fetcher: createSystemCaFetch(async () => bundle.certificates),
+      })
+
+      expect(result.status).toBe("resolved")
+    } finally {
+      configServer.stop(true)
+      certificate.cleanup()
+    }
+  })
+})
+
+describe("resolve-link API", () => {
+  test("explains pasted GitHub artifact URLs are not install links", async () => {
+    const installerServer = startInstallerServer(null, () => undefined)
+    try {
+      const response = await fetch(`${installerServer.url}api/resolve-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
+        body: JSON.stringify({ installLink: "https://github.com/different-ai/openwork/releases/download/v0.17.39/OpenWork-Installer-win-x64.exe" }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        error: "install_link_invalid",
+        message: "That doesn't look like an install link. On your team's install page, copy the link shown in step 2 — it ends with ?token=...",
+      })
+    } finally {
+      installerServer.stop()
+    }
+  })
+
+  test("explains unreachable workspaces as connection or VPN problems", async () => {
+    const configServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({ ok: true }),
+    })
+    const port = configServer.port
+    const installerServer = startInstallerServer(null, () => undefined)
+    configServer.stop(true)
+    try {
+      const response = await fetch(`${installerServer.url}api/resolve-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
+        body: JSON.stringify({ installLink: `http://127.0.0.1:${port}/install?token=abcDEF12` }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        error: "install_link_unreachable",
+        message: "Could not reach your workspace. Check your internet or VPN connection and try again.",
+      })
+    } finally {
+      installerServer.stop()
+    }
+  })
+
+  test("explains TLS trust failures separately from network reachability", async () => {
+    const certificate = createSelfSignedCertificate()
+    const configServer = startTlsInstallConfigServer(certificate)
+    const installerServer = startInstallerServer(null, () => undefined)
+    try {
+      const response = await fetch(`${installerServer.url}api/resolve-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
+        body: JSON.stringify({ installLink: `https://127.0.0.1:${configServer.port}/install?token=abcDEF12` }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({
+        error: "install_link_tls_untrusted",
+        // Carried alongside the user-facing copy so a support screenshot shows
+        // whether the trust stores were even readable.
+        trustSources: expect.stringContaining("runtime="),
+        message: `Reached your workspace, but the secure connection isn't trusted on this computer yet. This usually means your company inspects secure traffic. Try again — if it keeps failing, ask IT to check the certificate for 127.0.0.1:${configServer.port}.`,
+      })
+    } finally {
+      installerServer.stop()
+      configServer.stop(true)
+      certificate.cleanup()
+    }
+  })
+
+  test("maps missing install configs to the expired-link message", async () => {
+    const configServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("missing", { status: 404, statusText: "Not Found" }),
+    })
+    const installerServer = startInstallerServer(null, () => undefined)
+    try {
+      const response = await fetch(`${installerServer.url}api/resolve-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
+        body: JSON.stringify({ installLink: `http://127.0.0.1:${configServer.port}/install?token=abcDEF12` }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        error: "install_link_expired",
+        message: "This install link has expired or was replaced. Ask your workspace admin for a fresh one from the Members page.",
+      })
+    } finally {
+      installerServer.stop()
+      configServer.stop(true)
+    }
+  })
+
+  test("keeps generic copy for other install config failures", async () => {
+    const configServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("error", { status: 500, statusText: "Internal Server Error" }),
+    })
+    const installerServer = startInstallerServer(null, () => undefined)
+    try {
+      const response = await fetch(`${installerServer.url}api/resolve-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-installer-token": installerServer.token },
+        body: JSON.stringify({ installLink: `http://127.0.0.1:${configServer.port}/install?token=abcDEF12` }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        error: "install_link_invalid",
+        message: "Install link could not be resolved.",
+      })
+    } finally {
+      installerServer.stop()
+      configServer.stop(true)
+    }
+  })
+})
+
+describe("browser activation API", () => {
+  test("keeps a copyable link when the operating system cannot open the browser", async () => {
+    const openedUrls: string[] = []
+    const activationUrl = "https://den.example.test/activate?code=abcdefghijklmnopqrstuvwxyz123456"
+    const installerServer = startInstallerServer({
+      config: {
+        appName: "OpenWork",
+        clientName: "Acme Robotics",
+        webUrl: "https://den.example.test",
+        apiUrl: "https://api.den.example.test",
+        logoUrl: null,
+        requireSignin: true,
+      },
+      source: "install-link",
+      activation: {
+        url: activationUrl,
+        expiresAt: "2030-01-01T00:00:00.000Z",
+      },
+      installLink: null,
+    }, () => undefined, (url) => {
+      openedUrls.push(url)
+      return Promise.resolve(false)
+    })
+
+    try {
+      const response = await fetch(`${installerServer.url}api/open-activation`, {
+        method: "POST",
+        headers: { "x-installer-token": installerServer.token },
+      })
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        opened: false,
+        activationUrl,
+        expiresAt: "2030-01-01T00:00:00.000Z",
+      })
+      expect(openedUrls).toEqual([activationUrl])
+
+      const fallback = await fetch(`${installerServer.url}api/activation`, {
+        method: "POST",
+        headers: { "x-installer-token": installerServer.token },
+      })
+      expect(fallback.status).toBe(200)
+      await expect(fallback.json()).resolves.toEqual({
+        activationUrl,
+        expiresAt: "2030-01-01T00:00:00.000Z",
+      })
+    } finally {
+      installerServer.stop()
+    }
   })
 })
 
@@ -463,5 +783,29 @@ describe("writeBootstrapConfig", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe("removableInstallerBundlePath", () => {
+  const homeDir = "/Users/example"
+  const executablePath = "Contents/MacOS/openwork-installer"
+
+  test("allows only the installer app bundle in common writable locations", () => {
+    expect(removableInstallerBundlePath(`/Applications/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      "/Applications/Install OpenWork.app",
+    )
+    expect(removableInstallerBundlePath(`${homeDir}/Applications/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      `${homeDir}/Applications/Install OpenWork.app`,
+    )
+    expect(removableInstallerBundlePath(`${homeDir}/Downloads/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBe(
+      `${homeDir}/Downloads/Install OpenWork.app`,
+    )
+  })
+
+  test("rejects DMG mounts, wrong app names, nested copies, and other platforms", () => {
+    expect(removableInstallerBundlePath(`/Volumes/Install OpenWork/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`/Applications/OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`${homeDir}/Downloads/OpenWork/Install OpenWork.app/${executablePath}`, homeDir, "darwin")).toBeNull()
+    expect(removableInstallerBundlePath(`/Applications/Install OpenWork.app/${executablePath}`, homeDir, "linux")).toBeNull()
   })
 })

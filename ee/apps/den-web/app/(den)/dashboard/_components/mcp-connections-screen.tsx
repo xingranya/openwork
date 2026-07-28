@@ -794,7 +794,7 @@ function ImportPluginConnectionDialog({
       >
         <h2 className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">添加插件连接</h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-600">
-          从 GitHub 导入插件。远程 MCP 会成为公司托管连接，导入的 Skills 会保存到公司能力库并按授权下发。
+          从 GitHub 导入插件。远程 MCP 会成为公司托管连接，导入的技能会作为插件配置保存，并通过公司能力目录按授权下发。
         </p>
 
         <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50 p-4">

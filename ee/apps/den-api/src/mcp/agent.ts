@@ -8,7 +8,6 @@ import { openworkCloudMcpConnectionActionSchema } from "@openwork/types/den/mcp-
 import type { Hono } from "hono"
 import { z } from "zod"
 import { memberFacingMcpConnectionsEnabled } from "../capability-sources/external-mcp-rollout.js"
-import { EXTERNAL_MCP_DIAGNOSTIC_PHASES } from "../capability-sources/external-mcp-diagnostics.js"
 import { publicRoute, tokenRoute } from "../middleware/index.js"
 import { db } from "../db.js"
 import { getMcpResourceContext, verifyMcpRequest } from "./auth.js"
@@ -17,12 +16,16 @@ import { getCatalog, protectedResourceMetadata } from "./index.js"
 import { preflightMcpJsonRpcRequest } from "./json-rpc-preflight.js"
 import { compareCapabilityMatches, SEARCH_CAPABILITIES_TOOL_NAME, searchCapabilities, searchCapabilitySourceFilter, type CapabilityMatch } from "./search.js"
 import { executeExternalCapability, externalMcpSearchCoverageHint, parseExternalCapabilityName, resolveMcpMemberIdentity, searchExternalCapabilities, type ExternalCapabilityExecuteResult } from "./external-capabilities.js"
-import { executeMarketplaceCapability, parseMarketplaceCapabilityName, searchMarketplaceCapabilities, type MarketplaceCapabilityObjectType } from "./marketplace-capabilities.js"
-import { executeSkillCapability, parseSkillCapabilityName, searchSkillCapabilities } from "./skill-capabilities.js"
+import { executeMarketplaceCapability, listAccessibleMarketplaceSkillDescriptors, parseMarketplaceCapabilityName, searchMarketplaceCapabilities, type MarketplaceCapabilityObjectType, type RemoteSkillDescriptor } from "./marketplace-capabilities.js"
 import { resolvePublicOrigin } from "../capability-sources/generic-oauth.js"
 import { env } from "../env.js"
 import { isPlatformAdminUserId } from "../middleware/admin.js"
 import { executeAvailableAdminCapability, parseAdminCapabilityName, searchAvailableAdminCapabilities } from "./admin-capabilities.js"
+import {
+  executeBuiltinSkillCapability,
+  listBuiltinSkillDescriptors,
+  searchBuiltinSkillCapabilities,
+} from "./builtin-skills.js"
 
 export const EXECUTE_CAPABILITY_TOOL_NAME = "execute_capability"
 const searchCapabilityTypeSchema = z.enum(["all", "api", "admin", "mcp", "marketplace", "skills"])
@@ -41,27 +44,10 @@ export const EXECUTE_CAPABILITY_ANNOTATIONS: ToolAnnotations = {
   openWorldHint: true,
 }
 
-const externalMcpDiagnosticOutputSchema = z.object({
-  referenceId: z.string(),
-  phase: z.enum(EXTERNAL_MCP_DIAGNOSTIC_PHASES),
-  category: z.string(),
-  code: z.string(),
-  highestPassed: z.enum(["configured", "reachable", "authorized", "protocol_ready", "catalog_ready", "operation_ready"]),
-  retryable: z.boolean(),
-  actionOwner: z.enum(["openwork", "network_admin", "provider_admin", "organization_admin", "member"]),
-  operatorAction: z.string(),
-  message: z.string(),
-  httpStatus: z.number().int().optional(),
-  operationPhase: z.enum(EXTERNAL_MCP_DIAGNOSTIC_PHASES).optional(),
-  outbound: z.object({ origin: z.string(), pathHash: z.string() }).optional(),
-  providerRequestId: z.string().optional(),
-  providerStatus: z.number().int().optional(),
-  providerCode: z.string().optional(),
-  payloadBytes: z.number().int().optional(),
+const externalMcpProviderErrorOutputSchema = z.object({
   jsonRpcCode: z.number().int().optional(),
-  connectUrl: z.string().url().optional(),
-  providerErrorMessage: z.string().optional(),
-  providerErrorData: z.string().optional(),
+  message: z.string().optional(),
+  data: z.string().optional(),
 })
 
 const connectionStatusOutputSchema = openworkCloudMcpConnectionActionSchema.extend({
@@ -75,7 +61,6 @@ const connectionStatusOutputSchema = openworkCloudMcpConnectionActionSchema.exte
     retry: z.literal("search_capabilities"),
     url: z.string().url().optional(),
   }),
-  diagnostic: externalMcpDiagnosticOutputSchema.optional(),
 })
 
 const capabilityMatchOutputSchema = z.object({
@@ -102,11 +87,34 @@ export const SEARCH_CAPABILITIES_OUTPUT_SCHEMA = z.object({
   hint: z.string().optional(),
 })
 
+const externalCapabilityErrorPayloadSchema = z.object({
+  error: z.string(),
+  message: z.string(),
+  referenceId: z.string().optional(),
+  retryable: z.boolean().optional(),
+  providerError: externalMcpProviderErrorOutputSchema.optional(),
+  connectionStatus: connectionStatusOutputSchema.optional(),
+  capability: z.string().optional(),
+  issues: z.array(z.object({
+    path: z.string(),
+    keyword: z.string(),
+    message: z.string(),
+  })).optional(),
+  schemaDigest: z.string().optional(),
+  sameArgumentsRetryable: z.literal(false).optional(),
+  retry: z.object({
+    action: z.enum(["correct_arguments", "search_capabilities"]),
+    searchRequired: z.boolean(),
+  }).optional(),
+  schemaGuidance: z.unknown().optional(),
+})
+
 export const AGENT_MCP_INSTRUCTIONS = [
   "公司能力连接只开放两个工具：search_capabilities 和 execute_capability。",
-  "能力包括使用当前成员公司身份执行的 Google Workspace 操作，以及公司管理员添加并授权给该成员的 MCP 和 Skill。",
+  "能力包括使用当前成员公司身份执行的 Google Workspace 操作、公司管理员授权的外部 MCP、内置技能和公司插件技能。",
   "白名单内的平台管理员还可发现带命名空间的管理能力，普通成员不能发现或执行这些能力。",
   "判断能力不可用前，必须先用 2 至 4 组关键词调用 search_capabilities；execute_capability 只能使用检索结果返回的准确名称。",
+  "内置远程技能和公司能力市场技能会出现在技能索引中；需要使用时执行其准确能力名称，不要自行创建本地副本冒充公司技能。",
   "如需导入公开 GitHub 插件，先检索能力市场、导入预览、正式导入和导入结果详情；必须先预览，不要手工重建插件。",
   "导入前确认目标能力市场、选中的 Skill 或服务键，以及可用成员范围。不要为所有服务强行选择同一种认证方式。",
   "导入后读取完整详情并报告每个插件的 cloudReadiness。导入或绑定成功不代表 MCP 已可用；needs_admin_setup 和 needs_signin 必须作为下一步人工操作说明。",
@@ -118,6 +126,41 @@ export const AGENT_MCP_INSTRUCTIONS = [
   "当结果 kind 为 connection_status 时，准确说明 connectionStatus.connectionName 和 connectionStatus.action，并区分员工个人连接、公司管理员后台和供应商后台。",
   "连接检查使用实时状态。人工修复后在同一任务中重新检索；未发生变化时不要重复调用，也不要绕到其他工具编造替代流程。",
 ].join("\n")
+
+async function mcpRequestMethod(request: Request): Promise<string | null> {
+  if (request.method.toUpperCase() !== "POST") return null
+  const body: unknown = await request.clone().json().catch(() => null)
+  return typeof body === "object"
+    && body !== null
+    && "method" in body
+    && typeof body.method === "string"
+    ? body.method
+    : null
+}
+
+export const AGENT_SKILL_INDEX_URI = "skill://index.json"
+export const AGENT_SKILL_INDEX_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+
+export function buildAgentSkillIndex(skills: RemoteSkillDescriptor[]) {
+  return {
+    $schema: AGENT_SKILL_INDEX_SCHEMA,
+    skills: skills.map((skill) => ({
+      name: skill.name,
+      type: "skill-md" as const,
+      title: skill.title,
+      description: skill.description,
+      url: skill.location,
+      capability: skill.capability,
+      ...(skill.marketplaceName ? { marketplaceName: skill.marketplaceName } : {}),
+      ...(skill.pluginName ? { pluginName: skill.pluginName } : {}),
+    })),
+  }
+}
+
+function standardSkillMarkdown(skill: RemoteSkillDescriptor, source: string): string {
+  const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").replace(/^\s+/, "")
+  return `---\nname: ${skill.name}\ndescription: ${JSON.stringify(skill.description)}\n---\n\n${body}`
+}
 
 const EXECUTE_CAPABILITY_TIMEOUT_MESSAGE = `能力调用超过 ${EXECUTE_CAPABILITY_TIMEOUT_MS / 1_000} 秒。可以重试一次；再次超时时请缩小请求范围，并说明服务响应较慢，不要让员工重新配置或重新连接。`
 
@@ -133,28 +176,29 @@ function textContent(text: string): { text: string; type: "text" }[] {
 export function externalCapabilityErrorToolResult(
   result: Exclude<ExternalCapabilityExecuteResult, { ok: true }>,
 ): ExecuteCapabilityToolResult {
+  const payload = externalCapabilityErrorPayloadSchema.parse({
+    error: result.error,
+    message: result.message,
+    ...(result.referenceId === undefined ? {} : { referenceId: result.referenceId }),
+    ...(result.retryable === undefined ? {} : { retryable: result.retryable }),
+    ...(result.providerError ? { providerError: result.providerError } : {}),
+    ...(result.connectionStatus ? { connectionStatus: result.connectionStatus } : {}),
+    ...(result.capability ? { capability: result.capability } : {}),
+    ...(result.issues ? { issues: result.issues } : {}),
+    ...(result.schemaDigest ? { schemaDigest: result.schemaDigest } : {}),
+    ...(result.sameArgumentsRetryable === false ? { sameArgumentsRetryable: false } : {}),
+    ...(result.retry ? { retry: result.retry } : {}),
+    ...(result.schemaGuidance ? { schemaGuidance: result.schemaGuidance } : {}),
+  })
   return {
     isError: true,
-    content: textContent(JSON.stringify({
-      error: result.error,
-      message: result.message,
-      ...(result.diagnostic ? { diagnostic: result.diagnostic } : {}),
-      ...(result.actionOwner ? { actionOwner: result.actionOwner } : {}),
-      ...(result.operatorAction ? { operatorAction: result.operatorAction } : {}),
-      ...(result.connectionStatus ? { connectionStatus: result.connectionStatus } : {}),
-      ...(result.capability ? { capability: result.capability } : {}),
-      ...(result.issues ? { issues: result.issues } : {}),
-      ...(result.schemaDigest ? { schemaDigest: result.schemaDigest } : {}),
-      ...(result.sameArgumentsRetryable === false ? { sameArgumentsRetryable: false } : {}),
-      ...(result.retry ? { retry: result.retry } : {}),
-      ...(result.schemaGuidance ? { schemaGuidance: result.schemaGuidance } : {}),
-    })),
+    content: textContent(JSON.stringify(payload)),
   }
 }
 
 export function capabilitySearchToolResult<T extends CapabilityMatch>(matches: T[], coverageHint?: string) {
   const hint = [
-    ...(matches.length === 0 ? ["No matches. Try broader or different keywords."] : []),
+    ...(matches.length === 0 ? ["未找到匹配能力，请更换或扩大关键词后重试。"] : []),
     ...(coverageHint ? [coverageHint] : []),
   ].join(" ")
   const result = hint ? { matches, hint } : { matches }
@@ -253,23 +297,59 @@ export function createAgentMcpServer(): McpServer {
   })
 }
 
+export function registerAgentSkillResources(input: {
+  server: McpServer
+  skills: RemoteSkillDescriptor[]
+  organizationId: string
+  member: Awaited<ReturnType<typeof resolveMcpMemberIdentity>>
+  marketplaceEnabled?: boolean
+}) {
+  input.server.registerResource("agent-skills-index", AGENT_SKILL_INDEX_URI, {
+    title: "可用的公司技能",
+    description: "当前成员已获授权的内置技能和公司插件技能索引。",
+    mimeType: "application/json",
+  }, async () => ({
+    contents: [{
+      uri: AGENT_SKILL_INDEX_URI,
+      mimeType: "application/json",
+      text: JSON.stringify(buildAgentSkillIndex(input.skills)),
+    }],
+  }))
+  for (const skill of input.skills) {
+    input.server.registerResource(skill.name, skill.location, {
+      title: skill.title,
+      description: skill.description,
+      mimeType: "text/markdown",
+    }, async () => {
+      const builtinResult = executeBuiltinSkillCapability(skill.capability)
+      const marketplace = parseMarketplaceCapabilityName(skill.capability)
+      const marketplaceResult = marketplace ? await executeMarketplaceCapability({
+        organizationId: input.organizationId,
+        member: input.member,
+        pluginId: marketplace.pluginId,
+        configObjectId: marketplace.configObjectId,
+        enabled: input.marketplaceEnabled,
+      }) : null
+      const source = builtinResult?.content
+        ?? (marketplaceResult?.ok && marketplaceResult.result.kind === "skill"
+          ? marketplaceResult.result.content
+          : null)
+      if (typeof source !== "string") throw new McpError(ErrorCode.InvalidRequest, "该技能已不可用，请重新获取技能索引。")
+      return {
+        contents: [{
+          uri: skill.location,
+          mimeType: "text/markdown",
+          text: standardSkillMarkdown(skill, source),
+        }],
+      }
+    })
+  }
+}
+
 /**
- * The minimal, harness-facing MCP surface: exactly two tools, full stop.
- *
- * `/mcp` (index.ts) stays exactly as it is — every catalog operation
- * individually registered, ~129 tools today. That's unchanged and still
- * useful for scripts/admin tooling that want to call a known operation by
- * name directly.
- *
- * `/mcp/agent` is a *different* endpoint for a *different* consumer: the
- * desktop app's "OpenWork Cloud Control" connection, which is what an
- * OpenCode/Claude Code/Codex-style harness actually sees. It registers only
- * `search_capabilities` and `execute_capability`, both backed by the exact
- * same catalog and the exact same `invokeMcpOperation` execute path used by
- * the rich endpoint — no new auth, no new policy, no new execution logic.
- * A harness connected here can only discover and call capabilities through
- * these two tools; the other ~127 operations are not individually callable
- * on this endpoint.
+ * 面向 AI 运行时的最小 MCP 表面，只开放能力搜索和能力调用两个工具。
+ * `/mcp` 继续为脚本和管理工具逐项注册完整目录；`/mcp/agent` 则复用同一目录、
+ * 鉴权、策略和执行路径，但不把其他操作逐个暴露给员工会话。
  */
 export function registerAgentMcpRoutes<T extends { Variables: Record<string, unknown> }>(app: Hono<T>) {
   app.get("/.well-known/oauth-protected-resource/mcp/agent", publicRoute, (c) =>
@@ -294,9 +374,8 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
     }
 
     const catalog = await getCatalog(app as unknown as Hono, c.env)
-    // External MCP connections are scoped to the calling MEMBER (grants +
-    // per-member credentials), not just the org — resolve who this token's
-    // user is within the org once per request.
+    // 外部 MCP 连接按当前成员的授权和个人凭据隔离，而不是只按公司组织隔离。
+    // 每个请求只解析一次令牌对应的公司成员身份。
     const memberIdentity = await resolveMcpMemberIdentity({
       userId: principal.userId,
       organizationId: principal.organizationId,
@@ -315,7 +394,29 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
     const externalMcpConnectionsEnabled = memberFacingMcpConnectionsEnabled(organizationRows[0]?.metadata, {
       gatingEnabled: env.mcpConnectionsGatingEnabled,
     })
+    let remoteSkills: RemoteSkillDescriptor[] = []
+    const method = await mcpRequestMethod(c.req.raw)
+    if (method === "initialize" || method === "resources/list" || method === "resources/read") {
+      remoteSkills = [
+        ...listBuiltinSkillDescriptors(),
+        ...(await listAccessibleMarketplaceSkillDescriptors({
+          organizationId: principal.organizationId,
+          member: memberIdentity,
+          enabled: externalMcpConnectionsEnabled,
+        })),
+      ]
+        .sort((a, b) => a.name.localeCompare(b.name) || a.capability.localeCompare(b.capability))
+    }
     const server = createAgentMcpServer()
+    if (method === "initialize" || method === "resources/list" || method === "resources/read") {
+      registerAgentSkillResources({
+        server,
+        skills: remoteSkills,
+        organizationId: principal.organizationId,
+        member: memberIdentity,
+        marketplaceEnabled: externalMcpConnectionsEnabled,
+      })
+    }
 
     server.registerTool(
       SEARCH_CAPABILITIES_TOOL_NAME,
@@ -323,16 +424,16 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
         title: "搜索公司能力",
         description: [
           "按关键词搜索公司能力。该连接只开放本工具和 execute_capability，没有可直接浏览的独立工具列表，因此必须先搜索。",
-          "搜索范围包括 Google Workspace、公司外部 MCP、公司 Skill，以及白名单平台管理员可用的管理能力。",
+          "搜索范围包括 Google Workspace、公司外部 MCP、内置技能、公司插件技能、能力市场技能，以及白名单平台管理员可用的管理能力。",
           "判断能力不可用前，请尝试 2 至 4 组关键词。",
           "原生 API 结果会返回 pathParams、queryParams、hasBody 和 bodySchema；外部 MCP 会返回 argumentsSchema、schemaDigest 和 invocation.argumentsField。",
-          "Skill 结果的 method 为 SKILL，执行后返回公司保存的 SKILL.md 内容。",
+          "技能结果执行后会返回已授权的 SKILL.md 内容。",
         ].join(" "),
         annotations: SEARCH_CAPABILITIES_ANNOTATIONS,
         inputSchema: z.object({
           query: z.string().min(1).describe("描述所需能力的关键词，例如“创建组织”或“列出 Worker”。"),
           limit: z.number().int().min(1).max(20).optional().describe("最多返回多少条结果，默认 5 条。"),
-          type: searchCapabilityTypeSchema.optional().describe("可选来源过滤。all 搜索全部来源；api 搜索 Den API；admin 搜索白名单管理能力；mcp 搜索公司 MCP；marketplace 搜索能力市场；skills 搜索公司 Skill。默认 all。"),
+          type: searchCapabilityTypeSchema.optional().describe("可选来源过滤。all 搜索全部来源；api 搜索 Den API；admin 搜索白名单管理能力；mcp 搜索公司 MCP；marketplace 搜索能力市场；skills 搜索内置技能和公司插件技能。默认 all。"),
         }),
         outputSchema: SEARCH_CAPABILITIES_OUTPUT_SCHEMA,
       },
@@ -344,10 +445,11 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
         const adminMatches = sourceFilter.admin
           ? await searchAvailableAdminCapabilities(await resolvePlatformAdmin(), query, boundedLimit)
           : []
-        // Merged in from each connected External MCP Connection's live
-        // tools/list (capability-sources/external-mcp-client.ts) — a
-        // Notion/Linear/Stripe/... connection an admin added in Den shows
-        // up here exactly like any native capability, ranked together.
+        const builtinSkillMatches = sourceFilter.skills
+          ? searchBuiltinSkillCapabilities(query, boundedLimit)
+          : []
+        // 从每个已连接外部 MCP 的实时 tools/list 合并能力，
+        // 与内置能力一起排序后返回。
         let externalCoverageHint: string | undefined
         const externalMatches = sourceFilter.mcp && externalMcpConnectionsEnabled
           ? await searchExternalCapabilities({
@@ -371,15 +473,7 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
             enabled: externalMcpConnectionsEnabled,
           })
           : []
-        const skillMatches = sourceFilter.skills
-          ? await searchSkillCapabilities({
-            organizationId: principal.organizationId,
-            member: memberIdentity,
-            query,
-            limit: boundedLimit,
-          })
-          : []
-        const matches = [...restMatches, ...adminMatches, ...externalMatches, ...marketplaceMatches, ...skillMatches]
+        const matches = [...restMatches, ...adminMatches, ...builtinSkillMatches, ...externalMatches, ...marketplaceMatches]
           .sort(compareCapabilityMatches)
           .slice(0, boundedLimit)
         return capabilitySearchToolResult(matches, externalCoverageHint)
@@ -394,7 +488,7 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
           "按 search_capabilities 返回的准确名称调用能力。",
           "path、query 和 body 必须严格依据结果中的 pathParams、queryParams 和 hasBody。",
           "外部 MCP 的 Schema 不一致会以 schemaGuidance 提示，但不会阻断下游调用。",
-          "执行 skill:<id> 结果时，会返回公司保存的 SKILL.md 内容。",
+          "执行技能能力时，会返回当前成员获授权的 SKILL.md 内容。",
           "如果名称不再有效，将返回 unknown_capability，此时必须重新调用 search_capabilities。",
         ].join(" "),
         annotations: EXECUTE_CAPABILITY_ANNOTATIONS,
@@ -415,6 +509,11 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
               : null
             if (adminResult) return adminResult
 
+            const builtinSkill = executeBuiltinSkillCapability(name)
+            if (builtinSkill) {
+              return { content: textContent(JSON.stringify(builtinSkill, null, 2)) }
+            }
+
             const external = parseExternalCapabilityName(name)
             if (external) {
               if (!externalMcpConnectionsEnabled) {
@@ -422,7 +521,7 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
                   isError: true,
                   content: textContent(JSON.stringify({
                     error: "unknown_capability",
-                    message: "No external MCP connection capabilities are available for this organization.",
+                    message: "当前公司没有向该成员开放可用的外部 MCP 能力。",
                   })),
                 }
               }
@@ -438,9 +537,8 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
               if (!result.ok) {
                 return externalCapabilityErrorToolResult(result)
               }
-              // The SDK's callTool() can return either the standard {content:[...]}
-              // shape or a legacy-compatibility {toolResult} shape; normalize to
-              // what McpServer's own tool callback contract requires.
+              // SDK 的 callTool() 可能返回标准 content 结构，也可能返回兼容旧版的
+              // toolResult 结构；这里统一转换为 McpServer 工具回调需要的格式。
               return externalCapabilitySuccessToolResult(result)
             }
 
@@ -463,34 +561,6 @@ export function registerAgentMcpRoutes<T extends { Variables: Record<string, unk
                 }
               }
               return { content: textContent(JSON.stringify(result.result, null, 2)) }
-            }
-
-            const skillId = parseSkillCapabilityName(name)
-            if (skillId) {
-              const result = await executeSkillCapability({
-                organizationId: principal.organizationId,
-                member: memberIdentity,
-                skillId,
-              })
-              if (!result.ok) {
-                return {
-                  isError: true,
-                  content: textContent(JSON.stringify({ error: result.error, message: result.message })),
-                }
-              }
-              return {
-                content: textContent(JSON.stringify({
-                  skill: {
-                    id: result.skill.id,
-                    title: result.skill.title,
-                    description: result.skill.description,
-                    skillText: result.skill.skillText,
-                    bundleHash: result.skill.bundleHash,
-                    files: result.skill.files,
-                    updatedAt: result.skill.updatedAt,
-                  },
-                }, null, 2)),
-              }
             }
 
             const operation = catalog.find((candidate) => candidate.name === name)

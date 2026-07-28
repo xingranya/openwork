@@ -66,7 +66,7 @@ export function SsoScreen() {
   );
 
   async function loadSsoConfig(isCurrent = () => true) {
-    if (!orgId || !access.canManageSso) {
+    if (!orgId || !access.canViewSettings) {
       if (isCurrent()) {
         setConnection(null);
       }
@@ -127,7 +127,7 @@ export function SsoScreen() {
     if (nextConnection.oidc) {
       setClientId(nextConnection.oidc.clientId ?? "");
       setScopes(nextConnection.oidc.scopes.length > 0 ? nextConnection.oidc.scopes.join(" ") : "openid email profile");
-      setSkipDiscovery(false);
+      setSkipDiscovery(nextConnection.oidc.skipDiscovery);
       setAuthorizationEndpoint(nextConnection.oidc.authorizationEndpoint ?? "");
       setTokenEndpoint(nextConnection.oidc.tokenEndpoint ?? "");
       setJwksEndpoint(nextConnection.oidc.jwksEndpoint ?? "");
@@ -146,7 +146,7 @@ export function SsoScreen() {
     return () => {
       active = false;
     };
-  }, [orgId, access.canManageSso]);
+  }, [orgId, access.canViewSettings]);
 
   useEffect(() => {
     if (!copiedValue) return;
@@ -167,6 +167,10 @@ export function SsoScreen() {
   async function handleSave() {
     if (!orgId) {
       setError("没有找到公司信息。");
+      return;
+    }
+    if (!access.canManageSso) {
+      setError("Only workspace owners and super-admins can change SSO settings.");
       return;
     }
 
@@ -244,6 +248,10 @@ export function SsoScreen() {
   }
 
   async function handleRequestDomainToken() {
+    if (!access.canManageSso) {
+      setError("Only workspace owners and super-admins can request SSO domain verification tokens.");
+      return;
+    }
     if (!orgId || !connection) return;
     setError(null);
     try {
@@ -272,6 +280,10 @@ export function SsoScreen() {
   }
 
   async function handleVerifyDomain() {
+    if (!access.canManageSso) {
+      setError("Only workspace owners and super-admins can verify SSO domains.");
+      return;
+    }
     if (!orgId || !connection) return;
     setError(null);
     try {
@@ -298,7 +310,8 @@ export function SsoScreen() {
     setEditing(false);
   }
 
-  const showConnectionForm = !connection || editing;
+  const formReadOnly = !access.canManageSso;
+  const showConnectionForm = access.canViewSettings && (!connection || editing || formReadOnly);
 
   if (!orgContext) {
     return (
@@ -308,6 +321,8 @@ export function SsoScreen() {
     );
   }
 
+  const ssoFormDisabled = formReadOnly || saving || !orgContext.entitlements.sso;
+
   return (
     <DashboardPageTemplate icon={Shield} badgeLabel="管理员" title="单点登录（SSO）" description="配置公司的单点登录服务，并把生成的登录地址提供给员工。" colors={["#F5F3FF", "#4C1D95", "#8B5CF6", "#DDD6FE"]}>
       {!access.canManageSso ? (
@@ -316,13 +331,18 @@ export function SsoScreen() {
         <>
           {!orgContext.entitlements.sso ? <EnterprisePlanNotice feature="SSO" /> : null}
           {error ? <DenNotice message={error} className="mb-6" /> : null}
+          {!access.canManageSso ? (
+            <div className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">
+              Read-only: owners and super-admins can create, edit, delete, or verify SSO connections.
+            </div>
+          ) : null}
 
           {showConnectionForm ? (
             <div className="mb-6 rounded-[30px] border border-gray-200 bg-white p-6 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.22)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <DenButton variant={formMode === "saml" ? "primary" : "secondary"} onClick={() => setFormMode("saml")}>SAML</DenButton>
-                  <DenButton variant={formMode === "oidc" ? "primary" : "secondary"} onClick={() => setFormMode("oidc")}>OIDC</DenButton>
+                  <DenButton variant={formMode === "saml" ? "primary" : "secondary"} onClick={() => setFormMode("saml")} disabled={formReadOnly || saving}>SAML</DenButton>
+                  <DenButton variant={formMode === "oidc" ? "primary" : "secondary"} onClick={() => setFormMode("oidc")} disabled={formReadOnly || saving}>OIDC</DenButton>
                 </div>
                 {connection ? <DenButton variant="secondary" onClick={handleCancelEdit}>取消编辑</DenButton> : null}
               </div>

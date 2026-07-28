@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js"
 import type { OAuthClientInformationMixed, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js"
-import { EnterpriseMcpOAuthContractError } from "@openwork/enterprise-mcp-client"
+import {
+  EnterpriseMcpClientError,
+  EnterpriseMcpLifecycleDeadlineError,
+  EnterpriseMcpOAuthContractError,
+} from "@openwork/enterprise-mcp-client"
 import {
   ExternalMcpDiagnosticTracker,
   catalogDiagnosticError,
@@ -547,7 +551,7 @@ describe("external MCP diagnostics", () => {
       error: {
         code: -32001,
         message: "Authorization required. Visit the connect portal.",
-        data: { connect_url: connectUrl, provider: "blueyonder" },
+        data: { connect_url: connectUrl, provider: "northwind" },
       },
     }
     const responseText = JSON.stringify(responseBody)

@@ -102,6 +102,7 @@ type AdminUser = {
 type AdminOrganizationCapabilities = {
   installLinks: boolean;
   mcpConnections: boolean;
+  cloud: boolean;
 };
 
 type AdminOrganization = {
@@ -385,7 +386,8 @@ function parseAdminPayload(payload: unknown): AdminPayload | null {
           billableSeatCount: toNumberValue(value.billableSeatCount),
           capabilities: {
             installLinks: capabilities.installLinks === true,
-            mcpConnections: capabilities.mcpConnections === true
+            mcpConnections: capabilities.mcpConnections === true,
+            cloud: capabilities.cloud === true
           }
         };
       })
@@ -676,7 +678,7 @@ function buildFixtureOrganization(index: number): AdminOrganization {
     freeSeatCount: target ? 25 : DEFAULT_FREE_SEAT_COUNT,
     seatsFreeAdditional: target ? 20 : 0,
     billableSeatCount: target ? 103 : 0,
-    capabilities: { installLinks: target, mcpConnections: target }
+    capabilities: { installLinks: target, mcpConnections: target, cloud: false }
   };
 }
 
@@ -2312,6 +2314,19 @@ export function DenAdminPanel() {
                           className="h-4 w-4 rounded border-slate-300"
                         />
                         员工连接入口（内测）
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          data-testid="admin-capability-cloud"
+                          checked={org.capabilities.cloud}
+                          disabled={savingCapabilityOrgId === org.id}
+                          onChange={(event) => {
+                            void saveOrganizationCapability(org, "cloud", event.target.checked);
+                          }}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        Cloud (alpha)
                       </label>
                     </div>
                     {capabilityError?.orgId === org.id ? (

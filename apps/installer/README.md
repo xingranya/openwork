@@ -1,8 +1,10 @@
 # OpenWork Installer
 
-OpenWork desktop installer for custom deployments. Release builds are generic;
-deployment config is resolved from an install link stamp, sidecar file, filename tag,
-or local development env overrides. When an end user runs it, the installer:
+OpenWork desktop installer for custom deployments. Release builds are generic
+signed files that do not embed organization config. Config is resolved only from
+local development env overrides, per-client build constants, or an install link
+the user pastes into the installer UI (also accepted via `--install-link`). When
+an end user runs it, the installer:
 
 1. Writes `desktop-bootstrap.json` to the OS-correct config location (the same path
    the desktop app and `openwork-bootstrap` CLI resolve), pointing the desktop app at
@@ -18,31 +20,50 @@ or local development env overrides. When an end user runs it, the installer:
 The UI is a small native webview window (webview-bun); if the platform webview library
 is unavailable, the same UI opens in the default browser.
 
-## Install-link stamping
+## Paste-gated generic artifacts
 
-The Den API serves one generic installer artifact and stamps it at download time:
-macOS zips receive `openwork-installer.json`, Windows installers receive a filename
-tag, and Linux receives a small shell setup script. An unstamped UI build asks the
-user to paste their OpenWork install link.
+There is no artifact stamping, sidecar config, or filename tagging. macOS ships as
+a DMG containing the generic `OpenWork Installer.app`; Windows ships as the bare
+generic `OpenWork-Installer-win-x64.exe`. A generic UI build gates on the paste
+screen until the user provides their OpenWork install link.
+
+## Networks that inspect TLS
+
+Bun's `fetch` trusts only its bundled roots, so on a network that re-signs HTTPS the
+installer additionally trusts the OS stores (Windows `Root`/`CA` for both machine and
+user, macOS `System.keychain` and `SystemRootCertificates.keychain`) plus whatever the
+runtime reports. The user-writable macOS login keychain is deliberately excluded, since
+`security find-certificate` ignores trust settings.
+
+When a corporate root lives somewhere the installer cannot enumerate, IT can point it at
+a PEM bundle — the same variable the desktop shell honors:
+
+```bash
+NODE_EXTRA_CA_CERTS=/path/to/corporate-root.pem
+```
+
+On startup the installer logs what each source contributed
+(`OS trust store: runtime=0 windows-cert-stores=214 NODE_EXTRA_CA_CERTS=1`), and a TLS
+rejection repeats that summary in `trustSources` so support can tell an untrusted
+certificate apart from a trust store that could not be read.
 
 ## Local development
 
 ```bash
-cd apps/installer
-bun install
-bun test
+pnpm --dir apps/installer test
 
 # Headless dry run (no download/install; verifies config write + version + asset):
 OPENWORK_INSTALLER_CLIENT_NAME="Acme" \
 OPENWORK_INSTALLER_WEB_URL="https://openwork.acme.com" \
 OPENWORK_INSTALLER_API_URL="https://openwork-api.acme.com" \
-bun run src/index.ts --headless --dry-run
+pnpm --dir apps/installer exec bun run src/index.ts --headless --dry-run
 
-# UI mode (uses install-link stamp, sidecar, filename tag, build config, or env overrides):
-bun run dev
+# UI mode (uses env overrides, build config, or pasted install link):
+pnpm --dir apps/installer dev
 
-# Single binary:
-bun run compile
+# Single binary, then macOS DMG packaging:
+pnpm --dir apps/installer compile
+pnpm --dir apps/installer package:mac-dmg
 ```
 
 `src/generated/build-config.ts` is a committed placeholder for legacy/dev builds.

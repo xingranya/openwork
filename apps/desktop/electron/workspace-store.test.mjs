@@ -405,6 +405,7 @@ test("desktop bootstrap prefers a newer canonical writtenAt over stale legacy", 
 
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://canonical.example.com");
+    assert.equal(config.fromFile, true);
 
     const persisted = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(persisted.baseUrl, "https://canonical.example.com");
@@ -427,6 +428,7 @@ test("desktop bootstrap migrates a newer legacy writtenAt to canonical", async (
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://legacy.example.com");
     assert.equal(config.requireSignin, true);
+    assert.equal(config.fromFile, true);
 
     const migrated = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(migrated.baseUrl, "https://legacy.example.com");
@@ -450,6 +452,7 @@ test("desktop bootstrap prefers an older legacy organization config over a newer
 
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://openwork.organization.internal.example");
+    assert.equal(config.fromFile, true);
     const migrated = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(migrated.baseUrl, "https://openwork.organization.internal.example");
   });
@@ -472,6 +475,7 @@ test("desktop bootstrap keeps an older canonical organization config over a newe
 
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://openwork.organization.internal.example");
+    assert.equal(config.fromFile, true);
     const persisted = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(persisted.baseUrl, "https://openwork.organization.internal.example");
   });
@@ -492,6 +496,7 @@ test("desktop bootstrap ignores a newer malformed canonical config when legacy i
 
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://legacy.organization.internal.example");
+    assert.equal(config.fromFile, true);
     const migrated = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(migrated.baseUrl, "https://legacy.organization.internal.example");
   });
@@ -514,6 +519,50 @@ test("desktop bootstrap falls back to mtime when writtenAt is missing", async ()
 
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://legacy.example.com");
+    assert.equal(config.fromFile, true);
+  });
+});
+
+test("sync desktop bootstrap reader matches async reader for canonical, legacy, and missing configs", async () => {
+  await withIsolatedBootstrapStore(async ({ store, canonicalPath }) => {
+    await writeBootstrapConfig(canonicalPath, {
+      baseUrl: "https://canonical.example.com",
+      requireSignin: false,
+      writtenAt: "2026-01-02T00:00:00.000Z",
+    });
+    assert.deepEqual(store.readDesktopBootstrapConfigSync(), await store.getDesktopBootstrapConfig());
+  });
+
+  await withIsolatedBootstrapStore(async ({ store, legacyPath }) => {
+    await writeBootstrapConfig(legacyPath, {
+      baseUrl: "https://legacy.example.com",
+      requireSignin: true,
+      writtenAt: "2026-01-02T00:00:00.000Z",
+    });
+    const syncConfig = store.readDesktopBootstrapConfigSync();
+    const asyncConfig = await store.getDesktopBootstrapConfig();
+    assert.deepEqual(syncConfig, asyncConfig);
+    assert.equal(syncConfig.fromFile, true);
+  });
+
+  await withIsolatedBootstrapStore(async ({ store }) => {
+    const syncConfig = store.readDesktopBootstrapConfigSync();
+    const asyncConfig = await store.getDesktopBootstrapConfig();
+    assert.deepEqual(syncConfig, asyncConfig);
+    assert.equal(syncConfig.fromFile, false);
+  });
+});
+
+test("desktop bootstrap fallback marks fromFile false only when no parseable file is available", async () => {
+  await withIsolatedBootstrapStore(async ({ store, canonicalPath }) => {
+    await mkdir(path.dirname(canonicalPath), { recursive: true });
+    await writeFile(canonicalPath, "{ malformed", "utf8");
+
+    const syncConfig = store.readDesktopBootstrapConfigSync();
+    const asyncConfig = await store.getDesktopBootstrapConfig();
+    assert.deepEqual(syncConfig, asyncConfig);
+    assert.equal(syncConfig.baseUrl, "https://default.example.com");
+    assert.equal(syncConfig.fromFile, false);
   });
 });
 
@@ -573,6 +622,7 @@ test("imports the newest organization bootstrap beside a Windows installer when 
       brandLogoUrl: "https://openwork.internal.example/logo.png",
       brandIconUrl: "https://openwork.internal.example/icon.png",
       writtenAt: "2026-07-10T12:00:00.000Z",
+      fromFile: true,
     });
     const persisted = JSON.parse(await readFile(canonicalPath, "utf8"));
     assert.equal(persisted.baseUrl, "https://openwork.internal.example");
@@ -704,5 +754,6 @@ test("clearDesktopBootstrapConfig removes bootstrap files without deleting works
     const config = await store.getDesktopBootstrapConfig();
     assert.equal(config.baseUrl, "https://default.example.com");
     assert.equal(config.requireSignin, false);
+    assert.equal(config.fromFile, false);
   });
 });

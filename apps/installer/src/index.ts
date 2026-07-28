@@ -1,11 +1,19 @@
 import { spawn } from "node:child_process"
 
 import { installerConfigSourceLabel, resolveInstallerConfig, resolveOptionalInstallerConfig } from "./config"
-import { runInstall } from "./install"
+import { runInstall, scheduleInstallerSelfCleanup } from "./install"
+import { openExternalUrl } from "./open-external-url"
 import { startInstallerServer } from "./server"
+import { loadSystemCaCertificates } from "./system-ca"
+import { INSTALLER_VERSION } from "./version"
 
 const rawArgs = Bun.argv.slice(2)
 const args = new Set(rawArgs)
+
+if (args.has("--version")) {
+  console.log(`openwork-installer ${INSTALLER_VERSION}`)
+  process.exit(0)
+}
 const headless = args.has("--headless") || process.env.OPENWORK_INSTALLER_HEADLESS === "1"
 const dryRun = args.has("--dry-run") || process.env.OPENWORK_INSTALLER_DRY_RUN === "1"
 const smokeExitMs = Number.parseInt(process.env.OPENWORK_INSTALLER_SMOKE_EXIT_MS ?? "", 10)
@@ -164,6 +172,8 @@ async function startWorkerInstallerServer(): Promise<ReadyServer> {
 }
 
 if (headless) {
+  // Fill the OS trust-store CA cache before any fetch starts its abort timer.
+  await loadSystemCaCertificates()
   const resolution = await resolveInstallerConfig({ installLink: argValue("--install-link") }).catch((error): never => {
     console.error(`[openwork-installer] ${error instanceof Error ? error.message : String(error)}`)
     process.exit(2)
@@ -200,28 +210,27 @@ process.on("exit", () => uiServer.stop())
 const uiResolution = await resolveOptionalInstallerConfig()
 const installerWindowTitle = `${uiResolution?.config.appName ?? "FoxWork"} 安装程序`
 
-async function installIsRunning(): Promise<boolean> {
+async function currentInstallState(): Promise<string> {
   try {
+    // loopback-fetch: ready.url comes from startInstallerServer, which binds 127.0.0.1 and returns http://127.0.0.1:<port>/.
     const response = await fetch(`${ready.url}api/status`, { headers: { "x-installer-token": ready.token } })
     const status: unknown = await response.json()
-    return typeof status === "object" && status !== null && "state" in status && status.state === "running"
+    return typeof status === "object" && status !== null && "state" in status && typeof status.state === "string" ? status.state : ""
   } catch {
-    return false
+    return ""
   }
 }
 
 async function exitWhenInstallSettles(): Promise<never> {
   // Window closed mid-install: let a running install finish before exiting.
-  while (await installIsRunning()) {
+  let state = await currentInstallState()
+  while (state === "running") {
     await new Promise((resolve) => setTimeout(resolve, 500))
+    state = await currentInstallState()
   }
+  if (state === "done") scheduleInstallerSelfCleanup()
   uiServer.stop()
   process.exit(0)
-}
-
-function openInBrowser(url: string) {
-  const command = process.platform === "darwin" ? ["open", url] : process.platform === "win32" ? ["cmd", "/c", "start", "", url] : ["xdg-open", url]
-  Bun.spawn(command, { stdio: ["ignore", "ignore", "ignore"] })
 }
 
 if (process.env.OPENWORK_INSTALLER_UI === "manual") {
@@ -245,6 +254,11 @@ try {
     const handle = webview.unsafeHandle
     if (handle) lib.symbols.webview_terminate(handle)
   })
+  webview.bind("openworkInstallerPageReady", () => {
+    webview.title = installerWindowTitle
+  })
+  // The cocoa backend creates the NSWindow inside run(), so pre-run titles are dropped on macOS.
+  webview.init("document.addEventListener('DOMContentLoaded', () => { if (window.openworkInstallerPageReady) window.openworkInstallerPageReady(); });")
   if (Number.isFinite(smokeExitMs) && smokeExitMs > 0) {
     // Automated smoke: drive the exact production exit path (page JS -> bound
     // FFI callback) without a human click.
@@ -260,7 +274,7 @@ try {
     process.exit(3)
   }
   console.warn(`[openwork-installer] native window unavailable (${error instanceof Error ? error.message : String(error)}); opening browser UI`)
-  openInBrowser(ready.url)
+  void openExternalUrl(ready.url)
   uiServer.onExit(() => void exitWhenInstallSettles())
 }
 }

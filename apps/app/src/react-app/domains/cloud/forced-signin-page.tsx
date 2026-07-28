@@ -40,7 +40,7 @@ export type ForcedSigninPageProps = {
  * 字符串（至少 12 个字符）或 FoxWork 登录深链。
  * Matches the Solid ForcedSigninPage exactly so flows stay fungible.
  */
-function parseManualAuthInput(value: string) {
+export function parseManualAuthInput(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
@@ -137,24 +137,13 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
       void tryOpenBrowserAuthUrl(url).then((opened) => {
         if (opened) return;
         setStatusMessage(null);
-        setSigninFallbackUrl(url);
         setManualAuthOpen(true);
       });
     },
     [baseUrl],
   );
 
-  const submitManualAuth = useCallback(async () => {
-    const parsed = parseManualAuthInput(manualAuthInput);
-    if (!parsed || authBusy) {
-      if (!parsed) {
-        setAuthError(t("den.error_paste_valid_code"));
-      }
-      return;
-    }
-
-    const nextBaseUrl = parsed.baseUrl ?? baseUrl;
-
+  const exchangeGrant = useCallback(async (grant: string, nextBaseUrl: string) => {
     setAuthBusy(true);
     setAuthError(null);
     setStatusMessage(t("den.signing_in"));
@@ -164,7 +153,7 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
         baseUrl: nextBaseUrl,
       });
       // The helper exchanges, persists, and dispatches the success/error session events.
-      const result = await exchangeHandoffAndSignIn(parsed.grant, {
+      const result = await exchangeHandoffAndSignIn(grant, {
         baseUrl: nextBaseUrl,
         client,
         fallbackErrorMessage: t("den.error_no_token"),
@@ -185,7 +174,37 @@ export function ForcedSigninPage({ developerMode }: ForcedSigninPageProps) {
     } finally {
       setAuthBusy(false);
     }
-  }, [authBusy, baseUrl, developerMode, manualAuthInput]);
+  }, [developerMode]);
+
+  const submitManualAuth = useCallback(async () => {
+    const parsed = parseManualAuthInput(manualAuthInput);
+    if (!parsed || authBusy) {
+      if (!parsed) {
+        setAuthError(t("den.error_paste_valid_code"));
+      }
+      return;
+    }
+
+    const nextBaseUrl = parsed.baseUrl ?? baseUrl;
+    return exchangeGrant(parsed.grant, nextBaseUrl);
+  }, [authBusy, baseUrl, exchangeGrant, manualAuthInput]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || authBusy) return;
+
+    const url = new URL(window.location.href);
+    const grant = url.searchParams.get("grant")?.trim() ?? "";
+    if (!grant) return;
+
+    url.searchParams.delete("grant");
+    window.history.replaceState(
+      window.history.state,
+      document.title,
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+
+    void exchangeGrant(grant, baseUrl);
+  }, [authBusy, baseUrl, exchangeGrant]);
 
   const applyBaseUrl = useCallback(async (value?: string) => {
     const normalized = normalizeDenBaseUrl(value ?? baseUrlDraft);

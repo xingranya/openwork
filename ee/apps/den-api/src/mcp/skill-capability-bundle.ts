@@ -1,22 +1,25 @@
-import { computeCompanySkillBundleHash } from "../routes/org/skill-zip-import.js"
+import { parseCompanySkillVersionPayload } from "../routes/org/company-skill-bundle.js"
 
 type SkillCapabilityBundleRow = {
-  bundleFilesJson: Array<{ path: string; contents: string }> | null
-  bundleHash: string | null
+  normalizedPayloadJson: Record<string, unknown> | null
+  rawSourceText: string | null
+}
+
+export type SkillCapabilityBundle = {
+  bundleHash: string
+  files: Array<{ path: string; contents: string }>
+  shared: "org" | "private"
   skillText: string
 }
 
-export function serializeSkillCapabilityBundle(row: SkillCapabilityBundleRow) {
-  const storedFiles = Array.isArray(row.bundleFilesJson) && row.bundleFilesJson.length > 0
-    ? row.bundleFilesJson
-    : [{ path: "SKILL.md", contents: row.skillText }]
-  const files = storedFiles.map((file) => (
-    file.path === "SKILL.md" ? { ...file, contents: row.skillText } : file
-  ))
-  const computedHash = computeCompanySkillBundleHash(files)
+export function serializeSkillCapabilityBundle(row: SkillCapabilityBundleRow): SkillCapabilityBundle | null {
+  const bundle = parseCompanySkillVersionPayload(row)
+  if (!bundle) return null
+
   return {
-    bundleHash: row.bundleHash === computedHash ? row.bundleHash : computedHash,
-    files,
-    skillText: row.skillText,
+    bundleHash: bundle.bundleHash,
+    files: bundle.files,
+    shared: bundle.shared as SkillCapabilityBundle["shared"],
+    skillText: bundle.skillText,
   }
 }

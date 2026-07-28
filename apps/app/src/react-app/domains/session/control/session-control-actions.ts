@@ -7,6 +7,7 @@ import { setSessionArchived } from "../../../../app/lib/opencode-session";
 import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { useSessionManagementStore } from "../sidebar/session-management-store";
+import { useWorkbenchStore } from "../chat/workbench-store";
 
 type SessionLike = {
   id?: string;
@@ -129,9 +130,13 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
       const sessionId = stringArg(args, "sessionId");
       if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
       navigateToSession(sessionId);
-      return { ok: true, navigatedTo: sessionId };
+      return {
+        ok: true,
+        sessionId,
+        reused: workbench.tabs.some((tab) => tab.sessionId === sessionId) ? "tab" : "new-tab",
+      };
     },
-  }), [navigateToSession]);
+  }), [navigateToSession, sessionsByWorkspaceId, workspaces]);
   useControlAction(openSessionControlAction);
 
   const renameSessionControlAction = useMemo<OpenworkControlAction>(() => ({

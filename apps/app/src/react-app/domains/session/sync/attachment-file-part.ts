@@ -1,4 +1,4 @@
-import type { FilePartInput } from "@opencode-ai/sdk/v2/client";
+import type { FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
 
 import type { ComposerAttachment } from "../../../../app/types";
 import { joinWorkspaceRelativePath, toFileUrl } from "./prompt-file-parts";
@@ -11,7 +11,6 @@ type AttachmentFileMetadata = {
   filename: string;
   mime: string;
   kind: AttachmentKind;
-  readable: boolean;
 };
 
 const GENERIC_BINARY_MIME = "application/octet-stream";
@@ -40,6 +39,7 @@ type UploadedChatAttachment = {
   bytes: number;
   workspacePath: string;
   url: string;
+  file: AttachmentFile;
 };
 
 const WORKSPACE_INBOX_ROOT = ".opencode/openwork/inbox";
@@ -72,10 +72,25 @@ const EXTENSION_MIME_TYPES: Record<string, string> = {
   html: "text/html",
   htm: "text/html",
   xml: "application/xml",
+  svg: "image/svg+xml",
   yaml: "text/yaml",
   yml: "text/yaml",
   toml: "text/plain",
   log: "text/plain",
+  py: "text/plain",
+  rb: "text/plain",
+  go: "text/plain",
+  rs: "text/plain",
+  java: "text/plain",
+  c: "text/plain",
+  h: "text/plain",
+  cpp: "text/plain",
+  cs: "text/plain",
+  php: "text/plain",
+  sh: "text/plain",
+  sql: "text/plain",
+  ini: "text/plain",
+  conf: "text/plain",
 };
 
 const MIME_FILENAME_EXTENSIONS: Record<string, string> = {
@@ -130,12 +145,31 @@ export function resolveAttachmentMime(file: Pick<File, "name" | "type">) {
   return mimeFromFilename(file.name) ?? GENERIC_BINARY_MIME;
 }
 
-export function isResolvedAttachmentMimeReadable(mimeType: string) {
+function isTextLikeAttachmentMime(mime: string) {
+  if (mime.startsWith("text/")) return true;
+  if (mime === "application/json" || mime === "application/xml" || mime === "application/javascript") return true;
+  return mime.endsWith("+json") || mime.endsWith("+xml");
+}
+
+/**
+ * AI SDK provider adapters only accept `image/*`, `application/pdf`, and
+ * `text/plain` file parts; anything else throws UnsupportedFunctionalityError
+ * server-side and poisons the session history. So model-facing file parts are
+ * routed by one rule:
+ * - text-like mimes are re-mimed to `text/plain` so opencode inlines their
+ *   content via the Read tool (the proven `@file` mention mechanism);
+ * - images, PDFs, and Office mimes pass through (Office parts are rewritten
+ *   to text by the OpenWorkOfficeAttachments plugin before the provider);
+ * - everything else returns `null`: workspace (`file://`) attachments fall
+ *   back to a `text/plain` part that opencode mediates through the Read tool,
+ *   while data-URL attachments are dropped (inlining binary bytes as text is
+ *   garbage); the synthetic workspace-path note gives tools the bytes.
+ */
+export function modelFacingAttachmentMime(mimeType: string): string | null {
   const mime = normalizedMime(mimeType);
-  if (mime.startsWith("image/") || mime.startsWith("text/")) return true;
-  if (isOfficeMime(mime)) return true;
-  if (mime === "application/pdf" || mime === "application/json") return true;
-  return mime.endsWith("+json") || mime.endsWith("+xml") || mime === "application/xml" || mime === "application/javascript";
+  if (isTextLikeAttachmentMime(mime)) return "text/plain";
+  if (mime.startsWith("image/") || mime === "application/pdf" || isOfficeMime(mime)) return mime;
+  return null;
 }
 
 function normalizeFilenameExtension(filename: string, mime: string) {
@@ -172,12 +206,7 @@ export function resolveAttachmentFileMetadata(file: Pick<File, "name" | "type">)
     filename: safeAttachmentFilename(normalizeFilenameExtension(file.name, mime)),
     mime,
     kind: mime.startsWith("image/") ? "image" : "file",
-    readable: isResolvedAttachmentMimeReadable(mime),
   };
-}
-
-export function isAttachmentFileReadable(file: Pick<File, "name" | "type">) {
-  return resolveAttachmentFileMetadata(file).readable;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -223,12 +252,38 @@ function uploadErrorMessage(filename: string, error: unknown) {
   return `无法把附件“${filename}”复制到当前工作区：${detail}`;
 }
 
-function uploadedAttachmentFilePart(item: UploadedChatAttachment): FilePartInput {
+async function uploadedAttachmentFilePart(item: UploadedChatAttachment): Promise<FilePartInput> {
+  // 二进制或未知类型使用 text/plain 文件部件，让运行时通过读取工具处理；
+  // 即使读取失败，也不会把不可识别的二进制内容直接发给模型供应商。
+  const modelMime = modelFacingAttachmentMime(item.mime) ?? "text/plain";
+
+  // 图片必须读取真实字节并转为 data URL。工作区副本路径只进入隐藏运行时
+  // 上下文，不能用 file:// 路径代替供应商可识别的图片输入。
+  if (modelMime.startsWith("image/")) {
+    return {
+      type: "file",
+      url: await fileToDataUrl(item.file, modelMime),
+      filename: item.filename,
+      mime: modelMime,
+    };
+  }
+
   return {
     type: "file",
     url: item.url,
     filename: item.filename,
-    mime: item.mime,
+    mime: modelMime,
+  };
+}
+
+function attachmentPathNotePart(uploaded: UploadedChatAttachment[]): TextPartInput {
+  return {
+    type: "text",
+    synthetic: true,
+    text: [
+      "附件已复制到当前工作区，工具需要读取原文件时可使用以下路径：",
+      ...uploaded.map((item) => `- ${item.filename}: ${item.workspacePath} (${item.url})`),
+    ].join("\n"),
   };
 }
 
@@ -238,7 +293,7 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
   sessionId: string;
   workspaceRoot: string;
   createId?: () => string;
-}): Promise<FilePartInput[]> {
+}): Promise<Array<TextPartInput | FilePartInput>> {
   if (input.attachments.length === 0) return [];
 
   const workspaceRoot = input.workspaceRoot.trim();
@@ -286,18 +341,24 @@ export async function composerAttachmentsToWorkspaceFileParts(input: {
       bytes: result.bytes,
       workspacePath,
       url: toFileUrl(absolutePath),
+      file: attachment.file,
     });
   }
 
-  return uploaded.map(uploadedAttachmentFilePart);
+  return [
+    attachmentPathNotePart(uploaded),
+    ...(await Promise.all(uploaded.map(uploadedAttachmentFilePart))),
+  ];
 }
 
-export async function composerAttachmentToFilePart(attachment: ComposerAttachment): Promise<FilePartInput> {
+export async function composerAttachmentToFilePart(attachment: ComposerAttachment): Promise<FilePartInput | null> {
   const metadata = resolveAttachmentFileMetadata(attachment.file);
+  const modelMime = modelFacingAttachmentMime(metadata.mime);
+  if (!modelMime) return null;
   return {
     type: "file",
-    url: await fileToDataUrl(attachment.file, metadata.mime),
+    url: await fileToDataUrl(attachment.file, modelMime),
     filename: metadata.filename,
-    mime: metadata.mime,
+    mime: modelMime,
   };
 }

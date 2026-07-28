@@ -14,13 +14,14 @@ import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-templ
 import { DenButton } from "../../_components/ui/button";
 import { DenInput } from "../../_components/ui/input";
 import { DenTextarea } from "../../_components/ui/textarea";
-import { getDesktopPoliciesRoute, getMembersRoute } from "../../_lib/den-org";
+import { getDesktopPoliciesRoute, getMembersRoute, getOrgAccessFlags } from "../../_lib/den-org";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import {
   createDesktopPolicy,
   updateDesktopPolicy,
   useOrgDesktopPolicies,
   type DenDesktopPolicy,
+  type DenDesktopPolicyRole,
   type DesktopPolicyPayload,
 } from "./desktop-policy-data";
 import { EnterprisePlanNotice } from "./enterprise-plan-notice";
@@ -34,6 +35,7 @@ type PolicyDraft = {
   onboardingPromptDescriptions: string[];
   memberIds: string[];
   teamIds: string[];
+  roles: DenDesktopPolicyRole[];
 };
 
 const EMPTY_DRAFT: PolicyDraft = {
@@ -45,6 +47,7 @@ const EMPTY_DRAFT: PolicyDraft = {
   onboardingPromptDescriptions: ["", "", ""],
   memberIds: [],
   teamIds: [],
+  roles: [],
 };
 
 const ONBOARDING_PROMPT_LABELS = ["第一条建议", "第二条建议", "第三条建议（选填）"];
@@ -79,6 +82,7 @@ function draftFromPolicy(policy: DenDesktopPolicy): PolicyDraft {
     ],
     memberIds: policy.assignments.flatMap((assignment) => (assignment.orgMemberId ? [assignment.orgMemberId] : [])),
     teamIds: policy.assignments.flatMap((assignment) => (assignment.teamId ? [assignment.teamId] : [])),
+    roles: policy.roles,
   };
 }
 
@@ -90,6 +94,7 @@ function policyToAssignmentPayload(policy: DenDesktopPolicy) {
   return {
     memberIds: policy.assignments.flatMap((assignment) => (assignment.orgMemberId ? [assignment.orgMemberId] : [])),
     teamIds: policy.assignments.flatMap((assignment) => (assignment.teamId ? [assignment.teamId] : [])),
+    roles: policy.roles,
   };
 }
 
@@ -215,7 +220,13 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
     }
   }, [desktopPolicyId, policy]);
 
-  const canManage = orgContext?.currentMember.isOwner || orgContext?.currentMember.role.split(",").map((role) => role.trim()).includes("admin");
+  const access = getOrgAccessFlags(
+    orgContext?.currentMember.role ?? "member",
+    orgContext?.currentMember.isOwner ?? false,
+    orgContext?.roles,
+  );
+  const canManage = access.canManageSettings;
+  const canView = access.canViewSettings;
   const isEditing = Boolean(desktopPolicyId);
   const isDefault = policy?.isDefault === true;
   const listRoute = getDesktopPoliciesRoute(orgSlug);
@@ -224,8 +235,14 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
   const notFound = isEditing && !busy && !policy && desktopPolicies.length > 0;
   const priorityError = getPriorityError(draft, isDefault);
   const disabledPromptCopy = getDisabledPromptCopy(isDefault);
+  const formDisabled = saving || togglingEnabled || !canManage;
 
   const handleSave = async () => {
+    if (!canManage) {
+      setPageError("Only workspace owners and super-admins can save desktop policies.");
+      return;
+    }
+
     const policyName = draft.policyName.trim();
     if (!policyName) {
       setPageError("请填写策略名称。");
@@ -255,6 +272,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
           priority: isDefault ? 0 : draft.priority,
           memberIds: isDefault ? [] : draft.memberIds,
           teamIds: isDefault ? [] : draft.teamIds,
+          roles: isDefault ? [] : draft.roles,
         };
         if (isEditing && desktopPolicyId) {
           // 保存表单时保留当前启用状态，仅允许通过专用按钮切换状态。
@@ -275,12 +293,16 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
   };
 
   const handleToggleEnabled = async () => {
+    if (!canManage) {
+      setPageError("Only workspace owners and super-admins can enable or disable desktop policies.");
+      return;
+    }
     if (!policy || !desktopPolicyId || isDefault) return;
     setPageError(null);
     try {
       await runReauthableAction("toggle-desktop-policy", async () => {
         setTogglingEnabled(true);
-        const { memberIds, teamIds } = policyToAssignmentPayload(policy);
+        const { memberIds, teamIds, roles } = policyToAssignmentPayload(policy);
         await updateDesktopPolicy(desktopPolicyId, {
           policyName: policy.policyName,
           policy: policy.policy,
@@ -288,6 +310,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
           isEnabled: !policy.isEnabled,
           memberIds,
           teamIds,
+          roles,
         });
         await reloadPolicies();
       });
@@ -329,19 +352,24 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
         <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-[15px] text-gray-500">
           没有找到这个桌面策略。
         </div>
-      ) : !canManage ? (
+      ) : !canView ? (
         <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-[15px] text-gray-500">
           只有公司所有者和管理员可以管理桌面策略。
         </div>
       ) : (
         <section className="grid gap-5 rounded-[28px] border border-gray-200 bg-white p-6">
+          {!canManage ? (
+            <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+              Read-only: owners and super-admins can edit desktop policies.
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-end gap-3">
             <label className="grid flex-1 min-w-[240px] gap-2">
               <span className="text-[13px] font-medium text-gray-700">策略名称</span>
               <DenInput
                 value={draft.policyName}
                 onChange={(event) => setDraft({ ...draft, policyName: event.target.value })}
-                disabled={saving || togglingEnabled || isDefault}
+                disabled={formDisabled || isDefault}
               />
               {isDefault ? (
                 <span className="text-[12px] text-gray-500">默认桌面策略的名称不能修改。</span>
@@ -365,7 +393,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                       priority: Number.isInteger(nextPriority) ? nextPriority : 0,
                     });
                   }}
-                  disabled={saving || togglingEnabled}
+                  disabled={formDisabled}
                 />
                 <span id={PRIORITY_HELP_ID} className="text-[12px] text-gray-500">同一成员匹配多条策略时，优先级更高的策略生效。</span>
                 {priorityError ? (
@@ -379,7 +407,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                 variant={policy.isEnabled ? "destructive" : "secondary"}
                 onClick={() => void handleToggleEnabled()}
                 loading={togglingEnabled}
-                disabled={saving}
+                disabled={saving || !canManage}
               >
                 {policy.isEnabled ? "停用" : "启用"}
               </DenButton>
@@ -406,7 +434,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                       policy: { ...draft.policy, [definition.id]: event.target.checked },
                     })
                   }
-                  disabled={saving || togglingEnabled}
+                  disabled={formDisabled}
                 />
               </label>
             ))}
@@ -419,7 +447,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                 className="mt-1 h-5 w-5"
                 checked={draft.onboardingPromptsEnabled}
                 onChange={(event) => setDraft({ ...draft, onboardingPromptsEnabled: event.target.checked })}
-                disabled={saving || togglingEnabled}
+                disabled={formDisabled}
               />
               <span>
                 <span className="block text-[14px] font-medium text-gray-950">公司任务建议</span>
@@ -514,7 +542,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                         <input
                           type="checkbox"
                           checked={draft.memberIds.includes(member.id)}
-                          disabled={saving || togglingEnabled}
+                          disabled={formDisabled}
                           onChange={() => setDraft({ ...draft, memberIds: toggleId(draft.memberIds, member.id) })}
                         />
                         <span>{member.user.name || member.user.email}</span>
@@ -543,7 +571,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
                         <input
                           type="checkbox"
                           checked={draft.teamIds.includes(team.id)}
-                          disabled={saving || togglingEnabled}
+                          disabled={formDisabled}
                           onChange={() => setDraft({ ...draft, teamIds: toggleId(draft.teamIds, team.id) })}
                         />
                         <span>{team.name}</span>

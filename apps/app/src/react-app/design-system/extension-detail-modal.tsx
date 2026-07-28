@@ -45,7 +45,7 @@ export type ExtensionDetailModalProps = {
   hidden?: boolean;
   /** Whether this extension is still in preview. */
   preview?: boolean;
-  /** Whether this extension is alpha / untested. */
+  /** Whether this extension is beta / untested. */
   beta?: boolean;
   /** Reason this item is visible but unavailable. */
   disabledReason?: string | null;

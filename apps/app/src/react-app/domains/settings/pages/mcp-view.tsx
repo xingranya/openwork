@@ -113,6 +113,8 @@ export type McpViewProps = {
   installedOrgMcpItems?: ExtensionItem[];
   orgMcpDisconnectingId?: string | null;
   disconnectOrgMcp?: (connectionId: string) => void;
+  initialFilter?: ExtensionInventoryFilter;
+  onFilterChange?: (filter: ExtensionInventoryFilter) => void;
 };
 
 const builtInExtensionDisabledReason = "Disabled by organization";
@@ -226,6 +228,7 @@ type ExtensionFilter = "all" | "mcp" | "plugin";
 
 export function McpView(props: McpViewProps) {
   const showHeader = props.showHeader !== false;
+  const skillCount = props.installedSkills?.length ?? 0;
   const [detailEntry, setDetailEntry] = useState<McpDirectoryInfo | null>(null);
   const [detailPlugin, setDetailPlugin] = useState<CloudImportedPlugin | null>(null);
   const [detailOrgMcpItem, setDetailOrgMcpItem] = useState<ExtensionItem | null>(null);
@@ -233,7 +236,7 @@ export function McpView(props: McpViewProps) {
   const [openworkUiMcpEnvironment, setOpenworkUiMcpEnvironment] = useState<Record<string, string> | null>(null);
   const [computerUseMcpCommand, setComputerUseMcpCommand] = useState<string[] | null>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ExtensionFilter>("all");
+  const [filter, setFilter] = useState<ExtensionFilter>(props.initialFilter ?? "all");
   const [showHidden, setShowHidden] = useState(false);
   const [claudeImportOpen, setClaudeImportOpen] = useState(false);
   const [, setExtensionStateVersion] = useState(0);
@@ -275,6 +278,20 @@ export function McpView(props: McpViewProps) {
   const configRequestId = useRef(0);
 
   const quickConnectList = props.quickConnect;
+  const setInventoryFilter = (nextFilter: ExtensionInventoryFilter) => {
+    setFilter(nextFilter);
+    props.onFilterChange?.(nextFilter);
+  };
+
+  useEffect(() => {
+    setFilter(props.initialFilter ?? "all");
+  }, [props.initialFilter]);
+
+  useEffect(() => {
+    if (detailEntry && !quickConnectList.includes(detailEntry)) {
+      setDetailEntry(null);
+    }
+  }, [detailEntry, quickConnectList]);
 
   useEffect(() => {
     const refresh = () => setExtensionStateVersion((value) => value + 1);
@@ -533,7 +550,7 @@ export function McpView(props: McpViewProps) {
               key={f}
               variant={filter === f ? "secondary" : "outline"}
               size="xs"
-              onClick={() => setFilter(f)}
+              onClick={() => setInventoryFilter(f)}
             >
               {f === "all" ? "全部" : f === "mcp" ? "MCP" : "插件"}
             </Button>
@@ -549,6 +566,7 @@ export function McpView(props: McpViewProps) {
       </div>
 
       <McpQuickConnectSection
+        skillCount={skillCount}
         entries={
           quickConnectList.filter((entry) => {
             if (!showHidden && (isOpenWorkExtensionHidden(entry) || (props.builtInExtensionsDisabled && isBuiltInOpenWorkExtension(entry)))) return false;
@@ -852,6 +870,7 @@ function McpCustomAppCard(props: {
 }
 
 function McpQuickConnectSection(props: {
+  skillCount: number;
   entries: McpDirectoryInfo[];
   installedPlugins?: CloudImportedPlugin[];
   installedOrgMcpItems?: ExtensionItem[];
@@ -873,9 +892,14 @@ function McpQuickConnectSection(props: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-widest text-dls-secondary">
-          {t("mcp.available_apps")}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-widest text-dls-secondary">
+            {t("mcp.available_apps")}
+          </h3>
+          <span className="text-[11px] uppercase text-dls-secondary">
+            {t("extensions.skill_count", { count: props.skillCount })}
+          </span>
+        </div>
         <span className="text-[11px] text-dls-secondary">{t("mcp.one_click_connect")}</span>
       </div>
 

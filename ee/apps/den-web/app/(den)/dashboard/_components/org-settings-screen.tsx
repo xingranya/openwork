@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Pencil, SlidersHorizontal } from "lucide-react";
+import { Check, Copy, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage, requestJson } from "../../_lib/den-flow";
 import {
@@ -86,6 +86,106 @@ function SettingsToggle({
   );
 }
 
+function DeleteOrganizationDialog({
+  open,
+  organizationName,
+  confirmationName,
+  busy,
+  error,
+  onConfirmationNameChange,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  organizationName: string;
+  confirmationName: string;
+  busy: boolean;
+  error: string | null;
+  onConfirmationNameChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  const confirmed = confirmationName === organizationName;
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!confirmed || busy) {
+      return;
+    }
+
+    onConfirm();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
+      onClick={busy ? undefined : onClose}
+    >
+      <form
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-organization-title"
+        aria-describedby="delete-organization-description"
+        className="w-full max-w-md rounded-[28px] border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.45)]"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <Trash2 className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="delete-organization-title" className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
+              Delete {organizationName}?
+            </h2>
+            <p id="delete-organization-description" className="mt-1 text-[13px] leading-6 text-gray-600">
+              Type the organization name to permanently delete it.
+            </p>
+          </div>
+        </div>
+
+        <label className="mt-5 grid gap-2">
+          <span className="text-[12px] font-medium text-gray-700">
+            Organization name
+          </span>
+          <DenInput
+            value={confirmationName}
+            onChange={(event) => onConfirmationNameChange(event.target.value)}
+            placeholder={organizationName}
+            disabled={busy}
+            autoFocus
+          />
+        </label>
+
+        {error ? (
+          <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <DenButton variant="secondary" onClick={onClose} disabled={busy}>
+            Cancel
+          </DenButton>
+          <DenButton
+            type="submit"
+            variant="destructive"
+            icon={Trash2}
+            loading={busy}
+            disabled={!confirmed}
+          >
+            {busy ? "Deleting..." : "Delete organization"}
+          </DenButton>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function OrgSettingsScreen() {
   const {
     activeOrg,
@@ -96,6 +196,8 @@ export function OrgSettingsScreen() {
     orgSettingsCompletion,
     clearOrgSettingsCompletion,
     updateOrganizationSettings,
+    deleteOrganization,
+    refreshOrgData,
   } = useOrgDashboard();
   const [orgNameDraft, setOrgNameDraft] = useState("");
   const [allowedDomainsDraft, setAllowedDomainsDraft] = useState("");
@@ -120,16 +222,20 @@ export function OrgSettingsScreen() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [copiedOrgId, setCopiedOrgId] = useState(false);
   const [denVersion, setDenVersion] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const currentAllowedDomains =
     orgContext?.organization.allowedEmailDomains ?? null;
-  const isOwner = orgContext?.currentMember.isOwner ?? false;
   const access = getOrgAccessFlags(
     orgContext?.currentMember.role ?? "member",
-    isOwner,
+    orgContext?.currentMember.isOwner ?? false,
     orgContext?.roles,
   );
-  const canManageDesktopVersions = access.isAdmin;
+  const canManageSettings = access.canManageSettings;
+  const canManageDesktopVersions = access.canManageSettings;
+  const canDeleteOrganization = access.canDeleteOrganization;
   const draftAllowedDomains = useMemo(
     () => normalizeAllowedEmailDomainsInput(allowedDomainsDraft),
     [allowedDomainsDraft],
@@ -294,6 +400,7 @@ export function OrgSettingsScreen() {
   }
 
   const organizationId = orgContext.organization.id;
+  const organizationName = orgContext.organization.name;
 
   async function handleCopyOrgId() {
     await navigator.clipboard.writeText(organizationId);
@@ -301,7 +408,7 @@ export function OrgSettingsScreen() {
   }
 
   function handleDomainRestrictionToggle(nextValue: boolean) {
-    if (!isOwner) {
+    if (!canManageSettings) {
       return;
     }
 
@@ -320,17 +427,18 @@ export function OrgSettingsScreen() {
     setPageError(null);
     clearOrgSettingsCompletion();
 
+    if (!canManageSettings) {
+      setPageError("Only workspace owners and super-admins can change settings.");
+      return;
+    }
+
     try {
       await updateOrganizationSettings({
-        ...(isOwner
-          ? {
-              name: orgNameDraft,
-              allowedEmailDomains: domainRestrictionsEnabled
-                ? draftAllowedDomains
-                : null,
-              requireSso: requireSsoEnabled,
-            }
-          : {}),
+        name: orgNameDraft,
+        allowedEmailDomains: domainRestrictionsEnabled
+          ? draftAllowedDomains
+          : null,
+        requireSso: requireSsoEnabled,
         ...(supportedDesktopVersionOptions.length > 0
           ? {
               allowedDesktopVersions: allDesktopVersionsAllowed
@@ -344,6 +452,42 @@ export function OrgSettingsScreen() {
       setDomainEditModeEnabled(false);
     } catch (error) {
       setPageError(getErrorMessage(error, "更新公司设置失败，请重试。"));
+    }
+  }
+
+  function openDeleteDialog() {
+    setPageError(null);
+    clearOrgSettingsCompletion();
+    setDeleteConfirmationName("");
+    setDeleteError(null);
+    setDeleteDialogOpen(true);
+  }
+
+  function closeDeleteDialog() {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmationName("");
+    setDeleteError(null);
+  }
+
+  async function handleDeleteOrganization() {
+    if (deleteConfirmationName !== organizationName) {
+      return;
+    }
+
+    setPageError(null);
+    clearOrgSettingsCompletion();
+    setDeleteError(null);
+
+    try {
+      await deleteOrganization();
+      closeDeleteDialog();
+      await refreshOrgData();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Could not delete organization.",
+      );
     }
   }
 
@@ -401,7 +545,7 @@ export function OrgSettingsScreen() {
                 onChange={(event) => setOrgNameDraft(event.target.value)}
                 minLength={2}
                 maxLength={120}
-                disabled={!isOwner}
+                disabled={!canManageSettings}
                 required
               />
             </label>
@@ -449,7 +593,7 @@ export function OrgSettingsScreen() {
                 label="限制允许加入的邮箱域名"
                 checked={domainRestrictionsEnabled}
                 disabled={
-                  !isOwner || (domainRestrictionsEnabled && hasDraftDomains)
+                  !canManageSettings || (domainRestrictionsEnabled && hasDraftDomains)
                 }
                 onChange={handleDomainRestrictionToggle}
               />
@@ -468,7 +612,7 @@ export function OrgSettingsScreen() {
                 value={allowedDomainsDraft}
                 onChange={(event) => setAllowedDomainsDraft(event.target.value)}
                 rows={6}
-                disabled={!isOwner}
+                disabled={!canManageSettings}
                 placeholder={"company.com\npartner.org"}
               />
             </label>
@@ -493,7 +637,7 @@ export function OrgSettingsScreen() {
                     尚未配置邮箱域名。
                   </p>
                 )}
-                {isOwner ? (
+                {canManageSettings ? (
                   <DenButton
                     type="button"
                     size="sm"
@@ -536,7 +680,7 @@ export function OrgSettingsScreen() {
             <SettingsToggle
               label="公司强制使用 SSO"
               checked={requireSsoEnabled}
-              disabled={!isOwner}
+              disabled={!canManageSettings}
               onChange={setRequireSsoEnabled}
             />
           </div>
@@ -659,6 +803,43 @@ export function OrgSettingsScreen() {
           ) : null}
         </div>
       </form>
+
+      {canDeleteOrganization ? (
+        <DenCard size="spacious" className="mt-6 grid gap-5 !border-red-200 bg-red-50/30">
+          <div className="grid gap-2">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-red-400">
+              Owner controls
+            </p>
+            <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-red-950">
+              Danger zone
+            </h2>
+            <p className="max-w-2xl text-[14px] leading-6 text-red-700">
+              Permanently delete this organization, including members, teams, workers, plugins, and connections. This cannot be undone.
+            </p>
+          </div>
+          <div>
+            <DenButton
+              type="button"
+              variant="destructive"
+              icon={Trash2}
+              onClick={openDeleteDialog}
+            >
+              Delete organization
+            </DenButton>
+          </div>
+        </DenCard>
+      ) : null}
+
+      <DeleteOrganizationDialog
+        open={deleteDialogOpen}
+        organizationName={organizationName}
+        confirmationName={deleteConfirmationName}
+        busy={mutationBusy === "delete-organization"}
+        error={deleteError}
+        onConfirmationNameChange={setDeleteConfirmationName}
+        onClose={closeDeleteDialog}
+        onConfirm={() => void handleDeleteOrganization()}
+      />
     </DashboardPageTemplate>
   );
 }

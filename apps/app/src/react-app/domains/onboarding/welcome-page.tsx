@@ -1,9 +1,10 @@
 /** @jsxImportSource react */
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ShareIcon, UserGroupIcon } from "@heroicons/react/24/solid";
 import { PaperGrainGradient } from "@openwork/ui/react/paper-grain-gradient";
 
 import { t } from "../../../i18n";
+import { useBootState } from "../../shell/boot-state";
 import {
   Page,
   PageBackground,
@@ -175,6 +176,13 @@ export function WelcomePage({
   organizationServerUrl,
   onOrganizationServerSave,
 }: WelcomePageProps) {
+  const { markRouteReady } = useBootState();
+
+  // 首次引导是一个完整页面，渲染完成后立即释放启动遮罩，避免遮罩继续吞掉点击。
+  useEffect(() => {
+    markRouteReady();
+  }, [markRouteReady]);
+
   return (
     <Page className="min-h-screen">
       <PageBackground />

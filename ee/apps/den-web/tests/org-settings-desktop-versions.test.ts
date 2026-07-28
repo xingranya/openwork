@@ -24,7 +24,7 @@ describe("organization desktop version settings", () => {
     expect(source).toContain("升级公司服务后才能允许此版本");
   });
 
-  test("allows workspace admins to save desktop version settings", () => {
+  test("keeps workspace admins read-only for desktop version settings", () => {
     const source = readFileSync(settingsPath, "utf8");
 
     expect(source).toContain("const canManageDesktopVersions = access.isAdmin");

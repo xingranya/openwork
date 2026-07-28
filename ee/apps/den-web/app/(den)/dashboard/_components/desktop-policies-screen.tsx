@@ -45,7 +45,12 @@ export function DesktopPoliciesScreen() {
     });
     return list;
   }, [desktopPolicies]);
-  const canManage = orgContext?.currentMember.isOwner || orgContext?.currentMember.role.split(",").map((role) => role.trim()).includes("admin");
+  const access = getOrgAccessFlags(
+    orgContext?.currentMember.role ?? "member",
+    orgContext?.currentMember.isOwner ?? false,
+    orgContext?.roles,
+  );
+  const canManage = access.canManageSettings;
 
   const softDeletePolicy = async (policy: DenDesktopPolicy) => {
     if (policy.isDefault || !confirm(`确定删除桌面策略“${policy.policyName}”吗？`)) return;
@@ -82,7 +87,11 @@ export function DesktopPoliciesScreen() {
             <Plus className="h-4 w-4" aria-hidden="true" />
             新建策略
           </Link>
-        ) : null}
+        ) : (
+          <DenButton type="button" icon={Plus} disabled>
+            New policy
+          </DenButton>
+        )}
       </div>
 
       {orgContext && !orgContext.entitlements.desktopPolicies ? <EnterprisePlanNotice feature="桌面策略管理" /> : null}

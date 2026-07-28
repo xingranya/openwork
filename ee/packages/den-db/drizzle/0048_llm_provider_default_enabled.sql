@@ -1,1 +1,0 @@
-ALTER TABLE `llm_provider` ADD `default_enabled` boolean DEFAULT false NOT NULL;

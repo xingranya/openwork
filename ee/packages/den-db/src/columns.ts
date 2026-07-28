@@ -107,6 +107,13 @@ export const encryptedTextColumn = (columnName: string) =>
     deserialize: (value) => value,
   })
 
+export const encryptedMediumTextColumn = (columnName: string) =>
+  encryptedColumn<string>(columnName, {
+    dataType: "mediumtext",
+    serialize: (value) => value,
+    deserialize: (value) => value,
+  })
+
 export const mediumBlobColumn = (columnName: string) =>
   customType<{ data: Uint8Array; driverData: Uint8Array }>({
     dataType() {

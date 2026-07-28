@@ -147,6 +147,7 @@ export function WelcomeRoute() {
   const [organizationServerUrl, setOrganizationServerUrl] = useState(() => readDenSettings().baseUrl);
   const [organizationServerBusy, setOrganizationServerBusy] = useState(false);
   const [organizationServerError, setOrganizationServerError] = useState<string | null>(null);
+  const [joinOrganizationOpen, setJoinOrganizationOpen] = useState(false);
   const showOpenWorkModelsPromo = useOpenWorkModelsPromoEligibility();
 
   // If user already completed onboarding, redirect away immediately.
@@ -372,9 +373,10 @@ export function WelcomeRoute() {
   }, [handleCreateWorkspace, manualFolder]);
 
   const handleTeamSignIn = useCallback(() => {
+    markOnboardingComplete();
     const settings = readDenSettings();
     platform.openLink(buildDenAuthUrl(settings.baseUrl || DEFAULT_DEN_BASE_URL, "sign-in"));
-  }, [platform]);
+  }, [markOnboardingComplete, platform]);
 
   const welcomePrimaryAction = resolveWelcomePrimaryAction(
     organizationServerUrl,
@@ -417,6 +419,14 @@ export function WelcomeRoute() {
         organizationServerError={organizationServerError}
         organizationServerUrl={organizationServerUrl}
         onOrganizationServerSave={handleOrganizationServerSave}
+      />
+      <JoinOrganizationDialog
+        open={joinOrganizationOpen}
+        onOpenChange={setJoinOrganizationOpen}
+        onConnected={() => {
+          markOnboardingComplete();
+          setJoinOrganizationOpen(false);
+        }}
       />
       <CreateWorkspaceModal
         open={state.modalOpen}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { DenButton } from "../../_components/ui/button";
 import { getErrorMessage } from "../../_lib/den-flow";
@@ -13,15 +13,19 @@ export function OrganizationDownloadCard({
   organizationId: string;
   organizationName: string;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"open" | "copy" | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleDownload() {
-    setBusy(true);
+  async function mintInstallLink() {
+    return createOrganizationInstallLink(organizationId, false);
+  }
+
+  async function handleOpenInstallPage() {
+    setBusyAction("open");
     setError(null);
     try {
-      const installPageUrl = await createOrganizationInstallLink(organizationId);
-      window.location.assign(installPageUrl);
+      window.open(await mintInstallLink(), "_blank");
     } catch (downloadError) {
       setError(getErrorMessage(downloadError instanceof Error ? downloadError.message : null, "无法打开工作区下载页面。"));
       setBusy(false);
@@ -31,7 +35,7 @@ export function OrganizationDownloadCard({
   return (
     <section
       className="overflow-hidden rounded-[18px] border border-[#E3E7EE] bg-white shadow-[0_24px_60px_-32px_rgba(7,25,44,0.22)]"
-      data-testid="organization-download-card"
+      data-testid="workspace-install-card"
     >
       <div className="grid gap-5 bg-gradient-to-b from-[#FAFBFE] to-white px-6 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>

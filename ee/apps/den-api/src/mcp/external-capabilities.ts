@@ -16,6 +16,7 @@ import {
 } from "../capability-sources/external-mcp-connections.js"
 import { callExternalMcpTool, listExternalMcpTools } from "../capability-sources/external-mcp-client-runtime.js"
 import {
+  EXTERNAL_MCP_TOOL_LIFECYCLE_TIMEOUT_MS,
   createExternalMcpLifecycleDeadline,
   type ExternalMcpLifecycleDeadline,
 } from "../capability-sources/external-mcp-client.js"
@@ -189,7 +190,6 @@ export type ExternalConnectionStatus = {
     retry: "search_capabilities"
     url?: string
   }
-  diagnostic?: ExternalMcpDiagnostic
 }
 
 const ERROR_MESSAGE_LIMIT = 300
@@ -461,7 +461,6 @@ export function buildExternalConnectionStatus(input: {
             retry: "search_capabilities",
           },
         }),
-      ...(input.diagnostic ? { diagnostic: input.diagnostic } : {}),
     }
   }
 
@@ -506,7 +505,6 @@ export function buildExternalConnectionStatus(input: {
           retry: "search_capabilities",
         },
       }),
-    ...(input.diagnostic ? { diagnostic: input.diagnostic } : {}),
   }
 }
 
@@ -850,9 +848,9 @@ export type ExternalCapabilityExecuteResult =
         | "provider_error"
         | "invalid_capability_arguments"
       message: string
-      diagnostic?: ExternalMcpDiagnostic
-      actionOwner?: ExternalMcpDiagnostic["actionOwner"]
-      operatorAction?: string
+      referenceId?: string
+      retryable?: boolean
+      providerError?: ExternalMcpProviderError
       connectionStatus?: ExternalConnectionStatus
       capability?: string
       issues?: ExternalMcpArgumentIssue[]
@@ -864,6 +862,38 @@ export type ExternalCapabilityExecuteResult =
       }
       schemaGuidance?: ExternalMcpSchemaGuidance
     }
+
+export type ExternalMcpProviderError = {
+  jsonRpcCode?: number
+  message?: string
+  data?: string
+}
+
+function providerErrorFromDiagnostic(diagnostic: ExternalMcpDiagnostic): ExternalMcpProviderError | undefined {
+  if (
+    diagnostic.jsonRpcCode === undefined
+    && !diagnostic.providerErrorMessage
+    && !diagnostic.providerErrorData
+  ) return undefined
+  return {
+    ...(diagnostic.jsonRpcCode === undefined ? {} : { jsonRpcCode: diagnostic.jsonRpcCode }),
+    ...(diagnostic.providerErrorMessage ? { message: diagnostic.providerErrorMessage } : {}),
+    ...(diagnostic.providerErrorData ? { data: diagnostic.providerErrorData } : {}),
+  }
+}
+
+function diagnosticAgentMessage(diagnostic: ExternalMcpDiagnostic): string {
+  return `${diagnostic.message} ${diagnostic.operatorAction} Diagnostic reference: ${diagnostic.referenceId}.`
+}
+
+function diagnosticAgentFields(diagnostic: ExternalMcpDiagnostic) {
+  const providerError = providerErrorFromDiagnostic(diagnostic)
+  return {
+    referenceId: diagnostic.referenceId,
+    retryable: diagnostic.retryable,
+    ...(providerError ? { providerError } : {}),
+  }
+}
 
 function invalidCapabilityArguments(input: {
   capability: string
@@ -888,13 +918,7 @@ function invalidCapabilityArguments(input: {
     sameArgumentsRetryable: false,
     retry: { action: "correct_arguments", searchRequired: false },
     ...(input.schemaGuidance ? { schemaGuidance: input.schemaGuidance } : {}),
-    ...(input.diagnostic
-      ? {
-          diagnostic: input.diagnostic,
-          actionOwner: input.diagnostic.actionOwner,
-          operatorAction: input.diagnostic.operatorAction,
-        }
-      : {}),
+    ...(input.diagnostic ? diagnosticAgentFields(input.diagnostic) : {}),
   }
 }
 
@@ -1016,9 +1040,10 @@ export async function executeExternalCapability(input: {
 
   let currentSchemaDigest: string | undefined
   let schemaGuidance: ExternalMcpSchemaGuidance | undefined
+  const deadline = createExternalMcpLifecycleDeadline(EXTERNAL_MCP_TOOL_LIFECYCLE_TIMEOUT_MS)
   try {
     const redirectUri = redirectUriFor(input.redirectUriBase, connection.id)
-    const tools = await listExternalMcpTools(connection, redirectUri, member)
+    const tools = await listExternalMcpTools(connection, redirectUri, member, undefined, deadline)
     const tool = tools.find((candidate) => candidate.name === input.toolName)
     if (!tool) {
       return {
@@ -1054,6 +1079,7 @@ export async function executeExternalCapability(input: {
       toolName: input.toolName,
       args: forwardedArguments,
       member,
+      lifecycleDeadline: deadline,
     })
 
     const validation = validateExternalMcpToolArguments(tool.inputSchema, input.args)
@@ -1108,9 +1134,7 @@ export async function executeExternalCapability(input: {
           ok: false,
           error: "needs_connection",
           message: resultMessage,
-          diagnostic,
-          actionOwner: diagnostic.actionOwner,
-          operatorAction: diagnostic.operatorAction,
+          ...diagnosticAgentFields(diagnostic),
           connectionStatus: providerAuthorizationConnectionStatus({
             connection,
             diagnostic,

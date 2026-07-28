@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { joinBaseUrl, readBaseUrlEnv } from "@openwork/types/url";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ async function readSingleOrgSsoConfigured(orgMode: string) {
     return false;
   }
 
-  const apiBase = readBaseUrlEnv("DEN_API_BASE");
+  const apiBase = readBaseUrlEnv(process.env, "DEN_API_BASE") ?? "";
   if (!apiBase) {
     return false;
   }
@@ -78,7 +79,7 @@ async function readSingleOrgSsoConfigured(orgMode: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2_000);
   try {
-    const response = await fetch(`${apiBase}/v1/orgs/sso/singleton`, {
+    const response = await fetch(joinBaseUrl(apiBase, "v1/orgs/sso/singleton"), {
       cache: "no-store",
       signal: controller.signal,
     });

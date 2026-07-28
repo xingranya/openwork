@@ -6,6 +6,7 @@ import path from "node:path"
 import { desktopBootstrapPath, legacyDesktopBootstrapPath } from "./bootstrap-path"
 import type { InstallerConfig } from "./config"
 import { releaseAssetFor, type ReleaseAsset } from "./release-asset"
+import { fetchWithSystemCa } from "./system-ca"
 
 export type InstallStep = "write-config" | "check-version" | "download" | "install"
 
@@ -39,6 +40,7 @@ const status: InstallStatus = {
 
 const HOSTED_DESKTOP_WEB_URL = "https://app.openworklabs.com"
 const HOSTED_DESKTOP_API_URL = "https://api.openworklabs.com"
+const INSTALLER_APP_BUNDLE_NAME = "Install OpenWork.app"
 
 type BootstrapCandidate = {
   config: Record<string, unknown>
@@ -145,7 +147,7 @@ export function writeBootstrapConfig(
 
 /** Ask the deployment's Den API which desktop version it supports. */
 export async function fetchLatestSupportedVersion(apiUrl: string): Promise<string> {
-  const response = await fetch(`${apiUrl}/v1/app-version`, {
+  const response = await fetchWithSystemCa(`${apiUrl}/v1/app-version`, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(15_000),
   })
@@ -161,7 +163,7 @@ export async function fetchLatestSupportedVersion(apiUrl: string): Promise<strin
 }
 
 async function downloadAsset(asset: ReleaseAsset, targetPath: string, opts: InstallOptions): Promise<void> {
-  const response = await fetch(asset.url, { redirect: "follow" })
+  const response = await fetchWithSystemCa(asset.url, { redirect: "follow" })
   if (!response.ok || !response.body) {
     throw new Error(`Download failed (${response.status} ${response.statusText}): ${asset.url}`)
   }
@@ -179,7 +181,13 @@ async function downloadAsset(asset: ReleaseAsset, targetPath: string, opts: Inst
   await writer.end()
 }
 
-function run(command: string, args: string[]): Promise<void> {
+const WINDOWS_SPAWN_BUSY_RETRIES = 5
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function spawnOnce(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: "ignore" })
     child.on("error", reject)
@@ -188,6 +196,73 @@ function run(command: string, args: string[]): Promise<void> {
       else reject(new Error(`${command} ${args.join(" ")} exited with ${code}`))
     })
   })
+}
+
+export function removableInstallerBundlePath(
+  selfPath: string,
+  homeDir: string = os.homedir(),
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  if (platform !== "darwin") return null
+  const trimmedSelfPath = selfPath.trim()
+  const trimmedHomeDir = homeDir.trim()
+  if (!trimmedSelfPath || !trimmedHomeDir) return null
+  // macOS paths are POSIX; use posix path semantics explicitly so the logic
+  // (and its tests) behave identically on any host platform.
+  if (!trimmedSelfPath.startsWith("/") || !trimmedHomeDir.startsWith("/")) return null
+
+  let current = path.posix.normalize(trimmedSelfPath)
+  while (true) {
+    if (path.posix.basename(current) === INSTALLER_APP_BUNDLE_NAME) {
+      const parent = path.posix.dirname(current)
+      const allowedParents = [
+        "/Applications",
+        path.posix.join(trimmedHomeDir, "Applications"),
+        path.posix.join(trimmedHomeDir, "Downloads"),
+      ].map((entry) => path.posix.normalize(entry))
+      return allowedParents.includes(parent) ? current : null
+    }
+
+    const parent = path.posix.dirname(current)
+    if (parent === current) return null
+    current = parent
+  }
+}
+
+export function scheduleInstallerSelfCleanup(selfPath: string = process.execPath): void {
+  const bundlePath = removableInstallerBundlePath(selfPath)
+  if (!bundlePath || !existsSync(bundlePath)) return
+  try {
+    const child = spawn("/bin/sh", ["-c", "sleep 1; /bin/rm -rf \"$1\"", "openwork-installer-cleanup", bundlePath], {
+      detached: true,
+      stdio: "ignore",
+    })
+    child.unref()
+  } catch {
+    // Best-effort cleanup only; the installed app was already launched or installed.
+  }
+}
+
+async function run(command: string, args: string[]): Promise<void> {
+  for (let attempt = 0; attempt <= WINDOWS_SPAWN_BUSY_RETRIES; attempt += 1) {
+    try {
+      await spawnOnce(command, args)
+      return
+    } catch (error) {
+      const canRetry = process.platform === "win32" && error instanceof Error && error.message.includes("EBUSY")
+      if (!canRetry || attempt === WINDOWS_SPAWN_BUSY_RETRIES) throw error
+      await wait(300 * (attempt + 1))
+    }
+  }
+  throw new Error(`${command} ${args.join(" ")} did not start`)
+}
+
+export function windowsInstalledExePath(localAppData: string): string {
+  const candidates = [
+    path.join(localAppData, "Programs", "OpenWork", "OpenWork.exe"),
+    path.join(localAppData, "Programs", "@openworkdesktop", "OpenWork.exe"),
+  ]
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]
 }
 
 function installDmg(dmgPath: string, workDir: string): string {
@@ -219,7 +294,7 @@ async function installExe(exePath: string): Promise<string> {
   // silent install (shortcuts, uninstaller, updater layout all included).
   await run(exePath, ["/S"])
   const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local")
-  return path.join(localAppData, "Programs", "OpenWork", "OpenWork.exe")
+  return windowsInstalledExePath(localAppData)
 }
 
 function installAppImage(appImagePath: string): string {

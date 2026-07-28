@@ -1,12 +1,11 @@
 /** @jsxImportSource react */
-import { ArrowRight, KeyRound, Sparkles } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -25,6 +24,15 @@ type OpenWorkModelsStartupDialogProps = {
   onContinueWithout: () => void;
 };
 
+const HIGHLIGHTS = [
+  "公司统一配置并维护可用模型",
+  "员工无需自行保存 Anthropic、OpenAI 或 Google API 密钥",
+  "本地工作区仍可继续使用个人模型服务",
+];
+
+/**
+ * 首次进入时介绍公司共享模型，并保留继续使用个人模型服务的选择。
+ */
 export function OpenWorkModelsStartupDialog(props: OpenWorkModelsStartupDialogProps) {
   const featuredModels = props.models.slice(0, 3);
 
@@ -35,52 +43,70 @@ export function OpenWorkModelsStartupDialog(props: OpenWorkModelsStartupDialogPr
         if (!open) props.onContinueWithout();
       }}
     >
-      <DialogContent className="w-full max-w-lg overflow-hidden sm:max-w-lg">
-        <DialogHeader>
-          <div className="mb-2 flex size-11 items-center justify-center rounded-2xl border border-blue-6 bg-blue-2 text-blue-11">
-            <ProviderIcon providerId={OPENWORK_MODELS_PROVIDER_ID} providerName={OPENWORK_MODELS_PROVIDER_NAME} size={22} />
-          </div>
-          <DialogTitle>使用公司共享模型</DialogTitle>
-          <DialogDescription>
-            公司统一配置并管理工作区模型，员工无需自行保存 API 密钥；你也可以继续使用个人模型服务。
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-full max-w-md gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
+        <div className="px-8 pb-8 pt-9">
+          <DialogHeader className="space-y-0">
+            <div className="flex items-center gap-2">
+              <ProviderIcon
+                providerId={OPENWORK_MODELS_PROVIDER_ID}
+                providerName={OPENWORK_MODELS_PROVIDER_NAME}
+                size={18}
+              />
+              <span className="text-[13px] font-medium text-muted-foreground">
+                {OPENWORK_MODELS_PROVIDER_NAME}
+              </span>
+            </div>
+            <DialogTitle className="mt-5 text-[24px] font-semibold leading-[30px] tracking-[-0.02em] text-foreground">
+              直接使用公司共享模型
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-[14px] leading-[21px] text-muted-foreground">
+              登录公司账号后，所有获授权工作区都会自动加载可用模型。
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            {featuredModels.map((model) => (
-              <div key={model.id} className="rounded-xl border border-dls-border bg-dls-surface px-3 py-2">
-                <div className="truncate text-xs font-medium text-dls-text">{model.title}</div>
-                <div className="mt-0.5 truncate text-[11px] text-dls-secondary">{model.subtitle}</div>
+          <div className="mt-6 overflow-hidden rounded-2xl border border-border">
+            {featuredModels.map((model, index) => (
+              <div
+                key={model.id}
+                className={
+                  index > 0
+                    ? "flex items-baseline justify-between gap-3 border-t border-border px-4 py-2.5"
+                    : "flex items-baseline justify-between gap-3 px-4 py-2.5"
+                }
+              >
+                <span className="truncate text-[13px] font-medium text-foreground">
+                  {model.title}
+                </span>
+                <span className="shrink-0 text-[12px] text-muted-foreground">
+                  {model.subtitle}
+                </span>
               </div>
             ))}
           </div>
 
-          <div className="grid gap-2 text-xs text-dls-secondary sm:grid-cols-2">
-            <div className="flex gap-2 rounded-xl bg-dls-hover/50 p-3">
-              <Sparkles className="mt-0.5 size-3.5 shrink-0 text-blue-11" />
-              <span>公司任务和共享流程使用统一的模型配置。</span>
-            </div>
-            <div className="flex gap-2 rounded-xl bg-dls-hover/50 p-3">
-              <KeyRound className="mt-0.5 size-3.5 shrink-0 text-blue-11" />
-              <span>无需自行配置 Anthropic、OpenAI 或 Google API 密钥。</span>
-            </div>
+          <ul className="mt-5 space-y-2">
+            {HIGHLIGHTS.map((highlight) => (
+              <li key={highlight} className="flex items-start gap-2.5 text-[13px] leading-[19px] text-muted-foreground">
+                <Check className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+                <span>{highlight}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-7 space-y-2">
+            <Button className="h-11 w-full text-[14px] font-semibold" onClick={props.onSubscribe}>
+              {props.isSignedIn ? "查看公司模型" : "登录并查看公司模型"}
+              <ArrowRight data-icon="inline-end" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-10 w-full text-[13px] font-normal text-muted-foreground hover:text-foreground"
+              onClick={props.onContinueWithout}
+            >
+              继续使用个人模型服务
+            </Button>
           </div>
-
-          <p className="text-xs text-dls-secondary">
-            公司共享模型由管理员配置；本地工作区也可以继续使用个人模型服务。
-          </p>
         </div>
-
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button variant="ghost" onClick={props.onContinueWithout}>
-            暂不使用公司模型
-          </Button>
-          <Button onClick={props.onSubscribe}>
-            {props.isSignedIn ? "查看公司模型" : "登录并查看"}
-            <ArrowRight className="ml-1.5 size-3.5" />
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

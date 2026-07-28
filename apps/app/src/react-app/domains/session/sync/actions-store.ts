@@ -183,7 +183,9 @@ export function createSessionActionsStore(options: {
     }
 
     parts.push(...firstLineLocalFileParts(text, root));
-    parts.push(...(await Promise.all(draft.attachments.map(composerAttachmentToFilePart))));
+    for (const part of await Promise.all(draft.attachments.map(composerAttachmentToFilePart))) {
+      if (part) parts.push(part);
+    }
     return parts;
   };
 
@@ -218,7 +220,9 @@ export function createSessionActionsStore(options: {
       } as FilePartInput);
     }
 
-    parts.push(...(await Promise.all(draft.attachments.map(composerAttachmentToFilePart))));
+    for (const part of await Promise.all(draft.attachments.map(composerAttachmentToFilePart))) {
+      if (part) parts.push(part);
+    }
     return parts;
   };
 

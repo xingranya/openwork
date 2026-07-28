@@ -133,6 +133,12 @@ const connectStateResponseSchema = z.object({
   }).passthrough(),
 }).passthrough();
 
+const connectSkillsResponseSchema = z.object({
+  ok: z.literal(true),
+  schemaVersion: z.number(),
+  instruction: z.string(),
+}).passthrough();
+
 export const OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION =
   "如果员工提出的任务无法直接用内置工具完成，先检查 FoxWork 扩展，再判断能力是否可用。使用 openwork_extension_list_actions 查看可用动作，再通过 openwork_extension_call 调用匹配动作。";
 
@@ -292,6 +298,20 @@ async function fetchOpenWorkConnectState(input: unknown, fetcher: OpenWorkFetch)
   };
 }
 
+export async function resolveOpenWorkConnectSkillInstruction(_input?: unknown, fetcher: OpenWorkFetch = fetch): Promise<string> {
+  try {
+    const { url, token } = requireOpenWorkServer();
+    // Connect skills are server-scoped; workspace/directory query params are unused.
+    const response = await fetcher(`${url}/experimental/connect/skills`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return "";
+    return connectSkillsResponseSchema.parse(await parseResponse(response)).instruction;
+  } catch {
+    return "";
+  }
+}
+
 export function composeOpenWorkExtensionDiscoveryInstruction(state: OpenWorkExtensionConnectState | null): string {
   if (!state) return OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION;
   if (state.workspace?.resolution && state.workspace.resolution !== "resolved") return OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION;
@@ -311,6 +331,16 @@ export function composeSteeringFromEngineMcpStatus(status: string | undefined): 
   if (status === "disabled") return OPENWORK_CONNECT_DISABLED_INSTRUCTION;
   if (status === "needs_auth" || status === "needs_client_registration") return OPENWORK_CONNECT_SIGN_IN_INSTRUCTION;
   return OPENWORK_EXTENSION_DISCOVERY_INSTRUCTION;
+}
+
+export function composeSkillAuthoringInstruction(extensionInstruction: string): {
+  mode: "cloud" | "local";
+  prompt: string;
+} {
+  if (extensionInstruction === OPENWORK_CLOUD_CONNECTION_INSTRUCTION) {
+    return { mode: "cloud", prompt: OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION };
+  }
+  return { mode: "local", prompt: OPENWORK_LOCAL_SKILL_AUTHORING_INSTRUCTION };
 }
 
 export function resetOpenWorkExtensionDiscoveryInstructionCacheForTests(): void {

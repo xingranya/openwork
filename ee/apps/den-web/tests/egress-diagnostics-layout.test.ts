@@ -26,12 +26,13 @@ describe("Den egress diagnostic settings flow", () => {
     const shell = readFileSync(shellPath, "utf8");
 
     expect(settings).not.toContain("EgressDiagnosticsCard");
-    expect(diagnostics).toContain("<EgressDiagnosticsCard canRun />");
+    expect(diagnostics).toContain("<EgressDiagnosticsCard canView={access.canViewSettings} canManage={access.canManageSettings} />");
     expect(shell).toContain('{ href: getDiagnosticsRoute(activeOrg.slug), label: "连接诊断" }');
     expect(card).toContain("运行出站连接诊断");
     expect(card).toContain("查看支持追踪");
     expect(card).toContain("建议处理人：");
     expect(card).toContain("远端诊断编号");
+    expect(card).toContain("FoxWork 技术支持");
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "GET" }');
     expect(card).toContain('requestJson("/v1/diagnostics/egress", { method: "POST" }');
   });

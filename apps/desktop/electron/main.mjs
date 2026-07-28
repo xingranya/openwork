@@ -16,6 +16,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { globalOpencodeConfigDir, workspaceOpencodeConfigCandidates } from "@openwork/paths";
 
 import { configureFakeMediaForTests, installMediaPermissionHandlers } from "./media-permissions.mjs";
 import { registerMigrationIpc } from "./migration.mjs";
@@ -29,8 +30,14 @@ import {
 } from "./computer-use.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
 import { createApplicationMenu } from "./app-menu.mjs";
+import { applyBrandAppName } from "./brand-app-name.mjs";
 import { createBrowserPanel } from "./browser-panel.mjs";
 import { createWorkspaceStore } from "./workspace-store.mjs";
+import {
+  buildNukeManifest,
+  executeNukeFreshStart,
+  runPendingNukeCleanup,
+} from "./nuke.mjs";
 import {
   createConnectLinkReplayGuard,
   extractConnectExchange,
@@ -43,6 +50,7 @@ import {
 } from "./connect-link-branding.mjs";
 import { resolveConnectLinkPublicKeys } from "./connect-link-keys.mjs";
 import { openExternalUrl } from "./open-external.mjs";
+import { resolveAppIdentifier, resolveUserDataPath } from "./dev-profile.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
 import {
   createDeepLinkDelivery,
@@ -66,6 +74,7 @@ import {
 } from "./foxwork-brand.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = path.resolve(__dirname, "../../..");
 const require = createRequire(import.meta.url);
 // Electron 35 eagerly resolves every export in a named ESM import, including
 // safeStorage. Loading through CommonJS keeps safeStorage lazy so isolated demo
@@ -159,22 +168,20 @@ function killTerminalsForWebContents(webContentsId) {
 // so in-place migration is a no-op for almost every file. Dev mode uses the
 // separate dev identifier so it can run beside the production app.
 //
-// Override via OPENWORK_ELECTRON_USERDATA so dogfooders can isolate their
-// Electron install from the real Tauri app.
+// Dev profile precedence: OPENWORK_ELECTRON_USERDATA (explicit profile path)
+// wins over everything; then OPENWORK_ELECTRON_APP_IDENTIFIER; then
+// OPENWORK_DEV_PROFILE in unpackaged dev; then the legacy identifier default.
 app.setName(APP_NAME);
 app.setAppUserModelId(APP_IDENTIFIER);
 if (app.isPackaged && process.env.OPENWORK_ELECTRON_DISABLE_PROTOCOL_REGISTRATION !== "1") {
   app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL_SCHEME);
 }
-const userDataOverride = process.env.OPENWORK_ELECTRON_USERDATA?.trim();
-if (userDataOverride) {
-  app.setPath("userData", userDataOverride);
-} else {
-  app.setPath(
-    "userData",
-    path.join(app.getPath("appData"), APP_IDENTIFIER),
-  );
-}
+const userDataPath = resolveUserDataPath({
+  appDataPath: app.getPath("appData"),
+  appIdentifier: APP_IDENTIFIER,
+  userDataOverride: process.env.OPENWORK_ELECTRON_USERDATA,
+});
+app.setPath("userData", userDataPath);
 
 // Resolve and cache the app icon (reused for BrowserWindow + mac dock).
 // Packaged builds ship icons via electron-builder config, but for `dev:electron`
@@ -294,8 +301,11 @@ function selectDownloadFile(files, arch) {
 async function resolveCorrectArchitectureDownloadUrl(arch) {
   if (!RELEASE_DOWNLOAD_BASE_URL) return null;
   const manifestUrl = `${RELEASE_DOWNLOAD_BASE_URL}/${updaterManifestName(arch)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
-    const response = await fetch(manifestUrl, {
+    const response = await electronNet.fetch(manifestUrl, {
+      signal: controller.signal,
       headers: { Accept: "text/yaml, text/plain, */*" },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -307,6 +317,8 @@ async function resolveCorrectArchitectureDownloadUrl(arch) {
   } catch (error) {
     console.warn("[architecture] failed to resolve latest download URL", error);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -853,6 +865,10 @@ if (remoteDebugPort > 0) {
 // Make the resolved port available to the embedded server so it flows into
 // agent instructions via ensureOpenworkAgent → resolveAgentTemplate.
 process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT = String(remoteDebugPort);
+if (isDevMode && !app.isPackaged) {
+  const cdpAddress = remoteDebugPort > 0 ? `http://127.0.0.1:${remoteDebugPort}` : "disabled";
+  console.log(`[openwork] dev profile=${app.getPath("userData")} cdp=${cdpAddress}`);
+}
 
 // Apply extra Chromium flags from ELECTRON_EXTRA_LAUNCH_ARGS.
 // Used in headless/Daytona environments to pass e.g. --disable-gpu.
@@ -883,6 +899,7 @@ function envFlagEnabled(name) {
 const IDLE_ENGINE_INFO = Object.freeze({
   running: false,
   runtime: "direct",
+  managedByServer: false,
   baseUrl: null,
   projectDir: null,
   hostname: null,
@@ -1043,7 +1060,7 @@ function configHomePath() {
 }
 
 function globalOpencodeRoot() {
-  return path.join(configHomePath(), "opencode");
+  return globalOpencodeConfigDir();
 }
 
 function execResult(ok, stdout = "", stderr = "", status = ok ? 0 : 1) {
@@ -1251,26 +1268,28 @@ function ensureRuntimeBootstrap() {
 }
 
 function resolveOpencodeConfigPath(scope, projectDir) {
-  let root;
   if (scope === "project") {
     if (!String(projectDir ?? "").trim()) {
       throw new Error("projectDir is required");
     }
-    root = projectDir;
+    return workspaceOpencodeConfigCandidates(projectDir);
   } else if (scope === "global") {
-    root = globalOpencodeRoot();
+    const root = globalOpencodeRoot();
+    return [path.join(root, "opencode.jsonc"), path.join(root, "opencode.json")];
   } else {
     throw new Error("scope must be 'project' or 'global'");
   }
+}
 
-  const jsoncPath = path.join(root, "opencode.jsonc");
-  const jsonPath = path.join(root, "opencode.json");
-  return { jsoncPath, jsonPath };
+async function selectOpencodeConfigPath(candidates) {
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) return candidate;
+  }
+  return candidates[0];
 }
 
 async function readOpencodeConfig(scope, projectDir) {
-  const { jsoncPath, jsonPath } = resolveOpencodeConfigPath(scope, projectDir);
-  const chosenPath = (await pathExists(jsoncPath)) ? jsoncPath : (await pathExists(jsonPath)) ? jsonPath : jsoncPath;
+  const chosenPath = await selectOpencodeConfigPath(resolveOpencodeConfigPath(scope, projectDir));
   const exists = await pathExists(chosenPath);
   return {
     path: chosenPath,
@@ -1280,8 +1299,7 @@ async function readOpencodeConfig(scope, projectDir) {
 }
 
 async function writeOpencodeConfig(scope, projectDir, content) {
-  const { jsoncPath, jsonPath } = resolveOpencodeConfigPath(scope, projectDir);
-  const targetPath = (await pathExists(jsoncPath)) ? jsoncPath : (await pathExists(jsonPath)) ? jsonPath : jsoncPath;
+  const targetPath = await selectOpencodeConfigPath(resolveOpencodeConfigPath(scope, projectDir));
   await mkdir(path.dirname(targetPath), { recursive: true });
   await writeFile(targetPath, content, "utf8");
   return execResult(true, `Wrote ${targetPath}`);
@@ -1732,10 +1750,33 @@ const desktopCommandHandlers = {
       const config = await persistConnectLinkClaims(verified.claims);
       return { ok: true, config };
   },
+  "nukeOpenworkAndOpencodeConfigPreview": async (event, ...args) => {
+      return buildNukeManifest({
+        env: process.env,
+        homedir: os.homedir(),
+        platform: process.platform,
+        preserveBootstrap: args[0]?.preserveBootstrap !== false,
+        userDataPath: app.getPath("userData"),
+        workspacePaths: await workspaceStore.listLocalWorkspacePaths(),
+      });
+  },
   "nukeOpenworkAndOpencodeConfigAndExit": async (event, ...args) => {
-      await rm(app.getPath("userData"), { recursive: true, force: true });
-      app.exit(0);
-      return undefined;
+      return executeNukeFreshStart({
+        app,
+        session,
+        runtimeManager,
+        uiControlServer,
+        removeWindowsBrandShortcut,
+      }, {
+        preserveBootstrap: args[0]?.preserveBootstrap !== false,
+        input: {
+          env: process.env,
+          homedir: os.homedir(),
+          platform: process.platform,
+          userDataPath: app.getPath("userData"),
+          workspacePaths: await workspaceStore.listLocalWorkspacePaths(),
+        },
+      });
   },
   "orchestratorStartDetached": async (event, ...args) => {
       return runtimeManager.orchestratorStartDetached(args[0] ?? {});
@@ -1933,10 +1974,15 @@ const desktopCommandHandlers = {
       }
   },
   "__applyBrandAppName": async (event, ...args) => {
-      const requested = args[0] === null ? "" : String(args[0] ?? "").trim();
-      currentDisplayAppName = requested.slice(0, 64) || APP_NAME;
-    applicationMenu.setAppName(currentDisplayAppName);
-    mainWindow?.setTitle(currentDisplayAppName);
+    currentDisplayAppName = applyBrandAppName(args[0], {
+      fallbackName: APP_NAME,
+      platform: process.platform,
+      updateElectronAppName: process.platform === "darwin",
+      runtimeProcess: process,
+      app,
+      applicationMenu,
+      window: mainWindow,
+    });
     if (process.platform === "win32") {
       await registerWindowsDisplayShortcut();
     }
@@ -2043,7 +2089,7 @@ const desktopCommandHandlers = {
       };
       if (init.agentContextDiagnostics && typeof init.agentContextDiagnostics === "object") {
         return fetchAgentContextDiagnosticsResponse(
-          (input, fetchInit) => electronNet.fetch(input, fetchInit),
+          electronNet.fetch,
           url,
           requestInit,
           init.agentContextDiagnostics.deadlineAtMs,
@@ -2316,6 +2362,9 @@ async function createMainWindow() {
   return mainWindow;
 }
 
+ipcMain.on("openwork:desktop-bootstrap-sync", (event) => {
+  event.returnValue = workspaceStore.readDesktopBootstrapConfigSync();
+});
 ipcMain.handle("openwork:desktop", handleDesktopInvoke);
 ipcMain.on("openwork:deep-links-ready", (event) => {
   if (!mainWindow?.webContents || event.sender !== mainWindow.webContents) return;
@@ -2407,7 +2456,17 @@ registerMigrationIpc({ app, ipcMain });
 const { ensureAutoUpdater } = registerUpdaterIpc({ app, ipcMain, getMainWindow: () => mainWindow });
 
 if (!app.requestSingleInstanceLock()) {
-  app.quit();
+  if (isDevMode && !app.isPackaged) {
+    console.error(`[openwork] Another OpenWork dev instance already holds this profile directory:
+  ${app.getPath("userData")}
+The second process is exiting so its CDP port is released.
+Run this worktree with an isolated profile: OPENWORK_DEV_PROFILE=auto pnpm dev
+or use: pnpm dev:worktree`);
+    app.exit(1);
+    setImmediate(() => process.exit(1));
+  } else {
+    app.quit();
+  }
 } else {
   app.on("before-quit", (event) => {
     if (runtimeDisposedForQuit) return;
@@ -2429,18 +2488,36 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("open-url", async (event, url) => {
     event.preventDefault();
-    await createMainWindow();
+    const win = await createMainWindow();
+    if (win.isMinimized()) {
+      win.restore();
+    }
+    win.show();
+    win.focus();
     queueDeepLinks([url]);
   });
 
   app.whenReady().then(async () => {
     app.setAccessibilitySupportEnabled(true);
     installMediaPermissionHandlers(session, () => mainWindow);
+    await runPendingNukeCleanup({
+      env: process.env,
+      homedir: os.homedir(),
+      platform: process.platform,
+      userDataPath: app.getPath("userData"),
+    }).catch((error) => {
+      console.warn("[nuke] pending cleanup failed", error);
+    });
     await workspaceStore.importBundledDesktopBootstrapConfigIfPreferred();
     const bootstrapConfig = await workspaceStore.getDesktopBootstrapConfig();
-    currentDisplayAppName = bootstrapConfig.brandAppName?.slice(0, 64) || APP_NAME;
-    app.setName(currentDisplayAppName);
-    applicationMenu.setAppName(currentDisplayAppName);
+    currentDisplayAppName = applyBrandAppName(bootstrapConfig.brandAppName, {
+      fallbackName: APP_NAME,
+      platform: process.platform,
+      updateElectronAppName: true,
+      runtimeProcess: process,
+      app,
+      applicationMenu,
+    });
     if (process.platform === "win32") {
       await registerWindowsDisplayShortcut();
     }

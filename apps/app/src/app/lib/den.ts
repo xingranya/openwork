@@ -10,7 +10,7 @@ import {
 export type { SharedDesktopConfig };
 export { normalizeDesktopConfig };
 
-import { isDesktopDeployment } from "./openwork-deployment";
+import { isDesktopDeployment, isWebDeployment } from "./openwork-deployment";
 import {
   dispatchDenSettingsChanged,
 } from "./den-session-events";
@@ -18,6 +18,7 @@ import {
   desktopFetch,
   desktopFetchViaMain,
   getDesktopBootstrapConfig as getDesktopBootstrapConfigFromShell,
+  readInitialDesktopBootstrapConfig,
   setDesktopBootstrapConfig as setDesktopBootstrapConfigInShell,
   type DesktopBootstrapConfig as ShellDesktopBootstrapConfig,
 } from "./desktop";
@@ -93,6 +94,8 @@ type DenBaseUrls = {
   apiBaseUrl: string;
 };
 
+export type DenBootstrapSource = "file" | "default";
+
 /** Org + first-skill identity shared by the handoff and prepared records. */
 export type DenBootstrapOrgSkill = {
   orgId: string;
@@ -115,6 +118,7 @@ export type DenBootstrapPrepared = DenBootstrapOrgSkill & {
 };
 
 export type DenBootstrapConfig = DenBaseUrls & {
+  source: DenBootstrapSource;
   requireSignin: boolean;
   brandAppName?: string | null;
   brandLogoUrl?: string | null;
@@ -312,6 +316,7 @@ export const DEFAULT_DEN_API_BASE_URL = defaultBootstrapBaseUrls.apiBaseUrl;
 
 let desktopBootstrapConfig: DenBootstrapConfig = {
   ...defaultBootstrapBaseUrls,
+  source: "default",
   requireSignin: BUILD_DEN_REQUIRE_SIGNIN,
 };
 
@@ -616,6 +621,8 @@ function resolveDenBootstrapConfig(
     brandAppName?: string | null;
     brandLogoUrl?: string | null;
     brandIconUrl?: string | null;
+    fromFile?: boolean | null;
+    source?: DenBootstrapSource | null;
     claimLinks?: DenBootstrapConfig["claimLinks"];
     handoff?: DenBootstrapHandoff | null;
     prepared?: DenBootstrapPrepared | null;
@@ -623,6 +630,7 @@ function resolveDenBootstrapConfig(
 ): DenBootstrapConfig {
   return {
     ...resolveDenBaseUrls(input),
+    source: input.source === "file" || input.fromFile === true ? "file" : "default",
     requireSignin: input.requireSignin === true,
     ...(input.brandAppName?.trim() ? { brandAppName: input.brandAppName.trim().slice(0, 64) } : {}),
     ...(input.brandLogoUrl?.trim() ? { brandLogoUrl: input.brandLogoUrl.trim() } : {}),
@@ -645,6 +653,7 @@ function getPendingBootstrapConfig(next: DenSettings): DenBootstrapConfig | null
     brandAppName: previous.brandAppName,
     brandLogoUrl: previous.brandLogoUrl,
     brandIconUrl: previous.brandIconUrl,
+    source: previous.source,
     claimLinks: previous.claimLinks,
     handoff: previous.handoff,
     prepared: previous.prepared,
@@ -668,6 +677,12 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
     return desktopBootstrapConfig;
   }
 
+  const initialBootstrap = readInitialDesktopBootstrapConfig();
+  if (initialBootstrap) {
+    applyDesktopBootstrapConfig(resolveDenBootstrapConfig(initialBootstrap));
+    return desktopBootstrapConfig;
+  }
+
   // The shell IPC bridge can be momentarily unavailable at first paint;
   // retry briefly before giving up so a boot race does not poison the
   // session with build defaults.
@@ -675,7 +690,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
   const SHELL_BOOTSTRAP_RETRY_DELAY_MS = 350;
   for (let attempt = 1; attempt <= SHELL_BOOTSTRAP_ATTEMPTS; attempt += 1) {
     try {
-      const bootstrap = await getDesktopBootstrapConfigFromShell() as ShellDesktopBootstrapConfig;
+      const bootstrap = await getDesktopBootstrapConfigFromShell();
       applyDesktopBootstrapConfig(resolveDenBootstrapConfig(bootstrap));
       return desktopBootstrapConfig;
     } catch (error) {
@@ -702,7 +717,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
     for (let attempt = 0; attempt < 15; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2_000));
       try {
-        const bootstrap = await getDesktopBootstrapConfigFromShell() as ShellDesktopBootstrapConfig;
+        const bootstrap = await getDesktopBootstrapConfigFromShell();
         applyDesktopBootstrapConfig(resolveDenBootstrapConfig(bootstrap));
         dispatchDenSettingsChanged({ settings: readDenSettings() });
         return;
@@ -724,7 +739,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
 export async function refreshDenBootstrapConfigFromShell(): Promise<DenBootstrapConfig> {
   if (isDesktopRuntime()) {
     try {
-      const bootstrap = await getDesktopBootstrapConfigFromShell() as ShellDesktopBootstrapConfig;
+      const bootstrap = await getDesktopBootstrapConfigFromShell();
       applyDesktopBootstrapConfig(resolveDenBootstrapConfig(bootstrap));
       dispatchDenSettingsChanged({ settings: readDenSettings() });
     } catch {
@@ -736,6 +751,7 @@ export async function refreshDenBootstrapConfigFromShell(): Promise<DenBootstrap
 
 export async function setDenBootstrapConfig(
   next: ShellDesktopBootstrapConfig,
+  options?: { dispatchSettingsChanged?: boolean },
 ): Promise<DenBootstrapConfig> {
   const normalized = resolveDenBootstrapConfig(next);
 
@@ -748,16 +764,18 @@ export async function setDenBootstrapConfig(
       ...(normalized.brandIconUrl ? { brandIconUrl: normalized.brandIconUrl } : {}),
       ...(normalized.handoff ? { handoff: normalized.handoff } : {}),
       ...(normalized.prepared ? { prepared: normalized.prepared } : {}),
-    }) as ShellDesktopBootstrapConfig;
+    });
     
-    applyDesktopBootstrapConfig(resolveDenBootstrapConfig(persisted));
+    applyDesktopBootstrapConfig(resolveDenBootstrapConfig({ ...persisted, source: "file" }));
   } else {
     applyDesktopBootstrapConfig(normalized);
   }
 
-  dispatchDenSettingsChanged({
-    settings: readDenSettings(),
-  });
+  if (options?.dispatchSettingsChanged !== false) {
+    dispatchDenSettingsChanged({
+      settings: readDenSettings(),
+    });
+  }
 
   return readDenBootstrapConfig();
 }

@@ -130,6 +130,8 @@ export type OpenWorkExtensionManifest = {
   platform?: Array<"darwin" | "linux" | "windows" | "web">;
 };
 
+export type OpenWorkExtensionPlatform = NonNullable<OpenWorkExtensionManifest["platform"]>[number];
+
 export function extensionContribution(
   manifest: OpenWorkExtensionManifest | undefined,
   type: OpenWorkExtensionContributionType,
@@ -178,6 +180,7 @@ export const BUILT_IN_OPENWORK_EXTENSION_MANIFESTS: OpenWorkExtensionManifest[] 
     ],
     lifecycle: { reload: ["plugins", "agents"], detection: ["plugin:opencode-chrome-devtools"] },
     defaultEnabled: true,
+    platform: ["darwin", "linux", "windows"],
   },
   {
     schemaVersion: 1,

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto"
-import { and, eq, gt, isNull } from "@openwork-ee/den-db/drizzle"
-import { AuthSessionTable, AuthUserTable, DesktopHandoffGrantTable } from "@openwork-ee/den-db/schema"
+import { and, desc, eq, gt, isNull } from "@openwork-ee/den-db/drizzle"
+import { AuthSessionTable, AuthUserTable, DaytonaSandboxTable, DesktopHandoffGrantTable, WorkerTable } from "@openwork-ee/den-db/schema"
 import { normalizeDenTypeId } from "@openwork-ee/utils/typeid"
 import {
   FOXWORK_DESKTOP_SCHEME,
@@ -11,16 +11,23 @@ import { describeRoute } from "hono-openapi"
 import { z } from "zod"
 import { authenticatedRoute, jsonValidator, publicRoute } from "../../middleware/index.js"
 import { db } from "../../db.js"
-import { env } from "../../env.js"
+import { env, type DenOrgMode } from "../../env.js"
 import { denTypeIdSchema, invalidRequestSchema, jsonResponse, notFoundSchema, unauthorizedSchema } from "../../openapi.js"
 import type { AuthContextVariables } from "../../session.js"
+import { enforceRateLimit } from "../../utils/rate-limit.js"
+import { CLOUD_INSTANCE_BACKEND } from "../../workers/cloud-constants.js"
 
 const createGrantSchema = z.object({
-  next: z.string().trim().max(128).optional(),
-  desktopScheme: z.string().trim().max(32).optional(),
-})
+  next: z.string().trim().max(128).optional().describe("Optional continuation hint for handoff clients."),
+  desktopScheme: z.string().trim().max(32).optional().describe("Optional desktop URL scheme to use when building the OpenWork deep link."),
+  returnUrl: z.string().trim().max(2048).optional().describe("Optional HTTPS OpenWork Cloud web return URL. Accepted only for multi-organization Cloud instances after server-side origin validation."),
+}).meta({ ref: "DesktopHandoffGrantCreateBody" })
 
 const exchangeGrantSchema = z.object({
+  grant: z.string().trim().min(12).max(128),
+})
+
+const statusGrantSchema = z.object({
   grant: z.string().trim().min(12).max(128),
 })
 
@@ -28,6 +35,7 @@ const desktopHandoffGrantResponseSchema = z.object({
   grant: z.string(),
   expiresAt: z.string().datetime(),
   openworkUrl: z.string().url(),
+  returnUrl: z.string().url().optional(),
 }).meta({ ref: "DesktopHandoffGrantResponse" })
 
 const desktopHandoffExchangeResponseSchema = z.object({
@@ -39,10 +47,30 @@ const desktopHandoffExchangeResponseSchema = z.object({
   }),
 }).meta({ ref: "DesktopHandoffExchangeResponse" })
 
+const desktopHandoffStatusResponseSchema = z.object({
+  status: z.enum(["pending", "consumed", "unknown"]),
+}).meta({ ref: "DesktopHandoffStatusResponse" })
+
 const grantNotFoundSchema = z.object({
   error: z.literal("grant_not_found"),
   message: z.string(),
 }).meta({ ref: "DesktopHandoffGrantNotFoundError" })
+
+const rateLimitedSchema = z.object({
+  error: z.literal("rate_limited"),
+  message: z.string(),
+}).meta({ ref: "DesktopHandoffRateLimitedError" })
+
+const invalidReturnUrlSchema = z.object({
+  error: z.literal("invalid_return_url"),
+  message: z.string(),
+}).meta({ ref: "DesktopHandoffInvalidReturnUrlError" })
+
+const createGrantBadRequestSchema = z.union([invalidRequestSchema, invalidReturnUrlSchema]).meta({ ref: "DesktopHandoffCreateBadRequest" })
+
+const HANDOFF_STATUS_RATE_LIMIT_WINDOW_MS = 60 * 1000
+const HANDOFF_STATUS_RATE_LIMIT_MAX = 240
+type WorkerOrgId = typeof WorkerTable.$inferSelect.org_id
 
 function readSingleHeader(value: string | null) {
   const first = value?.split(",")[0]?.trim() ?? ""
@@ -103,11 +131,18 @@ function withDenProxyPath(origin: string) {
   return url.toString().replace(/\/+$/, "")
 }
 
-function resolveDesktopDenBaseUrl(request: Request) {
+function configuredDesktopDenBaseUrl() {
+  return env.desktopDenBaseUrl ?? withDenProxyPath(env.betterAuthUrl)
+}
+
+export function resolveDesktopDenBaseUrl(request: Request) {
   const originHeader = readSingleHeader(request.headers.get("origin"))
   if (originHeader) {
     try {
       const originUrl = new URL(originHeader)
+      if (originUrl.hostname === "0.0.0.0") {
+        return configuredDesktopDenBaseUrl()
+      }
       if ((originUrl.protocol === "https:" || originUrl.protocol === "http:") && isWebAppHost(originUrl.hostname)) {
         return withDenProxyPath(originUrl.origin)
       }
@@ -122,12 +157,15 @@ function resolveDesktopDenBaseUrl(request: Request) {
   const protocol = forwardedProto ?? new URL(request.url).protocol.replace(/:$/, "")
   const targetHost = forwardedHost ?? host
   if (!targetHost) {
-    return env.desktopDenBaseUrl ?? `${env.betterAuthUrl}/api/den`
+    return configuredDesktopDenBaseUrl()
   }
 
   const origin = `${protocol}://${targetHost}`
   try {
     const url = new URL(origin)
+    if (url.hostname === "0.0.0.0") {
+      return configuredDesktopDenBaseUrl()
+    }
     if (isWebAppHost(url.hostname)) {
       return withDenProxyPath(url.origin)
     }
@@ -150,6 +188,105 @@ function buildFoxWorkDeepLink(input: {
   return url.toString()
 }
 
+function rawPathnameForUrl(value: string) {
+  const match = value.match(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*(\/[^?#]*)?/i)
+  return match?.[1] ?? "/"
+}
+
+function hasPathTraversal(pathname: string) {
+  const candidates = [pathname.toLowerCase()]
+  try {
+    candidates.push(decodeURIComponent(pathname).toLowerCase())
+  } catch {
+    // Keep the original escaped path candidate.
+  }
+
+  return candidates.some((candidate) => candidate.split("/").some((segment) => segment === "." || segment === ".."))
+}
+
+export function approveWebHandoffReturnUrl(input: {
+  returnUrl: string
+  signedPreviewUrl: string
+  orgMode: DenOrgMode
+}) {
+  if (input.orgMode !== "multi_org") {
+    return null
+  }
+
+  let candidate: URL
+  let signedPreview: URL
+  try {
+    candidate = new URL(input.returnUrl)
+    signedPreview = new URL(input.signedPreviewUrl)
+  } catch {
+    return null
+  }
+
+  if (
+    candidate.protocol !== "https:"
+    || signedPreview.protocol !== "https:"
+    || candidate.username
+    || candidate.password
+    || candidate.hash
+    || hasPathTraversal(rawPathnameForUrl(input.returnUrl))
+  ) {
+    return null
+  }
+
+  if (candidate.pathname !== "/" && candidate.pathname !== "/signin") {
+    return null
+  }
+
+  // Exact-origin only. The Daytona preview proxy zone is shared by every
+  // Daytona customer, so any suffix-based match would approve an
+  // attacker-controlled sandbox origin and leak one-time session grants.
+  // If the preview URL was re-signed between opening the instance and
+  // signing in, this fails closed and the user reopens Cloud for a fresh
+  // URL.
+  if (candidate.origin !== signedPreview.origin) {
+    return null
+  }
+
+  return `${candidate.origin}/signin`
+}
+
+async function getCloudSignedPreviewUrl(organizationId: WorkerOrgId) {
+  const [row] = await db
+    .select({ signedPreviewUrl: DaytonaSandboxTable.signed_preview_url })
+    .from(WorkerTable)
+    .innerJoin(DaytonaSandboxTable, eq(WorkerTable.id, DaytonaSandboxTable.worker_id))
+    .where(and(
+      eq(WorkerTable.org_id, organizationId),
+      eq(WorkerTable.destination, "cloud"),
+      eq(WorkerTable.sandbox_backend, CLOUD_INSTANCE_BACKEND),
+    ))
+    .orderBy(desc(WorkerTable.created_at))
+    .limit(1)
+
+  return row?.signedPreviewUrl ?? null
+}
+
+async function resolveApprovedWebHandoffReturnUrl(input: {
+  returnUrl: string
+  activeOrganizationId?: string | null
+}) {
+  if (env.orgMode !== "multi_org" || !input.activeOrganizationId) {
+    return null
+  }
+
+  let organizationId: WorkerOrgId
+  try {
+    organizationId = normalizeDenTypeId("organization", input.activeOrganizationId)
+  } catch {
+    return null
+  }
+
+  const signedPreviewUrl = await getCloudSignedPreviewUrl(organizationId)
+  return signedPreviewUrl
+    ? approveWebHandoffReturnUrl({ returnUrl: input.returnUrl, signedPreviewUrl, orgMode: env.orgMode })
+    : null
+}
+
 export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVariables }>(app: Hono<T>) {
   app.post(
     "/v1/auth/desktop-handoff",
@@ -157,10 +294,10 @@ export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVari
       hide: true,
       tags: ["Authentication"],
       summary: "Create desktop handoff grant",
-      description: "Creates a short-lived desktop handoff grant and deep link so a signed-in web user can continue the same account in the OpenWork desktop app.",
+      description: "Creates a short-lived handoff grant for a signed-in web user. Desktop clients receive an OpenWork deep link; approved Cloud web clients also receive a validated return URL.",
       responses: {
         200: jsonResponse("Desktop handoff grant created successfully.", desktopHandoffGrantResponseSchema),
-        400: jsonResponse("The handoff request body was invalid.", invalidRequestSchema),
+        400: jsonResponse("The handoff request body or Cloud web return URL was invalid.", createGrantBadRequestSchema),
         401: jsonResponse("The caller must be signed in to create a desktop handoff grant.", unauthorizedSchema),
       },
     }),
@@ -174,6 +311,19 @@ export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVari
     }
 
     const input = c.req.valid("json")
+    let approvedReturnUrl: string | null = null
+    if (input.returnUrl !== undefined) {
+      approvedReturnUrl = await resolveApprovedWebHandoffReturnUrl({
+        returnUrl: input.returnUrl,
+        activeOrganizationId: session.activeOrganizationId,
+      })
+      if (!approvedReturnUrl) {
+        return c.json({
+          error: "invalid_return_url",
+          message: "The Cloud web handoff return URL is not approved for this organization.",
+        }, 400)
+      }
+    }
 
     const grant = randomBytes(24).toString("base64url")
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
@@ -195,7 +345,49 @@ export function registerDesktopAuthRoutes<T extends { Variables: AuthContextVari
         grant,
         denBaseUrl,
       }),
+      ...(approvedReturnUrl ? { returnUrl: approvedReturnUrl } : {}),
     })
+    },
+  )
+
+  app.post(
+    "/v1/auth/desktop-handoff/status",
+    describeRoute({
+      hide: true,
+      tags: ["Authentication"],
+      summary: "Check desktop handoff grant status",
+      description: "Returns whether a short-lived desktop handoff grant is still pending, has been consumed, or is no longer valid. It never returns session tokens or user details.",
+      responses: {
+        200: jsonResponse("Desktop handoff grant status resolved successfully.", desktopHandoffStatusResponseSchema),
+        400: jsonResponse("The handoff status request body was invalid.", invalidRequestSchema),
+        429: jsonResponse("Too many handoff status checks.", rateLimitedSchema),
+      },
+    }),
+    publicRoute,
+    jsonValidator(statusGrantSchema),
+    async (c) => {
+      const retryAfter = await enforceRateLimit(c.req.raw.headers, "handoff:handoff-status", HANDOFF_STATUS_RATE_LIMIT_MAX, HANDOFF_STATUS_RATE_LIMIT_WINDOW_MS)
+      if (retryAfter !== null) {
+        c.header("Retry-After", String(retryAfter))
+        return c.json({ error: "rate_limited", message: "Too many handoff status checks. Try again later." }, 429)
+      }
+
+      const input = c.req.valid("json")
+      const [grant] = await db
+        .select({ consumedAt: DesktopHandoffGrantTable.consumed_at, expiresAt: DesktopHandoffGrantTable.expires_at })
+        .from(DesktopHandoffGrantTable)
+        .where(eq(DesktopHandoffGrantTable.id, input.grant))
+        .limit(1)
+
+      if (!grant) {
+        return c.json({ status: "unknown" })
+      }
+
+      if (grant.consumedAt) {
+        return c.json({ status: "consumed" })
+      }
+
+      return c.json({ status: grant.expiresAt > new Date() ? "pending" : "unknown" })
     },
   )
 
