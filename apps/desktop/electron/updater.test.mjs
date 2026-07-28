@@ -88,7 +88,7 @@ describe("targetedStableUpdaterFeed", () => {
 });
 
 describe("macOS 更新安装脚本", () => {
-  it("只接受标准应用包可执行文件路径", () => {
+  it("只接受标准应用包可执行文件路径", { skip: process.platform !== "darwin" }, () => {
     assert.equal(
       resolveMacApplicationBundlePath("/Applications/SeeWayWork.app/Contents/MacOS/SeeWayWork"),
       "/Applications/SeeWayWork.app",
