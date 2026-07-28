@@ -1,8 +1,8 @@
 # SeeWayWork 公司发行构建
 #
-# 产出 macOS arm64、macOS x64 和 Windows x64 三个平台的安装包，并汇总到
-# 同一个 GitHub Release。当前仓库未配置 Apple 与 Windows 签名 Secret，
-# 因此默认产出未签名的内部验收版本；配置签名 Secret 后自动进入签名流程。
+# 直接从 apps/desktop 产出包含完整运行时的 macOS DMG 和 Windows EXE，
+# 不构建 apps/installer 二段式下载器。当前仓库未配置 Apple 与 Windows
+# 签名 Secret，因此默认产出未签名的内部验收版本。
 name: SeeWayWork 发行构建
 
 on:
@@ -77,19 +77,19 @@ jobs:
             label: macOS arm64
             artifact: SeeWayWork-mac-arm64
             target: aarch64-apple-darwin
-            builder_args: --mac --arm64
+            builder_args: --mac dmg --arm64
           # macos-15-intel 是当前受支持的 Intel Runner。macos-13 已被 GitHub
           # 退役，指定它会导致作业永远排队且分配不到 Runner。
           - os: macos-15-intel
             label: macOS x64
             artifact: SeeWayWork-mac-x64
             target: x86_64-apple-darwin
-            builder_args: --mac --x64
+            builder_args: --mac dmg --x64
           - os: windows-latest
             label: Windows x64
             artifact: SeeWayWork-win-x64
             target: x86_64-pc-windows-msvc
-            builder_args: --win --x64
+            builder_args: --win nsis --x64
 
     steps:
       - name: 检出代码
@@ -115,13 +115,37 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      - name: 构建安装包
+      - name: 构建完整桌面安装包
         # TARGET 决定 prepare-sidecar.mjs 下载哪个架构的 opencode 与
         # orchestrator 二进制，必须与 electron-builder 的目标架构一致，
         # 否则会打出架构不匹配的包。
         env:
           TARGET: ${{ matrix.target }}
         run: pnpm --filter @openwork/desktop run build:electron && pnpm --filter @openwork/desktop exec electron-builder --config electron-builder.yml ${{ matrix.builder_args }} --publish never
+
+      - name: 拒绝二段式下载器和异常小包
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/desktop/dist-electron
+          shopt -s nullglob
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            packages=(SeeWayWork-win-x64-*.exe)
+          else
+            packages=(SeeWayWork-mac-*-*.dmg)
+          fi
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "应当且只能生成一个当前平台的完整安装包，实际为 ${#packages[@]} 个。" >&2
+            printf '%s\n' "${packages[@]}" >&2
+            exit 1
+          fi
+          package_size=$(wc -c < "${packages[0]}" | tr -d ' ')
+          minimum_size=$((100 * 1024 * 1024))
+          if [ "$package_size" -lt "$minimum_size" ]; then
+            echo "安装包只有 $package_size 字节，疑似二段式下载器或缺少运行时。" >&2
+            exit 1
+          fi
+          echo "完整安装包：${packages[0]}（$package_size 字节）"
 
       - name: 校验产物架构
         if: runner.os == 'macOS'
@@ -150,7 +174,7 @@ jobs:
           else
             hash_cmd="shasum -a 256"
           fi
-          for f in *.dmg *.zip *.exe; do
+          for f in *.dmg *.exe; do
             [ -e "$f" ] || continue
             $hash_cmd "$f" >> SHA256SUMS.txt
           done
@@ -163,7 +187,6 @@ jobs:
           name: ${{ matrix.artifact }}
           path: |
             apps/desktop/dist-electron/*.dmg
-            apps/desktop/dist-electron/*.zip
             apps/desktop/dist-electron/*.exe
             apps/desktop/dist-electron/SHA256SUMS.txt
           if-no-files-found: error
@@ -187,7 +210,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          find artifacts -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \) -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.dmg' -o -name '*.exe' \) -exec cp {} release/ \;
           cat artifacts/*/SHA256SUMS.txt > release/SHA256SUMS.txt
           echo "本次发布资产："
           ls -la release
@@ -207,8 +230,9 @@ jobs:
 
             **本版本未签名，也未经 Apple 公证，只能用于公司内部验收，不得向员工正式分发。**
 
-            当前仓库未配置 Apple Developer ID 与 Windows 代码签名 Secret，
-            因此三个平台的安装包都是未签名产物。macOS 首次打开需要在
+            本次只发布包含 SeeWayWork、OpenCode Runtime、Sidecar 和本机能力桥接的
+            完整离线安装包，不包含二段式下载器。当前仓库未配置 Apple Developer ID
+            与 Windows 代码签名 Secret，因此三个平台的安装包都是未签名产物。macOS 首次打开需要在
             「系统设置 - 隐私与安全性」中手动允许，Windows 会显示
             SmartScreen 提示。请不要为绕过提示而降低系统安全设置。
 
@@ -247,7 +271,7 @@ jobs:
             本项目基于 OpenWork 定制，其中 `ee/**` 采用 `FSL-1.1-MIT`，
             仅限公司内部使用和修改，必须保留许可证与版权声明。
 
-      - name: 同步安装包到 CNB Release
+      - name: 同步完整安装包到 CNB Release
         env:
           CNB_TOKEN: ${{ secrets.CNB_RELEASE_TOKEN }}
           CNB_REPO_SLUG: xingranya/foxwork
