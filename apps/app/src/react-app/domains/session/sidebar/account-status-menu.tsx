@@ -26,6 +26,7 @@ import { useDenAuth } from "../../cloud/den-auth-provider";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { useShellConfig } from "../../../shell/shell-config";
 import type { OpenworkServerStatus } from "../../../../app/lib/openwork-server";
+import { FOXWORK_DOCS_URL } from "../../../../app/lib/foxwork-brand";
 import {
   buildDenAuthUrl,
   clearDenSession,
@@ -48,7 +49,6 @@ import {
   useOpenWorkModelsPromoEligibility,
 } from "../../cloud/openwork-models-promo";
 
-const DOCS_URL = "https://openworklabs.com/docs";
 const BOOT_STARTED_AT = Date.now();
 const INITIALIZING_MS = 15_000;
 
@@ -192,13 +192,16 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
   }, [initializing]);
 
   const openSettings = props.onOpenAccountSettings;
-  const openDocs = useCallback(() => platform.openLink(DOCS_URL), [platform]);
+  const openDocs = useCallback(() => {
+    if (FOXWORK_DOCS_URL) platform.openLink(FOXWORK_DOCS_URL);
+  }, [platform]);
 
   const docsControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.docs.open",
-    label: "Open OpenWork docs",
-    description: "Open the documentation from the account menu.",
+    label: "打开使用文档",
+    description: "从账号菜单打开公司提供的使用文档。",
     sideEffect: "external",
+    disabled: !FOXWORK_DOCS_URL,
     targetRef: triggerRef,
     execute: openDocs,
   }), [openDocs]);
@@ -206,8 +209,8 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
 
   const feedbackControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.feedback.open",
-    label: "Send feedback",
-    description: "Open the OpenWork feedback surface from the account menu.",
+    label: "发送反馈",
+    description: "从账号菜单打开反馈入口。",
     sideEffect: "external",
     disabled: !props.onSendFeedback,
     targetRef: triggerRef,
@@ -217,8 +220,8 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
 
   const settingsControlAction = useMemo<OpenworkControlAction>(() => ({
     id: "status.settings.open",
-    label: "Open settings from the account menu",
-    description: "Use the account menu in the sidebar footer.",
+    label: "从账号菜单打开设置",
+    description: "使用侧边栏底部的账号菜单进入设置。",
     sideEffect: "navigation",
     disabled: props.showSettingsButton === false || !openSettings,
     targetRef: triggerRef,
@@ -282,11 +285,11 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             data-connect-state={connectStatus?.state}
             /* ps-1.5 puts the 24px avatar 12px from the edge, so the name lands on the sidebar label lane. */
             className="flex w-full items-center gap-2 rounded-lg ps-1.5 pe-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent"
-            aria-label={signedIn ? `${user.email} — account and status` : "Account and status"}
+            aria-label={signedIn ? `${user.email} — 账号与状态` : "账号与状态"}
             title={connectNeedsAttention
               ? openWorkConnectAttentionTitle(connectStatus.description)
               : connectStatus
-                ? `${runtimeStatus ? `${runtimeStatus.label} · ` : ""}OpenWork Connect: ${connectStatus.label}`
+                ? `${runtimeStatus ? `${runtimeStatus.label} · ` : ""}公司连接：${connectStatus.label}`
                 : runtimeStatus?.label}
           >
               {signedIn ? (
@@ -344,7 +347,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
                 </span>
                 <div className="min-w-0">
                   <div className="text-[11.5px] font-medium text-foreground">
-                    {`OpenWork Connect: ${connectStatus.label}`}
+                    {`公司连接：${connectStatus.label}`}
                   </div>
                   <div className="text-[10.5px] leading-tight text-muted-foreground">
                     {connectStatus.description}
@@ -366,7 +369,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
         {connectNeedsAttention ? (
           <DropdownMenuItem onClick={() => navigate("/settings/connect")}>
             <Stethoscope className="size-3.5" />
-            Run diagnostics
+            运行诊断
           </DropdownMenuItem>
         ) : null}
         {promoVisible ? (
@@ -379,8 +382,8 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
           >
             <Sparkles className="size-3.5 text-blue-11" />
             <span className="flex min-w-0 flex-col">
-              <span>OpenWork Models</span>
-              <span className="text-[10.5px] text-muted-foreground">hosted frontier models</span>
+              <span>公司模型</span>
+              <span className="text-[10.5px] text-muted-foreground">由公司统一提供的模型</span>
             </span>
           </DropdownMenuItem>
         ) : null}
@@ -392,7 +395,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             {t("status.settings")}
           </DropdownMenuItem>
         ) : null}
-        {shellConfig.docsButton ? (
+        {shellConfig.docsButton && FOXWORK_DOCS_URL ? (
           <DropdownMenuItem onClick={openDocs}>
             <BookOpen className="size-3.5" />
             {t("status.docs")}
@@ -407,12 +410,12 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
         {signedIn ? (
           <DropdownMenuItem onClick={logOut}>
             <LogOut className="size-3.5" />
-            Log out
+            退出登录
           </DropdownMenuItem>
         ) : restoringSession ? null : (
           <DropdownMenuItem onClick={openSignIn}>
             <UserRound className="size-3.5" />
-            Sign in
+            登录
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

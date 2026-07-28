@@ -140,17 +140,17 @@ function DeleteOrganizationDialog({
           </div>
           <div className="min-w-0 flex-1">
             <h2 id="delete-organization-title" className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-              Delete {organizationName}?
+              确定删除 {organizationName} 吗？
             </h2>
             <p id="delete-organization-description" className="mt-1 text-[13px] leading-6 text-gray-600">
-              Type the organization name to permanently delete it.
+              请输入公司名称以确认永久删除。
             </p>
           </div>
         </div>
 
         <label className="mt-5 grid gap-2">
           <span className="text-[12px] font-medium text-gray-700">
-            Organization name
+            公司名称
           </span>
           <DenInput
             value={confirmationName}
@@ -169,7 +169,7 @@ function DeleteOrganizationDialog({
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            取消
           </DenButton>
           <DenButton
             type="submit"
@@ -178,7 +178,7 @@ function DeleteOrganizationDialog({
             loading={busy}
             disabled={!confirmed}
           >
-            {busy ? "Deleting..." : "Delete organization"}
+            {busy ? "正在删除..." : "删除公司"}
           </DenButton>
         </div>
       </form>
@@ -428,7 +428,7 @@ export function OrgSettingsScreen() {
     clearOrgSettingsCompletion();
 
     if (!canManageSettings) {
-      setPageError("Only workspace owners and super-admins can change settings.");
+      setPageError("只有公司所有者和超级管理员可以修改公司设置。");
       return;
     }
 
@@ -486,7 +486,7 @@ export function OrgSettingsScreen() {
       setDeleteError(
         error instanceof Error
           ? error.message
-          : "Could not delete organization.",
+          : "无法删除公司。",
       );
     }
   }
@@ -787,20 +787,15 @@ export function OrgSettingsScreen() {
 
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <p className="text-[13px] text-gray-500">
-            {!isOwner && canManageDesktopVersions
-              ? "管理员可以修改允许登录的 FoxWork 版本，其他设置需要公司所有者操作。"
-              : !isOwner
-                ? "只有公司所有者和管理员可以修改这些设置。"
-                : null}
+            {!canManageSettings ? "管理员可以查看设置，只有公司所有者和超级管理员可以修改。" : null}
           </p>
-          {access.isAdmin ? (
-            <DenButton
-              type="submit"
-              loading={mutationBusy === "update-organization-settings"}
-            >
-              保存设置
-            </DenButton>
-          ) : null}
+          <DenButton
+            type="submit"
+            loading={mutationBusy === "update-organization-settings"}
+            disabled={!canManageSettings}
+          >
+            保存设置
+          </DenButton>
         </div>
       </form>
 
@@ -808,13 +803,13 @@ export function OrgSettingsScreen() {
         <DenCard size="spacious" className="mt-6 grid gap-5 !border-red-200 bg-red-50/30">
           <div className="grid gap-2">
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-red-400">
-              Owner controls
+              所有者操作
             </p>
             <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-red-950">
-              Danger zone
+              危险操作
             </h2>
             <p className="max-w-2xl text-[14px] leading-6 text-red-700">
-              Permanently delete this organization, including members, teams, workers, plugins, and connections. This cannot be undone.
+              永久删除公司及其成员、团队、远程运行资源、插件和连接。此操作无法撤销。
             </p>
           </div>
           <div>
@@ -824,7 +819,7 @@ export function OrgSettingsScreen() {
               icon={Trash2}
               onClick={openDeleteDialog}
             >
-              Delete organization
+              删除公司
             </DenButton>
           </div>
         </DenCard>

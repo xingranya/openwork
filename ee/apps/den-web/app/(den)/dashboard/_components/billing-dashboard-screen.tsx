@@ -228,7 +228,7 @@ export function BillingDashboardScreen() {
 
   async function startSeatCheckout() {
     if (!canManageBillingSettings) {
-      setStripeError("Admins can start seat checkout from Members. Owners and super-admins manage Stripe settings here.");
+      setStripeError("管理员可以在成员页面发起席位订阅；公司所有者和超级管理员可以在这里管理 Stripe 设置。");
       return;
     }
 
@@ -255,7 +255,7 @@ export function BillingDashboardScreen() {
 
   async function openStripePortal() {
     if (!canManageBillingSettings) {
-      setStripeError("Only workspace owners and super-admins can open billing portals from Settings.");
+      setStripeError("只有公司所有者和超级管理员可以从设置中打开账单管理页。");
       return;
     }
 
@@ -389,7 +389,7 @@ export function BillingDashboardScreen() {
             }}>
               管理成员
             </DenButton>
-            <DenButton disabled={!isOwner} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
+            <DenButton disabled={!canManageBillingSettings} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
               管理订阅
             </DenButton>
           </div>
@@ -399,7 +399,7 @@ export function BillingDashboardScreen() {
               <p className="text-[15px] font-medium text-blue-950">成员超过 {seatBilling?.freeSeatCount} 人后再购买订阅</p>
               <p className="mt-1 text-[13px] leading-5 text-blue-900/70">只对超出套餐内席位的成员收费。</p>
             </div>
-            <DenButton disabled={!isOwner || seatBilling?.configured === false} loading={stripeActionBusy === "seat-checkout"} onClick={startSeatCheckout}>
+            <DenButton disabled={!canManageBillingSettings || seatBilling?.configured === false} loading={stripeActionBusy === "seat-checkout"} onClick={startSeatCheckout}>
               通过 Stripe 订阅
             </DenButton>
           </div>
@@ -436,7 +436,7 @@ export function BillingDashboardScreen() {
 
         {stripeBilling?.hasActiveSubscription ? (
           <div className="flex justify-end">
-            <DenButton disabled={!isOwner} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
+            <DenButton disabled={!canManageBillingSettings} loading={stripeActionBusy === "portal"} onClick={openStripePortal}>
               管理订阅
             </DenButton>
           </div>

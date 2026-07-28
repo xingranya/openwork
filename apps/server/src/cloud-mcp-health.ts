@@ -1,7 +1,5 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { createOpencodeClient, McpStatus, ToolIds, ToolList } from "@opencode-ai/sdk/v2/client";
 import {
   FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
@@ -10,6 +8,7 @@ import {
 } from "@openwork/types/den/mcp-connection-action";
 import { ApiError } from "./errors.js";
 import { diagnoseMcpToolDenies, type McpToolDeny } from "./mcp.js";
+import { openworkPluginPath } from "./openwork-extensions-plugin-path.js";
 import { sanitizeDiagnosticString, sanitizeDiagnosticValue } from "./diagnostic-sanitizer.js";
 import { readRuntimeOpencodeConfig, runtimeMcpMap, writeRuntimeOpencodeConfig } from "./runtime-opencode-config-store.js";
 import { externalFetch } from "./server-fetch.js";
@@ -1710,8 +1709,20 @@ async function inspectOpenworkCloud(input: {
     };
   }
 
-  const cloudStatus = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME]
-    ?? statusResult.data?.[LEGACY_OPENWORK_CLOUD_NAME];
+  const engineInspection = engineInspectionFromStatuses(statusResult.data ?? {});
+  const cloudName = statusResult.data?.[OPENWORK_CLOUD_MCP_NAME]
+    ? OPENWORK_CLOUD_MCP_NAME
+    : LEGACY_OPENWORK_CLOUD_NAME;
+  const cloudStatus = statusResult.data?.[cloudName];
+  if (cloudStatus) {
+    input.refreshRegistrationFromLiveStatus?.(
+      input.config,
+      input.workspace,
+      cloudName,
+      input.desiredConfig,
+      cloudStatus.status,
+    );
+  }
   const engine = engineStatusFromMcpStatus(cloudStatus);
   if (cloudStatus?.status !== "connected") {
     failures.push(statusFailure(cloudStatus));
@@ -1911,18 +1922,14 @@ function baseUrlConfigured(config: ServerConfig, workspace: WorkspaceInfo): bool
 }
 
 async function pluginFileHashes(): Promise<CloudMcpCompatibilitySnapshot["pluginFileHashes"]> {
-  const here = dirname(fileURLToPath(import.meta.url));
   const names = ["openwork-extensions-preview", "openwork-capabilities-knowledge"];
   return Promise.all(names.map(async (name) => {
-    let lastError = "not found";
-    for (const extension of ["ts", "js"]) {
-      try {
-        return { name, sha256: hashString(await readFile(join(here, "opencode-plugins", `${name}.${extension}`), "utf8")) };
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-      }
+    try {
+      return { name, sha256: hashString(await readFile(openworkPluginPath(name), "utf8")) };
+    } catch (error) {
+      const lastError = error instanceof Error ? error.message : String(error);
+      return { name, sha256: null, error: sanitizeDiagnosticString(lastError) };
     }
-    return { name, sha256: null, error: sanitizeDiagnosticString(lastError) };
   }));
 }
 
@@ -2212,6 +2219,7 @@ export async function reconcileOpenworkCloudMcp(input: {
     createWorkspaceOpencodeClient: input.createWorkspaceOpencodeClient,
     probe,
     inspectEngine,
+    refreshRegistrationFromLiveStatus: input.refreshRegistrationFromLiveStatus,
   });
   const configBody = input.body.config ?? input.body;
   const desiredConfig = canonicalizeCloudMcpConfig(normalizeCloudMcpConfig(configBody));

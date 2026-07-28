@@ -1,8 +1,6 @@
-// Local UI-control HTTP bridge: a loopback server exposing the legacy
-// /snapshot, /actions and /execute routes plus the semantic /context, /query
-// and /command surface. Dispatched to the renderer's window.__openworkControl.
-// Extracted from main.mjs; state and lifecycle live in this factory
-// (createRuntimeManager pattern).
+// 本机界面控制 HTTP 桥接：通过回环地址提供旧版 /snapshot、/actions、/execute
+// 路由，以及语义化的 /context、/query、/command 路由。请求会转发到渲染进程的
+// window.__openworkControl。状态和生命周期集中保存在此工厂中。
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { rm, writeFile } from "node:fs/promises";
@@ -30,7 +28,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       request.on("data", (chunk) => {
         raw += chunk;
         if (raw.length > 128_000) {
-          reject(new Error("Request body too large"));
+          reject(new Error("请求内容过大。"));
           request.destroy();
         }
       });
@@ -42,7 +40,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
         try {
           resolve(JSON.parse(raw));
         } catch {
-          reject(new Error("Request body must be JSON"));
+          reject(new Error("请求内容必须是 JSON。"));
         }
       });
       request.on("error", reject);
@@ -60,9 +58,8 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
 
   async function evaluateOpenworkControl(expression) {
     const win = await getWindow();
-    // Commands mutate renderer state directly and do not require the desktop
-    // window to become active. Foreground activation must be an explicit
-    // affordance, never an implicit side effect of remote control.
+    // 命令直接修改渲染进程状态，不需要激活桌面窗口。前台激活必须由明确操作触发，
+    // 不能成为远程控制的隐式副作用。
     return win.webContents.executeJavaScript(expression, true);
   }
 
@@ -87,7 +84,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
     if (command === "context") {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
-        if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
         return { ok: true, context: control.context() };
       })()`);
     }
@@ -95,9 +92,9 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       return evaluateOpenworkControl(`(async () => {
         const control = window.__openworkControl;
         const input = JSON.parse(${argsJsonLiteral});
-        if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+        if (!control) return { ok: false, error: "FoxWork 控制界面尚未就绪。" };
         if (!input || typeof input.id !== "string" || !input.id.trim()) {
-          return { ok: false, error: "Missing OpenWork affordance id." };
+          return { ok: false, error: "缺少 FoxWork 界面操作标识。" };
         }
         return control[${JSON.stringify(command)}](input);
       })()`);
@@ -172,7 +169,7 @@ export function createUiControlServer({ appName, appIdentifier, getWindow }) {
       `${JSON.stringify({ version: 2, app: appName, identifier: appIdentifier, platform: process.platform, baseUrl: `http://127.0.0.1:${port}`, token: uiControlToken }, null, 2)}\n`,
       "utf8",
     );
-    // Make the discovery path available to child processes (server → managed OpenCode → plugin).
+    // 将发现文件路径提供给子进程（服务端、托管运行引擎和插件）。
     process.env.OPENWORK_UI_CONTROL_DISCOVERY = uiControlDiscoveryPath;
   }
 

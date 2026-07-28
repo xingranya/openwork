@@ -11,7 +11,6 @@ import { sanitizePortableOpencodeConfig } from "./portable-opencode.js";
 import { addMcp, listMcp, removeMcp, setMcpEnabled } from "./mcp.js";
 import { exportExtensions } from "./extensions-export.js";
 import { deleteSkill, listSkills, upsertSkill } from "./skills.js";
-import { installHubSkill, listHubSkills } from "./skill-hub.js";
 import { installSkillBundle } from "./skill-bundle.js";
 import { deleteCommand, listCommands, repairCommands, upsertCommand } from "./commands.js";
 import { ApiError, formatError } from "./errors.js";
@@ -325,6 +324,67 @@ function parseDisabledProvidersPayload(value: unknown): string[] {
     }
     const provider = entry.trim();
     if (!providers.includes(provider)) providers.push(provider);
+  }
+  return providers;
+}
+
+function parseRuntimeProviderUpdate(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || Object.keys(value).length === 0) {
+    throw new ApiError(400, "invalid_payload", "providers must be a non-empty object");
+  }
+  if (Object.keys(value).length > 64) {
+    throw new ApiError(400, "invalid_payload", "providers contains too many entries");
+  }
+
+  const providers: Record<string, unknown> = {};
+  for (const [rawProviderId, provider] of Object.entries(value)) {
+    const providerId = rawProviderId.trim();
+    if (!providerId || providerId.length > 255 || !/^[a-z0-9][a-z0-9_-]*$/i.test(providerId)) {
+      throw new ApiError(400, "invalid_payload", "provider ids contain invalid characters");
+    }
+    if (provider !== null && !isRecord(provider)) {
+      throw new ApiError(400, "invalid_payload", "provider updates must be objects or null");
+    }
+    providers[providerId] = provider;
+  }
+  return providers;
+}
+
+function parseImportedProviderBaselines(value: unknown): Record<string, Record<string, unknown>> | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new ApiError(400, "invalid_payload", "importedProviders must be an object");
+  }
+
+  const providers: Record<string, Record<string, unknown>> = {};
+  for (const [rawCloudProviderId, rawProvider] of Object.entries(value)) {
+    const cloudProviderId = rawCloudProviderId.trim();
+    if (!cloudProviderId || cloudProviderId.length > 255 || !isRecord(rawProvider)) {
+      throw new ApiError(400, "invalid_payload", "importedProviders contains an invalid entry");
+    }
+    const providerId = typeof rawProvider.providerId === "string" ? rawProvider.providerId.trim() : "";
+    const sourceProviderId = typeof rawProvider.sourceProviderId === "string"
+      ? rawProvider.sourceProviderId.trim()
+      : "";
+    const name = typeof rawProvider.name === "string" ? rawProvider.name.trim() : "";
+    if (!providerId || !sourceProviderId || !name) {
+      throw new ApiError(400, "invalid_payload", "importedProviders is missing required metadata");
+    }
+    const modelIds = Array.isArray(rawProvider.modelIds)
+      ? rawProvider.modelIds.flatMap((entry) => typeof entry === "string" && entry.trim() ? [entry.trim()] : [])
+      : [];
+    providers[cloudProviderId] = {
+      cloudProviderId,
+      providerId,
+      sourceProviderId,
+      name,
+      source: typeof rawProvider.source === "string" ? rawProvider.source.trim() || null : null,
+      updatedAt: typeof rawProvider.updatedAt === "string" ? rawProvider.updatedAt.trim() || null : null,
+      modelIds: [...new Set(modelIds)],
+      importedAt: typeof rawProvider.importedAt === "number" && Number.isFinite(rawProvider.importedAt)
+        ? rawProvider.importedAt
+        : null,
+    };
   }
   return providers;
 }
@@ -1996,6 +2056,51 @@ function createRoutes(
     });
   });
 
+  addRoute(routes, "POST", "/workspace/:id/runtime-config/providers", "host-token", async (ctx) => {
+    ensureWritable(config);
+    const workspace = await resolveWorkspace(config, ctx.params.id);
+    const body = await readJsonBody(ctx.request);
+    const providerUpdate = parseRuntimeProviderUpdate(body.providers);
+    const importedProviders = parseImportedProviderBaselines(body.importedProviders);
+    const result = await writeRuntimeOpencodeConfig(config, workspace.id, (current) => ({
+      ...current,
+      provider: mergeRuntimeProviderUpdate(current.provider, providerUpdate),
+    }));
+
+    if (importedProviders !== undefined) {
+      await writeOpenworkWorkspaceConfig(config, workspace.id, (current) => {
+        const cloudImports = isRecord(current.cloudImports) ? current.cloudImports : {};
+        return {
+          ...current,
+          cloudImports: {
+            ...cloudImports,
+            providers: importedProviders,
+          },
+        };
+      });
+    }
+
+    const updatedAt = Date.now();
+    await recordAudit(workspace.path, {
+      id: shortId(),
+      workspaceId: workspace.id,
+      actor: ctx.actor ?? { type: "host" },
+      action: "config.runtime_providers.write",
+      target: openworkRuntimeConfigFilePath(config),
+      summary: "Updated runtime model providers",
+      timestamp: updatedAt,
+    });
+    if (result.changed) {
+      emitReloadEvent(ctx.reloadEvents, workspace, "config", buildConfigTrigger(openworkRuntimeConfigFilePath(config)));
+    }
+
+    return jsonResponse({
+      ok: true,
+      providerIds: Object.keys(result.config.provider ?? {}),
+      updatedAt,
+    });
+  });
+
   addRoute(routes, "GET", "/workspace/:id/runtime-config", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const runtime = await readRuntimeOpencodeConfig(config, workspace.id);
@@ -2319,52 +2424,6 @@ function createRoutes(
     const includeGlobal = ctx.url.searchParams.get("includeGlobal") === "true";
     const items = await listSkills(workspace.path, includeGlobal);
     return jsonResponse({ items });
-  });
-
-  addRoute(routes, "POST", "/workspace/:id/skills/hub/:name", "client", async (ctx) => {
-    ensureWritable(config);
-    requireClientScope(ctx, "collaborator");
-    const workspace = await resolveWorkspace(config, ctx.params.id);
-    const name = String(ctx.params.name ?? "").trim();
-    if (!name) {
-      throw new ApiError(400, "invalid_skill_name", "Skill name is required");
-    }
-    const body = await readJsonBody(ctx.request);
-    const overwrite = body?.overwrite === true;
-    const repoPayload = body?.repo && typeof body.repo === "object" ? (body.repo as Record<string, unknown>) : undefined;
-    const repo = repoPayload
-      ? {
-          owner: typeof repoPayload.owner === "string" ? repoPayload.owner : undefined,
-          repo: typeof repoPayload.repo === "string" ? repoPayload.repo : undefined,
-          ref: typeof repoPayload.ref === "string" ? repoPayload.ref : undefined,
-        }
-      : undefined;
-
-    await requireApproval(ctx, {
-      workspaceId: workspace.id,
-      action: "skills.install_hub",
-      summary: `Install hub skill ${name}`,
-      paths: [join(workspace.path, ".opencode", "skills", name)],
-    });
-
-    const result = await installHubSkill(workspace.path, { name, overwrite, repo });
-    await recordAudit(workspace.path, {
-      id: shortId(),
-      workspaceId: workspace.id,
-      actor: ctx.actor ?? { type: "remote" },
-      action: "skills.install_hub",
-      target: result.path,
-      summary: `Installed hub skill ${name}`,
-      timestamp: Date.now(),
-    });
-    emitReloadEvent(ctx.reloadEvents, workspace, "skills", {
-      type: "skill",
-      name,
-      action: result.action,
-      path: result.path,
-    });
-
-    return jsonResponse({ ok: true, ...result });
   });
 
   addRoute(routes, "POST", "/workspace/:id/skills/catalog/:name", "client", async (ctx) => {

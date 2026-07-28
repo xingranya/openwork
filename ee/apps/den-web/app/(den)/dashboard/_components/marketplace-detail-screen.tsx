@@ -154,7 +154,7 @@ export function MarketplaceDetailScreen({ marketplaceId }: { marketplaceId: stri
       router.push(getMarketplacesRoute(orgSlug));
       router.refresh();
     } catch {
-      // The mutation error is rendered below the action.
+      // 变更失败信息会显示在下方操作区域。
     }
   }
   const tabs: readonly TabItem<MarketplaceDetailTab>[] = [
@@ -179,7 +179,7 @@ export function MarketplaceDetailScreen({ marketplaceId }: { marketplaceId: stri
               type="button"
               onClick={() => setActionsOpen((current) => !current)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-              aria-label={`More actions for ${marketplace.name}`}
+              aria-label={`${marketplace.name} 的更多操作`}
               aria-haspopup="menu"
               aria-expanded={actionsOpen}
               data-testid="marketplace-actions-trigger"
@@ -189,7 +189,7 @@ export function MarketplaceDetailScreen({ marketplaceId }: { marketplaceId: stri
             {actionsOpen ? (
               <div
                 role="menu"
-                aria-label={`Actions for ${marketplace.name}`}
+                aria-label={`${marketplace.name} 的操作菜单`}
                 className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-2xl border border-gray-100 bg-white p-1.5 text-[13px] shadow-xl shadow-gray-900/10"
               >
                 <button
@@ -202,7 +202,7 @@ export function MarketplaceDetailScreen({ marketplaceId }: { marketplaceId: stri
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden />
-                  Edit
+                  编辑
                 </button>
                 <div className="my-1 border-t border-gray-100" />
                 <button
@@ -217,7 +217,7 @@ export function MarketplaceDetailScreen({ marketplaceId }: { marketplaceId: stri
                   data-testid="delete-marketplace-action"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  Delete
+                  删除
                 </button>
               </div>
             ) : null}
@@ -426,7 +426,7 @@ function EditMarketplaceDialog({
       });
       onSaved();
     } catch {
-      // The mutation error is rendered in the dialog.
+      // 变更失败信息会显示在对话框内。
     }
   }
 
@@ -443,14 +443,14 @@ function EditMarketplaceDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="edit-marketplace-title" className="text-[16px] font-semibold tracking-[-0.01em] text-gray-950">
-          Edit marketplace
+          编辑应用市场
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-gray-500">
-          Update how this marketplace appears to your organization.
+          修改这个应用市场在公司中的名称和说明。
         </p>
 
         <label className="mt-4 block">
-          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Name</span>
+          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">名称</span>
           <DenInput
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -460,7 +460,7 @@ function EditMarketplaceDialog({
           />
         </label>
         <label className="mt-3 block">
-          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">Description (optional)</span>
+          <span className="mb-1.5 block text-[12px] font-medium text-gray-700">说明（可选）</span>
           <DenTextarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -472,13 +472,13 @@ function EditMarketplaceDialog({
 
         {updateMarketplace.error ? (
           <p className="mt-3 text-[12.5px] text-red-600">
-            {updateMarketplace.error instanceof Error ? updateMarketplace.error.message : "Failed to update marketplace."}
+            {updateMarketplace.error instanceof Error ? updateMarketplace.error.message : "应用市场更新失败。"}
           </p>
         ) : null}
 
         <div className="mt-5 flex items-center justify-end gap-2">
           <DenButton variant="secondary" onClick={onClose} disabled={updateMarketplace.isPending}>
-            Cancel
+            取消
           </DenButton>
           <DenButton
             loading={updateMarketplace.isPending}
@@ -486,7 +486,7 @@ function EditMarketplaceDialog({
             onClick={() => void handleSave()}
             data-testid="marketplace-edit-save"
           >
-            Save changes
+            保存修改
           </DenButton>
         </div>
       </div>
@@ -527,26 +527,26 @@ function DeleteMarketplaceDialog({
           </div>
           <div className="min-w-0 flex-1">
             <h2 id="delete-marketplace-title" className="text-[18px] font-semibold tracking-[-0.02em] text-gray-950">
-              Delete {marketplaceName}?
+              确定删除 {marketplaceName} 吗？
             </h2>
             <p id="delete-marketplace-description" className="mt-1 text-[13px] leading-6 text-gray-600">
-              This action cannot be undone.
+              此操作无法撤销。
             </p>
           </div>
         </div>
 
         {error ? (
           <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] text-red-600">
-            {error instanceof Error ? error.message : "Failed to delete marketplace."}
+            {error instanceof Error ? error.message : "应用市场删除失败。"}
           </p>
         ) : null}
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DenButton variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            取消
           </DenButton>
           <DenButton variant="destructive" icon={Trash2} loading={busy} onClick={onConfirm} data-testid="confirm-delete-marketplace">
-            Delete marketplace
+            删除应用市场
           </DenButton>
         </div>
       </div>

@@ -55,6 +55,32 @@ describe("FoxWork 本地模型服务", () => {
     expect(resolved.config.env).toEqual(["COMPANY_ANTHROPIC_API_KEY"]);
   });
 
+  test("Anthropic 兼容地址缺少版本路径时自动补齐 v1", () => {
+    const resolved = buildLocalProviderConfig({
+      kind: "custom-anthropic",
+      providerId: "minimax",
+      name: "MiniMax",
+      baseUrl: "https://api.minimaxi.com/anthropic",
+      apiKey: "secret",
+      modelIds: ["MiniMax-M3"],
+    });
+
+    expect(resolved.config.api).toBe("https://api.minimaxi.com/anthropic/v1");
+  });
+
+  test("OpenAI 兼容地址缺少版本路径时自动补齐 v1", () => {
+    const resolved = buildLocalProviderConfig({
+      kind: "custom-openai",
+      providerId: "seeway",
+      name: "Seeway",
+      baseUrl: "https://ai.seeway.co",
+      apiKey: "secret",
+      modelIds: ["gpt-5.4"],
+    });
+
+    expect(resolved.config.api).toBe("https://ai.seeway.co/v1");
+  });
+
   test("自定义 OpenAI 兼容服务为 GPT 推理模型生成可选强度", () => {
     const resolved = buildLocalProviderConfig({
       kind: "custom-openai",
@@ -75,6 +101,29 @@ describe("FoxWork 本地模型服务", () => {
         high: { reasoningEffort: "high" },
       },
     });
+  });
+
+  test("本地视觉模型写入图片输入能力并保持文字模型禁用", () => {
+    const resolved = buildLocalProviderConfig({
+      kind: "custom-openai",
+      providerId: "company-openai",
+      name: "公司 OpenAI 网关",
+      baseUrl: "https://models.example.com/v1",
+      apiKey: "secret",
+      modelIds: ["vision-model", "text-model"],
+      imageInputModelIds: ["vision-model"],
+    });
+
+    expect((resolved.config.models as Record<string, Record<string, unknown>>)["vision-model"])
+      .toMatchObject({
+        attachment: true,
+        modalities: { input: ["text", "image"], output: ["text"] },
+      });
+    expect((resolved.config.models as Record<string, Record<string, unknown>>)["text-model"])
+      .toMatchObject({
+        attachment: false,
+        modalities: { input: ["text"], output: ["text"] },
+      });
   });
 
   test("自定义 Anthropic 兼容服务为 Claude 4.6 生成扩展思考强度", () => {

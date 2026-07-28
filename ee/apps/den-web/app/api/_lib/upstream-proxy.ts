@@ -81,15 +81,6 @@ type ProxyOptions = {
   rewriteAuthLocationsToRequestOrigin?: boolean;
 };
 
-function normalizeBaseUrl(value: string): string {
-  return value.trim().replace(/\/+$/, "");
-}
-
-function readBaseUrlEnv(name: string): string | null {
-  const value = process.env[name]?.trim();
-  return value ? normalizeBaseUrl(value) : null;
-}
-
 function normalizeUnspecifiedOrigin(value: URL): URL {
   const hostname = value.hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
   if (hostname === "0.0.0.0" || hostname === "::") {

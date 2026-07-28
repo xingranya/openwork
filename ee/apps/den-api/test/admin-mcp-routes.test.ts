@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 import { Hono } from "hono"
+import { getDenAuthIssuer } from "../src/mcp/jwt-policy.js"
 
 function seedRequiredEnv() {
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? "mysql://root:password@127.0.0.1:3306/openwork_test"
@@ -39,7 +40,9 @@ describe("admin MCP OAuth protected-resource discovery", () => {
     // Admin discovery keeps the legacy parent resource for first-party desktop
     // and legacy metadata consumers; public JWTs authenticate only /mcp/agent.
     expect(body.resource).toBe(`${ORIGIN}/mcp`)
-    expect(body.authorization_servers).toEqual([`${ORIGIN}/api/auth`])
+    expect(body.authorization_servers).toEqual([
+      getDenAuthIssuer(process.env.BETTER_AUTH_URL ?? ORIGIN),
+    ])
     expect(body.scopes_supported).toEqual(["mcp:read", "mcp:write", "offline_access"])
   })
 

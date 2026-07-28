@@ -49,10 +49,10 @@ test("upstreamErrorMessage handles non-Error inputs", () => {
 test("externalConnectionErrorHint gives reconnect guidance for HTTP auth errors", () => {
   const hint = externalCapabilities.externalConnectionErrorHint("Acme MCP", new StreamableHTTPError(401, "Unauthorized"))
 
-  expect(hint).toContain('The stored credential for "Acme MCP" is invalid or expired')
-  expect(hint).toContain('Reconnect "Acme MCP"')
-  expect(hint).toContain("OpenWork Cloud itself is still connected")
-  expect(hint).toContain("This is a live probe, not a cached result")
+  expect(hint).toContain('“Acme MCP”保存的凭据无效或已过期')
+  expect(hint).toContain('公司管理后台的“MCP 连接”')
+  expect(hint).toContain("公司服务本身仍保持连接")
+  expect(hint).toContain("这是实时检查结果，不是缓存")
 })
 
 test("JSON-RPC refresh failures are classified as downstream connector reauthorization", () => {
@@ -62,9 +62,9 @@ test("JSON-RPC refresh failures are classified as downstream connector reauthori
 
   expect(externalCapabilities.externalMcpAuthErrorCode(error, message)).toBe("invalid_refresh_token")
   expect(externalCapabilities.isExternalMcpAuthError(error)).toBe(true)
-  expect(hint).toContain('Reconnect "Knowledge Hub"')
-  expect(hint).toContain("OpenWork Cloud -> Your Connections")
-  expect(hint).toContain("OpenWork Cloud itself is still connected")
+  expect(hint).toContain('“Knowledge Hub”保存的凭据无效或已过期')
+  expect(hint).toContain('FoxWork 的“我的连接”')
+  expect(hint).toContain("公司服务本身仍保持连接")
 })
 
 test("invalid_grant is classified without connector-specific special casing", () => {
@@ -136,7 +136,7 @@ test("reauth-required overrides generic provider ownership from a refresh diagno
     actor: "member",
     action: {
       type: "reconnect",
-      label: "Reconnect Research Vault",
+      label: "重新连接“Research Vault”",
       surface: "openwork_your_connections",
     },
   })
@@ -187,21 +187,21 @@ test("structured diagnostics remain the single source of truth for fix ownership
 test("generic provider failures route to connector inspection instead of cloud reauthorization", () => {
   const hint = externalCapabilities.externalConnectionErrorHint("Ticketing", new Error("Connection refused"))
 
-  expect(hint).toContain('inspect "Ticketing"')
-  expect(hint).toContain("dashboard -> Connections")
-  expect(hint).toContain("OpenWork Cloud itself is still connected")
-  expect(hint).not.toContain("Reconnect OpenWork Cloud")
+  expect(hint).toContain('“Ticketing”的下游供应商返回错误')
+  expect(hint).toContain("请让公司管理员在管理后台检查该连接")
+  expect(hint).toContain("公司服务本身仍保持连接")
+  expect(hint).not.toContain("重新连接整个公司服务")
 })
 
 test("externalConnectionErrorHint gives provider-admin guidance for JSON-RPC rejections", () => {
   const error = new Error('Streamable HTTP error: Error POSTing to endpoint: {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"App is not installed on this workspace"}}')
   const hint = externalCapabilities.externalConnectionErrorHint("Acme MCP", error)
 
-  expect(hint).toContain("The provider's server rejected the request")
+  expect(hint).toContain('“Acme MCP”的供应商服务器拒绝了请求')
   expect(hint).toContain("App is not installed on this workspace")
   expect(hint).toContain("-32600")
-  expect(hint).toContain("provider's own admin console")
-  expect(hint).toContain("This is a live probe, not a cached result")
-  expect(hint).not.toContain("expired")
+  expect(hint).toContain("请由供应商管理员在对应后台处理")
+  expect(hint).toContain("这是实时检查结果，不是缓存")
+  expect(hint).not.toContain("已过期")
   expect(externalCapabilities.isExternalMcpAuthError(error)).toBe(false)
 })

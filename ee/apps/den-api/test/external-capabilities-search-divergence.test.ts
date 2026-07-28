@@ -754,7 +754,7 @@ test("shared-oauth-never-connected: Connections list sees Slack and search retur
   expect(matches[0]?.kind).toBe("connection_status")
   expect(matches[0]?.status).toBe("needs_connection")
   expect(matches[0]?.score).toBeGreaterThanOrEqual(7)
-  expect(matches[0]?.hint).toContain("admin")
+  expect(matches[0]?.hint).toContain("公司管理员")
   expect(matches[0]?.hint).toContain("Slack")
   expect(matches[0]?.connectionStatus).toMatchObject({
     layer: "downstream_provider",
@@ -811,10 +811,10 @@ test("dead-url: Connections list sees Slack and search returns an error status",
   expect(matches[0]?.connectionStatus).toMatchObject({
     state: "provider_error",
     errorCode: "provider_error",
-    actor: "network_admin",
-    action: { type: "fix_network", surface: "network_infrastructure" },
+    actor: "provider_admin",
+    action: { type: "fix_provider", surface: "provider_admin_console" },
   })
-  expect(matches[0]?.hint).toContain("inspect")
+  expect(matches[0]?.hint).toContain("诊断编号")
 })
 
 test("dead-url execution returns a structured connection diagnostic instead of throwing", async () => {
@@ -839,14 +839,14 @@ test("dead-url execution returns a structured connection diagnostic instead of t
   if (result.ok) throw new Error("Dead MCP execution unexpectedly succeeded")
   expect(result).toMatchObject({
     error: "connection_failed",
-    retryable: false,
+    retryable: true,
   })
   expect(typeof result.referenceId).toBe("string")
   expect("diagnostic" in result).toBe(false)
   expect("actionOwner" in result).toBe(false)
   expect("operatorAction" in result).toBe(false)
-  expect(result.message).toContain("Diagnostic reference")
-  expect(result.message).toContain("Verify provider allowlists, firewall rules, proxy requirements, and service availability from Den.")
+  expect(result.message).toContain("诊断编号")
+  expect(result.message).toContain("provider availability")
 })
 
 test("shared invalid_grant recovery cannot reuse the cleared in-memory refresh token", async () => {
@@ -947,8 +947,8 @@ test("the 16-connection fanout reports incomplete coverage when the only match i
   expect(matches).toEqual([])
   expect(coverage).toEqual({ eligibleConnections: 17, probedConnections: 16, truncated: true })
   if (!coverage) throw new Error("External MCP search did not report coverage")
-  expect(externalMcpSearchCoverageHint(coverage)).toContain("16 of 17")
-  expect(externalMcpSearchCoverageHint(coverage)).toContain("Results may be incomplete")
+  expect(externalMcpSearchCoverageHint(coverage)).toContain("17 个可用连接中的 16 个")
+  expect(externalMcpSearchCoverageHint(coverage)).toContain("结果可能不完整")
 })
 
 test("MCP tool isError is surfaced as a provider failure, not transport success", async () => {
@@ -1011,7 +1011,7 @@ test("provider-declared unknown JSON-RPC errors expose provider words without in
     })
     expect(result.providerError?.data).toContain("quota_exceeded")
     expect(result.message).toContain("Look up the provider-declared JSON-RPC error code with the provider")
-    expect(result.message).toContain(`Diagnostic reference: ${result.referenceId}.`)
+    expect(result.message).toContain(`诊断编号：${result.referenceId}。`)
     expect("diagnostic" in result).toBe(false)
     expect("actionOwner" in result).toBe(false)
     expect("operatorAction" in result).toBe(false)
@@ -1047,8 +1047,8 @@ test("standard MCP SDK invalid-argument tool errors become a corrective executio
   })
   if (result.ok) throw new Error("Invalid argument rejection unexpectedly returned success")
   expect(typeof result.referenceId).toBe("string")
-  expect(result.message).toContain("Diagnostic reference")
-  expect(result.message).toContain("Correct the tool arguments")
+  expect(result.message).toContain("诊断编号")
+  expect(result.message).toContain("请按最新 argumentsSchema 修正")
   expect("diagnostic" in result).toBe(false)
   expect("actionOwner" in result).toBe(false)
   expect("operatorAction" in result).toBe(false)
@@ -1081,7 +1081,7 @@ test("structured provider denial keeps connection health separate and names the 
     retryable: false,
   })
   expect(typeof result.referenceId).toBe("string")
-  expect(result.message).toContain("Diagnostic reference")
+  expect(result.message).toContain("诊断编号")
   expect(result.message).toContain("Grant the provider role, ACL, or application permission required for this operation.")
   expect("diagnostic" in result).toBe(false)
   expect("actionOwner" in result).toBe(false)
@@ -1136,7 +1136,7 @@ test("downstream provider authorization links are relayed as needs_connection", 
     expect(result.providerError?.message).toContain("Authorization required")
     expect(result.providerError?.data).toContain(providerAuthServer.connectUrl)
     expect(result.message).toContain("Connect your account for this provider using its sign-in link, then retry this capability.")
-    expect(result.message).toContain(`Diagnostic reference: ${result.referenceId}.`)
+    expect(result.message).toContain(`诊断编号：${result.referenceId}。`)
     expect("diagnostic" in result).toBe(false)
     expect("actionOwner" in result).toBe(false)
     expect("operatorAction" in result).toBe(false)
@@ -1292,8 +1292,8 @@ test("JSON-RPC initialize errors are not mislabeled as OAuth refresh failures", 
   })
   if (!matches[0]?.connectionStatus) throw new Error("Connection status missing for JSON-RPC initialize error")
   expect("diagnostic" in matches[0].connectionStatus).toBe(false)
-  expect(matches[0]?.hint).toContain("Diagnostic reference")
-  expect(matches[0]?.hint).not.toContain("Reconnect")
+  expect(matches[0]?.hint).toContain("诊断编号")
+  expect(matches[0]?.hint).not.toContain("重新连接")
   if (process.env.OPENWORK_EVAL_VERBOSE === "1") {
     console.log("E2E_CONNECTION_STATUS", JSON.stringify(matches[0]?.connectionStatus))
   }

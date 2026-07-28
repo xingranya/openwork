@@ -155,6 +155,33 @@ describe("openwork runtime config file", () => {
     expect(second).toBe(first);
   });
 
+  test("启动时为历史兼容协议供应商地址补齐 v1", async () => {
+    const { config } = await setup();
+    await writeRuntimeOpencodeConfig(config, "ws_1", (current) => ({
+      ...current,
+      provider: {
+        seeway: {
+          name: "Seeway",
+          npm: "@ai-sdk/openai-compatible",
+          api: "https://ai.seeway.co",
+          models: { "gpt-5.4": { name: "gpt-5.4" } },
+        },
+        minimax: {
+          name: "MiniMax",
+          npm: "@ai-sdk/anthropic",
+          api: "https://api.minimaxi.com/anthropic",
+          models: { "MiniMax-M3": { name: "MiniMax-M3" } },
+        },
+      },
+    }));
+
+    const parsed = JSON.parse(await buildOpenworkRuntimeConfig(config, "ws_1")) as {
+      provider: Record<string, { api?: string }>;
+    };
+    expect(parsed.provider.seeway?.api).toBe("https://ai.seeway.co/v1");
+    expect(parsed.provider.minimax?.api).toBe("https://api.minimaxi.com/anthropic/v1");
+  });
+
   test("builds byte-stable config for equivalent snapshots with different key order", async () => {
     const { config } = await setup();
     await writeRuntimeOpencodeConfig(config, "ws_1", () => ({

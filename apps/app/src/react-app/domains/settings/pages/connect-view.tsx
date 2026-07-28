@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 import { FOXWORK_COMPANY_MCP_EXPECTED_TOOLS } from "@openwork/types/den/mcp-connection-action";
 
 import type { DenExternalMcpConnection, DenOrgPlugin } from "@/app/lib/den";
@@ -230,12 +230,12 @@ function AgentAccessCard(props: {
       if (result.status === "skipped") {
         setError(
           result.skippedReason === "unsupported"
-            ? "This OpenWork server does not support engine refresh yet. Update OpenWork, then retry."
-            : "Select a workspace before refreshing the engine connection.",
+            ? "当前 FoxWork 服务暂不支持刷新运行引擎，请更新服务后重试。"
+            : "请先选择工作区，再刷新运行引擎连接。",
         );
       }
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Could not refresh the engine connection.");
+      setError(localizedConnectionError(nextError, "无法刷新运行引擎连接。"));
     } finally {
       setBusy(null);
     }
@@ -255,9 +255,9 @@ function AgentAccessCard(props: {
             }
           : undefined,
       }));
-      setCopyStatus("Copied sanitized diagnostic to the clipboard.");
+      setCopyStatus("已将脱敏诊断信息复制到剪贴板。");
     } catch {
-      setCopyStatus("Could not copy the diagnostic.");
+      setCopyStatus("无法复制诊断信息。");
     }
   };
 
@@ -472,7 +472,7 @@ function AgentAccessAdvanced(props: {
         onClick={props.onToggle}
       >
         {props.open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        Advanced diagnostics
+        高级诊断
       </button>
       {props.open ? (
         <div className="mt-3 space-y-3">
@@ -483,15 +483,14 @@ function AgentAccessAdvanced(props: {
               disabled={!props.canRun || props.busyLabel !== null}
               onClick={props.onRefreshEngine}
             >
-              {props.busyLabel === "refresh" ? "Refreshing engine…" : "Refresh engine connection"}
+              {props.busyLabel === "refresh" ? "正在刷新运行引擎…" : "刷新运行引擎连接"}
             </Button>
             <Button variant="outline" size="sm" disabled={!props.health} onClick={props.onCopy}>
-              Copy sanitized diagnostic
+              复制脱敏诊断信息
             </Button>
           </div>
           <div className="text-xs text-dls-secondary">
-            Refresh makes the agent engine drop its Cloud connection and reconnect from scratch — the engine never
-            retries a failed connection on its own. Diagnostics are redacted before copy.
+            刷新会让运行引擎断开公司连接并重新建立连接。运行引擎不会自动重试失败的连接；复制前会自动脱敏诊断信息。
           </div>
           {props.copyStatus ? <div className="text-xs text-dls-secondary">{props.copyStatus}</div> : null}
           {rows.length ? (
@@ -510,11 +509,11 @@ function AgentAccessAdvanced(props: {
               ))}
             </div>
           ) : (
-            <div className="text-xs text-dls-secondary">Run Test now to load diagnostics for this workspace.</div>
+            <div className="text-xs text-dls-secondary">请先执行“立即检查”，再查看当前工作区的诊断信息。</div>
           )}
           {traceLines.length ? (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">Direct probe steps</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">直接探测步骤</div>
               <div className="mt-1 space-y-0.5 font-mono text-xs text-dls-text">
                 {traceLines.map((line, index) => <div key={`${index}-${line}`}>{line}</div>)}
               </div>
@@ -522,7 +521,7 @@ function AgentAccessAdvanced(props: {
           ) : null}
           {refreshLines.length ? (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">Last engine refresh</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-dls-secondary">最近一次运行引擎刷新</div>
               <div className="mt-1 space-y-0.5 font-mono text-xs text-dls-text">
                 {refreshLines.map((line, index) => <div key={`${index}-${line}`}>{line}</div>)}
               </div>

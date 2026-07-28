@@ -29,7 +29,7 @@ export function ImageAttachmentBadge({
         type="button"
         className="h-10 w-10 overflow-hidden rounded-xl border border-border/70 bg-background/50 transition-opacity hover:opacity-90"
         onClick={() => setOpen(true)}
-        aria-label={`Expand ${alt}`}
+        aria-label={`查看完整图片：${alt}`}
         title={alt}
       >
         <img
@@ -48,8 +48,8 @@ export function ImageAttachmentBadge({
             event.stopPropagation()
             onRemove()
           }}
-          aria-label={`Remove ${alt}`}
-          title="Remove"
+          aria-label={`移除 ${alt}`}
+          title="移除"
         >
           <X className="size-3" />
         </button>

@@ -129,7 +129,7 @@ export function buildOpenworkContext(
   const resources: OpenworkResourceDescriptor[] = [{
     ref: `screen:${input.route}`,
     kind: "screen",
-    title: screen.kind === "settings" ? `${screen.panel} settings` : "OpenWork",
+    title: screen.kind === "settings" ? `${screen.panel} 设置` : "FoxWork",
     provider,
     state: { kind: screen.kind, route: input.route },
   }];
@@ -165,7 +165,7 @@ export function buildOpenworkContext(
     resources.push({
       ref: `settings:${screen.panel}`,
       kind: "settings",
-      title: `${screen.panel} settings`,
+      title: `${screen.panel} 设置`,
       provider,
       state: { active: true, workspaceId: screen.workspaceId ?? null },
     });

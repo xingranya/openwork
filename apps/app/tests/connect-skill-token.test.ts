@@ -33,10 +33,12 @@ describe("connect skill token", () => {
     expect(parseConnectSkillToken("plain text")).toBeNull();
   });
 
-  test("expands to the full connect prompt for the model", () => {
+  test("发送前会展开为完整的公司 Skill 提示", () => {
     const prompt = connectSkillPrompt(token);
-    expect(prompt).toContain(`"${token.name}" skill`);
-    expect(prompt).toContain(`"${token.marketplace}" marketplace`);
+    expect(prompt).toContain(`“${token.name}”Skill`);
+    expect(prompt).toContain(`“${token.marketplace}”能力市场`);
+    expect(prompt).toContain("foxwork-company_search_capabilities");
+    expect(prompt).toContain("foxwork-company_execute_capability");
     expect(prompt).toContain(token.capability);
   });
 });

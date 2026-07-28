@@ -130,13 +130,13 @@ export function OrgDashboardProvider({
 
   function ensureCanManageSettings() {
     if (!getCurrentAccess().canManageSettings) {
-      throw new Error("Only workspace owners and super-admins can change settings.");
+      throw new Error("只有公司所有者和超级管理员可以修改设置。");
     }
   }
 
   function ensureCanDeleteOrganization() {
     if (!getCurrentAccess().canDeleteOrganization) {
-      throw new Error("Only the workspace owner can delete this organization.");
+      throw new Error("只有公司所有者可以删除公司。");
     }
   }
 
@@ -683,7 +683,7 @@ export function OrgDashboardProvider({
 
   async function updateMemberRole(memberId: string, role: string) {
     if (!getCurrentAccess().canManageRoles) {
-      throw new Error("Only workspace owners and super-admins can change member roles.");
+      throw new Error("只有公司所有者和超级管理员可以修改成员角色。");
     }
     ensureTargetIsNotOwner(memberId);
     ensureRoleCanBeAssigned(role);
@@ -727,7 +727,7 @@ export function OrgDashboardProvider({
 
   async function transferOwnership(memberId: string) {
     if (!getCurrentAccess().canTransferOwnership) {
-      throw new Error("Only the workspace owner can transfer ownership.");
+      throw new Error("只有公司所有者可以转交所有权。");
     }
     const target = ensureTargetIsNotOwner(memberId);
     const targetAccess = getOrgAccessFlags(target?.role ?? "member", target?.isOwner ?? false, orgContext?.roles);
@@ -751,7 +751,7 @@ export function OrgDashboardProvider({
 
   async function createRole(input: { roleName: string; permission: Record<string, string[]> }) {
     if (!getCurrentAccess().canManageRoles) {
-      throw new Error("Only workspace owners and super-admins can manage roles.");
+      throw new Error("只有公司所有者和超级管理员可以管理角色。");
     }
     ensureRoleCanBeAssigned(input.roleName);
 
@@ -837,7 +837,7 @@ export function OrgDashboardProvider({
 
   async function updateRole(roleId: string, input: { roleName?: string; permission?: Record<string, string[]> }) {
     if (!getCurrentAccess().canManageRoles) {
-      throw new Error("Only workspace owners and super-admins can manage roles.");
+      throw new Error("只有公司所有者和超级管理员可以管理角色。");
     }
     if (typeof input.roleName === "string") {
       ensureRoleCanBeAssigned(input.roleName);
@@ -862,7 +862,7 @@ export function OrgDashboardProvider({
 
   async function deleteRole(roleId: string) {
     if (!getCurrentAccess().canManageRoles) {
-      throw new Error("Only workspace owners and super-admins can manage roles.");
+      throw new Error("只有公司所有者和超级管理员可以管理角色。");
     }
 
     await runMutation("delete-role", async () => {
@@ -923,6 +923,7 @@ export function OrgDashboardProvider({
     createOrganization,
     updateOrganizationName,
     updateOrganizationSettings,
+    deleteOrganization,
     switchOrganization,
     inviteMember,
     startSeatCheckout,

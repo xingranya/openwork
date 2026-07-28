@@ -24,12 +24,11 @@ export function OrganizationBrandIdentity({
 
   if (showLogo && brand.logoUrl) {
     return (
-      // Organization assets may be served by private on-prem hosts that are
-      // intentionally absent from this deployment's image allowlist.
+      // 公司资源可能来自内网地址，因此不会出现在当前部署的图片代理白名单中。
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={brand.logoUrl}
-        alt={`${organizationName} logo`}
+        alt={`${organizationName} 公司标志`}
         className={`inline-block max-h-[1.08em] max-w-[12rem] shrink-0 object-contain align-middle ${className}`}
         onError={() => setFailedLogoUrl(brand.logoUrl)}
       />
@@ -39,7 +38,7 @@ export function OrganizationBrandIdentity({
   return (
     <span className={`inline ${className}`}>
       {showIcon && brand.iconUrl ? (
-        // See the private-host note above.
+        // 内网资源说明见上方注释。
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={brand.iconUrl}

@@ -423,6 +423,32 @@ describe("session MCP maintenance", () => {
     expect(events[4]).toBe("auth-cleared");
   });
 
+  test("切换公司服务器时即使尚未选择组织也会移除当前工作区的旧公司 MCP", async () => {
+    const removed: string[] = [];
+
+    await cleanupOpenworkCloudMcpAfterSignOut({
+      context: {
+        denBaseUrl: "https://old-company.foxwork.test",
+        serverBaseUrl: "https://worker.openwork.test",
+        orgId: "",
+        workspaceId: WORKSPACE_ID,
+      },
+      openworkClient: {
+        baseUrl: "https://worker.openwork.test",
+        removeMcp: async (workspaceId, name) => {
+          removed.push(`${workspaceId}:${name}`);
+        },
+      },
+      opencodeClient: null,
+      directory: "/workspace/exact",
+    });
+
+    expect(removed.sort()).toEqual([
+      `${WORKSPACE_ID}:foxwork-company`,
+      `${WORKSPACE_ID}:openwork-cloud`,
+    ].sort());
+  });
+
   test("deduplicates the same target without blocking another workspace", async () => {
     const firstClient = { baseUrl: "https://worker.openwork.test" };
     const recreatedClient = { baseUrl: "https://worker.openwork.test/" };

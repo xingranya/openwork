@@ -156,7 +156,7 @@ export function ScimScreen() {
 
   async function handleRotateToken() {
     if (!access.canManageScim) {
-      setError("Only workspace owners and super-admins can create or rotate SCIM tokens.");
+      setError("只有公司所有者和超级管理员可以创建或轮换 SCIM 令牌。");
       return;
     }
 
@@ -207,7 +207,7 @@ export function ScimScreen() {
 
   async function handleRunReconciliation() {
     if (!access.canManageScim) {
-      setError("Only workspace owners and super-admins can run SCIM reconciliation.");
+      setError("只有公司所有者和超级管理员可以执行 SCIM 对账。");
       return;
     }
 
@@ -247,7 +247,7 @@ export function ScimScreen() {
 
   async function handleGroupMappingChange() {
     if (!access.canManageScim) {
-      setError("Only workspace owners and super-admins can change SCIM mappings.");
+      setError("只有公司所有者和超级管理员可以修改 SCIM 映射。");
       return;
     }
 
@@ -289,7 +289,7 @@ export function ScimScreen() {
 
   async function handleDeleteConnection() {
     if (!access.canManageScim) {
-      setError("Only workspace owners and super-admins can delete SCIM connections.");
+      setError("只有公司所有者和超级管理员可以删除 SCIM 连接。");
       return;
     }
 
@@ -366,7 +366,7 @@ export function ScimScreen() {
         <>
           {!access.canManageScim ? (
             <div className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">
-              Read-only: owners and super-admins can create tokens, reconcile, change mappings, or delete SCIM connections.
+              当前为只读模式，只有公司所有者和超级管理员可以创建令牌、执行对账、修改映射或删除 SCIM 连接。
             </div>
           ) : null}
           <div className="mb-6 flex flex-wrap gap-2 rounded-[24px] border border-gray-200 bg-white px-5 py-4 text-[12px] font-semibold shadow-[0_18px_48px_-34px_rgba(15,23,42,0.22)]">

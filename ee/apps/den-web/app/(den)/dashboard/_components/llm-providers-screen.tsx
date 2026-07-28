@@ -144,16 +144,16 @@ export function LlmProvidersScreen() {
   }, [llmProviders]);
 
   const managedOutcome = modelNames.length > 0
-    ? `Members see exactly: ${modelNames.join(", ")}`
-    : "Members see no models yet — add a provider below";
+    ? `员工只能使用这些模型：${modelNames.join("、")}`
+    : "员工暂时没有可用模型，请先在下方添加模型服务商。";
   const openOutcome = modelNames.length > 0
-    ? `Members may add their own providers; org models below include: ${modelNames.join(", ")}`
-    : "Members may add their own providers. No org models are defined yet.";
+    ? `员工可以添加自己的模型服务商；公司模型包括：${modelNames.join("、")}`
+    : "员工可以添加自己的模型服务商；公司尚未配置模型。";
   const accessOutcome = accessMode === "managed" ? managedOutcome : openOutcome;
   const accessFormDisabled = policiesBusy || accessSaving || !defaultPolicy;
 
   const updateDefaultPolicy = async (allowCustomProviders: boolean, allowZenModel: boolean) => {
-    if (!defaultPolicy) throw new Error("Default desktop policy not found.");
+    if (!defaultPolicy) throw new Error("没有找到默认桌面策略。");
     await updateDesktopPolicy(defaultPolicy.id, {
       policyName: defaultPolicy.policyName,
       policy: {
@@ -228,7 +228,7 @@ export function LlmProvidersScreen() {
     setAccessError(null);
     setAccessSaved(null);
     if (!defaultPolicy) {
-      setAccessError("Default desktop policy not found.");
+      setAccessError("没有找到默认桌面策略。");
       return;
     }
 
@@ -248,9 +248,9 @@ export function LlmProvidersScreen() {
         }
         await reloadPolicies();
       });
-      setAccessSaved("Model access saved.");
+      setAccessSaved("模型使用范围已保存。");
     } catch (error) {
-      setAccessError(error instanceof Error ? error.message : "Failed to save model access.");
+      setAccessError(error instanceof Error ? error.message : "模型使用范围保存失败。");
     } finally {
       setAccessSaving(false);
     }
@@ -267,9 +267,9 @@ export function LlmProvidersScreen() {
       <DenCard data-testid="models-access-card" className="mb-8 grid gap-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-[16px] font-medium tracking-[-0.02em] text-gray-950">Who can use models</h2>
+            <h2 className="text-[16px] font-medium tracking-[-0.02em] text-gray-950">员工可以使用哪些模型</h2>
             <p className="mt-1 text-[13px] leading-6 text-gray-500">
-              Choose whether members bring their own providers or use only the models managed here.
+              选择员工能否添加个人模型服务商，或只能使用公司统一配置的模型。
             </p>
           </div>
           <DenButton
@@ -279,7 +279,7 @@ export function LlmProvidersScreen() {
             loading={accessSaving}
             disabled={accessFormDisabled}
           >
-            Save
+            保存
           </DenButton>
         </div>
 
@@ -300,7 +300,7 @@ export function LlmProvidersScreen() {
         ) : null}
         {!policiesBusy && !defaultPolicy ? (
           <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            Default desktop policy not found.
+            没有找到默认桌面策略。
           </div>
         ) : null}
 
@@ -320,8 +320,8 @@ export function LlmProvidersScreen() {
               disabled={accessFormDisabled}
             />
             <span>
-              <span className="block text-[14px] font-medium text-gray-950">Open</span>
-              <span className="mt-1 block text-[13px] leading-6 text-gray-500">Members may add their own providers.</span>
+              <span className="block text-[14px] font-medium text-gray-950">允许个人配置</span>
+              <span className="mt-1 block text-[13px] leading-6 text-gray-500">员工可以添加自己的模型服务商。</span>
             </span>
           </label>
 
@@ -340,8 +340,8 @@ export function LlmProvidersScreen() {
               disabled={accessFormDisabled}
             />
             <span>
-              <span className="block text-[14px] font-medium text-gray-950">Managed</span>
-              <span className="mt-1 block text-[13px] leading-6 text-gray-500">Members use exactly the models below.</span>
+              <span className="block text-[14px] font-medium text-gray-950">仅使用公司模型</span>
+              <span className="mt-1 block text-[13px] leading-6 text-gray-500">员工只能使用下方已配置的模型。</span>
             </span>
           </label>
         </div>
@@ -361,7 +361,7 @@ export function LlmProvidersScreen() {
                 }}
                 disabled={accessFormDisabled}
               />
-              <span>Admins may add their own providers</span>
+              <span>允许管理员添加个人模型服务商</span>
             </label>
             <label className="flex items-start gap-3 rounded-[20px] border border-gray-200 px-4 py-3 text-[13px] text-gray-700">
               <input
@@ -376,7 +376,7 @@ export function LlmProvidersScreen() {
                 }}
                 disabled={accessFormDisabled}
               />
-              <span>Allow OpenCode Zen models</span>
+              <span>允许使用内置免费模型</span>
             </label>
           </div>
         ) : null}
@@ -403,7 +403,7 @@ export function LlmProvidersScreen() {
 
       {providersError ? (
         <div className="mb-6 rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-[14px] text-red-700">
-          {getErrorMessage(error, "加载模型服务失败，请重试。")}
+          {getErrorMessage(providersError, "加载模型服务失败，请重试。")}
         </div>
       ) : null}
 

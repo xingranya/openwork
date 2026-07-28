@@ -19,8 +19,8 @@ export default function CloudPage() {
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[15px] font-medium text-gray-950">Checking workspace access</p>
-              <p className="mt-1 text-[13px] leading-5 text-gray-500">We’re confirming which settings are available to your account.</p>
+              <p className="text-[15px] font-medium text-gray-950">正在检查工作区权限</p>
+              <p className="mt-1 text-[13px] leading-5 text-gray-500">正在确认你的账号可以使用哪些工作区设置。</p>
             </div>
           </div>
         </div>

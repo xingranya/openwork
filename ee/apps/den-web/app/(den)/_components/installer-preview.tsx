@@ -20,12 +20,12 @@ function MacMenuBar({ appName }: { appName: string }) {
   return (
     <div className="absolute inset-x-0 top-0 flex h-[26px] items-center gap-3.5 border-b border-black/[0.06] bg-[#fafafc]/70 px-3 text-[10px] text-[#1d1d1f]">
       <AppleIcon />
-      <span className="font-bold">{appName} Installer</span>
-      <span>File</span>
-      <span>Edit</span>
-      <span>Help</span>
+      <span className="font-bold">{appName} 安装程序</span>
+      <span>文件</span>
+      <span>编辑</span>
+      <span>帮助</span>
       <span className="grow" />
-      <span>9:41 AM</span>
+      <span>上午 9:41</span>
     </div>
   );
 }
@@ -53,12 +53,12 @@ function WindowsTaskBar() {
       <span className="size-3 rounded-[2px] bg-[#f2b23c]" />
       <span className="size-3 rounded-full bg-[#1c74e0]" />
       <span className="grow" />
-      <span>9:41 AM</span>
+      <span>上午 9:41</span>
     </div>
   );
 }
 
-/** Decorative preview of the installer window as it appears on this computer. */
+/** 展示安装程序在当前电脑上的外观预览。 */
 export function InstallerPreview({
   appName,
   iconUrl,
@@ -92,7 +92,7 @@ export function InstallerPreview({
 
       <span className={`absolute left-3 flex items-center gap-1.5 rounded-full border border-slate-500/25 bg-white/90 px-2 py-0.5 text-[9px] font-bold tracking-[0.08em] text-[#344054] shadow-[0_2px_8px_rgba(16,24,40,0.16)] ${os === "macos" ? "top-9" : "top-3"}`}>
         <span className="size-1.5 rounded-full bg-[#667085]" />
-        PREVIEW · WHAT YOU&apos;LL SEE ON YOUR COMPUTER
+        预览 · 电脑上将显示以下内容
       </span>
 
       <div className="w-[21rem] max-w-full overflow-hidden rounded-xl border border-[#c7ced8] bg-white shadow-[0_11px_26px_rgba(16,24,40,0.2)]">
@@ -103,11 +103,11 @@ export function InstallerPreview({
               <span className="size-2.5 rounded-full bg-[#febc2e]" />
               <span className="size-2.5 rounded-full bg-[#28c840]" />
             </span>
-            <span className="text-[11px] font-semibold text-[#3a3a3c]">{appName} Installer</span>
+            <span className="text-[11px] font-semibold text-[#3a3a3c]">{appName} 安装程序</span>
           </div>
         ) : (
           <div className="flex h-7 items-center justify-between border-b border-[#e4e8ee] bg-[#f7f9fc] px-3">
-            <span className="text-[11px] font-semibold text-[#3a3a3c]">{appName} Installer</span>
+            <span className="text-[11px] font-semibold text-[#3a3a3c]">{appName} 安装程序</span>
             <span className="flex items-center gap-2 text-[10px] text-[#6b7280]">
               <span>—</span>
               <span>▢</span>
@@ -119,7 +119,7 @@ export function InstallerPreview({
         <div className="grid gap-2 p-3.5">
           <div className="flex items-center gap-1.5">
             {iconUrl ? (
-              // Organization icons may be served by private on-prem hosts that Next/Image cannot proxy.
+              // 公司图标可能来自 Next/Image 无法代理的内网地址。
               // eslint-disable-next-line @next/next/no-img-element
               <img src={iconUrl} alt="" className="size-5 rounded-[6px] object-contain" />
             ) : (
@@ -127,19 +127,18 @@ export function InstallerPreview({
             )}
             <span className="text-xs font-semibold text-[#101828]">{appName}</span>
           </div>
-          <p className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-[#101828]">Welcome to {appName}</p>
+          <p className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-[#101828]">欢迎使用 {appName}</p>
           <p className="m-0 text-[9px] leading-[1.5] text-[#59616e]">
-            Let&apos;s connect this computer to your organization. We&apos;ll open a secure browser window so you can
-            sign in and approve access.
+            接下来把这台电脑连接到你的公司。系统会打开安全的浏览器窗口，供你登录并确认访问。
           </p>
           <span className="grid h-9 place-items-center rounded-[9px] border border-[#101828]/25 text-[11px] font-medium text-[#667085]">
-            Open this in your browser
+            在浏览器中打开
           </span>
           <div className="grid gap-1.5 rounded-lg border border-[#dce1e8] bg-[#f5f7fa] px-2 py-1.5">
-            <span className="text-[8px] font-semibold text-[#60646c]">Browser didn&apos;t open? Copy this activation link:</span>
+            <span className="text-[8px] font-semibold text-[#60646c]">浏览器没有打开？请复制此激活链接：</span>
             <span className="flex items-center gap-2 rounded-md border border-[#d8dce3] bg-white px-1.5 py-1">
               <span className="grow truncate text-[7px] text-[#475467]">{activationLinkHint}</span>
-              <span className="text-[8px] font-semibold text-[#101828]">Copy link</span>
+              <span className="text-[8px] font-semibold text-[#101828]">复制链接</span>
             </span>
           </div>
         </div>

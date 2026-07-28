@@ -7,87 +7,87 @@
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",
-      "default": "./src/index.ts"
+      "default": "./dist/index.js"
     },
     "./agent-context-diagnostics": {
       "types": "./src/agent-context-diagnostics.ts",
       "development": "./src/agent-context-diagnostics.ts",
-      "default": "./src/agent-context-diagnostics.ts"
+      "default": "./dist/agent-context-diagnostics.js"
     },
     "./openwork-affordance": {
       "types": "./src/openwork-affordance.ts",
       "development": "./src/openwork-affordance.ts",
-      "default": "./src/openwork-affordance.ts"
+      "default": "./dist/openwork-affordance.js"
     },
     "./openwork-context": {
       "types": "./src/openwork-context.ts",
       "development": "./src/openwork-context.ts",
-      "default": "./src/openwork-context.ts"
+      "default": "./dist/openwork-context.js"
     },
     "./openwork-provider": {
       "types": "./src/openwork-provider.ts",
       "development": "./src/openwork-provider.ts",
-      "default": "./src/openwork-provider.ts"
+      "default": "./dist/openwork-provider.js"
     },
     "./den/desktop-app-restrictions": {
       "types": "./src/den/desktop-app-restrictions.ts",
       "development": "./src/den/desktop-app-restrictions.ts",
-      "default": "./src/den/desktop-app-restrictions.ts"
+      "default": "./dist/den/desktop-app-restrictions.js"
     },
     "./den/desktop-policies": {
       "types": "./src/den/desktop-policies.ts",
       "development": "./src/den/desktop-policies.ts",
-      "default": "./src/den/desktop-policies.ts"
+      "default": "./dist/den/desktop-policies.js"
     },
     "./den/connect-diagnostics": {
       "types": "./src/den/connect-diagnostics.ts",
       "development": "./src/den/connect-diagnostics.ts",
-      "default": "./src/den/connect-diagnostics.ts"
+      "default": "./dist/den/connect-diagnostics.js"
     },
     "./den/egress-diagnostics": {
       "types": "./src/den/egress-diagnostics.ts",
       "development": "./src/den/egress-diagnostics.ts",
-      "default": "./src/den/egress-diagnostics.ts"
+      "default": "./dist/den/egress-diagnostics.js"
     },
     "./den/inference": {
       "types": "./src/den/inference.ts",
       "development": "./src/den/inference.ts",
-      "default": "./src/den/inference.ts"
+      "default": "./dist/den/inference.js"
     },
     "./den/microsoft-365": {
       "types": "./src/den/microsoft-365.ts",
       "development": "./src/den/microsoft-365.ts",
-      "default": "./src/den/microsoft-365.ts"
+      "default": "./dist/den/microsoft-365.js"
     },
     "./den/mcp-connection-action": {
       "types": "./src/den/mcp-connection-action.ts",
       "development": "./src/den/mcp-connection-action.ts",
-      "default": "./src/den/mcp-connection-action.ts"
+      "default": "./dist/den/mcp-connection-action.js"
     },
     "./workspace": {
       "types": "./src/workspace.ts",
       "development": "./src/workspace.ts",
-      "default": "./src/workspace.ts"
+      "default": "./dist/workspace.js"
     },
     "./desktop-ipc": {
       "types": "./src/desktop-ipc.ts",
       "development": "./src/desktop-ipc.ts",
-      "default": "./src/desktop-ipc.ts"
+      "default": "./dist/desktop-ipc.js"
     },
     "./connect-link": {
       "types": "./src/connect-link.ts",
       "development": "./src/connect-link.ts",
-      "default": "./src/connect-link.ts"
+      "default": "./dist/connect-link.js"
     },
     "./model-reasoning": {
       "types": "./src/model-reasoning.ts",
       "development": "./src/model-reasoning.ts",
-      "default": "./src/model-reasoning.ts"
+      "default": "./dist/model-reasoning.js"
     },
     "./url": {
       "types": "./src/url.ts",
       "development": "./src/url.ts",
-      "default": "./src/url.ts"
+      "default": "./dist/url.js"
     }
   },
   "files": [

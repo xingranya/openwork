@@ -110,6 +110,26 @@ describe("buildGuidedCustomProviderConfig", () => {
         expect(config.env).toEqual(["ORIGINAL_API_KEY"]);
     });
 
+    test("公司兼容协议地址缺少版本路径时自动补齐 v1", () => {
+        const openai = buildGuidedCustomProviderConfig({
+            providerId: "company-openai",
+            name: "公司 OpenAI 网关",
+            baseUrl: "https://ai.seeway.co",
+            modelIds: ["gpt-5.4"],
+            protocol: "openai",
+        });
+        const anthropic = buildGuidedCustomProviderConfig({
+            providerId: "company-anthropic",
+            name: "公司 Anthropic 网关",
+            baseUrl: "https://api.minimaxi.com/anthropic",
+            modelIds: ["MiniMax-M3"],
+            protocol: "anthropic",
+        });
+
+        expect(openai.api).toBe("https://ai.seeway.co/v1");
+        expect(anthropic.api).toBe("https://api.minimaxi.com/anthropic/v1");
+    });
+
     test("preserves several env names when provided", () => {
         const config = buildGuidedCustomProviderConfig({
             providerId: "bedrock-gateway",
@@ -122,6 +142,37 @@ describe("buildGuidedCustomProviderConfig", () => {
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_REGION",
+        ]);
+    });
+
+    test("按管理员选择写入每个模型的图片输入能力", () => {
+        const config = buildGuidedCustomProviderConfig({
+            providerId: "company-vision",
+            name: "公司视觉模型",
+            baseUrl: "https://models.example.com/v1",
+            modelIds: ["vision-model", "text-model"],
+            imageInputModelIds: ["vision-model"],
+        });
+
+        expect(config.models).toEqual([
+            {
+                id: "vision-model",
+                name: "vision-model",
+                attachment: true,
+                modalities: {
+                    input: ["text", "image"],
+                    output: ["text"],
+                },
+            },
+            {
+                id: "text-model",
+                name: "text-model",
+                attachment: false,
+                modalities: {
+                    input: ["text"],
+                    output: ["text"],
+                },
+            },
         ]);
     });
 
@@ -233,6 +284,26 @@ describe("readGuidedCustomProviderFields", () => {
             baseUrl: "https://x.example.com/v1",
             modelIds: ["m1", "m2"],
             envNames: ["AZURE_FOUNDRY_API_KEY"],
+            npm: "@ai-sdk/openai-compatible",
+            protocol: "openai",
+        });
+    });
+
+    test("重新编辑时恢复每个模型的图片输入选择", () => {
+        const generated = buildGuidedCustomProviderConfig({
+            providerId: "company-vision",
+            name: "公司视觉模型",
+            baseUrl: "https://models.example.com/v1",
+            modelIds: ["vision-model", "text-model"],
+            imageInputModelIds: ["vision-model"],
+        });
+
+        expect(readGuidedCustomProviderFields(generated)).toEqual({
+            providerId: "company-vision",
+            baseUrl: "https://models.example.com/v1",
+            modelIds: ["vision-model", "text-model"],
+            imageInputModelIds: ["vision-model"],
+            envNames: ["COMPANY_VISION_API_KEY"],
             npm: "@ai-sdk/openai-compatible",
             protocol: "openai",
         });

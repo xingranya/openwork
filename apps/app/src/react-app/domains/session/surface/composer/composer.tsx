@@ -88,6 +88,8 @@ type ComposerProps = {
   onRemoveAttachment: (id: string) => void;
   attachmentsEnabled: boolean;
   attachmentsDisabledReason: string | null;
+  imageAttachmentsEnabled: boolean;
+  imageAttachmentsDisabledReason: string | null;
   modelVariantLabel: string;
   modelVariant: string | null;
   modelBehaviorOptions?: { value: string | null; label: string }[];
@@ -1081,8 +1083,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
 
-    // No client-side size cap: oversized files are rejected upstream (upload
-    // endpoint or provider) with their own errors instead of a composer rule.
+    // 客户端不再自行限制附件大小；由上传接口或模型服务返回实际限制和错误。
     const accepted: File[] = [];
     for (const original of inputFiles) {
       accepted.push(original.type.startsWith("image/") ? await compressImageFile(original) : original);
@@ -1090,14 +1091,6 @@ export function ReactSessionComposer(props: ComposerProps) {
 
     if (accepted.length) {
       props.onAttachFiles(accepted);
-    }
-
-    if (oversize.length) {
-      toast.warning(
-        oversize.length === 1
-          ? t("composer.file_exceeds_limit", { name: oversize[0] })
-          : `${oversize.length} 个文件超过 8MB 限制。`,
-      );
     }
 
   };

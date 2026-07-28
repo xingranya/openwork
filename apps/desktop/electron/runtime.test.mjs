@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -8,12 +8,40 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   commandMatchesPackagedSidecar,
   embeddedServerImportUrl,
+  ensureWorkspaceOpencodeConfig,
   prioritizeWorkspacePaths,
   resolveOpenworkServerConfigPath,
   seedWorkspacePathsForEmbeddedServer,
   selectStickyOpenworkPortWorkspace,
   snapshotEngineState,
 } from "./runtime.mjs";
+
+describe("ensureWorkspaceOpencodeConfig", () => {
+  it("在缺少配置时创建可离线使用的工作区配置", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "foxwork-runtime-config-"));
+    try {
+      const configPath = await ensureWorkspaceOpencodeConfig(root);
+      assert.equal(configPath, path.join(root, "opencode.jsonc"));
+      assert.equal(await readFile(configPath, "utf8"), "{}\n");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("保留工作区已有的兼容配置文件", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "foxwork-runtime-config-"));
+    try {
+      const existingPath = path.join(root, ".opencode", "opencode.json");
+      await mkdir(path.dirname(existingPath), { recursive: true });
+      await writeFile(existingPath, '{"provider":{}}\n', "utf8");
+
+      assert.equal(await ensureWorkspaceOpencodeConfig(root), existingPath);
+      assert.equal(await readFile(existingPath, "utf8"), '{"provider":{}}\n');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("prioritizeWorkspacePaths", () => {
   it("keeps the active runtime workspace first", () => {

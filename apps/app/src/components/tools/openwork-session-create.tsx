@@ -69,7 +69,7 @@ export function parseOpenWorkSessionCreateResult(output: unknown): OpenWorkSessi
     if (!item || !title) return []
     return [{
       title,
-      error: stringValue(item.error) ?? "Session creation failed.",
+      error: stringValue(item.error) ?? "会话创建失败。",
     }]
   })
 
@@ -84,10 +84,10 @@ export function parseOpenWorkSessionCreateResult(output: unknown): OpenWorkSessi
 }
 
 function resultHeading(createdCount: number, failureCount: number) {
-  if (createdCount === 0) return "Couldn't create new chats"
-  const created = createdCount === 1 ? "Created 1 new chat" : `Created ${createdCount} new chats`
+  if (createdCount === 0) return "无法创建新会话"
+  const created = `已创建 ${createdCount} 个新会话`
   if (failureCount === 0) return created
-  return `${created} · ${failureCount} failed`
+  return `${created} · ${failureCount} 个失败`
 }
 
 export function OpenWorkSessionCreateTool({ part }: { part: DynamicToolUIPart }) {
@@ -95,12 +95,12 @@ export function OpenWorkSessionCreateTool({ part }: { part: DynamicToolUIPart })
   const { workspaceId: currentWorkspaceId } = useMessageList()
 
   if (part.state !== "output-available") {
-    return <Tool toolPart={part} title="Creating new chats" />
+    return <Tool toolPart={part} title="正在创建新会话" />
   }
 
   const result = parseOpenWorkSessionCreateResult(part.output)
   if (!result) {
-    return <Tool toolPart={part} title="Created new chats" />
+    return <Tool toolPart={part} title="已创建新会话" />
   }
 
   const allCreated = result.ok && result.created.length > 0 && result.failures.length === 0
@@ -129,8 +129,8 @@ export function OpenWorkSessionCreateTool({ part }: { part: DynamicToolUIPart })
           <h3 className="text-sm font-semibold text-dls-primary">{resultHeading(result.created.length, result.failures.length)}</h3>
           <p className="mt-0.5 text-xs text-dls-secondary">
             {result.created.length > 0
-              ? <>{result.workspace ? `In ${result.workspace}. ` : ""}Open any chat without leaving this result behind.</>
-              : "Review the errors below and try again."}
+              ? <>{result.workspace ? `工作区：${result.workspace}。` : ""}你可以直接打开任一会话继续处理。</>
+              : "请查看下方错误并重试。"}
           </p>
         </div>
       </div>
@@ -147,18 +147,18 @@ export function OpenWorkSessionCreateTool({ part }: { part: DynamicToolUIPart })
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-dls-primary" title={session.title}>{session.title}</p>
-              <p className="text-xs text-dls-secondary">{session.started ? "Chat created and started" : "Chat created"}</p>
+              <p className="text-xs text-dls-secondary">{session.started ? "会话已创建并开始运行" : "会话已创建"}</p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="shrink-0"
-              aria-label={`Open chat ${session.title}`}
+              aria-label={`打开会话 ${session.title}`}
               data-open-created-session={session.sessionId}
               onClick={() => openSession(session)}
             >
-              Open chat
+              打开会话
             </Button>
           </div>
         ))}

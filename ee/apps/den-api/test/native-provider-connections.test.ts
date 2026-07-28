@@ -145,6 +145,7 @@ describe("buildNativeProviderEntry", () => {
     expect(mod.buildNativeProviderEntry(provider, { clientConfigured: true, connectedForMe: false })).toEqual({
       id: "google-workspace",
       name: "Google Workspace",
+      description: null,
       url: "https://workspace.google.com",
       authType: "oauth",
       credentialMode: "per_member",
@@ -153,6 +154,7 @@ describe("buildNativeProviderEntry", () => {
       connectedForMe: false,
       needsReconnect: false,
       missingFeatures: [],
+      requiredBy: [],
       access: null,
     })
   })
@@ -309,7 +311,7 @@ describe("buildNativeProviderEntry", () => {
     if (!isRecord(row)) {
       throw new Error("External connection row was missing.")
     }
-    expect(Object.hasOwn(row, "needsReconnect")).toBe(false)
+    expect(row.needsReconnect).toBe(false)
     expect(Object.hasOwn(row, "missingFeatures")).toBe(false)
   })
 })

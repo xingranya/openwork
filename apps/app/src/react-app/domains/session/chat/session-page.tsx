@@ -22,6 +22,7 @@ import type {
   WorkspaceSessionGroup,
 } from "../../../../app/types";
 import type { ShareWorkspaceModalProps } from "../../workspace/types";
+import type { PersonalRemoteWorkspaceUiState } from "../../workspace/personal-remote-workspace-status";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -148,6 +149,7 @@ export type SessionPageHistoryControls = {
 
 export type SessionPageSidebarProps = {
   workspaceSessionGroups: WorkspaceSessionGroup[];
+  personalRemoteWorkspaceState?: PersonalRemoteWorkspaceUiState | null;
   selectedWorkspaceId: string;
   selectedSessionId: string | null;
   developerMode: boolean;
@@ -1087,6 +1089,7 @@ export function SessionPage(props: SessionPageProps) {
       >
         <AppSidebar
           workspaceSessionGroups={props.sidebar.workspaceSessionGroups}
+          personalRemoteWorkspaceState={props.sidebar.personalRemoteWorkspaceState}
           selectedWorkspaceId={props.sidebar.selectedWorkspaceId}
           developerMode={props.sidebar.developerMode}
           selectedSessionId={props.sidebar.selectedSessionId}
@@ -1205,7 +1208,7 @@ export function SessionPage(props: SessionPageProps) {
                         "rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground",
                         sidePanelOpen && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                       )}
-                      aria-label={sidePanelOpen ? "Close side panel" : "Open side panel"}
+                      aria-label={sidePanelOpen ? "关闭侧边面板" : "打开侧边面板"}
                       aria-pressed={sidePanelOpen}
                       onClick={() => {
                         if (sidePanelOpen) {
@@ -1219,7 +1222,7 @@ export function SessionPage(props: SessionPageProps) {
                     </Button>
                   }
                 />
-                <TooltipContent>{sidePanelOpen ? "Close side panel" : "Open side panel"}</TooltipContent>
+                <TooltipContent>{sidePanelOpen ? "关闭侧边面板" : "打开侧边面板"}</TooltipContent>
               </Tooltip>
               {showCloudSignIn ? (
                 <Button

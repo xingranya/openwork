@@ -492,25 +492,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
   };
 
-  const persistImportedCloudProviders = async (
-    nextProviders: Record<string, CloudImportedProvider>,
-  ) => {
-    const config = await readWorkspaceOpenworkConfigRecord();
-    const cloudImports = readWorkspaceCloudImports(config);
-    const nextCloudImports = {
-      ...cloudImports,
-      providers: nextProviders,
-    };
-    const nextConfig = withWorkspaceCloudImports(config, {
-      ...nextCloudImports,
-    });
-    const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);
-    if (!persisted) {
-      throw new Error("FoxWork 服务不可用，请重新连接后再管理已导入的公司模型供应商。");
-    }
-    setStateField("importedCloudProviders", nextProviders);
-  };
-
   const readProjectConfigFile = async () => {
     const root = options.selectedWorkspaceRoot().trim();
     const isLocalWorkspace =
@@ -585,9 +566,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
       throw new Error("FoxWork 服务不可用，请重新连接后再管理公司模型供应商。");
     }
-    await openworkClient.patchConfig(openworkWorkspaceId, {
-      opencode: { provider: update },
-    });
+    await openworkClient.setRuntimeProviders(openworkWorkspaceId, update);
   };
 
   const patchRuntimeProviderAndImportedCloudProviders = async (
@@ -597,7 +576,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     const { openworkClient, openworkWorkspaceId, canUseOpenworkServer } =
       await resolveOpenworkConfigTarget("write");
     if (!canUseOpenworkServer || !openworkClient || !openworkWorkspaceId) {
-      throw new Error("OpenWork server unavailable. Connect to manage cloud providers.");
+      throw new Error("FoxWork 服务暂时不可用，请连接工作区后再管理公司模型服务。");
     }
     const config = await readWorkspaceOpenworkConfigRecord();
     const cloudImports = readWorkspaceCloudImports(config);
@@ -605,10 +584,11 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       ...cloudImports,
       providers: nextProviders,
     });
-    await openworkClient.patchConfig(openworkWorkspaceId, {
-      opencode: { provider: providerUpdate },
-      openwork: nextConfig,
-    });
+    await openworkClient.setRuntimeProviders(
+      openworkWorkspaceId,
+      providerUpdate,
+      readWorkspaceCloudImports(nextConfig).providers,
+    );
     setStateField("importedCloudProviders", nextProviders);
   };
 
@@ -1690,12 +1670,13 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       // Runtime-managed: delete the provider entry via the server's per-key
       // merge (`null` deletes), then strip any legacy opencode.jsonc block
       // left by pre-runtime builds. Both are idempotent.
-      await patchRuntimeProviders({ [imported.providerId]: null });
-      await stripLegacyCloudProviderBlocks([imported.providerId]);
-
       const nextImportedProviders = { ...state.importedCloudProviders };
       delete nextImportedProviders[cloudProviderId];
-      await persistImportedCloudProviders(nextImportedProviders);
+      await patchRuntimeProviderAndImportedCloudProviders(
+        { [imported.providerId]: null },
+        nextImportedProviders,
+      );
+      await stripLegacyCloudProviderBlocks([imported.providerId]);
 
       options.setDisabledProviders(
         options.disabledProviders().filter((id) => id !== imported.providerId),
@@ -1718,7 +1699,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   }
 
   const logCloudProviderSyncError = (reason: CloudProviderSyncReason, error: unknown) => {
-    const message = describeProviderError(error, "Cloud provider sync failed.");
+    const message = describeProviderError(error, "同步公司模型供应商失败，请稍后重试。");
     console.warn(`[cloud-provider-sync:${reason}] ${message}`);
     return message;
   };
@@ -1868,6 +1849,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   }
 
   async function runCloudProviderSync(reason: CloudProviderSyncReason) {
+    if (reason === "settings_cloud_opened") {
+      setStateField("providerAuthError", null);
+    }
     const request = cloudProviderSyncTail
       .catch(() => undefined)
       .then(() =>
@@ -1876,6 +1860,11 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
           () => performCloudProviderSync(reason),
         ),
       )
+      .then(() => {
+        if (reason === "settings_cloud_opened") {
+          setStateField("providerAuthError", null);
+        }
+      })
       .catch((error) => {
         const message = logCloudProviderSyncError(reason, error);
         if (reason === "settings_cloud_opened") {

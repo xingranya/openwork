@@ -2,7 +2,7 @@ import { z } from "zod"
 import {
   FOXWORK_COMPANY_MCP_NAME,
   LEGACY_OPENWORK_CLOUD_MCP_NAME,
-} from "./den/mcp-connection-action"
+} from "./den/mcp-connection-action.js"
 
 export const AGENT_CONTEXT_DIAGNOSTICS_SCHEMA_VERSION = 1 as const
 

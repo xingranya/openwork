@@ -47,6 +47,7 @@ export type ResolvedWorkspaceEndpoint = {
 export type LocalServerHandle = {
   baseUrl: string | null | undefined;
   token: string | null | undefined;
+  hostToken?: string | null | undefined;
 };
 
 /** 远程工作区使用固定挂载地址，不能调用仅限服务器主机的激活接口。 */
@@ -147,10 +148,12 @@ export function resolveWorkspaceEndpoint(
   const localBaseUrl = (localServer.baseUrl ?? "").trim();
   if (!localBaseUrl) return null;
   const localToken = (localServer.token ?? "").trim();
+  const localHostToken = (localServer.hostToken ?? "").trim();
   const workspaceId = workspace.id.trim();
   const client = createOpenworkServerClient({
     baseUrl: localBaseUrl,
     token: localToken || undefined,
+    hostToken: localHostToken || undefined,
   });
   const mountedBaseUrl = (
     buildOpenworkWorkspaceBaseUrl(localBaseUrl, workspaceId) ?? localBaseUrl

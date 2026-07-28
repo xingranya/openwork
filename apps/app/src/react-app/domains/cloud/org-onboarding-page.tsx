@@ -543,12 +543,12 @@ export function OrgOnboardingPage() {
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Your organization</PageTitle>
+            <PageTitle>你的公司</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading organizations...</PageLoadingDescription>
+              <PageLoadingDescription>正在加载公司信息...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -816,12 +816,12 @@ export function ResourceSelectionPage({ autoContinue = false }: { autoContinue?:
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>{orgName || "Your organization"}</PageTitle>
+            <PageTitle>{orgName || "你的公司"}</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading available resources...</PageLoadingDescription>
+              <PageLoadingDescription>正在加载可用资源...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>

@@ -30,4 +30,12 @@ describe("自定义模型服务的模型发现", () => {
     expect(editorSource).toContain("此接口需要凭据，请填写 API 密钥后重试。");
     expect(editorSource).toContain('getErrorMessage(probeResult?.hint, "无法使用当前地址和密钥访问接口。")');
   });
+
+  test("管理员可以为每个已选模型明确配置图片输入能力", () => {
+    expect(editorSource).toContain("支持图片输入");
+    expect(editorSource).toContain("imageInputModelIds");
+    expect(editorSource).toContain("setImageInputModelIds");
+    expect(editorSource).toContain("body.imageInputModelIds = activeImageInputModelIds");
+    expect(editorSource).toContain("无法从模型列表判断时，请根据服务商说明手动勾选");
+  });
 });

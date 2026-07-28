@@ -1,4 +1,5 @@
 import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning";
+import { ensureProviderApiVersion } from "@openwork/types/url";
 
 /**
  * Den 管理后台的自定义模型服务引导配置。
@@ -25,6 +26,7 @@ export type GuidedCustomProviderFields = {
     providerId: string;
     baseUrl: string;
     modelIds: string[];
+    imageInputModelIds?: string[];
     envNames: string[];
     npm: string;
     protocol: GuidedProviderProtocol;
@@ -48,6 +50,13 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function asString(value: unknown): string | null {
     return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function modelConfigSupportsImageInput(config: unknown): boolean {
+    if (!isRecord(config)) return false;
+    if (config.attachment === true) return true;
+    if (!isRecord(config.modalities) || !Array.isArray(config.modalities.input)) return false;
+    return config.modalities.input.includes("image");
 }
 
 function sameJsonValue(left: unknown, right: unknown): boolean {
@@ -128,6 +137,7 @@ export function buildGuidedCustomProviderConfig(input: {
     name: string;
     baseUrl: string;
     modelIds: string[];
+    imageInputModelIds?: string[];
     envNames?: string[] | null;
     /** AI SDK 软件包；验证时可能切换为 OpenAI 软件包。 */
     npm?: string | null;
@@ -140,18 +150,34 @@ export function buildGuidedCustomProviderConfig(input: {
     const npm = input.npm && GUIDED_PROVIDER_NPM_PACKAGES.has(input.npm)
         ? input.npm
         : guidedProviderNpmForProtocol(input.protocol ?? "openai");
+    const imageInputModelIds = input.imageInputModelIds === undefined
+        ? null
+        : new Set(input.imageInputModelIds.map((modelId) => modelId.trim()).filter(Boolean));
     return {
         id: providerId,
         name: input.name.trim() || providerId,
         npm,
         env: envNames.length > 0 ? envNames : [buildGuidedProviderEnvName(providerId)],
-        api: input.baseUrl.trim().replace(/\/+$/, ""),
-        models: input.modelIds.map((modelId) =>
-            applyModelReasoningDefaults({
+        api: ensureProviderApiVersion(input.baseUrl),
+        models: input.modelIds.map((modelId) => {
+            const model = applyModelReasoningDefaults({
                 modelId,
                 npm,
                 config: { id: modelId, name: modelId },
-            })),
+            });
+            if (imageInputModelIds === null) {
+                return model;
+            }
+            const supportsImageInput = imageInputModelIds.has(modelId);
+            return {
+                ...model,
+                attachment: supportsImageInput,
+                modalities: {
+                    input: supportsImageInput ? ["text", "image"] : ["text"],
+                    output: ["text"],
+                },
+            };
+        }),
     };
 }
 
@@ -202,6 +228,8 @@ export function readGuidedCustomProviderFields(
     }
 
     const modelIds: string[] = [];
+    const imageInputModelIds: string[] = [];
+    let hasImageCapabilityMetadata = false;
     for (const model of models) {
         if (typeof model === "string") {
             modelIds.push(model);
@@ -223,11 +251,31 @@ export function readGuidedCustomProviderFields(
             id,
             name: name ?? id,
         };
-        const generatedModel = applyModelReasoningDefaults({
+        let generatedModel = applyModelReasoningDefaults({
             modelId: id,
             npm,
             config: { id, name: id },
         });
+        const modalities = isRecord(model.modalities) ? model.modalities : null;
+        const inputModalities = Array.isArray(modalities?.input)
+            ? modalities.input.filter((entry): entry is string => typeof entry === "string")
+            : null;
+        const hasModelCapabilityMetadata = typeof model.attachment === "boolean" || inputModalities !== null;
+        if (hasModelCapabilityMetadata) {
+            hasImageCapabilityMetadata = true;
+            const supportsImageInput = modelConfigSupportsImageInput(model);
+            if (supportsImageInput) {
+                imageInputModelIds.push(id);
+            }
+            generatedModel = {
+                ...generatedModel,
+                attachment: supportsImageInput,
+                modalities: {
+                    input: supportsImageInput ? ["text", "image"] : ["text"],
+                    output: ["text"],
+                },
+            };
+        }
         if (!sameJsonValue(normalizedModel, generatedModel)) {
             return null;
         }
@@ -238,6 +286,7 @@ export function readGuidedCustomProviderFields(
         providerId,
         baseUrl,
         modelIds,
+        ...(hasImageCapabilityMetadata ? { imageInputModelIds } : {}),
         envNames: env,
         npm,
         protocol,

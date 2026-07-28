@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { hostLabel, joinBaseUrl, normalizeBaseUrl, readBaseUrlEnv } from "@openwork/types/url";
+import {
+  ensureProviderApiVersion,
+  hostLabel,
+  joinBaseUrl,
+  normalizeBaseUrl,
+  readBaseUrlEnv,
+} from "@openwork/types/url";
 
 describe("url primitives", () => {
   test("normalizes trailing slashes canonically", () => {
@@ -33,5 +39,15 @@ describe("url primitives", () => {
     expect(hostLabel("https://example.test/workspace")).toBe("example.test");
     expect(hostLabel("https://example.test///")).toBe("example.test");
     expect(hostLabel("not a url///")).toBe("not a url");
+  });
+
+  test("为兼容协议基础地址补齐 v1 且保留已有版本路径", () => {
+    expect(ensureProviderApiVersion("https://ai.seeway.co")).toBe("https://ai.seeway.co/v1");
+    expect(ensureProviderApiVersion("https://api.minimaxi.com/anthropic/"))
+      .toBe("https://api.minimaxi.com/anthropic/v1");
+    expect(ensureProviderApiVersion("https://models.example.com/v1/"))
+      .toBe("https://models.example.com/v1");
+    expect(ensureProviderApiVersion("https://ark.example.com/api/v3"))
+      .toBe("https://ark.example.com/api/v3");
   });
 });

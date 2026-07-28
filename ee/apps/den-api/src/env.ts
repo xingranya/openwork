@@ -83,6 +83,9 @@ const EnvSchema = z.object({
   WORKER_PROVISIONING_RECONCILE_INTERVAL_MS: z.string().optional(),
   WORKER_PROVISIONING_RECONCILE_STALE_MS: z.string().optional(),
   WORKER_PROVISIONING_RECONCILE_BATCH_SIZE: z.string().optional(),
+  CLOUD_IDLE_STOP_MINUTES: z.string().optional(),
+  CLOUD_IDLE_LOOP_SECONDS: z.string().optional(),
+  CLOUD_IDLE_STOP_BATCH_SIZE: z.string().optional(),
   PROVISIONER_MODE: z.enum(["stub", "render", "daytona", "kubernetes"]).optional(),
   WORKER_URL_TEMPLATE: z.string().optional(),
   WORKER_ACTIVITY_BASE_URL: z.string().optional(),
@@ -518,6 +521,7 @@ export const env = {
   // Standard desktop release assets: the release tag to download from,
   // defaulting to the pinned app release this den-api build shipped with.
   installerReleaseTag: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_TAG) ?? `v${denApiAppVersion.latestAppVersion}`,
+  installerReleaseTagExplicit: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_TAG) !== undefined,
   installerReleaseRepo: optionalString(parsed.OPENWORK_INSTALLER_RELEASE_REPO),
   installerCacheDir: optionalString(parsed.OPENWORK_INSTALLER_CACHE_DIR) ?? path.join(os.tmpdir(), "openwork-desktop-artifacts"),
   // Native-provider endpoint overrides for evals/self-host testing. Unset in

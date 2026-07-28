@@ -15,6 +15,7 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { ensureProviderApiVersion } from "@openwork/types/url";
 import {
   openworkExtensionsPreviewPluginPath,
   openworkCapabilitiesKnowledgePluginPath,
@@ -97,8 +98,10 @@ export function buildOpenworkRuntimeConfigObjectFromSnapshot(
   runtimeConfig: RuntimeOpencodeConfig,
 ): Record<string, unknown> {
   const disabledProviders = runtimeDisabledProviderList(runtimeConfig);
+  const provider = normalizeRuntimeProviderApis(runtimeConfig.provider);
   return {
     ...runtimeConfig,
+    ...(provider ? { provider } : {}),
     default_agent: runtimeConfig.default_agent ?? "openwork",
     agent: {
       openwork: {
@@ -135,6 +138,27 @@ export function buildOpenworkRuntimeConfigObjectFromSnapshot(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeRuntimeProviderApis(value: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const compatiblePackages = new Set([
+    "@ai-sdk/openai-compatible",
+    "@ai-sdk/openai",
+    "@ai-sdk/anthropic",
+  ]);
+  return Object.fromEntries(
+    Object.entries(value).map(([providerId, provider]) => {
+      if (!isRecord(provider) || !compatiblePackages.has(String(provider.npm ?? ""))) {
+        return [providerId, provider];
+      }
+      if (typeof provider.api !== "string" || !provider.api.trim()) {
+        return [providerId, provider];
+      }
+      return [providerId, { ...provider, api: ensureProviderApiVersion(provider.api) }];
+    }),
+  );
 }
 
 function stableJsonValue(value: unknown): unknown {

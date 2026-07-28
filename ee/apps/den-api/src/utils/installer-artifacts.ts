@@ -33,19 +33,27 @@ export function installerLatestReleaseAssetUrl(
   return `https://github.com/${releaseRepo}/releases/latest/download/${encodeURIComponent(fileName)}`
 }
 
-export function desktopReleaseAssetName(platform: string, releaseTag: string) {
-  const version = releaseTag.startsWith("v") ? releaseTag.slice(1) : releaseTag
+export function desktopReleaseAssetName(
+  platform: string,
+  releaseTag: string,
+  options: { releaseRepo?: string } = {},
+) {
+  const releaseRepo = options.releaseRepo
+    ?? env.installerReleaseRepo
+    ?? DEFAULT_INSTALLER_RELEASE_REPO
+  const assetPrefix = releaseRepo === DEFAULT_INSTALLER_RELEASE_REPO ? "openwork" : "foxwork"
+  const version = releaseTag.replace(/^foxwork-v/i, "").replace(/^v/i, "")
   if (platform === "mac-arm64" || platform === "mac-x64") {
-    return `openwork-${platform}-${version}.dmg`
+    return `${assetPrefix}-${platform}-${version}.dmg`
   }
   if (platform === "win-x64") {
-    return `openwork-${platform}-${version}.exe`
+    return `${assetPrefix}-${platform}-${version}.exe`
   }
   if (platform === "linux-x64") {
-    return `openwork-linux-x86_64-${version}.AppImage`
+    return `${assetPrefix}-linux-x86_64-${version}.AppImage`
   }
   if (platform === "linux-arm64") {
-    return `openwork-linux-arm64-${version}.AppImage`
+    return `${assetPrefix}-linux-arm64-${version}.AppImage`
   }
   return null
 }

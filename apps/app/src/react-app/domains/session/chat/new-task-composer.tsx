@@ -198,7 +198,9 @@ export function NewTaskComposer(props: NewTaskComposerProps) {
       onAttachFiles={noop}
       onRemoveAttachment={noop}
       attachmentsEnabled={false}
-      attachmentsDisabledReason="Attachments become available once the task starts."
+      attachmentsDisabledReason="创建任务后即可添加附件。"
+      imageAttachmentsEnabled={false}
+      imageAttachmentsDisabledReason="创建任务后即可添加图片。"
       modelVariantLabel={context?.modelVariantLabel ?? ""}
       modelVariant={context?.modelVariant ?? null}
       modelBehaviorOptions={context?.modelBehaviorOptions}

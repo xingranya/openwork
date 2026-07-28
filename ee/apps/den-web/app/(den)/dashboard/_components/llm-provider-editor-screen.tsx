@@ -26,6 +26,7 @@ import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import {
     buildGuidedCustomProviderConfig,
     buildGuidedProviderEnvName,
+    modelConfigSupportsImageInput,
     parseGuidedModelIds,
     readEnvNamesFromCustomProviderText,
     readGuidedCustomProviderFields,
@@ -141,6 +142,7 @@ export function LlmProviderEditorScreen({
     const [detailError, setDetailError] = useState<string | null>(null);
     const [providerName, setProviderName] = useState("");
     const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+    const [imageInputModelIds, setImageInputModelIds] = useState<string[]>([]);
     const [catalogCustomModelsText, setCatalogCustomModelsText] = useState("");
     const [modelQuery, setModelQuery] = useState("");
     const [customConfigText, setCustomConfigText] = useState(
@@ -213,6 +215,11 @@ export function LlmProviderEditorScreen({
             setSelectedProviderId(provider.providerId);
             setProviderName(provider.name);
             setSelectedModelIds(provider.models.map((entry) => entry.id));
+            setImageInputModelIds(
+                provider.models
+                    .filter((entry) => modelConfigSupportsImageInput(entry.config))
+                    .map((entry) => entry.id),
+            );
             setCatalogCustomModelsText("");
             setSelectedMemberIds(
                 provider.access.members.map((entry) => entry.orgMembershipId),
@@ -238,6 +245,7 @@ export function LlmProviderEditorScreen({
                     setCustomProviderIdTouched(true);
                     setCustomBaseUrl(guided.baseUrl);
                     setCustomModelsText(guided.modelIds.join("\n"));
+                    setImageInputModelIds(guided.imageInputModelIds ?? []);
                     setCustomEnvNames(guided.envNames);
                     setCustomProtocol(guided.protocol);
                 } else {
@@ -254,6 +262,7 @@ export function LlmProviderEditorScreen({
         setSelectedProviderId("");
         setProviderName("");
         setSelectedModelIds([]);
+        setImageInputModelIds([]);
         setCatalogCustomModelsText("");
         setSelectedMemberIds(
             orgContext?.currentMember.id ? [orgContext.currentMember.id] : [],
@@ -474,6 +483,24 @@ export function LlmProviderEditorScreen({
         probeState === "ok" && !customManualModels
             ? selectedCustomModelIds
             : parseGuidedModelIds(customModelsText);
+    const configurableModelIds = source === "models_dev"
+        ? resolvedCatalogModelIds
+        : customMode === "form"
+          ? resolvedCustomModelIds
+          : [];
+    const activeImageInputModelIds = imageInputModelIds.filter((modelId) =>
+        configurableModelIds.includes(modelId),
+    );
+    const configurableModelIdsKey = configurableModelIds.join("\u0000");
+
+    useEffect(() => {
+        const allowedModelIds = new Set(configurableModelIds);
+        setImageInputModelIds((current) => {
+            const next = current.filter((modelId) => allowedModelIds.has(modelId));
+            return next.length === current.length ? current : next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- 模型 ID 集合稳定后再清理已取消模型的能力选择
+    }, [configurableModelIdsKey]);
 
     // 仅当输入仍与失败验证一致时允许继续保存，修改后必须重新验证。
     const currentVerifyKey = [
@@ -561,6 +588,7 @@ export function LlmProviderEditorScreen({
                         name: providerName,
                         baseUrl: customBaseUrl,
                         modelIds,
+                        imageInputModelIds: activeImageInputModelIds,
                         envNames: customEnvNames,
                         protocol: customProtocol,
                     }),
@@ -585,6 +613,7 @@ export function LlmProviderEditorScreen({
         setCustomProviderIdTouched(true);
         setCustomBaseUrl(guided.baseUrl);
         setCustomModelsText(guided.modelIds.join("\n"));
+        setImageInputModelIds(guided.imageInputModelIds ?? []);
         setCustomEnvNames(guided.envNames);
         setCustomProtocol(guided.protocol);
         setCustomJsonHint(null);
@@ -712,12 +741,16 @@ export function LlmProviderEditorScreen({
                     name: providerName,
                     baseUrl: customBaseUrl,
                     modelIds: resolvedCustomModelIds,
+                    imageInputModelIds: activeImageInputModelIds,
                     envNames: customEnvNames,
                     npm: guidedNpm,
                     protocol: customProtocol,
                 });
             } else {
                 body.customConfigText = customConfigText;
+            }
+            if (source === "models_dev" || customMode === "form") {
+                body.imageInputModelIds = activeImageInputModelIds;
             }
 
             if (credentialEnvNames.length > 1) {
@@ -972,6 +1005,7 @@ export function LlmProviderEditorScreen({
                                 onChange={(value) => {
                                     setSelectedProviderId(value);
                                     setSelectedModelIds([]);
+                                    setImageInputModelIds([]);
                                     setCatalogCustomModelsText("");
                                 }}
                                 ariaLabel="模型服务"
@@ -1410,6 +1444,55 @@ export function LlmProviderEditorScreen({
                             </p>
                         </div>
                     ) : null}
+                </section>
+            ) : null}
+
+            {source === "models_dev" || customMode === "form" ? (
+                <section className="mb-8 border-y border-gray-200 py-8">
+                    <div>
+                        <h2 className="text-[24px] font-semibold text-gray-950">
+                            图片输入
+                        </h2>
+                        <p className="mt-2 text-[15px] leading-6 text-gray-500">
+                            无法从模型列表判断时，请根据服务商说明手动勾选“支持图片输入”。
+                        </p>
+                    </div>
+
+                    {configurableModelIds.length > 0 ? (
+                        <div className="mt-6 divide-y divide-gray-200 border-y border-gray-200">
+                            {configurableModelIds.map((modelId) => {
+                                const checked = activeImageInputModelIds.includes(modelId);
+                                return (
+                                    <label
+                                        key={modelId}
+                                        className="flex cursor-pointer items-center justify-between gap-4 py-4"
+                                    >
+                                        <span className="min-w-0 break-all text-[14px] font-medium text-gray-900">
+                                            {modelId}
+                                        </span>
+                                        <span className="flex shrink-0 items-center gap-2 text-[13px] text-gray-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(event) => {
+                                                    const nextChecked = event.target.checked;
+                                                    setImageInputModelIds((current) => nextChecked
+                                                        ? [...new Set([...current, modelId])]
+                                                        : current.filter((entry) => entry !== modelId));
+                                                }}
+                                                className="h-4 w-4 accent-gray-950"
+                                            />
+                                            支持图片输入
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="mt-5 text-[14px] text-gray-500">
+                            请先选择要向员工开放的模型。
+                        </p>
+                    )}
                 </section>
             ) : null}
 

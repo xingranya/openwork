@@ -2326,7 +2326,7 @@ export function DenAdminPanel() {
                           }}
                           className="h-4 w-4 rounded border-slate-300"
                         />
-                        Cloud (alpha)
+                    云端工作区（测试版）
                       </label>
                     </div>
                     {capabilityError?.orgId === org.id ? (

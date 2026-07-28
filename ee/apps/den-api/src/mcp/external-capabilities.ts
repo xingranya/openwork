@@ -265,6 +265,9 @@ export function externalMcpAuthErrorCode(
       || diagnosticError.diagnostic.phase === "AUTH_RESOURCE_VALIDATION"
       || diagnosticError.diagnostic.phase === "CONTINUITY_REFRESH"
     ) return "unauthorized"
+    // 已有结构化诊断时以其阶段和错误码为准，不能再从供应商自由文本中
+    // 猜测鉴权状态，否则普通 JSON-RPC 错误可能被误判成需要重新登录。
+    return null
   }
   if (INVALID_REFRESH_TOKEN_PATTERN.test(message)) return "invalid_refresh_token"
   if (INVALID_GRANT_PATTERN.test(message)) return "invalid_grant"
@@ -883,7 +886,7 @@ function providerErrorFromDiagnostic(diagnostic: ExternalMcpDiagnostic): Externa
 }
 
 function diagnosticAgentMessage(diagnostic: ExternalMcpDiagnostic): string {
-  return `${diagnostic.message} ${diagnostic.operatorAction} Diagnostic reference: ${diagnostic.referenceId}.`
+  return `${diagnostic.message} ${diagnostic.operatorAction} 诊断编号：${diagnostic.referenceId}。`
 }
 
 function diagnosticAgentFields(diagnostic: ExternalMcpDiagnostic) {
@@ -1148,10 +1151,8 @@ export async function executeExternalCapability(input: {
         error: diagnostic.phase === "PROVIDER_EXECUTION" || diagnostic.phase === "PROVIDER_AUTHORIZATION"
           ? "provider_error"
           : "connection_failed",
-        message: `${diagnostic.message} ${diagnostic.operatorAction} 诊断编号：${diagnostic.referenceId}。`,
-        diagnostic,
-        actionOwner: diagnostic.actionOwner,
-        operatorAction: diagnostic.operatorAction,
+        message: diagnosticAgentMessage(diagnostic),
+        ...diagnosticAgentFields(diagnostic),
         ...(schemaGuidance ? { schemaGuidance } : {}),
         ...(authErrorCode
           ? {

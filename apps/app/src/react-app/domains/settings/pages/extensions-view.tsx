@@ -37,10 +37,11 @@ export type ExtensionsViewProps = {
   suggestedPlugins: SuggestedPlugin[];
   extensions: PluginsExtensionsStore;
   mcpConnectedAppsCount: number;
-  /** MCP 视图包含快捷连接和已配置服务，Skills 使用独立设置页。 */
-  mcpView: ReactNode;
-  /** 公司能力市场内容，与本机扩展显示在同一页面。 */
-  cloudMarketplaceView?: ReactNode;
+  /** 统一能力清单；技能仍保留左侧独立管理入口。 */
+  mcpView: (routing: {
+    initialFilter: ExtensionsInventoryFilter;
+    onFilterChange: (filter: ExtensionsInventoryFilter) => void;
+  }) => ReactNode;
   onRefresh: () => void;
   initialSection?: ExtensionsSection;
   setSectionRoute?: (tab: ExtensionsSection) => void;
@@ -82,41 +83,30 @@ export function ExtensionsView(props: ExtensionsViewProps) {
         </Button>
       </div>
 
-      {/* Runtime extensions and organization-assigned capabilities share one inventory. */}
+      {/* 本机扩展和公司分配的能力共用一份清单。 */}
       {props.mcpView({ initialFilter, onFilterChange: setFilterRoute })}
 
-      {activeView === "my" ? (
-        <>
-          {/* 扩展页只显示 MCP 和插件，Skills 使用左侧独立入口。 */}
-          {props.mcpView}
-
-          {/* 本地插件属于高级设置，默认折叠。 */}
-          {pluginCount > 0 ? (
-            <details className="group">
-              <summary className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-2 text-sm font-medium text-dls-secondary transition-colors hover:text-dls-text">
-                <Cpu size={14} />
-                <span>本地插件</span>
-                <span className="text-[11px] text-dls-secondary">({pluginCount})</span>
-              </summary>
-              <div className="mt-3">
-                <PluginsView
-                  extensions={props.extensions}
-                  busy={props.busy}
-                  selectedWorkspaceRoot={props.selectedWorkspaceRoot}
-                  canEditPlugins={props.canEditPlugins}
-                  canUseGlobalScope={props.canUseGlobalScope}
-                  accessHint={props.accessHint}
-                  suggestedPlugins={props.suggestedPlugins}
-                />
-              </div>
-            </details>
-          ) : null}
-        </>
-      ) : props.cloudMarketplaceView ?? (
-        <div className="rounded-xl border border-dashed border-dls-border px-5 py-10 text-center text-sm text-dls-secondary">
-          暂时无法使用能力市场。
-        </div>
-      )}
+      {/* 本地插件属于高级设置，默认折叠。 */}
+      {pluginCount > 0 ? (
+        <details className="group" open={props.initialSection === "plugins"}>
+          <summary className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-2 text-sm font-medium text-dls-secondary transition-colors hover:text-dls-text">
+            <Cpu size={14} />
+            <span>本地插件</span>
+            <span className="text-[11px] text-dls-secondary">({pluginCount})</span>
+          </summary>
+          <div className="mt-3">
+            <PluginsView
+              extensions={props.extensions}
+              busy={props.busy}
+              selectedWorkspaceRoot={props.selectedWorkspaceRoot}
+              canEditPlugins={props.canEditPlugins}
+              canUseGlobalScope={props.canUseGlobalScope}
+              accessHint={props.accessHint}
+              suggestedPlugins={props.suggestedPlugins}
+            />
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

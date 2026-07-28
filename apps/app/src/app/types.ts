@@ -285,17 +285,12 @@ export type SkillCard = {
   path: string;
   description?: string;
   trigger?: string;
+  source?: "workspace" | "desktop-global";
   origin?: CapabilityOrigin;
   scope?: "project" | "global";
   marketplaceName?: string;
   pluginName?: string;
   connectCapabilityName?: string;
-};
-
-export type HubSkillRepo = {
-  owner: string;
-  repo: string;
-  ref: string;
 };
 
 export type HubSkillCard = {

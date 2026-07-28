@@ -108,6 +108,7 @@ mock.module("../src/orgs.js", () => ({
     activeOrgId: organizationId,
     activeOrgSlug: organization.slug,
   }),
+  serializeMemberFacingOrganizationMetadata: (metadata: unknown) => JSON.stringify(metadata),
   setSessionActiveOrganization: () => Promise.resolve(),
   updateOrganizationSettings: (input: { brandIconUrl?: string | null }) => {
     updateOrganizationSettingsCalls.push(input)

@@ -77,6 +77,9 @@ describe("员工个人远程工作区", () => {
           workspaceId: "ws_personal",
         }),
       },
+      removeRemoteWorkspace: async () => {
+        throw new Error("没有旧账号工作区，不应执行移除");
+      },
       createRemoteWorkspace: async (payload) => {
         createdPayloads.push(payload);
         return {
@@ -122,6 +125,89 @@ describe("员工个人远程工作区", () => {
     expect(createdPayloads[0]).not.toHaveProperty("openworkHostToken");
   });
 
+  test("切换账号时替换旧账号的个人远程工作区并保留手动工作区", async () => {
+    const events: string[] = [];
+    const manualWorkspace = {
+      id: "rem_manual",
+      name: "设计协作环境",
+      path: "",
+      preset: "remote",
+      workspaceType: "remote" as const,
+      remoteType: "openwork" as const,
+      sandboxBackend: "daytona",
+      sandboxRunId: "wrk_manual",
+      openworkWorkspaceId: "ws_manual",
+    };
+    const oldAccountWorkspace = {
+      id: "rem_old_account",
+      name: PERSONAL_REMOTE_WORKSPACE_NAME,
+      path: "",
+      preset: "remote",
+      workspaceType: "remote" as const,
+      remoteType: "openwork" as const,
+      sandboxBackend: PERSONAL_REMOTE_WORKSPACE_BACKEND,
+      sandboxRunId: "wrk_old_account",
+      openworkWorkspaceId: "ws_old_account",
+    };
+
+    const result = await reconcilePersonalRemoteWorkspace({
+      orgId: "org_company",
+      workspaces: [oldAccountWorkspace, manualWorkspace],
+      denClient: {
+        listWorkers: async () => [worker({ workerId: "wrk_new_account" })],
+        createWorker: async () => {
+          throw new Error("当前账号已有 Worker，不应重复创建");
+        },
+        getWorkerTokens: async () => ({
+          clientToken: "new-account-token",
+          ownerToken: null,
+          hostToken: null,
+          openworkUrl: "https://worker.company.test/w/ws_new_account",
+          workspaceId: "ws_new_account",
+        }),
+      },
+      removeRemoteWorkspace: async (workspaceId) => {
+        events.push(`remove:${workspaceId}`);
+        return {
+          selectedId: manualWorkspace.id,
+          workspaces: [manualWorkspace],
+        };
+      },
+      createRemoteWorkspace: async (payload) => {
+        events.push(`create:${payload.sandboxRunId}`);
+        return {
+          selectedId: "rem_ws_new_account",
+          workspaces: [
+            manualWorkspace,
+            {
+              id: "rem_ws_new_account",
+              name: PERSONAL_REMOTE_WORKSPACE_NAME,
+              path: "",
+              preset: "remote",
+              workspaceType: "remote",
+              ...payload,
+            },
+          ],
+        };
+      },
+      updateRemoteWorkspace: async () => {
+        throw new Error("新账号不能复用旧账号的个人工作区");
+      },
+    });
+
+    expect(events).toEqual([
+      "remove:rem_old_account",
+      "create:wrk_new_account",
+    ]);
+    expect(result).toMatchObject({
+      status: "ready",
+      workerId: "wrk_new_account",
+      workspaceId: "rem_ws_new_account",
+      created: true,
+      removedWorkspaceIds: ["rem_old_account"],
+    });
+  });
+
   test("已存在的个人工作区只更新 Den 下发的连接信息", async () => {
     let createCount = 0;
     let updateCount = 0;
@@ -152,6 +238,9 @@ describe("员工个人远程工作区", () => {
           openworkUrl: "https://worker.company.test/w/ws_personal",
           workspaceId: "ws_personal",
         }),
+      },
+      removeRemoteWorkspace: async () => {
+        throw new Error("没有旧账号工作区，不应执行移除");
       },
       createRemoteWorkspace: async () => {
         createCount += 1;
@@ -190,6 +279,9 @@ describe("员工个人远程工作区", () => {
           throw new Error("尚未就绪时不应请求令牌");
         },
       },
+      removeRemoteWorkspace: async () => {
+        throw new Error("没有旧账号工作区，不应执行移除");
+      },
       createRemoteWorkspace: async () => {
         throw new Error("尚未就绪时不应创建工作区");
       },
@@ -220,6 +312,9 @@ describe("员工个人远程工作区", () => {
         getWorkerTokens: async () => {
           throw new Error("准备中的 Worker 不应请求令牌");
         },
+      },
+      removeRemoteWorkspace: async () => {
+        throw new Error("没有旧账号工作区，不应执行移除");
       },
       createRemoteWorkspace: async () => {
         throw new Error("准备中的 Worker 不应创建工作区");

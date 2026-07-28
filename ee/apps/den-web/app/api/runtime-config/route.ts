@@ -28,23 +28,14 @@ function readBooleanEnv(name: string, defaultValue: boolean) {
   return defaultValue;
 }
 
-function normalizeBaseUrl(value: string) {
-  return value.trim().replace(/\/+$/, "");
-}
-
-function readBaseUrlEnv(name: string) {
-  const value = process.env[name]?.trim();
-  return value ? normalizeBaseUrl(value) : "";
-}
-
 function readMcpEndpoint() {
-  const explicitEndpoint = readBaseUrlEnv("DEN_WEB_FOXWORK_MCP_ENDPOINT");
+  const explicitEndpoint = readBaseUrlEnv(process.env, "DEN_WEB_FOXWORK_MCP_ENDPOINT");
   if (explicitEndpoint) return explicitEndpoint;
 
   const configured =
-    readBaseUrlEnv("DEN_MCP_PUBLIC_URL") ||
-    readBaseUrlEnv("DEN_MCP_RESOURCE_URL") ||
-    readBaseUrlEnv("DEN_API_PUBLIC_URL");
+    readBaseUrlEnv(process.env, "DEN_MCP_PUBLIC_URL")
+    || readBaseUrlEnv(process.env, "DEN_MCP_RESOURCE_URL")
+    || readBaseUrlEnv(process.env, "DEN_API_PUBLIC_URL");
   if (!configured) return "";
 
   try {

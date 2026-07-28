@@ -267,6 +267,7 @@ export type LocalSkillCard = {
   path: string;
   description?: string;
   trigger?: string;
+  source?: "workspace" | "desktop-global";
 };
 
 export type LocalSkillContent = {
@@ -530,7 +531,11 @@ export type DesktopCommandMap = {
     args: [projectDir: string, name: string, content: string, options?: { overwrite?: boolean }];
     result: ExecResult;
   };
+  listGlobalSkills: { args: []; result: LocalSkillCard[] };
   listLocalSkills: { args: [projectDir: string]; result: LocalSkillCard[] };
+  readGlobalSkill: { args: [skillName: string]; result: LocalSkillContent };
+  writeGlobalSkill: { args: [skillName: string, content: string]; result: ExecResult };
+  uninstallGlobalSkill: { args: [skillName: string]; result: ExecResult };
   readLocalSkill: { args: [projectDir: string, skillName: string]; result: LocalSkillContent };
   writeLocalSkill: {
     args: [projectDir: string, skillName: string, content: string];

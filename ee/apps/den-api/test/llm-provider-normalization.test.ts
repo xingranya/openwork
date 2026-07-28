@@ -83,6 +83,21 @@ test("keeps accepting models.dev-style provider configs without doc", () => {
   expect(normalized.providerConfig.doc).toBeUndefined()
 })
 
+test("为非网页入口提交的兼容协议地址补齐 v1", () => {
+  const normalized = normalizeCustomProviderConfig({
+    customConfig: {
+      id: "company-openai",
+      name: "公司 OpenAI 网关",
+      npm: "@ai-sdk/openai-compatible",
+      env: ["COMPANY_OPENAI_API_KEY"],
+      api: "https://ai.seeway.co",
+      models: [{ id: "gpt-5.4", name: "gpt-5.4" }],
+    },
+  })
+
+  expect(normalized.providerConfig.api).toBe("https://ai.seeway.co/v1")
+})
+
 test("为非网页入口提交的 GPT-5 公司模型补齐推理强度", () => {
   const normalized = normalizeCustomProviderConfig({
     customConfig: {

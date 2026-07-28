@@ -72,7 +72,7 @@ test("executeCapabilityWithBudget returns a structured timeout result", async ()
   expect(result.content[0]?.text).toBe(JSON.stringify({
     error: "capability_timeout",
     capability: "gmail_search",
-    message: "The capability call exceeded 180s. Retry once; if it times out again, narrow the request (fewer results, tighter query) and tell the user the service is slow — do NOT tell them to reconfigure or reconnect.",
+    message: "能力调用超过 180 秒。可以重试一次；再次超时时请缩小请求范围，并说明服务响应较慢，不要让员工重新配置或重新连接。",
   }))
 })
 
@@ -96,7 +96,7 @@ test("executeCapabilityWithBudget swallows late rejections after timeout", async
     expect(result.content[0]?.text).toBe(JSON.stringify({
       error: "capability_timeout",
       capability: "slow_google_workspace",
-      message: "The capability call exceeded 180s. Retry once; if it times out again, narrow the request (fewer results, tighter query) and tell the user the service is slow — do NOT tell them to reconfigure or reconnect.",
+      message: "能力调用超过 180 秒。可以重试一次；再次超时时请缩小请求范围，并说明服务响应较慢，不要让员工重新配置或重新连接。",
     }))
 
     await new Promise((resolve) => setTimeout(resolve, 25))
@@ -115,23 +115,19 @@ test("agent MCP server exposes steering instructions during initialize", async (
   await client.connect(transports.client)
 
   expect(client.getInstructions()).toBe(agentModule.AGENT_MCP_INSTRUCTIONS)
-  expect(client.getInstructions()).toContain("search_capabilities and execute_capability")
-  expect(client.getInstructions()).toContain("create-skill")
-  expect(client.getInstructions()).toContain("add-to-marketplace")
-  expect(client.getInstructions()).toContain("add-user-to-marketplace")
-  expect(client.getInstructions()).toContain("add a public GitHub plugin to an organization marketplace")
-  expect(client.getInstructions()).toContain("Preview first")
-  expect(client.getInstructions()).toContain("Do not choose one authentication type for every server")
-  expect(client.getInstructions()).toContain("An import or plugin binding is not proof")
+  expect(client.getInstructions()).toContain("只开放两个工具：search_capabilities 和 execute_capability")
+  expect(client.getInstructions()).toContain("内置技能和公司插件技能")
+  expect(client.getInstructions()).toContain("必须先预览")
+  expect(client.getInstructions()).toContain("不要为所有服务强行选择同一种认证方式")
+  expect(client.getInstructions()).toContain("导入或绑定成功不代表 MCP 已可用")
   expect(client.getInstructions()).toContain("cloudReadiness")
-  expect(client.getInstructions()).toContain("Gmail read/search")
-  expect(client.getInstructions()).toContain("Settings > Connect")
-  expect(client.getInstructions()).toContain("Never tell the user to reconnect OpenWork Cloud")
+  expect(client.getInstructions()).toContain("FoxWork 的“公司连接”")
+  expect(client.getInstructions()).toContain("不要让员工重新连接整个公司服务")
   expect(client.getInstructions()).toContain("connectionStatus.connectionName")
-  expect(client.getInstructions()).toContain("schemaGuidance is advisory")
-  expect(client.getInstructions()).toContain("always attempts the downstream provider call")
+  expect(client.getInstructions()).toContain("schemaGuidance 仅作提示")
+  expect(client.getInstructions()).toContain("仍会尝试调用下游供应商")
   expect(client.getInstructions()).toContain("invalid_capability_arguments")
-  expect(client.getInstructions()).toContain("never retry the same arguments unchanged")
+  expect(client.getInstructions()).toContain("不能用相同参数重复调用")
 
   await client.close()
   await server.close()
@@ -281,12 +277,13 @@ test("capability search results include structured output alongside text compati
 })
 
 test("capability search preserves the bounded-fanout coverage warning", () => {
-  const result = agentModule.capabilitySearchToolResult([], "External MCP search inspected 16 of 17 eligible connections. Results may be incomplete.")
+  const coverageHint = "本次只检查了 17 个可用连接中的 16 个，结果可能不完整。"
+  const result = agentModule.capabilitySearchToolResult([], coverageHint)
   const structured = result.structuredContent
 
   expect(structured).toEqual({
     matches: [],
-    hint: "No matches. Try broader or different keywords. External MCP search inspected 16 of 17 eligible connections. Results may be incomplete.",
+    hint: `未找到匹配能力，请更换或扩大关键词后重试。 ${coverageHint}`,
   })
   expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual(structured)
 })

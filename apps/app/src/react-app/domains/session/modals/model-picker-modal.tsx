@@ -354,7 +354,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
                     <span>{OPENWORK_MODELS_PROVIDER_NAME}</span>
                   </div>
                   <div className="truncate text-[11px] text-dls-secondary">
-                    Included on your plan — finish syncing to choose a model.
+                    该服务已包含在公司方案中，完成同步后即可选择模型。
                   </div>
                 </div>
                 <Button
@@ -364,7 +364,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
                   onClick={() => void props.onRefreshOpenWorkModels?.()}
                 >
                   <RefreshCw className="mr-1 size-3" />
-                  Refresh
+                  刷新
                 </Button>
               </div>
             </div>

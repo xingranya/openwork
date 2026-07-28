@@ -1,4 +1,5 @@
 import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning";
+import { ensureProviderApiVersion } from "@openwork/types/url";
 
 export type LocalProviderKind =
   | "deepseek"
@@ -100,6 +101,7 @@ export type LocalProviderInput = {
   baseUrl: string;
   apiKey: string;
   modelIds: string[];
+  imageInputModelIds?: string[];
 };
 
 export type ResolvedLocalProvider = {
@@ -161,22 +163,38 @@ export function buildLocalProviderConfig(input: LocalProviderInput): ResolvedLoc
   const plan = getPlan(input.kind)!;
   const providerId = (plan.providerId ?? input.providerId).trim();
   const name = (plan.custom ? input.name : plan.name).trim() || providerId;
-  const api = (plan.api ?? input.baseUrl).trim().replace(/\/+$/, "");
+  const rawApi = (plan.api ?? input.baseUrl).trim().replace(/\/+$/, "");
+  const api = plan.custom ? ensureProviderApiVersion(rawApi) : rawApi;
   const env = plan.env ?? buildEnvName(providerId);
   const modelIds = [...new Set(input.modelIds.map((id) => id.trim()).filter(Boolean))];
+  const imageInputModelIds = input.imageInputModelIds === undefined
+    ? null
+    : new Set(input.imageInputModelIds.map((id) => id.trim()).filter(Boolean));
   const npm =
     plan.protocol === "anthropic"
       ? "@ai-sdk/anthropic"
       : "@ai-sdk/openai-compatible";
   const models = Object.fromEntries(
-    modelIds.map((id) => [
-      id,
-      applyModelReasoningDefaults({
+    modelIds.map((id) => {
+      const model = applyModelReasoningDefaults({
         modelId: id,
         npm,
         config: { id, name: id },
-      }),
-    ]),
+      });
+      if (imageInputModelIds === null) return [id, model];
+      const supportsImageInput = imageInputModelIds.has(id);
+      return [
+        id,
+        {
+          ...model,
+          attachment: supportsImageInput,
+          modalities: {
+            input: supportsImageInput ? ["text", "image"] : ["text"],
+            output: ["text"],
+          },
+        },
+      ];
+    }),
   );
 
   return {

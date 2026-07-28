@@ -151,7 +151,7 @@ export function ApiKeysScreen() {
             return;
         }
         if (!access.canManageApiKeys) {
-            setError("Only workspace owners and super-admins can create API keys.");
+            setError("只有公司所有者和超级管理员可以创建 API 密钥。");
             return;
         }
 
@@ -207,7 +207,7 @@ export function ApiKeysScreen() {
 
     function openCreateForm() {
         if (!access.canManageApiKeys) {
-            setError("Only workspace owners and super-admins can create API keys.");
+            setError("只有公司所有者和超级管理员可以创建 API 密钥。");
             return;
         }
 
@@ -226,7 +226,7 @@ export function ApiKeysScreen() {
 
     async function handleDelete(apiKey: DenOrgApiKey) {
         if (!access.canManageApiKeys) {
-            setError("Only workspace owners and super-admins can delete API keys.");
+            setError("只有公司所有者和超级管理员可以删除 API 密钥。");
             return;
         }
 
@@ -323,7 +323,7 @@ export function ApiKeysScreen() {
 
                     {!access.canManageApiKeys ? (
                         <div className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">
-                            Read-only: owners and super-admins can create or delete API keys.
+                            当前为只读模式，只有公司所有者和超级管理员可以创建或删除 API 密钥。
                         </div>
                     ) : null}
 

@@ -4,6 +4,7 @@ import {
   FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
   LEGACY_OPENWORK_CLOUD_MCP_NAME,
 } from "@openwork/types/den/mcp-connection-action";
+import { resolveGlobalOpencodeConfigPath } from "@openwork/paths";
 import type { McpItem, ServerConfig } from "./types.js";
 import { sanitizeDiagnosticString } from "./diagnostic-sanitizer.js";
 import { readJsoncFile } from "./jsonc.js";

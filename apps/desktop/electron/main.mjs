@@ -52,6 +52,7 @@ import { resolveConnectLinkPublicKeys } from "./connect-link-keys.mjs";
 import { openExternalUrl } from "./open-external.mjs";
 import { resolveAppIdentifier, resolveUserDataPath } from "./dev-profile.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
+import { desktopUserHome } from "./desktop-user-home.mjs";
 import {
   createDeepLinkDelivery,
   shouldResetDeepLinkDeliveryForNavigation,
@@ -138,7 +139,7 @@ function defaultTerminalShell() {
 }
 
 async function resolveTerminalCwd(cwd) {
-  const fallback = os.homedir();
+  const fallback = desktopUserHome.homeDir;
   if (typeof cwd !== "string" || !cwd.trim()) return fallback;
   const candidate = path.resolve(cwd);
   const info = await stat(candidate).catch(() => null);
@@ -1382,12 +1383,7 @@ async function collectProjectSkillRoots(projectDir) {
 
 async function collectGlobalSkillRoots() {
   const roots = [];
-  const candidates = [
-    path.join(globalOpencodeRoot(), "skills"),
-    path.join(os.homedir(), ".claude", "skills"),
-    path.join(os.homedir(), ".agents", "skills"),
-    path.join(os.homedir(), ".agent", "skills"),
-  ];
+  const candidates = desktopUserHome.globalSkillRoots(globalOpencodeRoot());
 
   for (const candidate of candidates) {
     if (await isDirectory(candidate)) {
@@ -1463,14 +1459,10 @@ function extractDescription(raw) {
   return null;
 }
 
-async function listLocalSkills(projectDir) {
-  if (!String(projectDir ?? "").trim()) {
-    throw new Error("projectDir is required");
-  }
-
+async function listSkillsFromRoots(roots, source) {
   const seen = new Set();
   const out = [];
-  for (const root of await collectSkillRoots(projectDir)) {
+  for (const root of roots) {
     for (const skillDir of await findSkillDirsInRoot(root)) {
       const name = path.basename(skillDir);
       if (seen.has(name)) continue;
@@ -1486,15 +1478,33 @@ async function listLocalSkills(projectDir) {
         path: skillDir,
         description: extractDescription(raw) ?? undefined,
         trigger: extractTrigger(raw) ?? undefined,
+        source,
       });
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function findSkillFile(projectDir, name) {
+async function listGlobalSkills() {
+  return listSkillsFromRoots(await collectGlobalSkillRoots(), "desktop-global");
+}
+
+async function listLocalSkills(projectDir) {
+  if (!String(projectDir ?? "").trim()) {
+    throw new Error("projectDir is required");
+  }
+  const projectSkills = await listSkillsFromRoots(await collectProjectSkillRoots(projectDir), "workspace");
+  const globalSkills = await listGlobalSkills();
+  const byName = new Map();
+  for (const skill of [...projectSkills, ...globalSkills]) {
+    if (!byName.has(skill.name)) byName.set(skill.name, skill);
+  }
+  return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function findSkillFileInRoots(roots, name) {
   const safeName = validateSkillName(name);
-  for (const root of await collectSkillRoots(projectDir)) {
+  for (const root of roots) {
     const direct = path.join(root, safeName, "SKILL.md");
     if (await pathExists(direct)) return direct;
 
@@ -1506,6 +1516,14 @@ async function findSkillFile(projectDir, name) {
     }
   }
   return null;
+}
+
+async function findSkillFile(projectDir, name) {
+  return findSkillFileInRoots(await collectSkillRoots(projectDir), name);
+}
+
+async function findGlobalSkillFile(name) {
+  return findSkillFileInRoots(await collectGlobalSkillRoots(), name);
 }
 
 async function ensureProjectSkillRoot(projectDir) {
@@ -1871,8 +1889,36 @@ const desktopCommandHandlers = {
       await writeFile(path.join(destination, "SKILL.md"), content, "utf8");
       return execResult(true, `Installed skill to ${destination}`);
   },
+  "listGlobalSkills": async (event, ...args) => {
+      return listGlobalSkills();
+  },
   "listLocalSkills": async (event, ...args) => {
       return listLocalSkills(String(args[0] ?? "").trim());
+  },
+  "readGlobalSkill": async (event, ...args) => {
+      const skillPath = await findGlobalSkillFile(args[0]);
+      if (!skillPath) {
+        throw new Error("找不到指定的全局技能。");
+      }
+      return { path: skillPath, content: await readFile(skillPath, "utf8") };
+  },
+  "writeGlobalSkill": async (event, ...args) => {
+      const skillPath = await findGlobalSkillFile(args[0]);
+      if (!skillPath) {
+        return execResult(false, "", "找不到指定的全局技能。");
+      }
+      const content = String(args[1] ?? "");
+      const next = content.endsWith("\n") ? content : `${content}\n`;
+      await writeFile(skillPath, next, "utf8");
+      return execResult(true, `已保存技能 ${path.basename(path.dirname(skillPath))}`);
+  },
+  "uninstallGlobalSkill": async (event, ...args) => {
+      const skillPath = await findGlobalSkillFile(args[0]);
+      if (!skillPath) {
+        return execResult(false, "", "找不到指定的全局技能。");
+      }
+      await rm(path.dirname(skillPath), { recursive: true, force: true });
+      return execResult(true, `已移除技能 ${args[0]}`);
   },
   "readLocalSkill": async (event, ...args) => {
       const projectDir = String(args[0] ?? "").trim();
@@ -2108,7 +2154,7 @@ const desktopCommandHandlers = {
       };
   },
   "__homeDir": async (event, ...args) => {
-      return os.homedir();
+      return desktopUserHome.homeDir;
   },
   "__joinPath": async (event, ...args) => {
       return path.join(...args.map((value) => String(value ?? "")));

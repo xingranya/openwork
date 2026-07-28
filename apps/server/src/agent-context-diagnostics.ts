@@ -1045,13 +1045,22 @@ export async function runAgentContextDiagnostics(input: {
     inventoryItems[199] = runtimeCloudItem;
   }
   const managedMcpNames = new Set(Object.keys(runtimeMcp));
-  const mcps = inventoryItems.map((item) => mcpEvidence(item, input.inspectRegistration, managedMcpNames));
+  const registrationByItem = new Map<DiagnosticMcpItem, McpRegistrationInspection>();
+  const registrationForItem = (item: DiagnosticMcpItem): McpRegistrationInspection => {
+    const existing = registrationByItem.get(item);
+    if (existing) return existing;
+    const inspection = item.source === "config.remote" && managedMcpNames.has(item.name)
+      ? normalizeRegistrationInspection(input.inspectRegistration(item.name, item.config))
+      : { status: "not-recorded" as const, source: null, recordAgeMs: null };
+    registrationByItem.set(item, inspection);
+    return inspection;
+  };
+  const mcps = inventoryItems.map((item) =>
+    mcpEvidence(item, registrationForItem(item).status, managedMcpNames)
+  );
   const runtimeCloudConfig = runtimeMcp[OPENWORK_CLOUD_MCP_NAME]
     ?? runtimeMcp[LEGACY_OPENWORK_CLOUD_MCP_NAME]
     ?? null;
-  const runtimeCloudName = Object.hasOwn(runtimeMcp, OPENWORK_CLOUD_MCP_NAME)
-    ? OPENWORK_CLOUD_MCP_NAME
-    : LEGACY_OPENWORK_CLOUD_MCP_NAME;
   const staticallyDeniedCloudAgentToolIds = new Set(inventory.toolPolicy.deniedToolIds);
   const effectiveToolPolicy = assessEffectiveToolPolicy(effectiveEngine);
   const cloudToolPolicyStatus = effectiveEngine
@@ -1097,8 +1106,8 @@ export async function runAgentContextDiagnostics(input: {
       : staticallyDeniedCloudAgentToolIds.size > 0
         ? "passive-static-subset"
         : "unavailable",
-    registrationStatus: runtimeCloudConfig
-      ? input.inspectRegistration(runtimeCloudName, runtimeCloudConfig)
+    registrationStatus: runtimeCloudItem && runtimeCloudConfig
+      ? registrationForItem(runtimeCloudItem).status
       : "not-recorded",
     requestId: runId,
     fetchImpl,

@@ -13,6 +13,7 @@ function seedRequiredEnv() {
   process.env.DEN_DB_ENCRYPTION_KEY = process.env.DEN_DB_ENCRYPTION_KEY ?? "x".repeat(32)
   process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "y".repeat(32)
   process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://127.0.0.1:8790"
+  process.env.DEN_API_PUBLIC_URL = process.env.DEN_API_PUBLIC_URL ?? "http://127.0.0.1:8790"
   process.env.DEN_INSTALL_LINKS_GATING_ENABLED = "true"
 }
 
@@ -22,7 +23,7 @@ const organizationId = createDenTypeId("organization")
 const installLinkId = createDenTypeId("installLink")
 const insertedRows: unknown[] = []
 const revokedRows: unknown[] = []
-const officialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/download/v9.9.9/OpenWork-Installer-win-x64.exe"
+const officialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/download/v9.9.9/openwork-win-x64-9.9.9.exe"
 const latestOfficialWindowsInstallerUrl = "https://github.com/different-ai/openwork/releases/latest/download/OpenWork-Installer-win-x64.exe"
 const connectKeyPair = generateConnectLinkKeyPair()
 const connectKeyId = "owc-route-test"
@@ -223,28 +224,30 @@ function mint(app: Hono, input: { rotate?: boolean } = {}) {
 }
 
 function expectedLinuxInstallScript() {
+  const apiUrl = envModule.env.apiPublicUrl
+  const configUrl = new URL("/v1/install-config?token=opaque-token", new URL(apiUrl).origin).toString()
+  const downloadUrl = `https://github.com/${envModule.env.installerReleaseRepo}/releases`
   return `#!/usr/bin/env sh
-# OpenWork Linux setup for Acme Robotics.
-# Downloads no code. It writes the desktop bootstrap config, then tells you
-# where to download the current OpenWork AppImage.
+# 为 Acme Robotics 配置 FoxWork Linux 客户端。
+# 本脚本只写入公司连接配置，不下载或执行其他代码。
 set -eu
 
-CONFIG_URL='http://den.local/v1/install-config?token=opaque-token'
+CONFIG_URL='${configUrl}'
 CLIENT_NAME='Acme Robotics'
-WEB_URL='http://127.0.0.1:8790'
-API_URL='http://den.local'
-DOWNLOAD_URL='https://openworklabs.com/download'
+WEB_URL='${envModule.env.betterAuthUrl}'
+API_URL='${apiUrl}'
+DOWNLOAD_URL='${downloadUrl}'
 
 if command -v curl >/dev/null 2>&1; then
   FETCH="curl -fsSL"
 elif command -v wget >/dev/null 2>&1; then
   FETCH="wget -qO-"
 else
-  echo "OpenWork setup requires curl or wget." >&2
+  echo "配置 FoxWork 需要 curl 或 wget。" >&2
   exit 1
 fi
 
-echo "Checking your OpenWork install link..."
+echo "正在检查 FoxWork 公司安装链接……"
 # shellcheck disable=SC2086
 $FETCH "$CONFIG_URL" >/dev/null
 
@@ -262,13 +265,13 @@ cat > "$BOOTSTRAP_PATH" <<EOF
 EOF
 
 echo
-echo "This sets up OpenWork for $CLIENT_NAME."
-echo "Wrote $BOOTSTRAP_PATH"
+echo "已为 $CLIENT_NAME 写入 FoxWork 公司连接配置。"
+echo "配置文件：$BOOTSTRAP_PATH"
 echo
-echo "Download the OpenWork AppImage here:"
+echo "请从以下地址下载 FoxWork Linux 安装包："
 echo "  $DOWNLOAD_URL"
 echo
-echo "Run the AppImage, then sign in — your team's workspace is preconfigured."
+echo "启动安装包并登录后，公司工作区会自动加载。"
 `
 }
 
@@ -427,7 +430,7 @@ test("unordered organization allowed desktop versions select the maximum direct 
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.39/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.39/openwork-win-x64-0.17.39.exe")
   expect(response.headers.get("location")).not.toContain("v9.9.9")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -443,7 +446,7 @@ test("below-floor allowed desktop versions serve the first installer release tha
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.37/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.37/openwork-win-x64-0.17.37.exe")
   expect(response.headers.get("location")).not.toContain("v0.17.27")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -515,7 +518,7 @@ test("organization version pins stay tag-pinned even without an explicit install
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.39/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.39/openwork-win-x64-0.17.39.exe")
   expect(response.headers.get("location")).not.toContain("/releases/latest/")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -533,7 +536,7 @@ test("custom release repos never use the latest-release URL", async () => {
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v9.9.9/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v9.9.9/foxwork-win-x64-9.9.9.exe")
   expect(response.headers.get("location")).not.toContain("/releases/latest/")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -543,7 +546,7 @@ test("install token organization policy applies to member and admin downloads", 
     ...defaultOrganizationMetadata(),
     allowedDesktopVersions: ["0.17.37", "0.17.39"],
   }
-  const expectedUrl = "https://github.com/different-ai/openwork/releases/download/v0.17.39/OpenWork-Installer-win-x64.exe"
+  const expectedUrl = "https://github.com/different-ai/openwork/releases/download/v0.17.39/openwork-win-x64-0.17.39.exe"
 
   for (const nextRole of ["member", "admin"]) {
     role = nextRole
@@ -569,7 +572,7 @@ test("below-floor configured installer release tags are clamped for unrestricted
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.37/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/different-ai/openwork/releases/download/v0.17.37/openwork-win-x64-0.17.37.exe")
   expect(response.headers.get("location")).not.toContain("v0.17.27")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
@@ -586,14 +589,14 @@ test("custom installer release repos are not clamped", async () => {
   })
 
   expect(response.status).toBe(302)
-  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v0.17.27/OpenWork-Installer-win-x64.exe")
+  expect(response.headers.get("location")).toBe("https://github.com/acme/openwork/releases/download/v0.17.27/foxwork-win-x64-0.17.27.exe")
   expect(response.headers.get("location")).not.toContain("opaque-token")
 })
 
 test.each([
-  { platform: "mac-arm64", assetName: "OpenWork-Installer-mac-arm64.dmg" },
-  { platform: "mac-x64", assetName: "OpenWork-Installer-mac-x64.dmg" },
-  { platform: "win-x64", assetName: "OpenWork-Installer-win-x64.exe" },
+  { platform: "mac-arm64", assetName: "openwork-mac-arm64-9.9.9.dmg" },
+  { platform: "mac-x64", assetName: "openwork-mac-x64-9.9.9.dmg" },
+  { platform: "win-x64", assetName: "openwork-win-x64-9.9.9.exe" },
 ])(
   "zero-config $platform downloads redirect immediately to the installer release asset without forwarding the token",
   async ({ platform, assetName }) => {
@@ -616,7 +619,7 @@ test.each(["linux-x64", "linux-arm64"])(
 
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("text/x-shellscript; charset=utf-8")
-    expect(response.headers.get("content-disposition")).toContain("openwork-linux-setup-acme-robotics.sh")
+    expect(response.headers.get("content-disposition")).toContain("foxwork-linux-setup-acme-robotics.sh")
     expect(await response.text()).toBe(expectedLinuxInstallScript())
   },
 )

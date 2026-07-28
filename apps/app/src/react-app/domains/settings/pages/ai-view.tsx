@@ -39,6 +39,8 @@ export type AiSettingsViewProps = {
   onOpenProviderAuth: () => void | Promise<void>;
   onDisconnectProvider: (providerId: string) => void | Promise<void>;
   canDisconnectProvider: (source?: ConnectedProvider["source"]) => boolean;
+  canAddProviders: boolean;
+  organizationName?: string;
   /** 从公司服务导入的本地模型服务 ID。 */
   cloudProviderIds?: Set<string>;
   cloudProvidersView?: ReactNode;

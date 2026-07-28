@@ -329,7 +329,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
       resources: [{
         ref: `screen:${route}`,
         kind: "screen",
-        title: "OpenWork",
+        title: "FoxWork",
         provider: { id: "openwork-ui", kind: "builtin" },
         state: { kind: "other", route },
       }],

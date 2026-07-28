@@ -47,6 +47,14 @@ test.each([
 })
 
 test.each([
+  ["mac-arm64", "foxwork-v9.9.9", "foxwork-mac-arm64-9.9.9.dmg"],
+  ["mac-x64", "foxwork-v9.9.9", "foxwork-mac-x64-9.9.9.dmg"],
+  ["win-x64", "foxwork-v9.9.9", "foxwork-win-x64-9.9.9.exe"],
+])("maps company release %s to the FoxWork asset", (platform, releaseTag, expected) => {
+  expect(desktopReleaseAssetName(platform, releaseTag, { releaseRepo: "fox/foxwork" })).toBe(expected)
+})
+
+test.each([
   ["mac-arm64", "OpenWork-Installer-mac-arm64.dmg"],
   ["mac-x64", "OpenWork-Installer-mac-x64.dmg"],
   ["win-x64", "OpenWork-Installer-win-x64.exe"],

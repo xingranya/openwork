@@ -160,24 +160,21 @@ describe("join organization invite clean layout contract", () => {
     });
   });
 
-  test("keeps onboarding focused and reuses the responsive platform grid", () => {
+  test("加入公司后的中文引导保留桌面交接和分平台下载", () => {
     const successSource = readFileSync(joinOrgSuccessPath, "utf8");
     const installSource = readFileSync(installScreenPath, "utf8");
     const identitySource = readFileSync(brandIdentityPath, "utf8");
 
-    expect(successSource).toContain("Get the desktop app");
-    expect(successSource).toContain("Return to OpenWork");
+    expect(successSource).toContain("下载 FoxWork");
+    expect(successSource).toContain("返回 FoxWork");
     expect(successSource).toContain("desktopAuthRequested");
-    expect(successSource).toContain("Continue in the browser");
-    expect(successSource).toContain("Email me the download link");
-    expect(successSource).not.toContain("capabilities");
+    expect(successSource).toContain("在浏览器中继续");
+    expect(successSource).toContain("capabilities");
     expect(successSource).not.toContain("Open OpenWork");
-    expect(successSource).toContain("<span>You&apos;re in, welcome to</span>");
-    expect(successSource).toContain('className="whitespace-nowrap">&apos;s {brand.appName}</span>');
+    expect(successSource).toContain("已加入");
     expect(installSource).toContain("DownloadPlatformGrid");
-    expect(installSource).toContain("<span>Download OpenWork</span>");
-    expect(installSource).toContain("<span>for</span>");
-    expect(installSource).toContain("Setup script (ARM64)");
+    expect(installSource).toContain("<span>下载 FoxWork</span>");
+    expect(installSource).toContain("安装脚本（ARM64）");
     expect(identitySource).toContain("failedLogoUrl");
     expect(identitySource).toContain("failedIconUrl");
   });

@@ -151,13 +151,13 @@ export function syncMarkdownImagePreviews(root: HTMLElement) {
 
 export function setCodeCopyButtonState(button: HTMLButtonElement, copied: boolean) {
   const label = button.querySelector("[data-openwork-code-copy-label]");
-  if (label) label.textContent = copied ? "Code block copied" : "Copy code block";
+  if (label) label.textContent = copied ? "代码已复制" : "复制代码";
 
   button.querySelector("[data-openwork-code-copy-icon]")?.toggleAttribute("hidden", copied);
   button.querySelector("[data-openwork-code-copy-check-icon]")?.toggleAttribute("hidden", !copied);
 
-  button.title = copied ? "Copied" : "Copy code block";
-  button.setAttribute("aria-label", copied ? "Code block copied" : "Copy code block");
+  button.title = copied ? "已复制" : "复制代码";
+  button.setAttribute("aria-label", copied ? "代码已复制" : "复制代码");
 }
 
 function sanitizeMarkdownHtml(value: string) {
@@ -264,7 +264,7 @@ function renderImage(profile: MarkdownProfile, href: string, title: string | nul
   const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
 
   if (profile.imagePresentation === "chat") {
-    return `<button type="button" data-openwork-image-preview="" class="my-4 inline-block max-w-full cursor-zoom-in align-top text-left transition-opacity hover:opacity-90" aria-label="Expand ${escapeAttribute(text)}"><img src="${safe}" alt="${escapeAttribute(text)}"${titleAttr} loading="lazy" decoding="async" class="block h-auto w-auto rounded-lg border border-border/70 object-contain" style="max-height: ${MARKDOWN_IMAGE_PREVIEW_MAX_HEIGHT}px; max-width: ${MARKDOWN_IMAGE_PREVIEW_MAX_WIDTH}px"></button>`;
+    return `<button type="button" data-openwork-image-preview="" class="my-4 inline-block max-w-full cursor-zoom-in align-top text-left transition-opacity hover:opacity-90" aria-label="查看完整图片：${escapeAttribute(text)}"><img src="${safe}" alt="${escapeAttribute(text)}"${titleAttr} loading="lazy" decoding="async" class="block h-auto w-auto rounded-lg border border-border/70 object-contain" style="max-height: ${MARKDOWN_IMAGE_PREVIEW_MAX_HEIGHT}px; max-width: ${MARKDOWN_IMAGE_PREVIEW_MAX_WIDTH}px"></button>`;
   }
 
   return `<img src="${safe}" alt="${escapeAttribute(text)}"${titleAttr} loading="lazy" decoding="async" class="my-4 max-w-full rounded-[18px] border border-dls-border/70">`;

@@ -42,6 +42,7 @@ const routeGuardExceptions = new Map<string, string>([
   ["PATCH /api/auth/*", "Better Auth route mount"],
   ["DELETE /api/auth/*", "Better Auth route mount"],
   ["POST /v1/auth/desktop-handoff/status", "short-lived desktop handoff grant status is rate-limited in-handler"],
+  ["ALL /v1/auth/desktop-handoff/exchange", "desktop handoff exchange CORS preflight is restricted to this one-time grant route"],
   ["POST /v1/auth/desktop-handoff/exchange", "short-lived desktop handoff grant exchange"],
   ["POST /api/auth/scim/generate-token", "SCIM management route is explicitly disabled"],
   ["GET /api/auth/scim/list-provider-connections", "SCIM management route is explicitly disabled"],

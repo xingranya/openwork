@@ -43,11 +43,12 @@ import type {
 } from "@/react-app/domains/connections/cloud-mcp-submit-readiness";
 import { ReactSessionComposer } from "./composer/composer";
 import { useSessionModelSelection } from "./session-model-store";
-import type { ProviderCatalog } from "./use-model-behavior";
+import { modelRefSupportsImageInput, type ProviderCatalog } from "./use-model-behavior";
 import { decodeComposerMentionValue, encodeComposerMentionValue, type ComposerMentionKind } from "./composer/mention-encoding";
 import { desktopBridge, openDesktopUrl } from "@/app/lib/desktop";
 import { parseSlashCommandInvocation } from "./composer/slash-command";
 import { connectSkillPrompt, parseConnectSkillToken } from "./composer/connect-skill-token";
+import { appendAttachmentTokensToDraft } from "./composer/attachment-draft";
 import { DevProfiler } from "@/react-app/shell/dev-profiler";
 import { AssistantThinkingOrb } from "@/components/chat/assistant-thinking-orb";
 import { useShellConfig } from "@/react-app/shell/shell-config";
@@ -626,6 +627,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     providerCatalog: props.providerCatalog,
     onFallbackVariantChange: props.onModelVariantChange,
   });
+  const imageAttachmentsEnabled = modelRefSupportsImageInput(
+    props.providerCatalog ?? {},
+    sessionModel.selectedModel,
+  );
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const handleModelPickerOpenChange = useCallback((open: boolean) => {
     setModelPickerOpen(open);
@@ -1255,26 +1260,17 @@ export function SessionSurface(props: SessionSurfaceProps) {
       toast.warning(props.attachmentsDisabledReason ?? "当前无法添加附件。");
       return;
     }
-    const oversized = files.filter((file) => file.size > 25 * 1024 * 1024);
-    const sized = files.filter((file) => file.size <= 25 * 1024 * 1024);
-    if (oversized.length) {
-      toast.warning(
-        oversized.length === 1 ? `${oversized[0]?.name ?? "文件"}过大` : `${oversized.length} 个文件过大`,
-        { description: "已跳过超过 25MB 的文件。" },
-      );
-    }
-    const unreadable = sized.filter((file) => !isAttachmentFileReadable(file));
-    const accepted = sized.filter(isAttachmentFileReadable);
-    if (unreadable.length) {
-      toast.warning(
-        unreadable.length === 1
-          ? `${unreadable[0]?.name ?? "文件"}的格式无法读取`
-          : `${unreadable.length} 个文件的格式无法读取`,
-        { description: t("composer.any_file_type_supported") },
-      );
-    }
-    if (!accepted.length) return;
-    const next = accepted.map((file) => {
+    // 接受任意文件类型和大小：模型可直接读取的格式会作为文件部件发送，
+    // 其他格式会复制到工作区并由工具读取；实际限制由上传接口或模型服务返回。
+    if (!files.length) return;
+    const acceptedFiles = files.filter((file) => {
+      const metadata = resolveAttachmentFileMetadata(file);
+      if (metadata.kind !== "image" || imageAttachmentsEnabled) return true;
+      toast.warning("当前模型不支持图片输入，请先切换模型。");
+      return false;
+    });
+    if (!acceptedFiles.length) return;
+    const next = acceptedFiles.map((file) => {
       const metadata = resolveAttachmentFileMetadata(file);
       return {
         id: `att-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
@@ -1287,11 +1283,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
       };
     });
     setComposerAttachments(props.sessionId, [...attachments, ...next]);
-    // Inline attachment chips live in the draft as Lexical tokens (same
-    // pattern as pasted-text chips), so they sit in the text flow.
     setComposerDraft(
       props.sessionId,
-      `${draft}${next.map((attachment) => `[attachment ${attachment.id}]`).join("")}`,
+      appendAttachmentTokensToDraft(draft, next.map((attachment) => attachment.id)),
     );
   };
 
@@ -2019,6 +2013,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
         onRemoveAttachment={handleRemoveAttachment}
         attachmentsEnabled={props.attachmentsEnabled}
         attachmentsDisabledReason={props.attachmentsDisabledReason}
+        imageAttachmentsEnabled={imageAttachmentsEnabled}
+        imageAttachmentsDisabledReason={imageAttachmentsEnabled ? null : "当前模型不支持图片输入，请先切换模型。"}
         modelVariantLabel={sessionModel.modelVariantLabel}
         modelVariant={sessionModel.modelVariant}
         modelBehaviorOptions={sessionModel.modelBehaviorOptions}

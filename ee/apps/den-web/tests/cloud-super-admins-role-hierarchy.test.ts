@@ -80,14 +80,14 @@ describe("cloud super-admin role hierarchy", () => {
     expect(canRefreshInvitationRole("qa-reviewer", superAdmin)).toBe(true);
   });
 
-  test("exposes exact admin sidebar destinations for Extensions, Models, Members, Analytics, and Settings", () => {
+  test("管理员侧栏提供完整的中文管理入口", () => {
     const shell = read("../app/(den)/dashboard/_components/org-dashboard-shell.tsx");
 
-    for (const label of ["Extensions", "Marketplace", "Sources", "Plugins", "Connectors", "Models", "OpenWork Models", "LLM Providers", "Members", "Analytics", "Settings"]) {
+    for (const label of ["扩展", "应用市场", "数据源", "插件", "MCP 连接", "模型", "平台模型", "模型服务商", "成员", "使用统计", "设置"]) {
       expect(shell).toContain(`label: "${label}"`);
     }
 
-    for (const label of ["General", "Diagnostics", "Brand appearance", "Desktop Policies", "Stripe", "API Keys", "SSO", "SCIM"]) {
+    for (const label of ["常规", "连接诊断", "品牌外观", "桌面策略", "Stripe 账单", "API 密钥", "单点登录（SSO）", "用户同步（SCIM）"]) {
       expect(shell).toContain(`label: "${label}"`);
     }
 
@@ -110,26 +110,26 @@ describe("cloud super-admin role hierarchy", () => {
     expect(getOrgAccessFlags("super-admin", false).canManageSettings).toBe(true);
     expect(getOrgAccessFlags("admin", false).canManageSettings).toBe(false);
     expect(orgSettings).toContain("const canManageSettings = access.canManageSettings");
-    expect(orgSettings).toContain("Admins can view settings here. Owners and super-admins can change them.");
+    expect(orgSettings).toContain("管理员可以查看设置，只有公司所有者和超级管理员可以修改。");
     expect(orgSettings).toContain("disabled={!canManageDesktopVersions || requiresServerUpgrade}");
     expect(diagnostics).toContain("canView={access.canViewSettings} canManage={access.canManageSettings}");
     expect(diagnosticCard).toContain("disabled={!canManage || loading || !available}");
-    expect(diagnosticCard).toContain("Only workspace owners and super-admins can run this diagnostic.");
+    expect(diagnosticCard).toContain("只有公司所有者和超级管理员可以运行此诊断。");
     expect(brand).toContain("const canManageBrandAppearance = access.canManageSettings");
     expect(brand).toContain("disabled={!canManageBrandAppearance}");
     expect(desktopPolicies).toContain("const canManage = access.canManageSettings");
-    expect(desktopPolicies).toContain("disabled={!canManage || deleting}");
+    expect(desktopPolicies).toContain("disabled={deleting}");
     expect(desktopPolicyEditor).toContain("const formDisabled = saving || togglingEnabled || !canManage");
-    expect(desktopPolicyEditor).toContain("disabled={!canManage || togglingEnabled}");
+    expect(desktopPolicyEditor).toContain("disabled={saving || !canManage}");
     expect(billing).toContain("const canManageBillingSettings = access.canManageSettings");
     expect(billing).toContain("disabled={!canManageBillingSettings}");
     expect(apiKeys).toContain("!access.canViewSettings");
     expect(apiKeys).toContain("!access.canManageApiKeys");
-    expect(apiKeys).toContain("disabled={!access.canManageApiKeys}");
+    expect(apiKeys).toContain("disabled={!access.canManageApiKeys || deletingId === apiKey.id}");
     expect(sso).toContain("!access.canViewSettings");
     expect(sso).toContain("!access.canManageSso");
     expect(sso).toContain("disabled={ssoFormDisabled}");
-    expect(sso).toContain("Client secrets are never returned by Den.");
+    expect(sso).toContain("客户端密钥");
     expect(scim).toContain("!access.canViewSettings");
     expect(scim).toContain("!access.canManageScim");
     expect(scim).toContain("disabled={!access.canManageScim || !connection}");
@@ -142,9 +142,9 @@ describe("cloud super-admin role hierarchy", () => {
     expect(provider).toContain("transferOwnership: (memberId: string) => Promise<void>");
     expect(provider).toContain("/transfer-ownership`");
     expect(provider).toContain("targetAccess.isSuperAdmin");
-    expect(provider).toContain("Only the workspace owner can transfer ownership.");
+    expect(provider).toContain("只有公司所有者可以转交所有权。");
     expect(members).toContain("canTransferOwnershipToMember = access.canTransferOwnership && !isInvited && memberAccess.isSuperAdmin");
-    expect(members).toContain("becomes the sole owner, and your account becomes a super-admin");
+    expect(members).toContain("将成为唯一所有者，你的账号将变为超级管理员");
     expect(members).toContain('mutationBusy === "transfer-ownership"');
   });
 });

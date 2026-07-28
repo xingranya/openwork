@@ -1,4 +1,5 @@
-import type { Context, Hono } from "hono"
+import type { Context, Hono, MiddlewareHandler } from "hono"
+import { bodyLimit } from "hono/body-limit"
 import { describeRoute } from "hono-openapi"
 import { z } from "zod"
 import { normalizeDenTypeId } from "@openwork-ee/utils/typeid"
@@ -21,6 +22,7 @@ import {
   configObjectVersionListQuerySchema,
   configObjectVersionListResponseSchema,
   configObjectVersionParamsSchema,
+  companySkillZipImportResponseSchema,
   connectorAccountCreateSchema,
   connectorAccountDetailResponseSchema,
   connectorAccountDisconnectSchema,
@@ -112,6 +114,14 @@ import { pluginArchRoutePaths } from "./contracts.js"
 import { ensureOrganizationAdmin, orgAccessFailureStatus } from "../shared.js"
 import { isAgentOAuthClientConnection } from "../mcp-connections.js"
 import {
+  CompanySkillStoreError,
+  saveCompanySkill,
+} from "../company-skills-store.js"
+import {
+  parseSkillZipArchive,
+  SkillZipArchiveError,
+} from "../skill-zip-import.js"
+import {
   PluginArchRouteFailure,
   addPluginMembership,
   attachConfigObjectToPlugin,
@@ -184,6 +194,7 @@ import {
 
 type OrgContext = Context<{ Variables: OrgRouteVariables }>
 type PluginCreateBody = z.infer<typeof pluginCreateSchema>
+const SKILL_ZIP_REQUEST_MAX_BYTES = 12 * 1024 * 1024 + 256 * 1024
 
 const marketplaceConflictSchema = z.object({
   error: z.string(),
@@ -231,6 +242,155 @@ function routeErrorResponse(c: OrgContext, error: unknown) {
   throw error
 }
 
+function companySkillRouteError(error: unknown) {
+  if (error instanceof CompanySkillStoreError) {
+    return { body: { error: error.code, message: error.message }, status: error.status } as const
+  }
+  if (error instanceof SkillZipArchiveError) {
+    return { body: { error: error.code, message: error.message }, status: 400 as const }
+  }
+  throw error
+}
+
+function parseCompanySkillAccessIds(value: FormDataEntryValue | undefined, field: string) {
+  if (value === undefined || value === "") return []
+  if (typeof value !== "string") {
+    throw new SkillZipArchiveError("invalid_access", `${field} 必须是 JSON 字符串数组。`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    throw new SkillZipArchiveError("invalid_access", `${field} 不是有效的 JSON。`)
+  }
+  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string" || !entry.trim())) {
+    throw new SkillZipArchiveError("invalid_access", `${field} 必须是字符串数组。`)
+  }
+  return [...new Set(parsed.map((entry) => entry.trim()))]
+}
+
+type CompanySkillZipRouteDependencies = {
+  memberTeamsRoute?: MiddlewareHandler
+  memberRoute?: MiddlewareHandler
+  saveSkill?: typeof saveCompanySkill
+}
+
+export function registerCompanySkillZipImportRoute(app: Hono<any>, dependencies: CompanySkillZipRouteDependencies = {}) {
+  const memberTeamsRoute = dependencies.memberTeamsRoute ?? resolveMemberTeamsMiddleware
+  const orgMemberRouteMiddleware = dependencies.memberRoute ?? orgMemberRoute()
+  const saveSkill = dependencies.saveSkill ?? saveCompanySkill
+
+  app.post(
+    pluginArchRoutePaths.pluginSkillZipImport,
+    orgMemberRouteMiddleware,
+    bodyLimit({
+      maxSize: SKILL_ZIP_REQUEST_MAX_BYTES,
+      onError: (c) => c.json({ error: "skill_zip_too_large", message: "ZIP 文件不能超过 12 MB。" }, 413),
+    }),
+    memberTeamsRoute,
+    describeRoute({
+      tags: ["Plugins"],
+      summary: "批量导入公司技能",
+      description: "从一个 ZIP 中识别多个一级技能目录，并逐项返回导入结果。",
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["archive"],
+              properties: {
+                archive: { type: "string", format: "binary", description: "包含多个一级技能目录的 ZIP 文件。" },
+                memberIds: { type: "string", description: "获授权成员 ID 的 JSON 数组。" },
+                orgWide: { type: "string", enum: ["true", "false"], description: "是否向全公司开放。" },
+                overwrite: { type: "string", enum: ["true", "false"], description: "同名技能内容变化时是否覆盖。" },
+                teamIds: { type: "string", description: "获授权团队 ID 的 JSON 数组。" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonResponse("技能 ZIP 已完成处理。", companySkillZipImportResponseSchema),
+        400: jsonResponse("ZIP 文件或共享范围无效。", invalidRequestSchema),
+        401: jsonResponse("请先登录公司账号。", unauthorizedSchema),
+        403: jsonResponse("只有公司管理员可以批量导入技能。", forbiddenSchema),
+        404: jsonResponse("当前公司不存在或已退出。", notFoundSchema),
+        413: jsonResponse("ZIP 文件超过大小限制。", invalidRequestSchema),
+      },
+    }),
+    async (c: OrgContext) => {
+      const permission = ensureOrganizationAdmin(c, "只有公司管理员可以批量导入技能。")
+      if (!permission.ok) {
+        return c.json(permission.response, orgAccessFailureStatus(permission.response))
+      }
+      if (!c.req.header("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+        return c.json({ error: "invalid_skill_zip", message: "请使用表单上传 ZIP 文件。" }, 400)
+      }
+
+      try {
+        const body = await c.req.parseBody()
+        const archive = body.archive instanceof File ? body.archive : null
+        if (!archive) {
+          return c.json({ error: "skill_zip_missing", message: "请选择要上传的 ZIP 文件。" }, 400)
+        }
+        if (!archive.name.toLowerCase().endsWith(".zip")) {
+          return c.json({ error: "invalid_skill_zip", message: "仅支持 ZIP 格式。" }, 400)
+        }
+
+        const parsed = parseSkillZipArchive(new Uint8Array(await archive.arrayBuffer()))
+        const organizationContext = c.get("organizationContext")
+        if (!organizationContext) {
+          return c.json({ error: "organization_not_found", message: "当前公司不存在或已退出。" }, 404)
+        }
+        const orgWide = body.orgWide !== "false"
+        const overwrite = body.overwrite === "true"
+        const memberIds = parseCompanySkillAccessIds(body.memberIds, "memberIds")
+        const teamIds = parseCompanySkillAccessIds(body.teamIds, "teamIds")
+        if (!orgWide && memberIds.length === 0 && teamIds.length === 0) {
+          return c.json({ error: "skill_access_missing", message: "请选择全公司、至少一名成员或一个团队。" }, 400)
+        }
+
+        const results: Array<Record<string, unknown>> = []
+        const failures: Array<Record<string, unknown>> = [...parsed.failures]
+        for (const bundle of parsed.skills) {
+          try {
+            const saved = await saveSkill({
+              access: { memberIds, orgWide, teamIds },
+              actorIsAdmin: true,
+              actorMemberId: organizationContext.currentMember.id,
+              bundle,
+              organizationId: organizationContext.organization.id,
+              overwrite,
+            })
+            results.push({
+              action: saved.action,
+              bundleHash: bundle.bundleHash,
+              fileCount: bundle.files.length,
+              folder: bundle.folder,
+              id: saved.item.id,
+              pluginId: saved.item.pluginId,
+              slug: bundle.slug,
+            })
+          } catch (error) {
+            const failure = companySkillRouteError(error)
+            failures.push({
+              code: failure.body.error,
+              folder: bundle.folder,
+              reason: failure.body.message,
+              slug: bundle.slug,
+            })
+          }
+        }
+        return c.json({ failures, results })
+      } catch (error) {
+        const failure = companySkillRouteError(error)
+        return c.json(failure.body, failure.status)
+      }
+    },
+  )
+}
+
 async function configurePluginMcpConnectionResponse(c: OrgContext) {
   try {
     const params = validParam<z.infer<typeof pluginParamsSchema>>(c)
@@ -271,6 +431,7 @@ function withPluginArchOrgContext(app: Hono<any>, method: "delete" | "get" | "pa
 }
 
 export function registerPluginArchRoutes<T extends { Variables: OrgRouteVariables }>(app: Hono<T>) {
+  registerCompanySkillZipImportRoute(app as unknown as Hono<any>)
   withPluginArchOrgContext(
     app,
     "post",

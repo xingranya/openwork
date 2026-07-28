@@ -106,7 +106,7 @@ function startMockOpencode(options: MockOpencodeOptions = {}) {
         registerCount += 1;
         return Response.json({});
       }
-      if (url.pathname === "/mcp/openwork-cloud/disconnect" && request.method === "POST") {
+      if (url.pathname === `/mcp/${OPENWORK_CLOUD_MCP_NAME}/disconnect` && request.method === "POST") {
         // OpenCode closes the client and keeps the config; status is no longer
         // connected until a later POST /mcp re-registers it.
         registerCount = 0;
@@ -115,6 +115,12 @@ function startMockOpencode(options: MockOpencodeOptions = {}) {
       if (url.pathname === "/mcp" && request.method === "GET") {
         statusReads += 1;
         if (options.delayMcpStatusMs) await new Promise((resolve) => setTimeout(resolve, options.delayMcpStatusMs));
+        if (options.cloudFailedError) {
+          return Response.json({ [OPENWORK_CLOUD_MCP_NAME]: { status: "failed", error: options.cloudFailedError } });
+        }
+        if (options.connectAfterStatusReads && statusReads < options.connectAfterStatusReads) {
+          return Response.json({ [OPENWORK_CLOUD_MCP_NAME]: { status: "failed", error: "slow connect" } });
+        }
         return Response.json(registerCount > 0 || options.initialConnected ? { [OPENWORK_CLOUD_MCP_NAME]: { status: "connected" } } : {});
       }
       if (url.pathname === "/experimental/tool/ids") {
@@ -367,7 +373,7 @@ describe("公司能力 MCP 严格同步", () => {
     expect(inspectEngineMcpRegistration(
       openwork.config,
       openwork.config.workspaces[0]!,
-      "openwork-cloud",
+      OPENWORK_CLOUD_MCP_NAME,
       cloudConfigForOpenwork(openwork.base),
     )).toBe("connected");
 
@@ -695,7 +701,7 @@ describe("openwork-cloud MCP engine refresh", () => {
     expect(health.usable).toBe(true);
     expect(delivery(health).state).toBe("ready");
 
-    const disconnects = mock.requests.filter((request) => request.pathname === "/mcp/openwork-cloud/disconnect");
+    const disconnects = mock.requests.filter((request) => request.pathname === `/mcp/${OPENWORK_CLOUD_MCP_NAME}/disconnect`);
     expect(disconnects).toHaveLength(1);
     expectDirectoryQuery(disconnects[0]?.search, root);
     const registersAfterRefresh = mock.requests.filter((request) => request.pathname === "/mcp" && request.method === "POST").length;
@@ -716,7 +722,7 @@ describe("openwork-cloud MCP engine refresh", () => {
     expect(refresh.reason).toBe("desired_missing");
     expect(requireArray(refresh.steps, "refresh.steps")).toHaveLength(0);
     expect(requireRecord(body.health, "health").usable).toBe(false);
-    expect(mock.requests.filter((request) => request.pathname === "/mcp/openwork-cloud/disconnect")).toHaveLength(0);
+    expect(mock.requests.filter((request) => request.pathname === `/mcp/${OPENWORK_CLOUD_MCP_NAME}/disconnect`)).toHaveLength(0);
   });
 
   test("rejects malformed JSON on engine refresh instead of silently ignoring it", async () => {
@@ -731,7 +737,7 @@ describe("openwork-cloud MCP engine refresh", () => {
     });
     expect(response.status).toBe(400);
     expect((await responseRecord(response)).code).toBe("invalid_json");
-    expect(mock.requests.filter((request) => request.pathname === "/mcp/openwork-cloud/disconnect")).toHaveLength(0);
+    expect(mock.requests.filter((request) => request.pathname === `/mcp/${OPENWORK_CLOUD_MCP_NAME}/disconnect`)).toHaveLength(0);
   });
 
   test("richer engine cert/TLS error strings stay classified as connection failures, not token problems", async () => {
@@ -780,5 +786,5 @@ describe("openwork-cloud MCP engine refresh", () => {
     const health = requireRecord(body.health, "health");
     expect(health.usable).toBe(false);
     expect(typeof firstFailure(health).code).toBe("string");
-  });
+  }, 10_000);
 });

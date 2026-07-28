@@ -126,6 +126,10 @@ describe("FoxWork 简体中文界面契约", () => {
     expect(settingsRouteSource).not.toContain('restriction: "allowMultipleWorkspaces"');
     expect(t("dashboard.create_local_workspace_title")).toBe("本地工作区");
     expect(t("dashboard.create_remote_workspace_title")).toBe("添加远程工作区");
+    expect(t("dashboard.create_remote_custom_title")).toBe("添加其他远程工作区");
+    expect(t("dashboard.chooser_remote_desc")).toBe(
+      "仅在公司默认工作区之外，连接你已获授权的其他远程工作区。",
+    );
   });
 
   test("未配置公司地址时登录入口显示中文错误而不是抛出异常", () => {

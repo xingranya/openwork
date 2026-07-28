@@ -39,8 +39,14 @@ type RemoteWorkspacePayload = {
 };
 
 export type PersonalRemoteWorkspaceReconcileResult =
-  | { status: "provisioning"; workerId: string }
-  | { status: "ready"; workerId: string; workspaceId: string; created: boolean };
+  | { status: "provisioning"; workerId: string; removedWorkspaceIds?: string[] }
+  | {
+      status: "ready";
+      workerId: string;
+      workspaceId: string;
+      created: boolean;
+      removedWorkspaceIds?: string[];
+    };
 
 function workerStatusPriority(worker: DenWorkerSummary) {
   if (worker.status === "healthy") return 0;
@@ -112,6 +118,7 @@ export async function reconcilePersonalRemoteWorkspace(input: {
   denClient: PersonalRemoteWorkspaceDenClient;
   orgId: string;
   workspaces: WorkspaceInfo[];
+  removeRemoteWorkspace: (workspaceId: string) => Promise<WorkspaceList>;
   createRemoteWorkspace: (payload: RemoteWorkspacePayload) => Promise<WorkspaceList>;
   updateRemoteWorkspace: (
     payload: RemoteWorkspacePayload & { workspaceId: string },
@@ -133,11 +140,27 @@ export async function reconcilePersonalRemoteWorkspace(input: {
     }
   }
 
+  const staleWorkspaceIds = input.workspaces
+    .filter((workspace) => (
+      workspace.workspaceType === "remote" &&
+      workspace.sandboxBackend === PERSONAL_REMOTE_WORKSPACE_BACKEND &&
+      workspace.sandboxRunId !== worker.workerId
+    ))
+    .map((workspace) => workspace.id);
+  let currentWorkspaces = input.workspaces;
+  for (const workspaceId of staleWorkspaceIds) {
+    const nextList = await input.removeRemoteWorkspace(workspaceId);
+    currentWorkspaces = nextList.workspaces.filter((workspace) => workspace.id !== workspaceId);
+  }
+  const removedWorkspaceResult = staleWorkspaceIds.length > 0
+    ? { removedWorkspaceIds: staleWorkspaceIds }
+    : {};
+
   if (worker.status === "failed") {
     throw new Error("个人远程工作区准备失败，请联系公司管理员检查服务器状态。");
   }
   if (worker.status !== "healthy" || !worker.instanceUrl) {
-    return { status: "provisioning", workerId: worker.workerId };
+    return { status: "provisioning", workerId: worker.workerId, ...removedWorkspaceResult };
   }
 
   let tokens: DenWorkerTokens;
@@ -145,17 +168,17 @@ export async function reconcilePersonalRemoteWorkspace(input: {
     tokens = await input.denClient.getWorkerTokens(worker.workerId, input.orgId);
   } catch (error) {
     if (error instanceof DenApiError && error.status === 409) {
-      return { status: "provisioning", workerId: worker.workerId };
+      return { status: "provisioning", workerId: worker.workerId, ...removedWorkspaceResult };
     }
     throw error;
   }
 
   const payload = toRemoteWorkspacePayload(worker, tokens);
   if (!payload) {
-    return { status: "provisioning", workerId: worker.workerId };
+    return { status: "provisioning", workerId: worker.workerId, ...removedWorkspaceResult };
   }
 
-  const existing = findManagedWorkspace(input.workspaces, worker, payload.openworkWorkspaceId);
+  const existing = findManagedWorkspace(currentWorkspaces, worker, payload.openworkWorkspaceId);
   const list = existing
     ? await input.updateRemoteWorkspace({ ...payload, workspaceId: existing.id })
     : await input.createRemoteWorkspace(payload);
@@ -169,5 +192,6 @@ export async function reconcilePersonalRemoteWorkspace(input: {
     workerId: worker.workerId,
     workspaceId,
     created: !existing,
+    ...removedWorkspaceResult,
   };
 }

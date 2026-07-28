@@ -20,7 +20,9 @@ export type ChatToolReconnectProgress =
   | { phase: "authorization_opened"; authorizeUrl: string }
 export type ChatToolReconnectResult = "connected"
 
-const OPENWORK_CLOUD_CAPABILITY_TOOLS = new Set(FOXWORK_COMPANY_MCP_EXPECTED_TOOLS)
+const OPENWORK_CLOUD_CAPABILITY_TOOLS: ReadonlySet<string> = new Set(
+  FOXWORK_COMPANY_MCP_EXPECTED_TOOLS,
+)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)

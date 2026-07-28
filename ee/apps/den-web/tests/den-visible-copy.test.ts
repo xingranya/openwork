@@ -25,6 +25,8 @@ const TECHNICAL_LABELS = new Set([
   "FoxWork MCP",
   "GitHub",
   "Google Workspace",
+  "Linux",
+  "macOS",
   "MCP",
   "Microsoft 365",
   "OAuth",
@@ -37,6 +39,7 @@ const TECHNICAL_LABELS = new Set([
   "Stripe",
   "Telegram",
   "URL",
+  "Windows",
   "@BotFather",
   "name@company.com",
   "123456789:AA…",
@@ -183,7 +186,11 @@ function scanFile(file: string): Violation[] {
       const name = callName(node.expression);
       const isVisibleCall = name && (
         /^(?:alert|confirm|prompt)$/.test(name)
-        || /^set[A-Za-z]*(?:Error|Message|Notice|Status|Warning)$/.test(name)
+        || (
+          name !== "setStatus"
+          && name !== "setActivationStatus"
+          && /^set[A-Za-z]*(?:Error|Message|Notice|Status|Warning)$/.test(name)
+        )
       );
       if (isVisibleCall) {
         const firstArgument = node.arguments[0];

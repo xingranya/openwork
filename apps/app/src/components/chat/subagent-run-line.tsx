@@ -39,16 +39,16 @@ export function SubagentRunLine({ part, className }: SubagentRunLineProps) {
   const title = part.input?.description?.trim() || "Sub-agent task"
   const agent = agentName(part.input?.subagent_type ?? "")
   const status = inFlight
-    ? "Working…"
+    ? "运行中…"
     : isFailed
-      ? part.errorText?.split("\n")[0]?.trim() || "Failed"
-      : "Completed"
+      ? part.errorText?.split("\n")[0]?.trim() || "失败"
+      : "已完成"
 
   return (
     <Collapsible data-subagent-run={part.toolCallId} open={open} onOpenChange={setOpen} className={className}>
       <CollapsibleTrigger
         className="group flex min-w-0 max-w-full cursor-pointer flex-col gap-0.5 text-start text-sm text-muted-foreground transition-colors hover:text-foreground"
-        aria-label={open ? `${title}. Hide details` : `${title}. Show details`}
+        aria-label={open ? `${title}。隐藏详情` : `${title}。显示详情`}
       >
         <span className="flex min-w-0 items-center gap-2">
           {inFlight ? (
@@ -58,11 +58,11 @@ export function SubagentRunLine({ part, className }: SubagentRunLineProps) {
           ) : null}
           <span className="min-w-0 truncate">
             {title}
-            <span className="text-muted-foreground/70"> · {agent} agent</span>
+            <span className="text-muted-foreground/70"> · {agent} 智能体</span>
           </span>
         </span>
         <span className={cn("min-w-0 truncate text-xs text-muted-foreground/70", inFlight && "ps-5.5")}>
-          {isFailed ? `Failed — ${status}` : status}
+          {isFailed ? `失败 — ${status}` : status}
           {!inFlight && !isFailed && duration ? ` · ${duration}` : ""}
         </span>
       </CollapsibleTrigger>

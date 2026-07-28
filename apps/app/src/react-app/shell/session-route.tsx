@@ -117,7 +117,8 @@ import { firstLineLocalFileParts, joinWorkspaceRelativePath, toFileUrl } from "@
 import { composerAttachmentsToWorkspaceFileParts } from "@/react-app/domains/session/sync/attachment-file-part";
 import { buildSessionPromptRuntimeOptions } from "@/react-app/domains/session/sync/session-prompt-runtime-options";
 import { useSessionInteractions } from "@/react-app/domains/session/sync/use-session-interactions";
-import { useModelBehavior } from "@/react-app/domains/session/surface/use-model-behavior";
+import { modelRefSupportsImageInput, useModelBehavior } from "@/react-app/domains/session/surface/use-model-behavior";
+import type { NewTaskComposerContext } from "@/react-app/domains/session/chat/new-task-composer";
 import { useSessionFindStore } from "@/react-app/domains/session/surface/find-store";
 import { useModelPicker } from "@/react-app/domains/session/modals/use-model-picker";
 import { getSessionModelSelection, useSessionModelStore } from "@/react-app/domains/session/surface/session-model-store";
@@ -155,9 +156,11 @@ import {
   PERSONAL_REMOTE_WORKSPACE_RETRY_MS,
   reconcilePersonalRemoteWorkspace,
 } from "@/react-app/domains/workspace/personal-remote-workspace";
+import type { PersonalRemoteWorkspaceUiState } from "@/react-app/domains/workspace/personal-remote-workspace-status";
 import { RenameWorkspaceModal } from "@/react-app/domains/workspace/rename-workspace-modal";
 import { useRemoteWorkspaceConnectionEditor } from "@/react-app/domains/workspace/use-remote-workspace-connection-editor";
 import { useDenAuth } from "@/react-app/domains/cloud/den-auth-provider";
+import { useRestrictionNotice } from "@/react-app/domains/cloud/restriction-notice-provider";
 import { OpenWorkModelsStartupDialog } from "@/react-app/domains/cloud/openwork-models-startup-dialog";
 import { OPENWORK_MODEL_PREVIEWS } from "@/react-app/domains/cloud/openwork-models-promo";
 import { useOpenWorkModelsStartupPromo } from "@/react-app/domains/cloud/use-openwork-models-startup-promo";
@@ -462,6 +465,8 @@ export function SessionRoute() {
   const local = useLocal();
   const reloadCoordinator = useReloadCoordinator();
   const checkDesktopRestriction = useCheckDesktopRestriction();
+  const restrictionNotice = useRestrictionNotice();
+  const [activeOrganizationRole, setActiveOrganizationRole] = useState<"owner" | "admin" | "member" | null>(null);
   const [openworkServerHostInfoState, setOpenworkServerHostInfoState] = useState<OpenworkServerInfo | null>(null);
   const [openworkServerSettingsVersion, setOpenworkServerSettingsVersion] = useState(0);
   const [developerMode, setDeveloperMode] = useState(() => {
@@ -525,12 +530,15 @@ export function SessionRoute() {
   const personalRemoteWorkspaceInFlightRef = useRef("");
   const personalRemoteWorkspaceAttemptRef = useRef(0);
   const [personalRemoteWorkspaceRetryRevision, setPersonalRemoteWorkspaceRetryRevision] = useState(0);
+  const [personalRemoteWorkspaceState, setPersonalRemoteWorkspaceState] =
+    useState<PersonalRemoteWorkspaceUiState | null>(null);
 
   useEffect(() => {
     if (denAuth.status !== "signed_in" || !denAuth.user?.id) {
       personalRemoteWorkspaceAttemptRef.current += 1;
       personalRemoteWorkspaceCompletedRef.current = "";
       personalRemoteWorkspaceInFlightRef.current = "";
+      setPersonalRemoteWorkspaceState(null);
       return;
     }
     if (!isDesktopRuntime()) return;
@@ -553,16 +561,28 @@ export function SessionRoute() {
     const attempt = personalRemoteWorkspaceAttemptRef.current + 1;
     personalRemoteWorkspaceAttemptRef.current = attempt;
     personalRemoteWorkspaceInFlightRef.current = syncKey;
+    setPersonalRemoteWorkspaceState({
+      status: "provisioning",
+      message: "公司正在为你准备远程工作区",
+    });
 
     void reconcilePersonalRemoteWorkspace({
       denClient: createDenClient({ baseUrl: denBaseUrl, token: settings.authToken }),
       orgId,
       workspaces: workspacesRef.current,
+      removeRemoteWorkspace: workspaceForget,
       createRemoteWorkspace: workspaceCreateRemote,
       updateRemoteWorkspace: workspaceUpdateRemote,
     }).then(async (result) => {
       if (cancelled || personalRemoteWorkspaceAttemptRef.current !== attempt) return;
       if (result.status === "provisioning") {
+        if (result.removedWorkspaceIds?.length) {
+          await refreshRouteState();
+        }
+        setPersonalRemoteWorkspaceState({
+          status: "provisioning",
+          message: "公司正在为你准备远程工作区",
+        });
         retryTimer = window.setTimeout(() => {
           setPersonalRemoteWorkspaceRetryRevision((value) => value + 1);
         }, PERSONAL_REMOTE_WORKSPACE_RETRY_MS);
@@ -570,6 +590,7 @@ export function SessionRoute() {
       }
 
       personalRemoteWorkspaceCompletedRef.current = syncKey;
+      setPersonalRemoteWorkspaceState(null);
       await refreshRouteState();
       if (result.created) {
         navigateToWorkspaceSession(result.workspaceId, null, { replace: true });
@@ -577,6 +598,10 @@ export function SessionRoute() {
     }).catch((error) => {
       if (cancelled || personalRemoteWorkspaceAttemptRef.current !== attempt) return;
       console.error("[session-route] personal remote workspace sync failed", error);
+      setPersonalRemoteWorkspaceState({
+        status: "error",
+        message: toChineseUserMessage(error, "公司远程工作区暂时不可用，FoxWork 将自动重试。"),
+      });
       retryTimer = window.setTimeout(() => {
         setPersonalRemoteWorkspaceRetryRevision((value) => value + 1);
       }, PERSONAL_REMOTE_WORKSPACE_RETRY_MS * 6);
@@ -1277,7 +1302,18 @@ export function SessionRoute() {
         if (!text && draft.attachments.length === 0) {
           return { outcome: "cancelled", reason: "context_changed" };
         }
-        if (selectedModelUnavailable) throw new Error("当前模型不可用，请更换模型后再发送。");
+        const sessionModelSelection = getSessionModelSelection(targetSessionId);
+        const sendModel = sessionModelSelection?.model ?? local.prefs.defaultModel;
+        const sendVariant = sessionModelSelection ? sessionModelSelection.variant : modelVariantValue;
+        if (!sessionModelSelection && selectedModelUnavailable) {
+          throw new Error("当前模型不可用，请更换模型后再发送。");
+        }
+        if (
+          draft.attachments.some((attachment) => attachment.kind === "image")
+          && !modelRefSupportsImageInput(providerCatalog, sendModel)
+        ) {
+          throw new Error("当前模型不支持图片输入，请切换到支持图片的模型后重试。");
+        }
 
         return submitWithCloudMcpReadiness({
           // Temporarily bypass the pre-send Cloud MCP gate: it blocks every
@@ -1333,9 +1369,9 @@ export function SessionRoute() {
               sessionID: targetSessionId,
               parts,
               ...buildSessionPromptRuntimeOptions({
-                model: local.prefs.defaultModel,
+                model: sendModel,
                 agent: selectedAgent,
-                variant: modelVariantValue,
+                variant: sendVariant,
                 system: envSystemContext,
               }),
             });
@@ -2542,6 +2578,7 @@ export function SessionRoute() {
       }}
       sidebar={{
         workspaceSessionGroups,
+        personalRemoteWorkspaceState,
         selectedWorkspaceId,
         selectedSessionId,
         developerMode: false,

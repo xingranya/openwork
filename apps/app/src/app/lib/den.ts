@@ -1242,52 +1242,86 @@ function getMcpToken(payload: unknown): DenMcpToken | null {
   };
 }
 
-function parseDenOrgSkillRow(record: Record<string, unknown>): DenOrgSkillCard | null {
+type DenOrgSkillParseResult =
+  | { kind: "ignored" }
+  | { kind: "invalid" }
+  | { kind: "skill"; skill: DenOrgSkillCard };
+
+function companySkillSlugFromPath(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = /^company-skills\/([a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?)\/SKILL\.md$/u.exec(value);
+  return match?.[1] ?? null;
+}
+
+function parseDenOrgSkillRow(record: Record<string, unknown>): DenOrgSkillParseResult {
+  if (record.objectType !== "skill") return { kind: "ignored" };
+  const latestVersion = isRecord(record.latestVersion) ? record.latestVersion : null;
+  const normalizedPayload = latestVersion && isRecord(latestVersion.normalizedPayloadJson)
+    ? latestVersion.normalizedPayloadJson
+    : null;
+  const hasBundleMarker = normalizedPayload
+    ? Object.prototype.hasOwnProperty.call(normalizedPayload, "foxworkSkillBundle")
+    : false;
+  const slug = companySkillSlugFromPath(record.currentRelativePath);
+  if (!hasBundleMarker && !slug) return { kind: "ignored" };
+  const bundle = normalizedPayload && isRecord(normalizedPayload.foxworkSkillBundle)
+    ? normalizedPayload.foxworkSkillBundle
+    : null;
   if (
-    typeof record.id !== "string"
+    !slug
+    || typeof record.id !== "string"
     || typeof record.title !== "string"
-    || typeof record.skillText !== "string"
-    || typeof record.bundleHash !== "string"
-    || !/^[a-f0-9]{64}$/iu.test(record.bundleHash)
-    || !Array.isArray(record.files)
+    || !latestVersion
+    || typeof latestVersion.rawSourceText !== "string"
+    || !bundle
+    || bundle.version !== 1
+    || typeof bundle.bundleHash !== "string"
+    || !/^[a-f0-9]{64}$/iu.test(bundle.bundleHash)
+    || (bundle.shared !== "org" && bundle.shared !== "private")
+    || !Array.isArray(bundle.files)
   ) {
-    return null;
+    return { kind: "invalid" };
   }
-  const files = record.files.flatMap((entry) => {
+  const files = bundle.files.flatMap((entry) => {
     if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.contents !== "string") {
       return [];
     }
     return [{ path: entry.path, contents: entry.contents }];
   });
   if (
-    files.length !== record.files.length
-    || !files.some((file) => file.path === "SKILL.md" && file.contents === record.skillText)
+    files.length !== bundle.files.length
+    || !files.some((file) => file.path === "SKILL.md" && file.contents === latestVersion.rawSourceText)
   ) {
-    return null;
+    return { kind: "invalid" };
   }
   const description = typeof record.description === "string" ? record.description : null;
-  const shared = record.shared === "org" || record.shared === "public" ? record.shared : null;
   return {
-    id: record.id,
-    title: record.title,
-    description,
-    skillText: record.skillText,
-    bundleHash: record.bundleHash.toLowerCase(),
-    files,
-    shared,
-    updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : null,
+    kind: "skill",
+    skill: {
+      id: record.id,
+      title: record.title,
+      description,
+      skillText: latestVersion.rawSourceText,
+      bundleHash: bundle.bundleHash.toLowerCase(),
+      files,
+      shared: bundle.shared === "org" ? "org" : null,
+      updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : null,
+    },
   };
 }
 
 function getDenOrgSkillsFromPayload(payload: unknown): DenOrgSkillCard[] | null {
-  if (!isRecord(payload) || !Array.isArray(payload.skills)) {
+  if (!isRecord(payload) || !Array.isArray(payload.items)) {
     return null;
   }
-  const skills = payload.skills.flatMap((entry) => {
-    const skill = isRecord(entry) ? parseDenOrgSkillRow(entry) : null;
-    return skill ? [skill] : [];
-  });
-  return skills.length === payload.skills.length ? skills : null;
+  const skills: DenOrgSkillCard[] = [];
+  for (const entry of payload.items) {
+    if (!isRecord(entry)) return null;
+    const result = parseDenOrgSkillRow(entry);
+    if (result.kind === "invalid") return null;
+    if (result.kind === "skill") skills.push(result.skill);
+  }
+  return skills;
 }
 
 function parseSkillCatalogItem(value: unknown): HubSkillCard | null {
@@ -2051,9 +2085,9 @@ function getBillingInvoice(value: unknown): DenBillingInvoice | null {
   };
 }
 
-function getCreatedOrgSkillId(payload: unknown): string | null {
-  if (!isRecord(payload) || !isRecord(payload.skill)) return null;
-  return typeof payload.skill.id === "string" ? payload.skill.id : null;
+function getCreatedOrgPluginId(payload: unknown): string | null {
+  if (!isRecord(payload) || !isRecord(payload.item)) return null;
+  return typeof payload.item.id === "string" ? payload.item.id : null;
 }
 
 function getBillingSummary(payload: unknown): DenBillingSummary | null {
@@ -2424,11 +2458,15 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
     },
 
     async listOrgSkills(orgId: string): Promise<DenOrgSkillCard[]> {
-      const payload = await requestJson<unknown>(baseUrls, "/v1/skills", {
+      const payload = await requestJson<unknown>(
+        baseUrls,
+        "/v1/config-objects?type=skill&status=active&limit=100",
+        {
         method: "GET",
         token,
         organizationId: orgId,
-      });
+        },
+      );
       const skills = getDenOrgSkillsFromPayload(payload);
       if (!skills) {
         throw new DenApiError(500, "invalid_skill_payload", "公司服务返回的技能文件不完整，请联系管理员更新公司服务。");
@@ -2436,23 +2474,46 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
       return skills;
     },
 
-    async createOrgSkill(
+    async createOrgSkillPlugin(
       orgId: string,
-      input: { skillText: string; shared?: "org" | "public" | null },
+      input: {
+        bundleHash: string;
+        description?: string | null;
+        files: Array<{ path: string; contents: string }>;
+        name: string;
+        shared: "org" | "private";
+        skillText: string;
+      },
     ): Promise<{ id: string }> {
       const body = {
-        skillText: input.skillText,
-        shared: input.shared === undefined ? ("org" as const) : input.shared,
+        name: input.name,
+        description: input.description ?? null,
+        orgWide: input.shared === "org",
+        components: [{
+          type: "skill" as const,
+          input: {
+            rawSourceText: input.skillText,
+            schemaVersion: "foxwork.skill-bundle.v1",
+            normalizedPayloadJson: {
+              foxworkSkillBundle: {
+                version: 1,
+                bundleHash: input.bundleHash,
+                files: input.files,
+                shared: input.shared,
+              },
+            },
+          },
+        }],
       };
-      const payload = await requestJson<unknown>(baseUrls, "/v1/skills", {
+      const payload = await requestJson<unknown>(baseUrls, "/v1/plugins", {
         method: "POST",
         token,
         organizationId: orgId,
         body,
       });
-      const id = getCreatedOrgSkillId(payload);
+      const id = getCreatedOrgPluginId(payload);
       if (!id) {
-        throw new DenApiError(500, "invalid_skill_payload", "公司服务返回的技能信息不完整。");
+        throw new DenApiError(500, "invalid_plugin_payload", "公司服务返回的技能插件信息不完整。");
       }
       return { id };
     },
@@ -2635,6 +2696,57 @@ export function createDenClient(options: { baseUrl: string; token?: string | nul
 }
 
 export type DenClient = ReturnType<typeof createDenClient>;
+
+async function computeCompanySkillBundleHash(files: Array<{ path: string; contents: string }>) {
+  const encoder = new TextEncoder();
+  const source = [...files]
+    .sort((left, right) => left.path.localeCompare(right.path))
+    .map((file) => `${file.path}\0${encoder.encode(file.contents).byteLength}\0${file.contents}\0`)
+    .join("");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", encoder.encode(source));
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+export async function shareInstalledSkillWithCompany(input: {
+  description?: string | null;
+  name: string;
+  shared?: "org" | null;
+  skillText: string;
+}): Promise<{ orgId: string; orgName: string; pluginId: string }> {
+  const settings = readDenSettings();
+  const token = settings.authToken?.trim() ?? "";
+  if (!token) {
+    throw new Error("请先在设置中登录公司账号，再将技能共享给团队。");
+  }
+
+  let orgId = settings.activeOrgId?.trim() ?? "";
+  let orgName = settings.activeOrgName?.trim() ?? "";
+  let orgSlug = settings.activeOrgSlug?.trim() ?? "";
+  if (!orgId || !orgName || !orgSlug) {
+    const organization = await ensureDenActiveOrganization({ forceServerSync: true });
+    if (!organization) {
+      throw new Error("请先在设置中选择公司，再将技能共享给团队。");
+    }
+    orgId = organization.id;
+    orgName = organization.name;
+    orgSlug = organization.slug;
+  }
+
+  const files = [{ path: "SKILL.md", contents: input.skillText }];
+  const shared = input.shared === "org" ? "org" as const : "private" as const;
+  const bundleHash = await computeCompanySkillBundleHash(files);
+  const client = createDenClient({ baseUrl: settings.baseUrl, token });
+  const plugin = await client.createOrgSkillPlugin(orgId, {
+    bundleHash,
+    description: input.description,
+    files,
+    name: input.name,
+    shared,
+    skillText: input.skillText,
+  });
+
+  return { orgId, orgName, pluginId: plugin.id };
+}
 
 export async function fetchDenOrgSkillsCatalog(
   client: ReturnType<typeof createDenClient>,

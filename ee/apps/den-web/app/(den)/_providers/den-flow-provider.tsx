@@ -228,6 +228,8 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [desktopAuthRequested, setDesktopAuthRequested] = useState(false);
   const [desktopAuthScheme, setDesktopAuthScheme] = useState(FOXWORK_DESKTOP_SCHEME);
+  const [webAuthRequested, setWebAuthRequested] = useState(false);
+  const [webAuthReturnUrl, setWebAuthReturnUrl] = useState<string | null>(null);
   const [desktopRedirectBusy, setDesktopRedirectBusy] = useState(false);
   const [desktopRedirectUrl, setDesktopRedirectUrl] = useState<string | null>(null);
   const [desktopRedirectAttempted, setDesktopRedirectAttempted] = useState(false);
@@ -492,7 +494,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     }
 
     if (webAuthRequested) {
-      setAuthInfo("Signed in. Returning to OpenWork...");
+      setAuthInfo("登录成功，正在返回 FoxWork...");
       return null;
     }
 
@@ -1055,7 +1057,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
 
     try {
       if (!webAuthReturnUrl) {
-        setAuthError("Web handoff failed because no return URL was provided.");
+        setAuthError("网页交接失败：没有提供返回地址。");
         return;
       }
 
@@ -1078,7 +1080,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       const grant = getDesktopHandoffGrant(payload, null) ?? "";
       const approvedReturnUrl = getWebHandoffReturnUrl(payload) ?? "";
       if (!grant || !approvedReturnUrl) {
-        setAuthError("Web handoff succeeded, but no Cloud return URL was returned.");
+          setAuthError("网页交接已完成，但公司服务没有返回云端工作区地址。");
         return;
       }
 
@@ -1086,7 +1088,7 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
       redirectUrl.searchParams.set("grant", grant);
       window.location.replace(redirectUrl.toString());
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Failed to return to OpenWork Cloud.");
+        setAuthError(error instanceof Error ? error.message : "无法返回云端工作区。");
     } finally {
       setWebRedirectBusy(false);
     }
@@ -1845,6 +1847,9 @@ export function DenFlowProvider({ children }: { children: ReactNode }) {
     setDesktopAuthRequested(params.get("desktopAuth") === "1");
     const requestedScheme = params.get("desktopScheme")?.trim() ?? "";
     setDesktopAuthScheme(normalizeFoxWorkDesktopScheme(requestedScheme));
+    setWebAuthRequested(params.get("webAuth") === "1");
+    const requestedWebReturnUrl = params.get("webAuthReturn")?.trim() ?? "";
+    setWebAuthReturnUrl(requestedWebReturnUrl || null);
 
     const invitationId = params.get("invite")?.trim() ?? "";
     if (invitationId) {

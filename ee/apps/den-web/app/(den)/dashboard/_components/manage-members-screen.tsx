@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   DEN_ROLE_PERMISSION_OPTIONS,
+  canRefreshInvitationRole,
   formatPermissionLabel,
   formatRoleLabel,
   getJoinOrgRoute,
@@ -313,7 +314,7 @@ export function ManageMembersScreen() {
   async function handleTransferOwnership(member: DenOrgMember) {
     const targetName = member.user.name || member.user.email;
     const confirmed = window.confirm(
-      `Transfer workspace ownership to ${targetName}? ${targetName} becomes the sole owner, and your account becomes a super-admin.`,
+      `确定把公司所有权转交给 ${targetName} 吗？转交后，${targetName} 将成为唯一所有者，你的账号将变为超级管理员。`,
     );
     if (!confirmed) {
       return;
@@ -324,7 +325,7 @@ export function ManageMembersScreen() {
       await transferOwnership(member.id);
       setOpenMemberMenuId(null);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Could not transfer ownership.");
+      setPageError(error instanceof Error ? error.message : "无法转交公司所有权。");
     }
   }
 
@@ -958,7 +959,7 @@ export function ManageMembersScreen() {
                                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <Shield className="h-3.5 w-3.5" />
-                                Transfer ownership
+                                转交所有权
                               </button>
                             ) : null}
                             {!isInvited && access.canManageTeams ? (

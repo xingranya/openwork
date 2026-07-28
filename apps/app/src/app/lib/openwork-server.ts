@@ -144,24 +144,6 @@ export type OpenworkSkillContent = {
   content: string;
 };
 
-export type OpenworkHubSkillItem = {
-  name: string;
-  description: string;
-  trigger?: string;
-  source: {
-    owner: string;
-    repo: string;
-    ref: string;
-    path: string;
-  };
-};
-
-export type OpenworkHubRepo = {
-  owner?: string;
-  repo?: string;
-  ref?: string;
-};
-
 export type OpenworkSkillBundleFile = {
   path: string;
   contents: string;
@@ -212,6 +194,12 @@ export type OpenworkRuntimeConfigMigrationResult = {
 export type OpenworkRuntimeDisabledProvidersResult = {
   ok: true;
   disabledProviders: string[];
+};
+
+export type OpenworkRuntimeProvidersResult = {
+  ok: true;
+  providerIds: string[];
+  updatedAt: number;
 };
 
 export type OpenworkLegacyConfigSweepState = {
@@ -1689,6 +1677,25 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
           timeoutMs: timeouts.config,
         },
       ),
+    setRuntimeProviders: (
+      workspaceId: string,
+      providers: Record<string, unknown>,
+      importedProviders?: Record<string, unknown>,
+    ) =>
+      requestJson<OpenworkRuntimeProvidersResult>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/runtime-config/providers`,
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: {
+            providers,
+            ...(importedProviders === undefined ? {} : { importedProviders }),
+          },
+          timeoutMs: timeouts.config,
+        },
+      ),
     getRuntimeConfigStatus: (workspaceId: string) =>
       requestJson<OpenworkRuntimeConfigStatus>(
         baseUrl,
@@ -1810,38 +1817,6 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         { token, hostToken },
       );
     },
-    listHubSkills: (options?: { repo?: OpenworkHubRepo }) => {
-      const params = new URLSearchParams();
-      const owner = options?.repo?.owner?.trim();
-      const repo = options?.repo?.repo?.trim();
-      const ref = options?.repo?.ref?.trim();
-      if (owner) params.set("owner", owner);
-      if (repo) params.set("repo", repo);
-      if (ref) params.set("ref", ref);
-      const query = params.size ? `?${params.toString()}` : "";
-      return requestJson<{ items: OpenworkHubSkillItem[] }>(baseUrl, `/hub/skills${query}`, {
-        token,
-        hostToken,
-      });
-    },
-    installHubSkill: (
-      workspaceId: string,
-      name: string,
-      options?: { overwrite?: boolean; repo?: { owner?: string; repo?: string; ref?: string } },
-    ) =>
-      requestJson<{ ok: boolean; name: string; path: string; action: "added" | "updated"; written: number; skipped: number }>(
-        baseUrl,
-        `/workspace/${workspaceId}/skills/hub/${encodeURIComponent(name)}`,
-        {
-          token,
-          hostToken,
-          method: "POST",
-          body: {
-            ...(options?.overwrite ? { overwrite: true } : {}),
-            ...(options?.repo ? { repo: options.repo } : {}),
-          },
-        },
-      ),
     installCatalogSkill: (
       workspaceId: string,
       name: string,

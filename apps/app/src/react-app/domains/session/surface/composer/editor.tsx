@@ -478,8 +478,8 @@ function createAttachmentChipDom(attachment: ComposerAttachmentToken) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-xs leading-none text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground";
-  remove.title = "Remove";
-  remove.setAttribute("aria-label", `Remove ${attachment.name}`);
+  remove.title = "移除";
+  remove.setAttribute("aria-label", `移除 ${attachment.name}`);
   remove.dataset.attachmentRemoveId = attachment.id;
   remove.textContent = "×";
   dom.append(remove);
@@ -491,7 +491,7 @@ function updateAttachmentChipDom(dom: HTMLElement, attachment: ComposerAttachmen
   const remove = dom.querySelector("button[data-attachment-remove-id]");
   if (remove instanceof HTMLButtonElement) {
     remove.dataset.attachmentRemoveId = attachment.id;
-    remove.setAttribute("aria-label", `Remove ${attachment.name}`);
+    remove.setAttribute("aria-label", `移除 ${attachment.name}`);
   }
   const img = dom.querySelector("img");
   if (img instanceof HTMLImageElement && attachment.previewUrl) {

@@ -14,24 +14,24 @@ type HeroSuggestion = {
 
 const DEFAULT_SUGGESTIONS: HeroSuggestion[] = [
   {
-    title: "Summarize my week",
-    description: "Pull highlights from email and calendar.",
-    prompt: "Summarize my week: pull the highlights from my connected email and calendar and give me a short digest of what happened and what needs my attention.",
+    title: "总结本周工作",
+    description: "从邮件和日历中整理重点。",
+    prompt: "请总结我本周的工作：从已连接的邮件和日历中提取重点，简要说明发生了什么，以及接下来需要我关注什么。",
   },
   {
-    title: "Clean up a spreadsheet",
-    description: "Drop in a CSV and describe the result you want.",
-    prompt: "Create a sample CSV file with 20 rows of fake customer data (name, email, company, revenue). Then show me a summary of the data.",
+    title: "整理电子表格",
+    description: "放入 CSV 文件并说明你想要的结果。",
+    prompt: "请创建一个包含 20 行示例客户数据的 CSV 文件，字段包括姓名、邮箱、公司和收入，然后汇总这份数据。",
   },
   {
-    title: "Draft a document",
-    description: "Reports, emails, or briefs from a few bullet points.",
-    prompt: "Draft a one-page project brief. Ask me for the bullet points you need, then turn them into a clear, well-structured document.",
+    title: "起草文档",
+    description: "根据几个要点生成报告、邮件或简报。",
+    prompt: "请起草一页项目简报。先询问我需要提供哪些要点，再把这些内容整理成清晰、结构完整的文档。",
   },
   {
-    title: "Automate a web task",
-    description: "Use the built-in browser for repetitive steps.",
-    prompt: "Open craigslist.org in the browser and search for couches for sale. Show me the top 5 results with prices.",
+    title: "自动处理网页任务",
+    description: "使用内置浏览器完成重复操作。",
+    prompt: "请打开浏览器，根据我的要求完成一项重复网页操作。开始前先询问目标网站和具体步骤。",
   },
 ];
 
@@ -85,9 +85,9 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
     <div className="mx-auto w-full max-w-[640px] space-y-6 px-6">
       <div className="space-y-1.5 text-center">
         <h2 className="text-[24px] font-semibold leading-[30px] tracking-[-0.02em] text-foreground">
-          What do you need done?
+          你想完成什么工作？
         </h2>
-        <p className="text-[13px] text-muted-foreground">Describe it in plain language</p>
+        <p className="text-[13px] text-muted-foreground">直接用自然语言描述即可</p>
       </div>
 
       <NewTaskComposer
@@ -106,9 +106,9 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
         >
           <Zap className="mt-0.5 size-4 shrink-0 text-blue-10" />
           <div>
-            <div className="text-[13px] font-medium text-foreground">Connect a model provider</div>
+            <div className="text-[13px] font-medium text-foreground">连接模型服务</div>
             <div className="mt-0.5 text-[12px] text-muted-foreground">
-              Add an API key for Anthropic, OpenAI, Google, or other providers so tasks can run.
+              添加常用模型服务或自定义兼容协议的 API 密钥后即可运行任务。
             </div>
           </div>
         </button>

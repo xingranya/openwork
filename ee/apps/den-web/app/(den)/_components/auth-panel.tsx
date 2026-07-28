@@ -113,10 +113,10 @@ function DesktopHandoffCopyLink({
           value={openworkUrl}
           readOnly
           onFocus={(event) => event.currentTarget.select()}
-          aria-label="OpenWork sign-in link"
+          aria-label="FoxWork 登录链接"
         />
         <button type="button" className="den-button-secondary sm:w-auto" onClick={() => void copyOpenworkUrl()}>
-          {copied ? "Copied" : "Copy"}
+          {copied ? "已复制" : "复制"}
         </button>
       </div>
     </div>
@@ -136,18 +136,18 @@ function DesktopHandoffAction({
   organizationName: string | null;
   helperText?: string;
   buttonClassName?: string;
-  /** When true, always show the pasteable openwork:// link (signed-in desktop handoff). */
+  /** 启用后始终显示可复制的桌面交接链接。 */
   showCopyLinkByDefault?: boolean;
 }) {
   const { status, timedOut } = useDesktopHandoffStatus(grant);
-  const resolvedOrganizationName = organizationName?.trim() || "your team";
+  const resolvedOrganizationName = organizationName?.trim() || "公司";
   const showTroubleshoot = timedOut || status === "unknown";
   const showCopyLink = showCopyLinkByDefault || showTroubleshoot;
 
   if (status === "consumed") {
     return (
       <div className="den-frame-inset rounded-[1.5rem] px-4 py-3 text-center text-sm font-medium text-emerald-700" data-testid="desktop-connected" aria-live="polite">
-        ✓ Connected — OpenWork is set up for {resolvedOrganizationName}
+        ✓ 已连接，FoxWork 已完成 {resolvedOrganizationName} 的配置
       </div>
     );
   }
@@ -156,14 +156,14 @@ function DesktopHandoffAction({
     return (
       <div className="den-frame-inset grid gap-3 rounded-[1.5rem] px-4 py-3 text-sm text-[var(--dls-text-secondary)]" data-testid="desktop-handoff-troubleshoot" aria-live="polite">
         <p className="m-0">
-          Nothing opened?{" "}
+          FoxWork 没有打开？{" "}
           <button type="button" className="font-medium text-[var(--dls-text-primary)] underline-offset-4 hover:underline" onClick={() => window.location.assign(openworkUrl)}>
-            Open OpenWork again
+            再次打开 FoxWork
           </button>
         </p>
         <DesktopHandoffCopyLink
           openworkUrl={openworkUrl}
-          label="Still stuck? Paste this sign-in code in OpenWork:"
+          label="仍然没有反应？请复制下面的登录链接并粘贴到浏览器地址栏打开："
         />
       </div>
     );
@@ -176,7 +176,7 @@ function DesktopHandoffAction({
         className={buttonClassName}
         onClick={() => window.location.assign(openworkUrl)}
       >
-        Open OpenWork
+        打开 FoxWork
         <ArrowRight className="h-4 w-4" />
       </button>
       {helperText ? (
@@ -187,7 +187,9 @@ function DesktopHandoffAction({
       {showCopyLink ? (
         <DesktopHandoffCopyLink
           openworkUrl={openworkUrl}
-          label={showTroubleshoot ? "Nothing opened? Paste this sign-in code in OpenWork:" : "Or paste this sign-in code in OpenWork:"}
+          label={showTroubleshoot
+            ? "FoxWork 没有打开？请复制下面的登录链接并粘贴到浏览器地址栏打开："
+            : "也可以复制下面的登录链接并粘贴到浏览器地址栏打开："}
         />
       ) : null}
     </div>
@@ -529,12 +531,7 @@ export function AuthPanel({
     }
   };
 
-  /* ------------------------------------------------------------------ */
-  /*  Already signed in + desktop handoff: simplified view               */
-  /* ------------------------------------------------------------------ */
-  // Gate on the session user (not authInfo feedback). Otherwise a hydrated
-  // desktop session still renders the email-first form underneath the Open
-  // OpenWork button.
+  // 以已恢复的会话用户作为桌面交接依据，避免登录反馈消失后重新显示邮箱表单。
   const isSignedInWithDesktopHandoff = Boolean(desktopAuthRequested && user && !authError);
   const signedInEmail = user?.email?.trim() || "";
   const emailFirstPanelActive = emailFirstFlow && !verificationRequired && !isPasswordResetRequest;
@@ -548,39 +545,23 @@ export function AuthPanel({
           <div className="grid gap-2">
             <h2 className="den-title-lg">登录成功</h2>
             <p className="den-copy">请打开 FoxWork 继续。</p>
+            {signedInEmail ? <p className="den-copy">已登录账号：{signedInEmail}</p> : null}
           </div>
         </div>
 
-        <button
-          type="button"
-          className="den-button-primary w-full"
-          onClick={() => window.location.assign(desktopRedirectUrl)}
-        >
-          打开 FoxWork
-          <ArrowRight className="h-4 w-4" />
-        </button>
-
-        <div className="grid gap-2 text-center">
-          <p className="m-0 text-xs text-[var(--dls-text-secondary)]">
-            FoxWork 没有自动打开？
-          </p>
-          <div className="flex justify-center gap-3">
-            <button
-              type="button"
-              className="den-button-secondary"
-              onClick={() => void copyDesktopValue("link", desktopRedirectUrl)}
-            >
-              {copiedDesktopField === "link" ? "已复制" : "复制登录链接"}
-            </button>
-            {desktopGrant ? (
-              <button
-                type="button"
-                className="den-button-secondary"
-                onClick={() => void copyDesktopValue("code", desktopGrant)}
-              >
-                {copiedDesktopField === "code" ? "已复制" : "复制登录码"}
-              </button>
-            ) : null}
+        {desktopRedirectUrl ? (
+          <DesktopHandoffAction
+            openworkUrl={desktopRedirectUrl}
+            grant={desktopGrant}
+            organizationName={isSingleOrgMode ? singleOrgName : null}
+            showCopyLinkByDefault
+          />
+        ) : (
+          <div
+            className="den-frame-inset rounded-[1.5rem] px-4 py-3 text-center text-sm text-[var(--dls-text-secondary)]"
+            aria-live="polite"
+          >
+            正在准备 FoxWork 登录链接...
           </div>
         )}
 

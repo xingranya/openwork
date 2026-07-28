@@ -102,10 +102,7 @@ test("concurrent marketplace lists seed one complete set of defaults", async () 
   )
 
   for (const result of results) {
-    expect(result.items.map((item) => item.name).sort()).toEqual([
-      "Anthropic-Compatible Plugins",
-      "OpenWork Marketplace",
-    ])
+    expect(result.items.map((item) => item.name).sort()).toEqual(["FoxWork 公司能力"])
   }
 
   const [marketplaces, plugins, memberships, marketplaceGrants, pluginGrants] = await Promise.all([
@@ -116,7 +113,7 @@ test("concurrent marketplace lists seed one complete set of defaults", async () 
     db.select().from(PluginAccessGrantTable).where(eq(PluginAccessGrantTable.organizationId, organizationId)),
   ])
 
-  expect(marketplaces).toHaveLength(2)
+  expect(marketplaces).toHaveLength(1)
   expect(new Set(marketplaces.map((marketplace) => marketplace.name)).size).toBe(marketplaces.length)
   expect(new Set(plugins.map((plugin) => `${plugin.name}\n${plugin.description ?? ""}`)).size).toBe(plugins.length)
   expect(new Set(memberships.map((membership) => `${membership.marketplaceId}:${membership.pluginId}`)).size).toBe(memberships.length)

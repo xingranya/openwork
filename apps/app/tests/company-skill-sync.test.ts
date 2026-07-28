@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import { readWorkspaceCloudImports } from "../src/app/cloud/import-state";
-import { createDenClient } from "../src/app/lib/den";
+import { createDenClient, shareInstalledSkillWithCompany } from "../src/app/lib/den";
 import { createOpenworkServerClient } from "../src/app/lib/openwork-server";
 import type { DenOrgSkillCard } from "../src/app/types";
 import { createOpenworkServerStore } from "../src/react-app/domains/connections/openwork-server-store";
@@ -25,7 +25,10 @@ function setFetch(fetchImpl: typeof fetch) {
   });
 }
 
-function installTestWindow(initial: Record<string, string>) {
+function installTestWindow(
+  initial: Record<string, string>,
+  invokeDesktop?: (command: string, ...args: unknown[]) => Promise<unknown>,
+) {
   const values = new Map(Object.entries(initial));
   const localStorage: Storage = {
     get length() {
@@ -49,7 +52,12 @@ function installTestWindow(initial: Record<string, string>) {
   };
   Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: { localStorage },
+    value: {
+      localStorage,
+      ...(invokeDesktop
+        ? { __OPENWORK_ELECTRON__: { invokeDesktop } }
+        : {}),
+    },
   });
 }
 
@@ -85,14 +93,292 @@ const companySkill: DenOrgSkillCard = {
   updatedAt: "2026-07-27T08:00:00.000Z",
 };
 
+function companySkillConfigObject(skill: DenOrgSkillCard) {
+  return {
+    id: skill.id,
+    objectType: "skill",
+    currentRelativePath: `company-skills/${skill.title}/SKILL.md`,
+    title: skill.title,
+    description: skill.description,
+    updatedAt: skill.updatedAt,
+    latestVersion: {
+      rawSourceText: skill.skillText,
+      normalizedPayloadJson: {
+        foxworkSkillBundle: {
+          version: 1,
+          bundleHash: skill.bundleHash,
+          files: skill.files,
+          shared: skill.shared === "org" ? "org" : "private",
+        },
+      },
+    },
+  };
+}
+
 describe("公司 Skill 同步", () => {
+  test("远程工作区同时展示员工电脑的全局 Skill", async () => {
+    const desktopCommands: Array<{ command: string; args: unknown[] }> = [];
+    installTestWindow({}, async (command, ...args) => {
+      desktopCommands.push({ command, args });
+      if (command === "listGlobalSkills") {
+        return [{
+          name: "humanizer-zh",
+          description: "让中文表达更自然",
+          path: "/Users/employee/.agents/skills/humanizer-zh/SKILL.md",
+          source: "desktop-global",
+        }];
+      }
+      if (command === "readGlobalSkill") {
+        return {
+          path: "/Users/employee/.agents/skills/humanizer-zh/SKILL.md",
+          content: "# Humanizer\n",
+        };
+      }
+      if (command === "writeGlobalSkill" || command === "uninstallGlobalSkill") {
+        return { ok: true, status: 0, stdout: "ok", stderr: "" };
+      }
+      throw new Error(`unexpected_desktop_command:${command}`);
+    });
+    setFetch(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/workspace/ws_remote/skills")) {
+        return Response.json({
+          items: [{
+            name: "remote-review",
+            description: "远程审查",
+            path: "/workspace/.opencode/skills/remote-review/SKILL.md",
+          }],
+        });
+      }
+      return Response.json({ error: "unexpected_request", path: url.pathname }, { status: 500 });
+    });
+
+    const openworkClient = createOpenworkServerClient({
+      baseUrl: "http://127.0.0.1:43123",
+      token: "worker-token",
+    });
+    const openworkServer = createOpenworkServerStore({
+      startupPreference: () => "remote",
+      documentVisible: () => true,
+      developerMode: () => false,
+      runtimeWorkspaceId: () => "ws_remote",
+      activeClient: () => null,
+      selectedWorkspaceDisplay: () => ({
+        id: "remote_alias",
+        name: "我的远程工作区",
+        path: "",
+        preset: "default",
+        workspaceType: "remote",
+      }),
+      restartLocalServer: async () => true,
+      createRemoteWorkspaceFlow: async () => true,
+    });
+    const store = createExtensionsStore({
+      client: () => null,
+      projectDir: () => "",
+      selectedWorkspaceId: () => "remote_alias",
+      selectedWorkspaceRoot: () => "",
+      workspaceType: () => "remote",
+      openworkServer,
+      openworkServerConnection: () => ({
+        openworkServerClient: openworkClient,
+        openworkServerStatus: "connected",
+        openworkServerCapabilities: {
+          skills: { read: true, write: true, source: "openwork" },
+          plugins: { read: true, write: true },
+          mcp: { read: true, write: true },
+          commands: { read: true, write: true },
+          config: { read: true, write: true },
+        },
+      }),
+      runtimeWorkspaceId: () => "ws_remote",
+      setBusy: () => undefined,
+      setBusyLabel: () => undefined,
+      setBusyStartedAt: () => undefined,
+      setError: () => undefined,
+    });
+
+    await store.refreshSkills({ force: true });
+
+    expect(store.skills().map((skill) => skill.name)).toEqual([
+      "humanizer-zh",
+      "remote-review",
+    ]);
+    const globalSkill = store.skills().find((skill) => skill.name === "humanizer-zh");
+    expect(globalSkill?.source).toBe("desktop-global");
+    await expect(store.readSkill(globalSkill!)).resolves.toEqual({
+      name: "humanizer-zh",
+      path: "/Users/employee/.agents/skills/humanizer-zh/SKILL.md",
+      content: "# Humanizer\n",
+    });
+    await store.saveSkill({
+      name: "humanizer-zh",
+      content: "# Humanizer\n\n更新后的说明。\n",
+      source: "desktop-global",
+    });
+    await store.uninstallSkill(globalSkill!);
+
+    expect(desktopCommands.map((entry) => entry.command)).toEqual(expect.arrayContaining([
+      "listGlobalSkills",
+      "readGlobalSkill",
+      "writeGlobalSkill",
+      "uninstallGlobalSkill",
+    ]));
+    expect(desktopCommands).toContainEqual({
+      command: "writeGlobalSkill",
+      args: ["humanizer-zh", "# Humanizer\n\n更新后的说明。\n"],
+    });
+  });
+
+  test("本地工作区连接服务后仍展示员工电脑的全局 Skill", async () => {
+    const desktopCommands: string[] = [];
+    let requestedServerGlobalSkills = false;
+    installTestWindow({}, async (command) => {
+      desktopCommands.push(command);
+      if (command === "listGlobalSkills") {
+        return [{
+          name: "humanizer-zh",
+          description: "让中文表达更自然",
+          path: "/Users/employee/.agents/skills/humanizer-zh/SKILL.md",
+          source: "desktop-global",
+        }];
+      }
+      throw new Error(`unexpected_desktop_command:${command}`);
+    });
+    setFetch(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/workspace/ws_local/skills")) {
+        requestedServerGlobalSkills = url.searchParams.has("includeGlobal");
+        return Response.json({
+          items: [{
+            name: "officecli",
+            description: "处理办公文档",
+            path: "/workspace/.opencode/skills/officecli/SKILL.md",
+          }],
+        });
+      }
+      return Response.json({ error: "unexpected_request", path: url.pathname }, { status: 500 });
+    });
+
+    const openworkClient = createOpenworkServerClient({
+      baseUrl: "http://127.0.0.1:43123",
+      token: "worker-token",
+    });
+    const openworkServer = createOpenworkServerStore({
+      startupPreference: () => "local",
+      documentVisible: () => true,
+      developerMode: () => false,
+      runtimeWorkspaceId: () => "ws_local",
+      activeClient: () => null,
+      selectedWorkspaceDisplay: () => ({
+        id: "local_alias",
+        name: "本地工作区",
+        path: "/Users/employee/Project",
+        preset: "default",
+        workspaceType: "local",
+      }),
+      restartLocalServer: async () => true,
+      createRemoteWorkspaceFlow: async () => true,
+    });
+    const store = createExtensionsStore({
+      client: () => null,
+      projectDir: () => "/Users/employee/Project",
+      selectedWorkspaceId: () => "local_alias",
+      selectedWorkspaceRoot: () => "/Users/employee/Project",
+      workspaceType: () => "local",
+      openworkServer,
+      openworkServerConnection: () => ({
+        openworkServerClient: openworkClient,
+        openworkServerStatus: "connected",
+        openworkServerCapabilities: {
+          skills: { read: true, write: true, source: "openwork" },
+          plugins: { read: true, write: true },
+          mcp: { read: true, write: true },
+          commands: { read: true, write: true },
+          config: { read: true, write: true },
+        },
+      }),
+      runtimeWorkspaceId: () => "ws_local",
+      setBusy: () => undefined,
+      setBusyLabel: () => undefined,
+      setBusyStartedAt: () => undefined,
+      setError: () => undefined,
+    });
+
+    await store.refreshSkills({ force: true });
+
+    expect(store.skills().map((skill) => skill.name)).toEqual([
+      "humanizer-zh",
+      "officecli",
+    ]);
+    expect(requestedServerGlobalSkills).toBe(false);
+    expect(desktopCommands).toContain("listGlobalSkills");
+  });
+
+  test("公司 Skill 目录不依赖本地工作区目录", async () => {
+    installTestWindow({
+      "openwork.den.baseUrl": "https://den.test",
+      "openwork.den.authToken": "tok_test",
+      "openwork.den.activeOrgId": "organization_test",
+      "openwork.den.activeOrgName": "Fox",
+    });
+    let catalogRequests = 0;
+    setFetch(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/v1/config-objects")) {
+        catalogRequests += 1;
+        return Response.json({ items: [companySkillConfigObject(companySkill)], nextCursor: null });
+      }
+      return Response.json({ error: "unexpected_request", path: url.pathname }, { status: 500 });
+    });
+    const openworkServer = createOpenworkServerStore({
+      startupPreference: () => "remote",
+      documentVisible: () => true,
+      developerMode: () => false,
+      runtimeWorkspaceId: () => null,
+      activeClient: () => null,
+      selectedWorkspaceDisplay: () => ({
+        id: "remote_alias",
+        name: "我的远程工作区",
+        path: "",
+        preset: "default",
+        workspaceType: "remote",
+      }),
+      restartLocalServer: async () => true,
+      createRemoteWorkspaceFlow: async () => true,
+    });
+    const store = createExtensionsStore({
+      client: () => null,
+      projectDir: () => "",
+      selectedWorkspaceId: () => "remote_alias",
+      selectedWorkspaceRoot: () => "",
+      workspaceType: () => "remote",
+      openworkServer,
+      runtimeWorkspaceId: () => null,
+      setBusy: () => undefined,
+      setBusyLabel: () => undefined,
+      setBusyStartedAt: () => undefined,
+      setError: () => undefined,
+    });
+
+    await store.refreshCloudOrgSkills({ force: true });
+
+    expect(catalogRequests).toBe(1);
+    expect(store.cloudOrgSkills()).toEqual([companySkill]);
+  });
+
   test("Den 客户端完整保留多文件包和摘要", async () => {
     setFetch(async () => new Response(JSON.stringify({
-      skills: [{
-        ...companySkill,
-        canManage: false,
-        slug: "evidence-review",
-      }],
+      items: [
+        companySkillConfigObject(companySkill),
+        {
+          id: "cob_upstream",
+          objectType: "skill",
+          currentRelativePath: "skills/upstream/SKILL.md",
+          title: "普通插件技能",
+          latestVersion: { rawSourceText: companySkill.skillText, normalizedPayloadJson: null },
+        },
+      ],
     }), {
       headers: { "content-type": "application/json" },
       status: 200,
@@ -108,13 +394,23 @@ describe("公司 Skill 同步", () => {
 
   test("Den 返回不完整文件包时拒绝同步，避免把所有已装技能误判为撤权", async () => {
     setFetch(async () => Response.json({
-      skills: [{
+      items: [{
         id: companySkill.id,
+        objectType: "skill",
+        currentRelativePath: "company-skills/evidence-review/SKILL.md",
         title: companySkill.title,
         description: companySkill.description,
-        skillText: companySkill.skillText,
-        shared: companySkill.shared,
         updatedAt: companySkill.updatedAt,
+        latestVersion: {
+          rawSourceText: companySkill.skillText,
+          normalizedPayloadJson: {
+            foxworkSkillBundle: {
+              version: 1,
+              bundleHash,
+              shared: "org",
+            },
+          },
+        },
       }],
     }));
 
@@ -122,6 +418,56 @@ describe("公司 Skill 同步", () => {
       baseUrl: "https://den.test",
       token: "tok_test",
     }).listOrgSkills("organization_test")).rejects.toThrow("公司服务返回的技能文件不完整");
+  });
+
+  test("分享本地技能时通过插件接口发送完整单文件包", async () => {
+    installTestWindow({
+      "openwork.den.baseUrl": "https://den.test",
+      "openwork.den.authToken": "tok_test",
+      "openwork.den.activeOrgId": "organization_test",
+      "openwork.den.activeOrgSlug": "fox",
+      "openwork.den.activeOrgName": "Fox",
+    });
+    let requestBody: Record<string, unknown> | null = null;
+    setFetch(async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/v1/plugins") && init?.method === "POST") {
+        requestBody = typeof init.body === "string" ? JSON.parse(init.body) : null;
+        return Response.json({ ok: true, item: { id: "plg_company_skill" } }, { status: 201 });
+      }
+      return Response.json({ error: "unexpected_request", path: url.pathname }, { status: 500 });
+    });
+
+    await expect(shareInstalledSkillWithCompany({
+      description: "审查项目证据",
+      name: "evidence-review",
+      shared: "org",
+      skillText: files[0]!.contents,
+    })).resolves.toEqual({
+      orgId: "organization_test",
+      orgName: "Fox",
+      pluginId: "plg_company_skill",
+    });
+    expect(requestBody).toEqual({
+      name: "evidence-review",
+      description: "审查项目证据",
+      orgWide: true,
+      components: [{
+        type: "skill",
+        input: {
+          rawSourceText: files[0]!.contents,
+          schemaVersion: "foxwork.skill-bundle.v1",
+          normalizedPayloadJson: {
+            foxworkSkillBundle: {
+              version: 1,
+              bundleHash: "1811088c8748e2dc9764a9597fa4b27e1f63854d88a60f98faf85d67755623bf",
+              files: [{ path: "SKILL.md", contents: files[0]!.contents }],
+              shared: "org",
+            },
+          },
+        },
+      }],
+    });
   });
 
   test("安装请求原样传递配套文件并使用公司包摘要", () => {
@@ -343,8 +689,8 @@ describe("公司 Skill 同步", () => {
     setFetch(async (input, init) => {
       const url = new URL(String(input));
       const method = init?.method ?? "GET";
-      if (url.host === "den.test" && url.pathname.endsWith("/v1/skills")) {
-        return Response.json({ skills: [] });
+      if (url.host === "den.test" && url.pathname.endsWith("/v1/config-objects")) {
+        return Response.json({ items: [], nextCursor: null });
       }
       if (method === "GET" && url.pathname.endsWith("/config")) {
         return Response.json({ opencode: {}, openwork: savedOpenworkConfig });

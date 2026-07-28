@@ -256,7 +256,7 @@ export function BrandAppearanceScreen() {
     setPageSuccess(null);
 
     if (!canManageBrandAppearance) {
-      setPageError("Only workspace owners and super-admins can change brand appearance.");
+      setPageError("只有公司所有者和超级管理员可以修改品牌外观。");
       return;
     }
 
@@ -314,13 +314,13 @@ export function BrandAppearanceScreen() {
                 <div className="grid gap-5">
                   <label className="grid gap-3">
                     <span className="text-[14px] font-medium text-gray-700">应用名称</span>
-                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="FoxWork" maxLength={64} disabled={!isOwner} />
+                    <DenInput type="text" value={appNameDraft} onChange={(event) => setAppNameDraft(event.target.value)} placeholder="FoxWork" maxLength={64} disabled={!canManageBrandAppearance} />
                     <span className="text-[11px] text-gray-400">已签名的应用标识固定为 FoxWork。</span>
                   </label>
 
                   <label className="grid gap-3">
                     <span className="text-[14px] font-medium text-gray-700">强调色</span>
-                    <select value={accentColorDraft} onChange={(event) => setAccentColorDraft(event.target.value)} disabled={!isOwner} className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none">
+                    <select value={accentColorDraft} onChange={(event) => setAccentColorDraft(event.target.value)} disabled={!canManageBrandAppearance} className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-gray-900 outline-none">
                       <option value="">默认（FoxWork）</option>
                       {ACCENT_COLOR_OPTIONS.map(([color, label]) => (
                         <option key={color} value={color}>{label}</option>
@@ -342,14 +342,14 @@ export function BrandAppearanceScreen() {
               </div>
 
               <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-                <BrandAssetUploadField kind="logo" title="品牌字标" description="横向 PNG 或 JPEG，尺寸 128×32 至 4096×4096，不超过 2 MB。" currentUrl={currentLogoUrl} managedAsset={currentLogoAsset} draft={logoDraft} clearPending={logoClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("logo", file)} onClear={() => handleAssetClear("logo")} />
-                <BrandAssetUploadField kind="icon" title="正方形应用图标" description="正方形 PNG 或 JPEG，尺寸 64×64 至 4096×4096，不超过 2 MB。" currentUrl={currentIconUrl} managedAsset={currentIconAsset} draft={iconDraft} clearPending={iconClearPending} disabled={!isOwner || saveBusy} onSelect={(file) => void handleAssetSelection("icon", file)} onClear={() => handleAssetClear("icon")} />
+                <BrandAssetUploadField kind="logo" title="品牌字标" description="横向 PNG 或 JPEG，尺寸 128×32 至 4096×4096，不超过 2 MB。" currentUrl={currentLogoUrl} managedAsset={currentLogoAsset} draft={logoDraft} clearPending={logoClearPending} disabled={!canManageBrandAppearance || saveBusy} onSelect={(file) => void handleAssetSelection("logo", file)} onClear={() => handleAssetClear("logo")} />
+                <BrandAssetUploadField kind="icon" title="正方形应用图标" description="正方形 PNG 或 JPEG，尺寸 64×64 至 4096×4096，不超过 2 MB。" currentUrl={currentIconUrl} managedAsset={currentIconAsset} draft={iconDraft} clearPending={iconClearPending} disabled={!canManageBrandAppearance || saveBusy} onSelect={(file) => void handleAssetSelection("icon", file)} onClear={() => handleAssetClear("icon")} />
               </div>
             </DenCard>
 
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[13px] text-gray-500">{!isOwner ? "只有公司所有者可以修改品牌外观。" : null}</p>
-              {isOwner ? <DenButton type="submit" loading={saveBusy}>保存品牌外观</DenButton> : null}
+              <p className="text-[13px] text-gray-500">{!canManageBrandAppearance ? "只有公司所有者和超级管理员可以修改品牌外观。" : null}</p>
+              {canManageBrandAppearance ? <DenButton type="submit" loading={saveBusy}>保存品牌外观</DenButton> : null}
             </div>
           </form>
         )}

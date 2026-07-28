@@ -67,7 +67,7 @@ describe("OpenWorkSessionCreateTool", () => {
     expect(html).toContain("Banana research");
     expect(html).toContain("Apple pie research");
     expect(html.match(/data-open-created-session=/g)).toHaveLength(3);
-    expect(html).toContain("Open chat");
+    expect(html).toContain("打开会话");
     expect(html).toContain('data-open-created-session="session-dolphins"');
   });
 });

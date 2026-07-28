@@ -28,7 +28,23 @@ export function OrganizationDownloadCard({
       window.open(await mintInstallLink(), "_blank");
     } catch (downloadError) {
       setError(getErrorMessage(downloadError instanceof Error ? downloadError.message : null, "无法打开工作区下载页面。"));
-      setBusy(false);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleCopyInstallLink() {
+    setBusyAction("copy");
+    setError(null);
+    setCopied(false);
+    try {
+      await navigator.clipboard.writeText(await mintInstallLink());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch (copyError) {
+      setError(getErrorMessage(copyError instanceof Error ? copyError.message : null, "无法复制工作区安装链接。"));
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -40,7 +56,7 @@ export function OrganizationDownloadCard({
       <div className="grid gap-5 bg-gradient-to-b from-[#FAFBFE] to-white px-6 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
           <div className="flex items-center gap-2.5">
-            <Download className="h-5 w-5 text-[#07192C]/70" aria-hidden="true" />
+            <ExternalLink className="h-5 w-5 text-[#07192C]/70" aria-hidden="true" />
             <h2 className="text-[16px] font-semibold text-[#07192C]">下载 {organizationName} 专用 FoxWork</h2>
           </div>
           <p className="mt-2 max-w-[620px] text-[13px] leading-[1.6] text-[#5A6886]">
@@ -52,15 +68,29 @@ export function OrganizationDownloadCard({
             </p>
           ) : null}
         </div>
-        <DenButton
-          className="w-full sm:w-auto"
-          data-testid="organization-download-button"
-          icon={Download}
-          loading={busy}
-          onClick={() => void handleDownload()}
-        >
-          下载公司客户端
-        </DenButton>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <DenButton
+            className="w-full sm:w-auto"
+            data-testid="workspace-install-open"
+            icon={ExternalLink}
+            loading={busyAction === "open"}
+            disabled={busyAction !== null}
+            onClick={() => void handleOpenInstallPage()}
+          >
+            打开安装页面
+          </DenButton>
+          <DenButton
+            className="w-full sm:w-auto"
+            data-testid="workspace-install-copy"
+            icon={Copy}
+            variant="secondary"
+            loading={busyAction === "copy"}
+            disabled={busyAction !== null}
+            onClick={() => void handleCopyInstallLink()}
+          >
+            {copied ? "已复制" : "复制安装链接"}
+          </DenButton>
+        </div>
       </div>
     </section>
   );

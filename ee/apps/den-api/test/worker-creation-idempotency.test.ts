@@ -9,7 +9,7 @@ function read(relativePath: string) {
 const workerRouteSource = read("../src/routes/workers/core.ts")
 const workerSharedSource = read("../src/routes/workers/shared.ts")
 const workerSchemaSource = read("../../../packages/den-db/src/schema/workers.ts")
-const migrationSource = read("../../../packages/den-db/drizzle/0045_worker_creation_idempotency.sql")
+const migrationSource = read("../../../packages/den-db/drizzle/0051_worker_creation_idempotency.sql")
 
 describe("个人远程工作区幂等创建", () => {
   test("请求只接受受限长度和字符集的幂等键", () => {

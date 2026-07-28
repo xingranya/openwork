@@ -27,6 +27,7 @@ import { normalizeOrganizationMetadata } from "../../organization-limits.js"
 import {
   DEFAULT_INSTALLER_RELEASE_REPO,
   FIRST_GENERIC_INSTALLER_RELEASE,
+  desktopReleaseAssetName,
   genericInstallerArtifactName,
   installerLatestReleaseAssetUrl,
   installerReleaseAssetUrl,
@@ -90,11 +91,6 @@ const installerNotConfiguredSchema = z.object({
   message: z.string(),
 }).meta({ ref: "InstallerNotConfiguredError" })
 
-const installExperienceConfigSchema = installConfigSchema.extend({
-  connectUrl: z.string(),
-  connectExpiresAt: z.string().datetime(),
-}).meta({ ref: "InstallExperienceConfig" })
-
 const capabilityDisabledSchema = z.object({
   error: z.literal("capability_disabled"),
   capability: organizationCapabilityKeySchema,
@@ -138,7 +134,7 @@ function organizationMetadataInput(value: unknown): Record<string, unknown> | st
 function buildInstallConfig(input: { organization: { name: string; logo: string | null; metadata: unknown }; request: Request }) {
   const metadata = normalizeOrganizationMetadata(organizationMetadataInput(input.organization.metadata)).metadata
   return installConfigSchema.parse({
-    appName: typeof metadata.brandAppName === "string" ? metadata.brandAppName : "OpenWork",
+    appName: typeof metadata.brandAppName === "string" ? metadata.brandAppName : "FoxWork",
     clientName: input.organization.name,
     webUrl: env.betterAuthUrl,
     apiUrl: resolvePublicOrigin(input.request, env.apiPublicUrl),
@@ -310,30 +306,39 @@ function installConfigEndpoint(apiUrl: string, token: string) {
   return new URL(`/v1/install-config?token=${encodeURIComponent(token)}`, new URL(apiUrl).origin).toString()
 }
 
-function linuxInstallScript(input: { token: string; config: z.infer<typeof installConfigSchema> }) {
+function installerReleasePageUrl() {
+  return env.installerReleaseRepo
+    ? `https://github.com/${env.installerReleaseRepo}/releases`
+    : null
+}
+
+function linuxInstallScript(input: {
+  token: string
+  config: z.infer<typeof installConfigSchema>
+  downloadUrl: string
+}) {
   const configUrl = installConfigEndpoint(input.config.apiUrl, input.token)
   return `#!/usr/bin/env sh
-# OpenWork Linux setup for ${input.config.clientName}.
-# Downloads no code. It writes the desktop bootstrap config, then tells you
-# where to download the current OpenWork AppImage.
+# 为 ${input.config.clientName} 配置 FoxWork Linux 客户端。
+# 本脚本只写入公司连接配置，不下载或执行其他代码。
 set -eu
 
 CONFIG_URL=${shellQuote(configUrl)}
 CLIENT_NAME=${shellQuote(input.config.clientName)}
 WEB_URL=${shellQuote(input.config.webUrl)}
 API_URL=${shellQuote(input.config.apiUrl)}
-DOWNLOAD_URL=${shellQuote(OPENWORK_DOWNLOAD_URL)}
+DOWNLOAD_URL=${shellQuote(input.downloadUrl)}
 
 if command -v curl >/dev/null 2>&1; then
   FETCH="curl -fsSL"
 elif command -v wget >/dev/null 2>&1; then
   FETCH="wget -qO-"
 else
-  echo "OpenWork setup requires curl or wget." >&2
+  echo "配置 FoxWork 需要 curl 或 wget。" >&2
   exit 1
 fi
 
-echo "Checking your OpenWork install link..."
+echo "正在检查 FoxWork 公司安装链接……"
 # shellcheck disable=SC2086
 $FETCH "$CONFIG_URL" >/dev/null
 
@@ -351,13 +356,13 @@ cat > "$BOOTSTRAP_PATH" <<EOF
 EOF
 
 echo
-echo "This sets up OpenWork for $CLIENT_NAME."
-echo "Wrote $BOOTSTRAP_PATH"
+echo "已为 $CLIENT_NAME 写入 FoxWork 公司连接配置。"
+echo "配置文件：$BOOTSTRAP_PATH"
 echo
-echo "Download the OpenWork AppImage here:"
+echo "请从以下地址下载 FoxWork Linux 安装包："
 echo "  $DOWNLOAD_URL"
 echo
-echo "Run the AppImage, then sign in — your team's workspace is preconfigured."
+echo "启动安装包并登录后，公司工作区会自动加载。"
 `
 }
 
@@ -608,10 +613,17 @@ export function registerOrgInstallLinkRoutes<T extends { Variables: OrgRouteVari
 
       const platform = platformResult.data.platform
       if (platform.startsWith("linux-")) {
-        return new Response(linuxInstallScript({ token: input.token, config: resolved.config }), {
+        const downloadUrl = installerReleasePageUrl()
+        if (!downloadUrl) {
+          return c.json({
+            error: "installer_not_configured" as const,
+            message: "公司尚未配置 FoxWork 安装包，请联系公司管理员。",
+          }, 503)
+        }
+        return new Response(linuxInstallScript({ token: input.token, config: resolved.config, downloadUrl }), {
           headers: {
             "content-type": "text/x-shellscript; charset=utf-8",
-            "content-disposition": contentDisposition(`openwork-linux-setup-${safeAttachmentSlug(resolved.organizationSlug)}.sh`),
+            "content-disposition": contentDisposition(`foxwork-linux-setup-${safeAttachmentSlug(resolved.organizationSlug)}.sh`),
             "cache-control": "no-store",
           },
         })

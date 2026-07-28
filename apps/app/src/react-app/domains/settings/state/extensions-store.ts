@@ -7,7 +7,6 @@ import type {
   Client,
   DenOrgSkillCard,
   HubSkillCard,
-  HubSkillRepo,
   PluginScope,
   ReloadReason,
   ReloadTrigger,
@@ -26,16 +25,20 @@ import {
   importSkill,
   installSkillTemplate,
   joinDesktopPath,
+  listGlobalSkills,
   listLocalSkills,
   openDesktopPath,
   pickDirectory,
+  readGlobalSkill,
   readLocalSkill,
   readOpencodeConfig,
   revealDesktopItemInDir,
   uninstallSkill as uninstallSkillCommand,
+  uninstallGlobalSkill,
   workspaceOpenworkRead,
   workspaceOpenworkWrite,
   writeLocalSkill,
+  writeGlobalSkill,
   writeOpencodeConfig,
   type OpencodeConfigFile,
 } from "../../../../app/lib/desktop";
@@ -77,14 +80,17 @@ import type { OpenworkServerStore } from "../../connections/openwork-server-stor
 const OPENCODE_SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const OPENCODE_MCP_NAME_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]*$/;
 const OPENCODE_MCP_IMPORT_PATH_PREFIX = "opencode.jsonc#mcp.";
-const DEFAULT_HUB_REPO: HubSkillRepo = {
-  owner: "different-ai",
-  repo: "openwork-hub",
-  ref: "main",
-};
-const HUB_REPOS_STORAGE_KEY = "openwork.skills.hubRepos.v1";
+const LEGACY_HUB_REPOS_STORAGE_KEY = "openwork.skills.hubRepos.v1";
 
 type SetStateAction<T> = T | ((current: T) => T);
+
+type SkillTarget = string | Pick<SkillCard, "name" | "source">;
+
+function normalizeSkillTarget(target: SkillTarget) {
+  return typeof target === "string"
+    ? { name: target.trim(), source: undefined }
+    : { name: target.name.trim(), source: target.source };
+}
 
 type PluginListEntry = {
   name: string;
@@ -106,8 +112,6 @@ export type ExtensionsStoreSnapshot = {
   importedCloudMarketplaces: Record<string, CloudImportedMarketplace>;
   importedCloudPlugins: Record<string, CloudImportedPlugin>;
   pendingCloudPluginChanges: Record<string, PendingCloudPluginChange>;
-  hubRepo: HubSkillRepo | null;
-  hubRepos: HubSkillRepo[];
   pluginScope: PluginScope;
   pluginConfig: OpencodeConfigFile | null;
   pluginConfigPath: string | null;
@@ -140,8 +144,6 @@ type MutableState = {
   importedCloudMarketplaces: Record<string, CloudImportedMarketplace>;
   importedCloudPlugins: Record<string, CloudImportedPlugin>;
   pendingCloudPluginChanges: Record<string, PendingCloudPluginChange>;
-  hubRepo: HubSkillRepo | null;
-  hubRepos: HubSkillRepo[];
   pluginScope: PluginScope;
   pluginConfig: OpencodeConfigFile | null;
   pluginConfigPath: string | null;
@@ -459,8 +461,6 @@ export function createExtensionsStore(options: {
     importedCloudMarketplaces: {},
     importedCloudPlugins: {},
     pendingCloudPluginChanges: {},
-    hubRepo: DEFAULT_HUB_REPO,
-    hubRepos: [DEFAULT_HUB_REPO],
     pluginScope: "project",
     pluginConfig: null,
     pluginConfigPath: null,
@@ -531,8 +531,6 @@ export function createExtensionsStore(options: {
       importedCloudMarketplaces: state.importedCloudMarketplaces,
       importedCloudPlugins: state.importedCloudPlugins,
       pendingCloudPluginChanges: state.pendingCloudPluginChanges,
-      hubRepo: state.hubRepo,
-      hubRepos: state.hubRepos,
       pluginScope: state.pluginScope,
       pluginConfig: state.pluginConfig,
       pluginConfigPath: state.pluginConfigPath,
@@ -564,36 +562,6 @@ export function createExtensionsStore(options: {
     typeof next === "function" ? (next as (value: T) => T)(current) : next;
 
   const formatSkillPath = (location: string) => location.replace(/[/\\]SKILL\.md$/i, "");
-
-  const normalizeHubRepo = (input?: Partial<HubSkillRepo> | null): HubSkillRepo | null => {
-    const owner = input?.owner?.trim() || "";
-    const repo = input?.repo?.trim() || "";
-    const ref = input?.ref?.trim() || DEFAULT_HUB_REPO.ref;
-    if (!owner || !repo) return null;
-    return { owner, repo, ref };
-  };
-
-  const hubRepoKey = (repo: HubSkillRepo) => `${repo.owner}/${repo.repo}@${repo.ref}`;
-
-  const normalizeHubRepoList = (items: unknown[]): HubSkillRepo[] => {
-    const seen = new Set<string>();
-    const next: HubSkillRepo[] = [];
-    for (const item of items) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      const normalized = normalizeHubRepo({
-        owner: typeof record.owner === "string" ? record.owner : undefined,
-        repo: typeof record.repo === "string" ? record.repo : undefined,
-        ref: typeof record.ref === "string" ? record.ref : undefined,
-      });
-      if (!normalized) continue;
-      const key = hubRepoKey(normalized);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      next.push(normalized);
-    }
-    return next;
-  };
 
   const readWorkspaceOpenworkConfigRecord = async (): Promise<Record<string, unknown>> => {
     const root = options.selectedWorkspaceRoot().trim();
@@ -876,7 +844,16 @@ export function createExtensionsStore(options: {
     return nextSkills[skill.id];
   };
 
-  const deleteWorkspaceSkill = async (name: string) => {
+  const deleteWorkspaceSkill = async (target: SkillTarget) => {
+    const { name, source } = normalizeSkillTarget(target);
+    if (source === "desktop-global") {
+      if (!isDesktopRuntime()) throw new Error(t("skills.desktop_required"));
+      const result = await uninstallGlobalSkill(name);
+      if (!result.ok) {
+        throw new Error(toChineseUserMessage(result.stderr || result.stdout, t("skills.uninstall_failed")));
+      }
+      return;
+    }
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
     const root = options.selectedWorkspaceRoot().trim();
@@ -1387,18 +1364,6 @@ export function createExtensionsStore(options: {
     return { files, warnings };
   };
 
-  const persistHubRepos = () => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        HUB_REPOS_STORAGE_KEY,
-        JSON.stringify({ selected: state.hubRepo, repos: state.hubRepos }),
-      );
-    } catch {
-      // ignore
-    }
-  };
-
   const invalidateWorkspaceCaches = () => {
     skillsLoaded = false;
     hubSkillsLoaded = false;
@@ -1486,24 +1451,11 @@ export function createExtensionsStore(options: {
   }
 
   async function refreshCloudOrgSkills(optionsOverride?: { force?: boolean }) {
-    const root = options.selectedWorkspaceRoot().trim();
     const wk = getWorkspaceContextKey();
     const settings = readDenSettings();
     const token = settings.authToken?.trim() ?? "";
     const orgId = settings.activeOrgId?.trim() ?? "";
     const loadKey = `${wk}::${orgId}`;
-
-    if (!root) {
-      mutateState((current) => ({
-        ...current,
-        cloudOrgSkills: [],
-        cloudOrgSkillsStatus: null,
-        cloudOrgSkillsContextKey: loadKey,
-      }));
-      cloudOrgSkillsLoaded = true;
-      cloudOrgSkillsLoadKey = loadKey;
-      return;
-    }
 
     if (loadKey !== cloudOrgSkillsLoadKey) {
       cloudOrgSkillsLoaded = false;
@@ -2010,16 +1962,41 @@ export function createExtensionsStore(options: {
       refreshSkillsAborted = false;
       try {
         setStateField("skillsStatus", null);
-        const response = await openworkClient.listSkills(openworkWorkspaceId, { includeGlobal: isLocalWorkspace });
+        const [workspaceResult, desktopGlobalResult] = await Promise.allSettled([
+          openworkClient.listSkills(openworkWorkspaceId, {
+            includeGlobal: isLocalWorkspace && !isDesktopRuntime(),
+          }),
+          isDesktopRuntime()
+            ? listGlobalSkills()
+            : Promise.resolve([]),
+        ]);
         if (refreshSkillsAborted) return;
-        const next: SkillCard[] = Array.isArray(response.items)
-          ? response.items.map((entry) => ({
+        if (workspaceResult.status === "rejected" && desktopGlobalResult.status === "rejected") {
+          throw workspaceResult.reason;
+        }
+        const workspaceSkills: SkillCard[] = workspaceResult.status === "fulfilled" && Array.isArray(workspaceResult.value.items)
+          ? workspaceResult.value.items.map((entry) => ({
               name: entry.name,
               description: entry.description,
               path: entry.path,
               trigger: entry.trigger,
+              source: "workspace",
             }))
           : [];
+        const desktopGlobalSkills: SkillCard[] = desktopGlobalResult.status === "fulfilled" && Array.isArray(desktopGlobalResult.value)
+          ? desktopGlobalResult.value.map((entry) => ({
+              name: entry.name,
+              description: entry.description,
+                path: entry.path,
+                trigger: entry.trigger,
+                source: "desktop-global",
+              }))
+          : [];
+        const byName = new Map<string, SkillCard>();
+        for (const skill of [...workspaceSkills, ...desktopGlobalSkills]) {
+          if (!byName.has(skill.name)) byName.set(skill.name, skill);
+        }
+        const next = Array.from(byName.values()).toSorted((a, b) => a.name.localeCompare(b.name));
         mutateState((current) => ({
           ...current,
           skills: next,
@@ -2067,6 +2044,7 @@ export function createExtensionsStore(options: {
               description: entry.description,
               path: entry.path,
               trigger: entry.trigger,
+              source: entry.source,
             }))
           : [];
         mutateState((current) => ({
@@ -2678,15 +2656,15 @@ export function createExtensionsStore(options: {
     }
   }
 
-  async function uninstallSkill(name: string) {
-    const trimmed = name.trim();
+  async function uninstallSkill(target: SkillTarget) {
+    const { name: trimmed } = normalizeSkillTarget(target);
     if (!trimmed) return;
 
     options.setBusy(true);
     options.setError(null);
     setStateField("skillsStatus", null);
     try {
-      await deleteWorkspaceSkill(trimmed);
+      await deleteWorkspaceSkill(target);
       setStateField("skillsStatus", t("skills.uninstalled"));
       options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "removed" });
       await refreshSkills({ force: true });
@@ -2702,9 +2680,23 @@ export function createExtensionsStore(options: {
     }
   }
 
-  async function readSkill(name: string): Promise<{ name: string; path: string; content: string } | null> {
-    const trimmed = name.trim();
+  async function readSkill(target: SkillTarget): Promise<{ name: string; path: string; content: string } | null> {
+    const { name: trimmed, source } = normalizeSkillTarget(target);
     if (!trimmed) return null;
+    if (source === "desktop-global") {
+      if (!isDesktopRuntime()) {
+        setStateField("skillsStatus", t("skills.desktop_required"));
+        return null;
+      }
+      try {
+        setStateField("skillsStatus", null);
+        const result = await readGlobalSkill(trimmed);
+        return { name: trimmed, path: result.path, content: result.content };
+      } catch (error) {
+        setStateField("skillsStatus", toChineseUserMessage(error, t("skills.failed_to_load")));
+        return null;
+      }
+    }
     const root = options.selectedWorkspaceRoot().trim();
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
@@ -2758,9 +2750,33 @@ export function createExtensionsStore(options: {
     }
   }
 
-  async function saveSkill(input: { name: string; content: string; description?: string }) {
+  async function saveSkill(input: { name: string; content: string; description?: string; source?: SkillCard["source"] }) {
     const trimmed = input.name.trim();
     if (!trimmed) return;
+    if (input.source === "desktop-global") {
+      if (!isDesktopRuntime()) {
+        setStateField("skillsStatus", t("skills.desktop_required"));
+        return;
+      }
+      options.setBusy(true);
+      options.setError(null);
+      setStateField("skillsStatus", null);
+      try {
+        const result = await writeGlobalSkill(trimmed, input.content);
+        if (!result.ok) {
+          setStateField("skillsStatus", toChineseUserMessage(result.stderr || result.stdout, t("skills.unknown_error")));
+        } else {
+          setStateField("skillsStatus", toChineseUserMessage(result.stdout, "已保存。"));
+          options.markReloadRequired?.("skills", { type: "skill", name: trimmed, action: "updated" });
+        }
+        await refreshSkills({ force: true });
+      } catch (error) {
+        options.setError(toChineseUserMessage(error, t("skills.unknown_error")));
+      } finally {
+        options.setBusy(false);
+      }
+      return;
+    }
     const root = options.selectedWorkspaceRoot().trim();
     const isRemoteWorkspace = options.workspaceType() === "remote";
     const isLocalWorkspace = options.workspaceType() === "local";
@@ -2872,57 +2888,6 @@ export function createExtensionsStore(options: {
     void refreshCloudOrgSkills({ force: true });
   }
 
-  const setHubRepo = (repoInput: Partial<HubSkillRepo> | null, optionsOverride?: { remember?: boolean }) => {
-    const next = normalizeHubRepo(repoInput);
-    mutateState((current) => ({ ...current, hubRepo: next }));
-    hubSkillsLoaded = false;
-    if (optionsOverride?.remember === false || !next) {
-      persistHubRepos();
-      return;
-    }
-    mutateState((current) => {
-      const seen = new Set<string>();
-      const merged = [next, ...current.hubRepos];
-      const deduped: HubSkillRepo[] = [];
-      for (const item of merged) {
-        const key = hubRepoKey(item);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduped.push(item);
-      }
-      return { ...current, hubRepos: deduped };
-    });
-    persistHubRepos();
-  };
-
-  const addHubRepo = (repoInput: Partial<HubSkillRepo>) => {
-    const next = normalizeHubRepo(repoInput);
-    if (!next) return;
-    setHubRepo(next);
-  };
-
-  const removeHubRepo = (repoInput: Partial<HubSkillRepo>) => {
-    const target = normalizeHubRepo(repoInput);
-    if (!target) return;
-    const targetKey = hubRepoKey(target);
-    const nextRepos = snapshot.hubRepos.filter((item) => hubRepoKey(item) !== targetKey);
-    mutateState((current) => ({ ...current, hubRepos: nextRepos }));
-    const activeRepo = snapshot.hubRepo;
-    if (activeRepo && hubRepoKey(activeRepo) === targetKey) {
-      mutateState((current) => ({
-        ...current,
-        hubRepo: nextRepos[0] ?? null,
-        hubSkills: nextRepos.length ? current.hubSkills : [],
-        hubSkillsStatus: nextRepos.length ? current.hubSkillsStatus : "尚未选择技能仓库，请先添加 GitHub 仓库。",
-      }));
-      hubSkillsLoaded = false;
-      if (!nextRepos.length) {
-        hubSkillsLoadKey = "";
-      }
-    }
-    persistHubRepos();
-  };
-
   const start = () => {
     if (started) return;
     // StrictMode double-mount re-arms after dispose.
@@ -2931,26 +2896,7 @@ export function createExtensionsStore(options: {
 
     if (typeof window !== "undefined") {
       try {
-        const raw = window.localStorage.getItem(HUB_REPOS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as { selected?: unknown; repos?: unknown[]; custom?: unknown[] };
-          const storedRepos = Array.isArray(parsed?.repos)
-            ? normalizeHubRepoList(parsed.repos)
-            : Array.isArray(parsed?.custom)
-              ? normalizeHubRepoList(parsed.custom)
-              : [];
-          const selected = parsed?.selected && typeof parsed.selected === "object"
-            ? normalizeHubRepo(parsed.selected as Partial<HubSkillRepo>)
-            : null;
-          const selectedKey = selected ? hubRepoKey(selected) : null;
-          const hasSelected = selectedKey ? storedRepos.some((item) => hubRepoKey(item) === selectedKey) : false;
-          const nextRepos = selected && !hasSelected ? [selected, ...storedRepos] : storedRepos;
-          mutateState((current) => ({
-            ...current,
-            hubRepos: nextRepos.length ? nextRepos : current.hubRepos,
-            hubRepo: selected && nextRepos.length ? selected : nextRepos[0] ?? current.hubRepo,
-          }));
-        }
+        window.localStorage.removeItem(LEGACY_HUB_REPOS_STORAGE_KEY);
       } catch {
         // ignore
       }
@@ -3026,8 +2972,6 @@ export function createExtensionsStore(options: {
     importedCloudMarketplaces: () => snapshot.importedCloudMarketplaces,
     importedCloudPlugins: () => snapshot.importedCloudPlugins,
     pendingCloudPluginChanges: () => snapshot.pendingCloudPluginChanges,
-    hubRepo: () => snapshot.hubRepo,
-    hubRepos: () => snapshot.hubRepos,
     get pluginScope() {
       return snapshot.pluginScope;
     },
@@ -3061,9 +3005,6 @@ export function createExtensionsStore(options: {
     refreshHubSkills,
     refreshCloudOrgSkills,
     refreshCloudOrgMarketplaces,
-    setHubRepo,
-    addHubRepo,
-    removeHubRepo,
     refreshPlugins,
     addPlugin,
     removePlugin,

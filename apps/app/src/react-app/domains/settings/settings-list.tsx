@@ -100,7 +100,7 @@ export function SettingsListItemDescription({ children, className }: SettingsLis
 }
 
 export function SettingsListSearchInput({
-  placeholder = "Search...",
+  placeholder = "搜索...",
   ...props
 }: React.ComponentProps<"input">) {
   return (

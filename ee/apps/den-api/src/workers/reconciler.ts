@@ -12,6 +12,12 @@ const logger = appLogger.child({ component: "worker_reconciler" })
 let workerProvisioningReconcileRunning = false
 let workerProvisioningReconcilePromise: Promise<void> | null = null
 
+export function shouldRunWorkerProvisioningReconcile(
+  provisionerMode: typeof env.provisionerMode,
+) {
+  return provisionerMode !== "stub"
+}
+
 function tokenByScope(
   tokens: Array<typeof WorkerTokenTable.$inferSelect>,
   scope: typeof WorkerTokenTable.$inferSelect.scope,
@@ -48,6 +54,10 @@ async function reconcileWorker(worker: ProvisioningWorker) {
 }
 
 export async function reconcileStaleProvisioningWorkers() {
+  if (!shouldRunWorkerProvisioningReconcile(env.provisionerMode)) {
+    return { checked: 0 }
+  }
+
   const staleBefore = new Date(Date.now() - env.workerProvisioningReconcileStaleMs)
   const workers = await db
     .select()

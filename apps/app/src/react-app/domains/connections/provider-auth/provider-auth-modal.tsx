@@ -27,6 +27,7 @@ import { openDesktopUrl } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { compareProviders } from "@/app/utils/providers";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import { TextInput } from "../../../design-system/text-input";
 import type {
@@ -101,6 +102,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const [localProviderName, setLocalProviderName] = useState("");
   const [localBaseUrl, setLocalBaseUrl] = useState("");
   const [localModelsText, setLocalModelsText] = useState("");
+  const [localImageInputModelIds, setLocalImageInputModelIds] = useState<string[]>([]);
   const [oauthCodeInput, setOauthCodeInput] = useState("");
   const [oauthSession, setOauthSession] = useState<ProviderOAuthSession | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -260,6 +262,10 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   };
 
   const actionDisabled = props.loading || props.submitting;
+  const localModelIds = useMemo(
+    () => parseLocalModelIds(localModelsText),
+    [localModelsText],
+  );
 
   const resetState = () => {
     if (oauthCodeCopiedResetRef.current !== null && typeof window !== "undefined") {
@@ -274,6 +280,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     setLocalProviderName("");
     setLocalBaseUrl("");
     setLocalModelsText("");
+    setLocalImageInputModelIds([]);
     setOauthCodeInput("");
     setOauthSession(null);
     setSearchQuery("");
@@ -525,6 +532,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       setLocalProviderName(plan.custom ? "" : plan.name);
       setLocalBaseUrl(plan.api ?? "");
       setLocalModelsText(plan.modelIds.join("\n"));
+      setLocalImageInputModelIds([]);
       setApiKeyInput("");
       setView("local");
       return;
@@ -559,7 +567,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       return;
     }
 
-    setLocalError(`No authentication methods available for ${entry.name}.`);
+    setLocalError(`${entry.name} 暂无可用的认证方式。`);
   };
 
   const handleApiSubmit = async () => {
@@ -567,20 +575,20 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
 
     const trimmed = apiKeyInput.trim();
     if (!trimmed) {
-      setLocalError("API key is required.");
+      setLocalError("请输入 API 密钥。");
       return;
     }
 
     setLocalError(null);
     try {
       await props.onSubmitApiKey(selectedEntry.id, trimmed);
-      toast.success(`${selectedEntry.name} connected`, {
-        description: "API key saved locally by OpenCode.",
+      toast.success(`${selectedEntry.name} 已连接`, {
+        description: "API 密钥已安全保存在本机运行环境中。",
       });
       // Close the modal after a successful save
       props.onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save API key";
+      const message = error instanceof Error ? error.message : "保存 API 密钥失败，请重试。";
       setLocalError(message);
     }
   };
@@ -595,7 +603,8 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       name: localProviderName,
       baseUrl: localBaseUrl,
       apiKey: apiKeyInput,
-      modelIds: parseLocalModelIds(localModelsText),
+      modelIds: localModelIds,
+      imageInputModelIds: localImageInputModelIds.filter((modelId) => localModelIds.includes(modelId)),
     };
     setLocalError(null);
     try {
@@ -981,6 +990,40 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     />
                     <span>每行填写一个，也可以用逗号分隔；可补充服务商新发布的模型。</span>
                   </label>
+
+                  {localModelIds.length > 0 ? (
+                    <fieldset className="grid gap-2 rounded-lg border border-gray-6/60 bg-gray-1/60 p-3">
+                      <legend className="px-1 text-xs font-medium text-gray-12">图片输入能力</legend>
+                      <p className="text-[11px] text-gray-9">仅勾选服务商明确支持图片的模型。</p>
+                      <div className="grid gap-2">
+                        {localModelIds.map((modelId) => {
+                          const checkboxId = `local-model-image-${modelId.replace(/[^a-z0-9_-]+/gi, "-")}`;
+                          return (
+                            <label
+                              key={modelId}
+                              htmlFor={checkboxId}
+                              className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-gray-11 hover:bg-gray-3/50"
+                            >
+                              <Checkbox
+                                id={checkboxId}
+                                checked={localImageInputModelIds.includes(modelId)}
+                                onCheckedChange={(checked) => {
+                                  setLocalImageInputModelIds((current) => checked
+                                    ? [...new Set([...current, modelId])]
+                                    : current.filter((entry) => entry !== modelId));
+                                }}
+                                nativeButton
+                                render={<button type="button" />}
+                                disabled={actionDisabled}
+                              />
+                              <span className="min-w-0 truncate">{modelId}</span>
+                              <span className="ml-auto shrink-0 text-gray-9">支持图片输入</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  ) : null}
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-[11px] text-gray-9">

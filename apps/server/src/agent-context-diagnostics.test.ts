@@ -840,7 +840,7 @@ describe("agent context diagnostics analyzer", () => {
   test("names the trusted-origins environment variable for untrusted cloud endpoints", async () => {
     const runtime = diagnosticRuntimeConfig();
     if (!runtime.mcp) throw new Error("Expected the diagnostics MCP fixture.");
-    runtime.mcp["openwork-cloud"] = {
+    runtime.mcp[FOXWORK_COMPANY_MCP_NAME] = {
       ...cloudConfig(),
       url: "https://den.customer.example/custom/mcp/agent",
     };
@@ -1228,7 +1228,7 @@ describe("agent context diagnostics analyzer", () => {
       details: { engineReachableNow: true, failedCount: 3 },
     });
     expect(check.details.failedRegistrations).toEqual([
-      { name: "openwork-cloud", status: "failed", source: "transport_failure", recordAgeMs: 61_000, engineReachableNow: true },
+      { name: FOXWORK_COMPANY_MCP_NAME, status: "failed", source: "transport_failure", recordAgeMs: 61_000, engineReachableNow: true },
       { name: "non-cloud-canary", status: "failed", source: "transport_failure", recordAgeMs: 61_000, engineReachableNow: true },
       { name: "[redacted-sensitive-label]", status: "failed", source: "transport_failure", recordAgeMs: 61_000, engineReachableNow: true },
     ]);

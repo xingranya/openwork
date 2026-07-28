@@ -5,7 +5,6 @@ import { getRequestError, requestJson } from "../../_lib/den-flow";
 
 export type CompanySkill = {
   bundleHash: string;
-  canManage: boolean;
   description: string | null;
   fileCount: number;
   id: string;
@@ -23,6 +22,7 @@ export type CompanySkillImportResult = {
   fileCount: number;
   folder: string;
   id: string;
+  pluginId: string;
   slug: string;
 };
 
@@ -71,27 +71,59 @@ function uniqueIds(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+function companySkillSlug(relativePath: unknown) {
+  if (typeof relativePath !== "string") return null;
+  const match = /^company-skills\/([a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?)\/SKILL\.md$/u.exec(relativePath);
+  return match?.[1] ?? null;
+}
+
 export function parseCompanySkillsPayload(payload: unknown): CompanySkill[] {
-  if (!isRecord(payload) || !Array.isArray(payload.skills)) {
+  if (!isRecord(payload) || !Array.isArray(payload.items)) {
     return [];
   }
 
-  return payload.skills.flatMap((entry) => {
+  return payload.items.flatMap((entry) => {
     if (!isRecord(entry)) return [];
     const id = asString(entry.id);
-    const slug = asString(entry.slug);
+    const slug = companySkillSlug(entry.currentRelativePath);
     const title = asString(entry.title);
-    const bundleHash = asString(entry.bundleHash);
-    if (!id || !slug || !title || !bundleHash || !Array.isArray(entry.files)) {
+    const latestVersion = isRecord(entry.latestVersion) ? entry.latestVersion : null;
+    const normalizedPayload = latestVersion && isRecord(latestVersion.normalizedPayloadJson)
+      ? latestVersion.normalizedPayloadJson
+      : null;
+    const bundle = normalizedPayload && isRecord(normalizedPayload.foxworkSkillBundle)
+      ? normalizedPayload.foxworkSkillBundle
+      : null;
+    const bundleHash = bundle ? asString(bundle.bundleHash) : null;
+    const rawFiles = bundle?.files;
+    const files = Array.isArray(rawFiles)
+      ? rawFiles.flatMap((file) => {
+          if (!isRecord(file) || typeof file.path !== "string" || typeof file.contents !== "string") return [];
+          return [{ path: file.path, contents: file.contents }];
+        })
+      : [];
+    const entrypoint = files.find((file) => file.path === "SKILL.md");
+    if (
+      entry.objectType !== "skill"
+      || !id
+      || !slug
+      || !title
+      || !bundleHash
+      || bundle?.version !== 1
+      || (bundle.shared !== "org" && bundle.shared !== "private")
+      || !Array.isArray(rawFiles)
+      || files.length !== rawFiles.length
+      || !entrypoint
+      || entrypoint.contents !== latestVersion?.rawSourceText
+    ) {
       return [];
     }
     return [{
       bundleHash,
-      canManage: entry.canManage === true,
       description: asNullableString(entry.description),
-      fileCount: entry.files.length,
+      fileCount: files.length,
       id,
-      orgWide: entry.shared === "org" || entry.shared === "public",
+      orgWide: bundle.shared === "org",
       slug,
       title,
       updatedAt: asNullableString(entry.updatedAt),
@@ -108,6 +140,7 @@ export function parseCompanySkillImportPayload(payload: unknown): CompanySkillIm
         const fileCount = asNonNegativeInteger(entry.fileCount);
         const folder = asString(entry.folder);
         const id = asString(entry.id);
+        const pluginId = asString(entry.pluginId);
         const slug = asString(entry.slug);
         if (
           (action !== "created" && action !== "updated" && action !== "unchanged")
@@ -115,11 +148,12 @@ export function parseCompanySkillImportPayload(payload: unknown): CompanySkillIm
           || fileCount === null
           || !folder
           || !id
+          || !pluginId
           || !slug
         ) {
           return [];
         }
-        return [{ action, bundleHash, fileCount, folder, id, slug } satisfies CompanySkillImportResult];
+        return [{ action, bundleHash, fileCount, folder, id, pluginId, slug } satisfies CompanySkillImportResult];
       })
     : [];
 
@@ -162,11 +196,15 @@ export function useCompanySkills() {
   return useQuery({
     queryKey: companySkillQueryKeys.list(),
     queryFn: async () => {
-      const { response, payload } = await requestJson("/v1/skills", { method: "GET" }, 15000);
+      const { response, payload } = await requestJson(
+        "/v1/config-objects?type=skill&status=active&limit=100",
+        { method: "GET" },
+        15000,
+      );
       if (!response.ok) {
         throw getRequestError(payload, response, `加载公司技能失败（${response.status}）。`);
       }
-      if (!isRecord(payload) || !Array.isArray(payload.skills)) {
+      if (!isRecord(payload) || !Array.isArray(payload.items)) {
         throw new Error("公司服务返回的技能列表格式不完整，请刷新后重试。");
       }
       return parseCompanySkillsPayload(payload);
@@ -179,7 +217,7 @@ export function useImportCompanySkills() {
   return useMutation({
     mutationFn: async (input: CompanySkillImportInput) => {
       const { response, payload } = await requestJson(
-        "/v1/skills/import-zip",
+        "/v1/plugins/import-skills-zip",
         { method: "POST", body: buildCompanySkillImportForm(input) },
         60000,
       );

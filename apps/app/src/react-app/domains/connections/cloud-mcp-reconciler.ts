@@ -424,6 +424,7 @@ export function cloudMcpFailureStageLabel(input: {
   if (!input.signedIn) return "需要登录";
   if (!input.orgSelected) return "请选择公司";
   if (input.userState) return "AI 服务权限已关闭";
+  if (!input.health) return "尚未完成 AI 服务权限检查";
   const code = normalizeCode(input.health?.firstFailure?.code);
   if (!code) return input.health?.usableByCurrentModel === null ? "尚未检查当前模型权限" : "AI 服务权限已就绪";
   if (code === "cloud_mcp_disabled" || code === "cloud_disabled") return "AI 服务权限已关闭";
@@ -431,7 +432,7 @@ export function cloudMcpFailureStageLabel(input: {
   if (code.includes("auth") || code.includes("token") || code.includes("unauthorized")) return "公司登录状态已过期";
   if (code === "cloud_tools_missing") return "公司服务缺少所需工具";
   if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "公司工具尚未完成注册";
-  if (code.includes("provider_projection")) return "当前模型不能使用公司工具";
+  if (isProviderProjectionFailure(input.health?.firstFailure)) return "当前模型不能使用公司工具";
   if (code.includes("tool_ids") || code.includes("client_registration")) return "FoxWork 组件需要更新";
   if (code === "extensions_plugin_missing") return "AI 工作说明需要更新";
   if (code.includes("unreachable") || code.includes("connection") || code.includes("status_missing")) return "公司服务暂时无法连接";
@@ -447,6 +448,7 @@ export function cloudMcpRecommendedAction(input: {
   if (!input.signedIn) return "请登录 FoxWork 公司服务。";
   if (!input.orgSelected) return "请选择 AI 要使用的公司。";
   if (input.userState) return "如需使用已连接服务，请启用 AI 权限，或执行“修复并检查”。";
+  if (!input.health) return "请重新检查 AI 服务权限。";
   const code = normalizeCode(input.health?.firstFailure?.code);
   if (!code) {
     if (input.health?.usableByCurrentModel === null) return "尚未选择当前模型，因此未检查模型权限。";
@@ -458,7 +460,7 @@ export function cloudMcpRecommendedAction(input: {
   if (code.includes("membership")) return "请联系公司管理员授予权限。";
   if (code.includes("scope")) return "请重新连接公司服务并授予所需权限。";
   if (code.includes("policy") || code.includes("forbidden") || code.includes("resource")) return "请检查公司策略和资源权限。";
-  if (code.includes("provider_projection")) return "请选择能够使用公司工具的模型。";
+  if (isProviderProjectionFailure(input.health?.firstFailure)) return "请选择能够使用公司工具的模型。";
   if (code.includes("tool_ids") || code.includes("client_registration")) return "请更新 FoxWork 后重试。";
   if (code === "extensions_plugin_missing") return "请重新加载 AI，让工作说明更新到当前版本。";
   if (code === "cloud_tools_missing") return "请重新连接公司服务，让所需工具完成注册。";
@@ -528,13 +530,14 @@ export async function cleanupOpenworkCloudMcpAfterSignOut(input: {
   directory: string;
 }): Promise<void> {
   const scope = normalizeCloudMcpScope(input.context);
+  const workspaceId = input.context.workspaceId.trim();
   if (scope) clearCloudMcpScopedMetadata(scope);
 
   await Promise.all([
-    ...(input.openworkClient && scope
+    ...(input.openworkClient && workspaceId
       ? [
-          input.openworkClient.removeMcp(scope.workspaceId, CLOUD_MCP_SERVER_NAME).catch(() => null),
-          input.openworkClient.removeMcp(scope.workspaceId, LEGACY_CLOUD_MCP_SERVER_NAME).catch(() => null),
+          input.openworkClient.removeMcp(workspaceId, CLOUD_MCP_SERVER_NAME).catch(() => null),
+          input.openworkClient.removeMcp(workspaceId, LEGACY_CLOUD_MCP_SERVER_NAME).catch(() => null),
         ]
       : []),
     ...(input.opencodeClient && input.directory.trim()

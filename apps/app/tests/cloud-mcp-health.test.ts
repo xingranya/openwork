@@ -441,16 +441,16 @@ describe("OpenWork Cloud MCP reconciler", () => {
       signedIn: true,
       orgSelected: true,
       health: health({ usable: false, failure: canonicalProjectionFailure }),
-    })).toBe("Current model can’t use Cloud tools");
+    })).toBe("当前模型不能使用公司工具");
     expect(cloudMcpDisplaySummary({
       signedIn: true,
       orgSelected: true,
       connecting: false,
       health: health({ usable: false, failure: canonicalProjectionFailure }),
     })).toMatchObject({
-      statusLabel: "Degraded",
-      stageLabel: "Current model can’t use Cloud tools",
-      recommendedAction: "Choose a model that can use OpenWork Cloud tools.",
+      statusLabel: "需要处理",
+      stageLabel: "当前模型不能使用公司工具",
+      recommendedAction: "请选择能够使用公司工具的模型。",
     });
 
     const summary = cloudMcpDisplaySummary({
@@ -461,6 +461,19 @@ describe("OpenWork Cloud MCP reconciler", () => {
     });
     expect(summary.statusLabel).toBe("已就绪");
     expect(summary.recommendedAction).toContain("未检查模型权限");
+  });
+
+  test("尚未取得健康检查结果时不误报权限已就绪", () => {
+    expect(cloudMcpDisplaySummary({
+      signedIn: true,
+      orgSelected: true,
+      connecting: false,
+      health: null,
+    })).toMatchObject({
+      statusLabel: "需要处理",
+      stageLabel: "尚未完成 AI 服务权限检查",
+      recommendedAction: "请重新检查 AI 服务权限。",
+    });
   });
 
   test("missing desired config is degraded while explicit disabled config is disabled", () => {

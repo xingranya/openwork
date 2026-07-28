@@ -242,7 +242,7 @@ function MarkdownBlockInner({
       event.stopPropagation();
       const image = preview.querySelector("img");
       if (!(image instanceof HTMLImageElement) || !image.src) return;
-      setImagePreview({ src: image.src, alt: image.alt || "Image" });
+      setImagePreview({ src: image.src, alt: image.alt || "图片" });
     };
 
     root.addEventListener("load", handleLoad, true);
@@ -292,7 +292,7 @@ function MarkdownBlockInner({
         }}
       >
         <DialogContent className="max-h-[90vh] w-auto max-w-[min(90vw,56rem)] overflow-hidden border-none bg-transparent p-0 shadow-none sm:max-w-[min(90vw,56rem)]">
-          <DialogTitle className="sr-only">{imagePreview?.alt ?? "Image"}</DialogTitle>
+          <DialogTitle className="sr-only">{imagePreview?.alt ?? "图片"}</DialogTitle>
           {imagePreview ? (
             <img
               src={imagePreview.src}

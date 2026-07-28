@@ -76,7 +76,12 @@ function startMockOpencode(mode: DirectProbeMode) {
     async fetch(request) {
       const url = new URL(request.url);
       if (url.pathname === "/global/health") return Response.json({ healthy: true, version: "1.17.11" });
-      if (url.pathname === "/mcp" && request.method === "GET") return Response.json({ [OPENWORK_CLOUD_MCP_NAME]: { status: "connected" } });
+      if (url.pathname === "/mcp" && request.method === "GET") {
+        return Response.json({
+          [OPENWORK_CLOUD_MCP_NAME]: { status: "connected" },
+          "sibling-remote": { status: "failed", error: "fetch failed" },
+        });
+      }
       if (url.pathname === "/experimental/tool/ids") return Response.json([...OPENWORK_CLOUD_EXPECTED_TOOLS, ...OPENWORK_CLOUD_PLUGIN_CANARIES]);
       if (url.pathname === "/cloud-mcp/mcp/agent" && request.method === "POST") {
         if (mode === "unauthorized") return Response.json({ error: "invalid token" }, { status: 401 });
@@ -372,7 +377,7 @@ describe("cloud MCP health foundation", () => {
     expect(health.engineInspection.cloudPresent).toBe(true);
     expect(health.engineInspection.serverCount).toBe(2);
     expect(health.engineInspection.servers).toEqual([
-      { name: "openwork-cloud", status: "connected" },
+      { name: OPENWORK_CLOUD_MCP_NAME, status: "connected" },
       { name: "sibling-remote", status: "failed", error: "fetch failed" },
     ]);
   });
@@ -388,7 +393,7 @@ describe("cloud MCP health foundation", () => {
       expect(step.latencyMs).toBeGreaterThanOrEqual(0);
     }
     expect(trace?.steps[0]?.httpStatus).toBe(200);
-    expect(trace?.serverInfo).toEqual({ name: "openwork-cloud-test", version: "1.0.0" });
+    expect(trace?.serverInfo).toEqual({ name: "foxwork-company-test", version: "1.0.0" });
     expect(trace?.protocolVersion).toBe("2025-06-18");
     expect(health.durationMs).toBeGreaterThanOrEqual(0);
   });

@@ -239,7 +239,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
 
   const handleSave = async () => {
     if (!canManage) {
-      setPageError("Only workspace owners and super-admins can save desktop policies.");
+      setPageError("只有公司所有者和超级管理员可以保存桌面策略。");
       return;
     }
 
@@ -294,7 +294,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
 
   const handleToggleEnabled = async () => {
     if (!canManage) {
-      setPageError("Only workspace owners and super-admins can enable or disable desktop policies.");
+      setPageError("只有公司所有者和超级管理员可以启用或停用桌面策略。");
       return;
     }
     if (!policy || !desktopPolicyId || isDefault) return;
@@ -360,7 +360,7 @@ export function DesktopPolicyEditorScreen({ desktopPolicyId }: { desktopPolicyId
         <section className="grid gap-5 rounded-[28px] border border-gray-200 bg-white p-6">
           {!canManage ? (
             <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-              Read-only: owners and super-admins can edit desktop policies.
+              当前为只读模式，只有公司所有者和超级管理员可以修改桌面策略。
             </div>
           ) : null}
           <div className="flex flex-wrap items-end gap-3">

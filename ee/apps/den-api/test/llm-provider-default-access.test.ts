@@ -125,6 +125,53 @@ test("普通成员不能把模型默认开放给全公司", async () => {
   expect(response.status).toBe(403);
 });
 
+test("管理员配置的图片输入能力通过模型连接接口完整下发", async () => {
+  const created = await request(adminUserId, "/v1/llm-providers", {
+    method: "POST",
+    body: JSON.stringify(providerBody({
+      name: "公司多模态模型",
+      imageInputModelIds: ["vision-company"],
+      customConfig: {
+        id: "company-multimodal",
+        name: "公司多模态模型",
+        npm: "@ai-sdk/openai-compatible",
+        api: "https://models.test.local/v1",
+        env: ["COMPANY_MULTIMODAL_API_KEY"],
+        models: [
+          { id: "vision-company", name: "视觉模型" },
+          {
+            id: "text-company",
+            name: "文字模型",
+            attachment: true,
+            modalities: { input: ["text", "image"], output: ["text"] },
+          },
+        ],
+      },
+    })),
+  });
+  expect(created.status).toBe(201);
+  const createdBody = await created.json() as { llmProvider: { id: string } };
+  const providerId = createdBody.llmProvider.id;
+  providerIds.push(providerId);
+
+  const connected = await request(adminUserId, `/v1/llm-providers/${providerId}/connect`);
+  expect(connected.status).toBe(200);
+  const connectedBody = await connected.json() as {
+    llmProvider: { models: Array<{ id: string; config: Record<string, unknown> }> };
+  };
+  const modelsById = Object.fromEntries(
+    connectedBody.llmProvider.models.map((model) => [model.id, model.config]),
+  );
+  expect(modelsById["vision-company"]).toMatchObject({
+    attachment: true,
+    modalities: { input: ["text", "image"], output: ["text"] },
+  });
+  expect(modelsById["text-company"]).toMatchObject({
+    attachment: false,
+    modalities: { input: ["text"], output: ["text"] },
+  });
+});
+
 test("默认全员模型覆盖现有与以后新增成员，关闭后保留明确授权", async () => {
   const created = await request(adminUserId, "/v1/llm-providers", {
     method: "POST",

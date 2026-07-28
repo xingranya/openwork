@@ -27,7 +27,7 @@ const originalServerUrl = process.env.OPENWORK_SERVER_URL;
 const originalServerToken = process.env.OPENWORK_SERVER_TOKEN;
 
 const UNCHANGED_EXTENSION_DISCOVERY_INSTRUCTION =
-  "如果员工提出的任务无法直接用内置工具完成，先检查 FoxWork 扩展，再判断能力是否可用。使用 openwork_extension_list_actions 查看可用动作，再通过 openwork_extension_call 调用匹配动作。";
+  "如果员工提出的任务无法直接用内置工具完成，先用 openwork_context 查看 FoxWork 当前提供的扩展能力，再按返回的执行器调用对应工具；确认没有可用能力后再说明限制。";
 
 beforeEach(() => {
   resetOpenWorkExtensionDiscoveryInstructionCacheForTests();
@@ -134,9 +134,9 @@ describe("composeOpenWorkExtensionDiscoveryInstruction", () => {
     });
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("Skill creation: Cloud");
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("retrieve and follow the listed create-skill remote skill");
-    expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("openwork-cloud_execute_capability");
+    expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("foxwork-company_execute_capability");
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("exact <capability>");
-    expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("OpenWork Cloud as a private plugin");
+    expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("company service as a private plugin");
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("add-to-marketplace");
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("add-user-to-marketplace");
     expect(OPENWORK_CLOUD_SKILL_AUTHORING_INSTRUCTION).toContain("workspace-local skill");

@@ -129,6 +129,18 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
     execute: (args) => {
       const sessionId = stringArg(args, "sessionId");
       if (!sessionId) return { ok: false, error: "必须提供 sessionId。" };
+      const targetWorkspace = findSessionWorkspace(workspaces, sessionsByWorkspaceId, sessionId);
+      const workbench = useWorkbenchStore.getState();
+      if (targetWorkspace?.id === workbench.workspaceId) {
+        if (sessionId === workbench.primarySessionId) {
+          workbench.focusPane("primary");
+          return { ok: true, sessionId, reused: "primary-pane" };
+        }
+        if (sessionId === workbench.splitSessionId) {
+          workbench.focusPane("secondary");
+          return { ok: true, sessionId, reused: "secondary-pane" };
+        }
+      }
       navigateToSession(sessionId);
       return {
         ok: true,

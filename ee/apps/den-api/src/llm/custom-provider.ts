@@ -1,5 +1,6 @@
 import { parse, type ParseError } from "jsonc-parser"
 import { applyModelReasoningDefaults } from "@openwork/types/model-reasoning"
+import { ensureProviderApiVersion } from "@openwork/types/url"
 import { z } from "zod"
 
 type JsonRecord = Record<string, unknown>
@@ -143,10 +144,18 @@ export function normalizeCustomProviderConfig(input: {
   }
 
   const { models, ...providerConfig } = customProvider.data
+  const compatibleProtocol = [
+    "@ai-sdk/openai-compatible",
+    "@ai-sdk/openai",
+    "@ai-sdk/anthropic",
+  ].includes(customProvider.data.npm)
+  const normalizedProviderConfig = compatibleProtocol && customProvider.data.api
+    ? { ...providerConfig, api: ensureProviderApiVersion(customProvider.data.api) }
+    : providerConfig
 
   return {
     providerId: customProvider.data.id,
-    providerConfig,
+    providerConfig: normalizedProviderConfig,
     models: models.map((model) => {
       const modelProvider = isRecord(model.provider) ? model.provider : null
       const npm = readString(modelProvider?.npm) ?? customProvider.data.npm

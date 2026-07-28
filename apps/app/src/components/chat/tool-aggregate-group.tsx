@@ -87,7 +87,7 @@ export function ToolAggregateGroup({ parts, className }: ToolAggregateGroupProps
         <span className="min-w-0 truncate">{summary}</span>
         {failedCount > 0 ? (
           <span className="shrink-0 text-xs text-muted-foreground">
-            {failedCount} failed
+            {failedCount} 个失败
           </span>
         ) : null}
       </button>
@@ -96,7 +96,7 @@ export function ToolAggregateGroup({ parts, className }: ToolAggregateGroupProps
         <div className="mt-1 flex min-w-0 items-center gap-2 ps-5 text-sm text-muted-foreground">
           <DotMatrixLoader label={nowLabel} className="text-muted-foreground" />
           <span className="min-w-0 truncate">
-            <span className="text-muted-foreground/70">Now: </span>
+            <span className="text-muted-foreground/70">正在： </span>
             {nowLabel}
           </span>
         </div>
@@ -112,7 +112,7 @@ export function ToolAggregateGroup({ parts, className }: ToolAggregateGroupProps
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                   {status === "running" ? (
                     <span className="flex size-3.5 shrink-0 items-center justify-center">
-                      <DotMatrixLoader label="Running" className="size-3 text-muted-foreground" />
+                      <DotMatrixLoader label="运行中" className="size-3 text-muted-foreground" />
                     </span>
                   ) : null}
                   {(() => {
@@ -138,7 +138,7 @@ export function ToolAggregateGroup({ parts, className }: ToolAggregateGroupProps
                   ) : null}
                 </div>
                 {reason ? (
-                  <div className="text-[11px] text-muted-foreground">failed — {reason}</div>
+                  <div className="text-[11px] text-muted-foreground">失败 — {reason}</div>
                 ) : null}
               </div>
             )
@@ -149,7 +149,7 @@ export function ToolAggregateGroup({ parts, className }: ToolAggregateGroupProps
               onClick={() => setShowAll(true)}
               className="w-fit text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              Show {hiddenCount} more
+              再显示 {hiddenCount} 项
             </button>
           ) : null}
         </div>

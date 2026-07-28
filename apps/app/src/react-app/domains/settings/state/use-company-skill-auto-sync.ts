@@ -137,7 +137,7 @@ export function useCompanySkillAutoSync(input: {
                 token: currentSettings.authToken,
               })
             : null,
-          orgId: currentSettings.activeOrgId,
+          orgId: currentSettings.activeOrgId ?? null,
           openworkClient: client,
           workspaceId,
           includeGlobal: input.workspaceType === "local",

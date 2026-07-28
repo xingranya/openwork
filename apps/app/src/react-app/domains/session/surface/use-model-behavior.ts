@@ -12,6 +12,35 @@ type ProviderModel = ProviderListItem["models"][string];
 
 export type ProviderCatalog = Record<string, Record<string, ProviderModel>>;
 
+export function modelSupportsImageInput(model: unknown) {
+  if (!model || typeof model !== "object" || Array.isArray(model)) return false;
+  const record = model as Record<string, unknown>;
+  if (record.attachment === true) return true;
+
+  const capabilities = record.capabilities;
+  if (capabilities && typeof capabilities === "object" && !Array.isArray(capabilities)) {
+    const capabilityRecord = capabilities as Record<string, unknown>;
+    if (capabilityRecord.attachment === true) return true;
+    const capabilityInput = capabilityRecord.input;
+    if (capabilityInput && typeof capabilityInput === "object" && !Array.isArray(capabilityInput)) {
+      if ((capabilityInput as Record<string, unknown>).image === true) return true;
+    }
+  }
+
+  const modalities = record.modalities;
+  if (!modalities || typeof modalities !== "object" || Array.isArray(modalities)) return false;
+  const input = (modalities as Record<string, unknown>).input;
+  return Array.isArray(input) && input.some((value) => value === "image");
+}
+
+export function modelRefSupportsImageInput(
+  providerCatalog: Record<string, Record<string, unknown>>,
+  model: ModelRef | null | undefined,
+) {
+  if (!model) return false;
+  return modelSupportsImageInput(providerCatalog[model.providerID]?.[model.modelID]);
+}
+
 const emptyModelBehaviorOptions: { value: string | null; label: string }[] = [];
 
 export type UseModelBehaviorInput = {

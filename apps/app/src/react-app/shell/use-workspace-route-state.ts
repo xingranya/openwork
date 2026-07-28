@@ -130,6 +130,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const [client, setClient] = useState<OpenworkServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
+  const [hostToken, setHostToken] = useState("");
   const [workspaces, setWorkspaces] = useState<RouteWorkspace[]>([]);
   const [workspaceOrderIds, setWorkspaceOrderIds] = useState<string[]>(() => readWorkspaceOrderIds());
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<Record<string, RouteSession[]>>({});
@@ -154,12 +155,12 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   // through `loadWorkspaceSessionsInBackground` and `refreshRouteState` and
   // produce a tight render-refresh-setWorkspaces loop.
   const currentWorkspaceServerClientResolver = useMemo(
-    () => createWorkspaceServerClientResolver({ baseUrl, token }),
-    [baseUrl, token],
+    () => createWorkspaceServerClientResolver({ baseUrl, token, hostToken }),
+    [baseUrl, hostToken, token],
   );
   const workspaceServerClientResolverRef = useRef(currentWorkspaceServerClientResolver);
   workspaceServerClientResolverRef.current = currentWorkspaceServerClientResolver;
-  const updateLocalServer = useCallback((next: { baseUrl: string; token: string }) => {
+  const updateLocalServer = useCallback((next: { baseUrl: string; token: string; hostToken?: string }) => {
     const resolver = createWorkspaceServerClientResolver(next);
     workspaceServerClientResolverRef.current = resolver;
     return resolver;
@@ -403,17 +404,18 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
 
       const { normalizedBaseUrl, resolvedToken, resolvedHostToken, hostInfo } = await withRouteRefreshTimeout(
         resolveOpenworkConnection(),
-        "OpenWork server connection",
+        "FoxWork 服务连接",
       );
       onHostInfo(hostInfo);
       if (!normalizedBaseUrl || !resolvedToken) {
         // Keep the workspace endpoint resolver in lockstep with the disconnected state.
         // Otherwise a previously-cached baseUrl/token would still resolve a
         // (now invalid) endpoint for any callback that consults the resolver ref.
-        updateLocalServer({ baseUrl: "", token: "" });
+        updateLocalServer({ baseUrl: "", token: "", hostToken: "" });
         setClient(null);
         setBaseUrl("");
         setToken("");
+        setHostToken("");
         const orderedDesktopWorkspaces = orderRouteWorkspaces(desktopWorkspaces, workspaceOrderIdsRef.current);
         setWorkspaces(orderedDesktopWorkspaces);
         sessionsByWorkspaceIdRef.current = {};
@@ -431,7 +433,11 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       // `loadWorkspaceSessionsInBackground` calls that fire later in this
       // function. Stale ref => `resolveWorkspaceEndpoint` returns null for
       // local workspaces => sidebar gets stuck in "loading" forever.
-      const routeWorkspaceServerClientResolver = updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken });
+      const routeWorkspaceServerClientResolver = updateLocalServer({
+        baseUrl: normalizedBaseUrl,
+        token: resolvedToken,
+        hostToken: resolvedHostToken,
+      });
 
       const openworkClient = createOpenworkServerClient({
         baseUrl: normalizedBaseUrl,
@@ -473,11 +479,16 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         if (match?.workspaceId) nextWorkspaceId = match.workspaceId;
       }
 
-      updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken });
+      updateLocalServer({
+        baseUrl: normalizedBaseUrl,
+        token: resolvedToken,
+        hostToken: resolvedHostToken,
+      });
 
       setClient(openworkClient);
       setBaseUrl(normalizedBaseUrl);
       setToken(resolvedToken);
+      setHostToken(resolvedHostToken);
       setWorkspaces(nextWorkspaces);
       const nextSessionsByWorkspaceId = Object.fromEntries(cachedEntries.map((entry) => [entry.workspaceId, entry.sessions]));
       sessionsByWorkspaceIdRef.current = nextSessionsByWorkspaceId;
@@ -814,7 +825,11 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   // Single source of truth for the selected workspace's server URL/token/id.
   // For remote workspaces this is the worker that owns the workspace; for
   // local workspaces it's the user's local OpenWork server.
-  const selectedWorkspaceEndpoint = useWorkspaceServerClient(selectedWorkspace, { baseUrl, token });
+  const selectedWorkspaceEndpoint = useWorkspaceServerClient(selectedWorkspace, {
+    baseUrl,
+    token,
+    hostToken,
+  });
   const selectedWorkspaceServerToken = selectedWorkspaceEndpoint?.token ?? "";
   const opencodeBaseUrl = selectedWorkspaceEndpoint?.opencodeBaseUrl ?? "";
   const selectedWorkspaceError = errorsByWorkspaceId[selectedWorkspaceId] ?? null;

@@ -804,6 +804,28 @@ export function pluginArchAsyncResponseSchema<TSchema extends z.ZodTypeAny>(ref:
   }).meta({ ref })
 }
 
+export const companySkillZipImportResultSchema = z.object({
+  action: z.enum(["created", "updated", "unchanged"]),
+  bundleHash: z.string().regex(/^[a-f0-9]{64}$/u),
+  fileCount: z.number().int().nonnegative(),
+  folder: z.string().trim().min(1),
+  id: configObjectIdSchema,
+  pluginId: pluginIdSchema,
+  slug: z.string().trim().min(1),
+}).meta({ ref: "PluginArchCompanySkillZipImportResult" })
+
+export const companySkillZipImportFailureSchema = z.object({
+  code: z.string().trim().min(1),
+  folder: z.string().trim().min(1),
+  reason: z.string().trim().min(1),
+  slug: z.string().trim().min(1).nullable().optional(),
+}).meta({ ref: "PluginArchCompanySkillZipImportFailure" })
+
+export const companySkillZipImportResponseSchema = z.object({
+  failures: z.array(companySkillZipImportFailureSchema),
+  results: z.array(companySkillZipImportResultSchema),
+}).meta({ ref: "PluginArchCompanySkillZipImportResponse" })
+
 export const configObjectListResponseSchema = pluginArchListResponseSchema("PluginArchConfigObjectListResponse", configObjectSchema)
 export const configObjectDetailResponseSchema = pluginArchDetailResponseSchema("PluginArchConfigObjectDetailResponse", configObjectSchema)
 export const configObjectMutationResponseSchema = pluginArchMutationResponseSchema("PluginArchConfigObjectMutationResponse", configObjectSchema)

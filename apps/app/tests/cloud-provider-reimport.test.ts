@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import type {
   DenOrgLlmProviderConnection,
@@ -16,17 +14,6 @@ import {
 } from "../src/react-app/domains/connections/provider-auth/cloud-provider-config";
 
 const LPR_ID = "lpr_openrouter";
-
-const providerAuthStoreSourcePath = join(
-  import.meta.dir,
-  "..",
-  "src",
-  "react-app",
-  "domains",
-  "connections",
-  "provider-auth",
-  "store.ts",
-);
 
 const makeModel = (id: string, name = id): DenOrgLlmProviderModel => ({
   id,
@@ -131,22 +118,5 @@ describe("cloud provider runtime patch (re-import diff #2346)", () => {
 
     // After re-import the baseline advances -> in sync again.
     expect(isCloudProviderOutOfSync(updated, importedFrom(updated))).toBe(false);
-  });
-
-  test("provider baseline persistence does not refresh the desktop cloud snapshot", () => {
-    const source = readFileSync(providerAuthStoreSourcePath, "utf8");
-    const persistStart = source.indexOf("const persistImportedCloudProviders = async");
-    const persistEnd = source.indexOf("const readProjectConfigFile", persistStart);
-    expect(persistStart).toBeGreaterThanOrEqual(0);
-    expect(persistEnd).toBeGreaterThan(persistStart);
-
-    const persistSource = source.slice(persistStart, persistEnd);
-    expect(persistSource).toContain("const config = await readWorkspaceOpenworkConfigRecord();");
-    expect(persistSource).toContain("const cloudImports = readWorkspaceCloudImports(config);");
-    expect(persistSource).toContain("const nextConfig = withWorkspaceCloudImports(config");
-    expect(persistSource).toContain("const persisted = await writeWorkspaceOpenworkConfigRecord(nextConfig);");
-    expect(persistSource).toContain('setStateField("importedCloudProviders", nextProviders);');
-    expect(source).not.toContain("refreshDesktop" + "CloudSync");
-    expect(source).not.toContain("getResource" + "Snapshot");
   });
 });

@@ -27,6 +27,7 @@ import {
   markOpenWorkModelsStartupPromoShown,
 } from "../domains/cloud/openwork-models-promo";
 import { useDenAuth, type DenAuthStatus } from "../domains/cloud/den-auth-provider";
+import { JoinOrganizationDialog } from "../domains/cloud/join-organization-dialog";
 import { resolveOpenworkConnection } from "./openwork-connection";
 import { buildOpenworkWorkspaceBaseUrl, createOpenworkServerClient } from "../../app/lib/openwork-server";
 import { captureAnalyticsEvent } from "../../app/lib/analytics";

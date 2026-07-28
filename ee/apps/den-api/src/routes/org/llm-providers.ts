@@ -15,6 +15,7 @@ import { z } from "zod"
 import { db } from "../../db.js"
 import { CustomProviderConfigError, normalizeCustomProviderConfig } from "../../llm/custom-provider.js"
 import { probeEndpoint, verifyModels, type ProbeProtocol } from "../../llm/endpoint-probe.js"
+import { applyModelImageInputCapabilities } from "../../llm/model-capabilities.js"
 import {
   ProviderCredentialError,
   decodeProviderCredential,
@@ -68,6 +69,7 @@ const llmProviderWriteSchema = z.object({
   source: z.enum(["models_dev", "custom"]),
   providerId: z.string().trim().min(1).max(255).optional(),
   modelIds: z.array(z.string().trim().min(1).max(255)).min(1).optional(),
+  imageInputModelIds: z.array(z.string().trim().min(1).max(255)).max(500).optional(),
   customConfigText: z.string().trim().min(1).optional(),
   customConfig: z.unknown().optional(),
   apiKey: z.string().trim().max(65535).optional(),
@@ -381,11 +383,14 @@ async function normalizeLlmProviderInput(
       providerId: provider.id,
       name: input.name,
       providerConfig: provider.config,
-      models: models.map((model) => ({
-        id: model.id,
-        name: model.name,
-        config: model.config,
-      })),
+      models: applyModelImageInputCapabilities(
+        models.map((model) => ({
+          id: model.id,
+          name: model.name,
+          config: model.config,
+        })),
+        input.imageInputModelIds,
+      ),
       apiKey: resolveCredentialColumn({
         providerConfig: provider.config,
         existingProvider,
@@ -406,7 +411,10 @@ async function normalizeLlmProviderInput(
       providerId: customProvider.providerId,
       name: input.name,
       providerConfig: customProvider.providerConfig,
-      models: customProvider.models,
+      models: applyModelImageInputCapabilities(
+        customProvider.models,
+        input.imageInputModelIds,
+      ),
       apiKey: resolveCredentialColumn({
         providerConfig: customProvider.providerConfig,
         existingProvider,

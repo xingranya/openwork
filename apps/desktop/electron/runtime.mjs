@@ -242,6 +242,14 @@ async function fileExists(targetPath) {
   }
 }
 
+export async function ensureWorkspaceOpencodeConfig(projectDir) {
+  const configPath = resolveWorkspaceOpencodeConfigPath(projectDir);
+  if (await fileExists(configPath)) return configPath;
+  await mkdir(path.dirname(configPath), { recursive: true });
+  await writeFile(configPath, `${JSON.stringify({}, null, 2)}\n`, "utf8");
+  return configPath;
+}
+
 async function readJsonFile(targetPath, fallback) {
   try {
     const raw = await readFile(targetPath, "utf8");
@@ -1100,17 +1108,6 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     }
   }
 
-  async function ensureOpencodeConfig(projectDir) {
-    const configPath = resolveWorkspaceOpencodeConfigPath(projectDir);
-    if (await fileExists(configPath)) return;
-    await mkdir(path.dirname(configPath), { recursive: true });
-    await writeFile(
-      jsoncPath,
-      `${JSON.stringify({}, null, 2)}\n`,
-      "utf8",
-    );
-  }
-
   function generateManagedCredentials() {
     return [randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, ""), randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "")];
   }
@@ -1484,7 +1481,7 @@ export function createRuntimeManager({ app, desktopRoot, listLocalWorkspacePaths
     }
 
     await mkdir(safeProjectDir, { recursive: true });
-    await ensureOpencodeConfig(safeProjectDir);
+    await ensureWorkspaceOpencodeConfig(safeProjectDir);
     await prepareFreshRuntime();
 
     const workspacePaths = [safeProjectDir, ...((options.workspacePaths ?? []).filter(Boolean))].filter(

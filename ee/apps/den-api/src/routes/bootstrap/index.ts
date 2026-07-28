@@ -29,9 +29,9 @@ import { denTypeIdSchema, forbiddenSchema, invalidRequestSchema, jsonResponse, n
 import { seedDefaultOrganizationRoles, setSessionActiveOrganization } from "../../orgs.js"
 import type { AuthContextVariables } from "../../session.js"
 import {
-  DEFAULT_OPENWORK_MARKETPLACE_DESCRIPTION,
-  DEFAULT_OPENWORK_MARKETPLACE_LOGO_URL,
-  DEFAULT_OPENWORK_MARKETPLACE_NAME,
+  DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
+  DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
+  DEFAULT_FOXWORK_MARKETPLACE_NAME,
 } from "../org/plugin-system/default-marketplaces.js"
 
 const BOOTSTRAP_TTL_MS = 1000 * 60 * 60 * 24
@@ -330,9 +330,9 @@ export function registerBootstrapRoutes<T extends { Variables: AuthContextVariab
         await tx.insert(MarketplaceTable).values({
           id: marketplaceId,
           organizationId,
-          name: DEFAULT_OPENWORK_MARKETPLACE_NAME,
-          description: DEFAULT_OPENWORK_MARKETPLACE_DESCRIPTION,
-          logoUrl: DEFAULT_OPENWORK_MARKETPLACE_LOGO_URL,
+          name: DEFAULT_FOXWORK_MARKETPLACE_NAME,
+          description: DEFAULT_FOXWORK_MARKETPLACE_DESCRIPTION,
+          logoUrl: DEFAULT_FOXWORK_MARKETPLACE_LOGO_URL,
           status: "active",
           createdByOrgMembershipId: setupMemberId,
           deletedAt: null,

@@ -89,6 +89,42 @@ describe("isCloudProviderOutOfSync", () => {
 });
 
 describe("buildCloudProviderConfig", () => {
+  test("完整保留 Den 下发的图片输入能力", () => {
+    const provider = makeProvider([{
+      ...makeModel("vision-company"),
+      config: {
+        attachment: true,
+        modalities: {
+          input: ["text", "image"],
+          output: ["text"],
+        },
+      },
+    }]);
+    provider.providerConfig = { npm: "@ai-sdk/openai-compatible" };
+
+    expect(buildCloudProviderConfig({
+      ...provider,
+      apiKey: "secret",
+      apiKeys: null,
+    })).toEqual({
+      id: "openrouter",
+      name: "OpenRouter",
+      env: [],
+      npm: "@ai-sdk/openai-compatible",
+      models: {
+        "vision-company": {
+          id: "vision-company",
+          name: "vision-company",
+          attachment: true,
+          modalities: {
+            input: ["text", "image"],
+            output: ["text"],
+          },
+        },
+      },
+    });
+  });
+
   test("完整保留 Den 下发的推理能力和强度变体", () => {
     const provider = makeProvider([{
       ...makeModel("claude-company"),

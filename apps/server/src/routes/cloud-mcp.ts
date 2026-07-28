@@ -138,9 +138,48 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
     return jsonResponse(health);
   };
 
+  const engineRefreshHandler = async (ctx: RequestContext) => {
+    ensureWritable(config);
+    requireClientScope(ctx, "collaborator");
+    const workspace = await resolveWorkspace(config, ctx.params.id);
+    assertExactWorkspace(ctx.params.id, workspace);
+
+    // 刷新本身不要求请求体；可选对象只用于指定模型上下文和记录触发来源。
+    // 非法 JSON 必须明确返回 400，不能静默当成空请求继续执行。
+    const raw = (await ctx.request.text()).trim();
+    let body: Record<string, unknown> = {};
+    if (raw) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new ApiError(400, "invalid_json", "JSON 请求内容格式无效");
+      }
+      if (!isRecord(parsed)) {
+        throw new ApiError(400, "invalid_payload", "请求内容必须是 JSON 对象");
+      }
+      body = parsed;
+    }
+
+    assertStrictBody(body, workspace);
+    const result = await refreshOpenworkCloudMcpEngine({
+      config,
+      workspace,
+      directory: resolveOpencodeDirectory(workspace),
+      providerModel: providerModelFromBody(body),
+      serverMetadata,
+      createWorkspaceOpencodeClient,
+      registerRuntimeMcp,
+      refreshRegistrationFromLiveStatus,
+      trigger: typeof body.trigger === "string" ? body.trigger : undefined,
+    });
+    return jsonResponse(result);
+  };
+
   // 新客户端使用 company 路径；旧路径仅作为升级期间的兼容入口，不再出现在员工界面。
   for (const prefix of ["/workspace/:id/mcp/company", "/workspace/:id/mcp/openwork-cloud"]) {
     addRoute(routes, "GET", `${prefix}/health`, "client", healthHandler);
+    addRoute(routes, "POST", `${prefix}/engine-refresh`, "client", engineRefreshHandler);
     addRoute(routes, "POST", `${prefix}/reconcile`, "client", reconcileHandler);
   }
 }

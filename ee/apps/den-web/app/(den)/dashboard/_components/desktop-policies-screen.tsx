@@ -6,7 +6,11 @@ import { Laptop, Plus } from "lucide-react";
 import { DashboardPageTemplate } from "../../_components/ui/dashboard-page-template";
 import { DenButton, buttonVariants } from "../../_components/ui/button";
 import { getErrorMessage } from "../../_lib/den-flow";
-import { getDesktopPolicyRoute, getNewDesktopPolicyRoute } from "../../_lib/den-org";
+import {
+  getDesktopPolicyRoute,
+  getNewDesktopPolicyRoute,
+  getOrgAccessFlags,
+} from "../../_lib/den-org";
 import { useOrgDashboard } from "../_providers/org-dashboard-provider";
 import {
   deleteDesktopPolicy,
@@ -89,7 +93,7 @@ export function DesktopPoliciesScreen() {
           </Link>
         ) : (
           <DenButton type="button" icon={Plus} disabled>
-            New policy
+            新建策略
           </DenButton>
         )}
       </div>

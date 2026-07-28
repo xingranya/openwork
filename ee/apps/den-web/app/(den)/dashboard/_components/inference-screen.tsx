@@ -234,7 +234,12 @@ export function InferenceScreen() {
   const [subscribeBusy, setSubscribeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isOwner = orgContext?.currentMember.isOwner === true;
+  const access = getOrgAccessFlags(
+    orgContext?.currentMember.role ?? "member",
+    orgContext?.currentMember.isOwner ?? false,
+    orgContext?.roles,
+  );
+  const canManageModels = access.isAdmin;
   // 托管模型属于云服务；单公司自托管部署统一使用公司配置的模型服务。
   const isSelfHosted = runtimeConfigLoaded && runtimeConfig.orgMode === "single_org";
   const activeOrgSlug = activeOrg?.slug ?? null;
@@ -275,7 +280,7 @@ export function InferenceScreen() {
   // 在当前页面直接进入 Stripe 结算；账单页只负责查看订阅状态和管理入口。
   async function startSubscribeCheckout() {
     if (!canManageModels) {
-      setError("Only workspace admins can start OpenWork Models checkout.");
+      setError("只有公司管理员可以发起平台模型订阅。");
       return;
     }
 
@@ -309,7 +314,7 @@ export function InferenceScreen() {
 
   async function toggleEnabled() {
     if (!canManageModels) {
-      setError("Only workspace admins can manage OpenWork Models.");
+      setError("只有公司管理员可以管理平台模型。");
       return;
     }
     if (!status) return;

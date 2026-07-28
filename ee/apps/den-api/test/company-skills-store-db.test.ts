@@ -6,12 +6,14 @@ import { createDenDb } from "@openwork-ee/den-db"
 import { eq } from "@openwork-ee/den-db/drizzle"
 import {
   AuthUserTable,
+  ConfigObjectAccessGrantTable,
+  ConfigObjectTable,
+  ConfigObjectVersionTable,
   MemberTable,
   OrganizationTable,
-  SkillHubMemberTable,
-  SkillHubSkillTable,
-  SkillHubTable,
-  SkillTable,
+  PluginAccessGrantTable,
+  PluginConfigObjectTable,
+  PluginTable,
 } from "@openwork-ee/den-db/schema"
 import { createDenTypeId } from "@openwork-ee/utils/typeid"
 import mysql from "../../../packages/den-db/node_modules/mysql2/promise.js"
@@ -73,18 +75,28 @@ databaseTest("MySQL 当前 Schema 建表后可原子保存、幂等读取完整�
     const database = createDenDb({ databaseUrl: testDatabaseUrl, mode: "mysql" })
     client = database.client
     mock.module("../src/db.js", () => ({ db: database.db }))
-    const [storeModule, zipModule] = await Promise.all([
+    const [bundleModule, storeModule, zipModule, pluginStoreModule] = await Promise.all([
+      import("../src/routes/org/company-skill-bundle.js"),
       import("../src/routes/org/company-skills-store.js"),
       import("../src/routes/org/skill-zip-import.js"),
+      import("../src/routes/org/plugin-system/store.js"),
     ])
 
     const userId = createDenTypeId("user")
+    const employeeUserId = createDenTypeId("user")
     const organizationId = createDenTypeId("organization")
     const memberId = createDenTypeId("member")
+    const employeeMemberId = createDenTypeId("member")
+    const now = new Date()
     await database.db.insert(AuthUserTable).values({
       id: userId,
       name: "公司技能集成测试",
       email: `skill-import-${userId}@test.local`,
+    })
+    await database.db.insert(AuthUserTable).values({
+      id: employeeUserId,
+      name: "公司技能普通员工",
+      email: `skill-employee-${employeeUserId}@test.local`,
     })
     await database.db.insert(OrganizationTable).values({
       id: organizationId,
@@ -96,6 +108,12 @@ databaseTest("MySQL 当前 Schema 建表后可原子保存、幂等读取完整�
       organizationId,
       userId,
       role: "admin",
+    })
+    await database.db.insert(MemberTable).values({
+      id: employeeMemberId,
+      organizationId,
+      userId: employeeUserId,
+      role: "member",
     })
 
     const bundle = zipModule.validateCompanySkillBundleFiles("evidence-review", [
@@ -119,25 +137,85 @@ databaseTest("MySQL 当前 Schema 建表后可原子保存、幂等读取完整�
 
     const first = await storeModule.saveCompanySkill(input)
     const second = await storeModule.saveCompanySkill(input)
-    const [skills, hubs, hubSkills, hubMembers] = await Promise.all([
-      database.db.select().from(SkillTable).where(eq(SkillTable.organizationId, organizationId)),
-      database.db.select().from(SkillHubTable).where(eq(SkillHubTable.organizationId, organizationId)),
-      database.db.select().from(SkillHubSkillTable),
-      database.db.select().from(SkillHubMemberTable),
+    const employeeCatalog = await pluginStoreModule.listConfigObjects({
+      context: {
+        memberTeams: [],
+        organizationContext: {
+          organization: {
+            id: organizationId,
+            name: "公司技能集成测试",
+            slug: `skill-import-${organizationId}`,
+            logo: null,
+            allowedEmailDomains: null,
+            metadata: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          currentMember: {
+            id: employeeMemberId,
+            userId: employeeUserId,
+            role: "member",
+            createdAt: now,
+            joinedAt: now,
+            isOwner: false,
+          },
+          invitations: [],
+          members: [],
+          roles: [],
+          teams: [],
+        },
+        session: { createdAt: now },
+      },
+      limit: 100,
+      status: "active",
+      type: "skill",
+    })
+    const [plugins, configObjects, versions, pluginObjects, pluginGrants, configObjectGrants] = await Promise.all([
+      database.db.select().from(PluginTable).where(eq(PluginTable.organizationId, organizationId)),
+      database.db.select().from(ConfigObjectTable).where(eq(ConfigObjectTable.organizationId, organizationId)),
+      database.db.select().from(ConfigObjectVersionTable).where(eq(ConfigObjectVersionTable.organizationId, organizationId)),
+      database.db.select().from(PluginConfigObjectTable).where(eq(PluginConfigObjectTable.organizationId, organizationId)),
+      database.db.select().from(PluginAccessGrantTable).where(eq(PluginAccessGrantTable.organizationId, organizationId)),
+      database.db.select().from(ConfigObjectAccessGrantTable).where(eq(ConfigObjectAccessGrantTable.organizationId, organizationId)),
     ])
 
     expect(first.action).toBe("created")
     expect(second.action).toBe("unchanged")
-    expect(skills).toHaveLength(1)
-    expect(hubs).toHaveLength(1)
-    expect(hubSkills).toHaveLength(1)
-    expect(hubMembers).toHaveLength(1)
-    expect(storeModule.serializeCompanySkill(skills[0]!, true)).toMatchObject({
+    expect(plugins).toHaveLength(1)
+    expect(configObjects).toHaveLength(1)
+    expect(versions).toHaveLength(1)
+    expect(pluginObjects).toHaveLength(1)
+    expect(pluginGrants).toHaveLength(2)
+    expect(configObjectGrants).toHaveLength(2)
+    expect(first.item).toMatchObject({
       slug: "evidence-review",
       files: [
         expect.objectContaining({ path: "SKILL.md" }),
         expect.objectContaining({ path: "references/checklist.md" }),
       ],
+    })
+    expect(employeeCatalog.items).toEqual([
+      expect.objectContaining({
+        id: first.item.id,
+        latestVersion: expect.objectContaining({
+          rawSourceText: bundle.skillText,
+          normalizedPayloadJson: expect.objectContaining({
+            foxworkSkillBundle: expect.objectContaining({
+              bundleHash: bundle.bundleHash,
+              files: bundle.files,
+              shared: "org",
+            }),
+          }),
+        }),
+        objectType: "skill",
+        status: "active",
+      }),
+    ])
+    expect(bundleModule.parseCompanySkillVersionPayload(versions[0]!)).toMatchObject({
+      bundleHash: bundle.bundleHash,
+      files: bundle.files,
+      shared: "org",
+      skillText: bundle.skillText,
     })
   } finally {
     mock.restore()

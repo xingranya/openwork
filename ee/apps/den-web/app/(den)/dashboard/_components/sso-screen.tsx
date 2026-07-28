@@ -170,7 +170,7 @@ export function SsoScreen() {
       return;
     }
     if (!access.canManageSso) {
-      setError("Only workspace owners and super-admins can change SSO settings.");
+      setError("只有公司所有者和超级管理员可以修改单点登录设置。");
       return;
     }
 
@@ -249,7 +249,7 @@ export function SsoScreen() {
 
   async function handleRequestDomainToken() {
     if (!access.canManageSso) {
-      setError("Only workspace owners and super-admins can request SSO domain verification tokens.");
+      setError("只有公司所有者和超级管理员可以申请单点登录域名验证信息。");
       return;
     }
     if (!orgId || !connection) return;
@@ -281,7 +281,7 @@ export function SsoScreen() {
 
   async function handleVerifyDomain() {
     if (!access.canManageSso) {
-      setError("Only workspace owners and super-admins can verify SSO domains.");
+      setError("只有公司所有者和超级管理员可以验证单点登录域名。");
       return;
     }
     if (!orgId || !connection) return;
@@ -333,7 +333,7 @@ export function SsoScreen() {
           {error ? <DenNotice message={error} className="mb-6" /> : null}
           {!access.canManageSso ? (
             <div className="mb-6 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">
-              Read-only: owners and super-admins can create, edit, delete, or verify SSO connections.
+              当前为只读模式，只有公司所有者和超级管理员可以新建、修改、删除或验证单点登录连接。
             </div>
           ) : null}
 
@@ -425,7 +425,7 @@ export function SsoScreen() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <DenButton variant="primary" icon={RefreshCw} onClick={() => void handleSave()} disabled={saving || !orgContext.entitlements.sso}>{saving ? "正在保存..." : "保存单点登录连接"}</DenButton>
+                <DenButton variant="primary" icon={RefreshCw} onClick={() => void handleSave()} disabled={ssoFormDisabled}>{saving ? "正在保存..." : "保存单点登录连接"}</DenButton>
                 <DenButton variant="secondary" icon={Trash2} onClick={() => void handleDelete()} disabled={deleting || !connection}>{deleting ? "正在删除..." : "删除连接"}</DenButton>
               </div>
             </div>

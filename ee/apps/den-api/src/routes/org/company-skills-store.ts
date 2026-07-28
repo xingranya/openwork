@@ -1,27 +1,57 @@
-import { and, eq, inArray, isNull, or } from "@openwork-ee/den-db/drizzle"
+import { and, desc, eq, inArray, isNull } from "@openwork-ee/den-db/drizzle"
 import {
+  ConfigObjectAccessGrantTable,
+  ConfigObjectTable,
+  ConfigObjectVersionTable,
   MemberTable,
-  SkillHubMemberTable,
-  SkillHubSkillTable,
-  SkillHubTable,
-  SkillTable,
+  OrganizationTable,
+  PluginAccessGrantTable,
+  PluginConfigObjectTable,
+  PluginTable,
   TeamTable,
 } from "@openwork-ee/den-db/schema"
-import { parseSkillMarkdown } from "@openwork-ee/utils"
 import { createDenTypeId } from "@openwork-ee/utils/typeid"
 import { db } from "../../db.js"
 import {
-  computeCompanySkillBundleHash,
+  buildCompanySkillVersionPayload,
+  COMPANY_SKILL_BUNDLE_SCHEMA_VERSION,
+  companySkillRelativePath,
+  companySkillSlugFromRelativePath,
+  parseCompanySkillVersionPayload,
+} from "./company-skill-bundle.js"
+import {
   validateCompanySkillBundleFiles,
   type ParsedSkillZipItem,
-  type SkillBundleFile,
 } from "./skill-zip-import.js"
 
-type SkillId = typeof SkillTable.$inferSelect.id
+type OrganizationId = typeof OrganizationTable.$inferSelect.id
 type MemberId = typeof MemberTable.$inferSelect.id
 type TeamId = typeof TeamTable.$inferSelect.id
-type SkillRow = typeof SkillTable.$inferSelect
+type PluginId = typeof PluginTable.$inferSelect.id
+type ConfigObjectId = typeof ConfigObjectTable.$inferSelect.id
+type PluginRow = typeof PluginTable.$inferSelect
+type ConfigObjectRow = typeof ConfigObjectTable.$inferSelect
+type ConfigObjectVersionRow = typeof ConfigObjectVersionTable.$inferSelect
+type GrantRole = typeof PluginAccessGrantTable.$inferSelect.role
+type PluginAccessGrantId = typeof PluginAccessGrantTable.$inferSelect.id
+type ConfigObjectAccessGrantId = typeof ConfigObjectAccessGrantTable.$inferSelect.id
 type SkillStoreTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+export type CompanySkillStoreDatabase = Pick<typeof db, "transaction">
+
+type AccessGrantRow<TId extends string = string> = {
+  id: TId
+  orgMembershipId: MemberId | null
+  orgWide: boolean
+  removedAt: Date | null
+  role: GrantRole
+  teamId: TeamId | null
+}
+
+type AccessTarget =
+  | { kind: "org" }
+  | { id: MemberId; kind: "member" }
+  | { id: TeamId; kind: "team" }
 
 export type CompanySkillAccess = {
   memberIds: MemberId[]
@@ -42,183 +72,321 @@ export class CompanySkillStoreError extends Error {
   }
 }
 
-function sourceKeyForSlug(slug: string) {
-  return `company:${slug}`
+function accessTargetKey(target: AccessTarget) {
+  if (target.kind === "org") return "org"
+  return `${target.kind}:${target.id}`
 }
 
-function managedHubKeyForSlug(slug: string) {
-  return `company-skill:${slug}`
+function grantTargetKey(row: Pick<AccessGrantRow, "orgMembershipId" | "orgWide" | "teamId">) {
+  if (row.orgWide) return "org"
+  if (row.orgMembershipId) return `member:${row.orgMembershipId}`
+  if (row.teamId) return `team:${row.teamId}`
+  return null
 }
 
-function legacyRowSlug(row: SkillRow) {
-  if (row.slug?.trim()) return row.slug.trim()
-  try {
-    return parseSkillMarkdown(row.skillText).name.trim()
-  } catch {
-    return ""
+function targetValues(target: AccessTarget) {
+  return {
+    orgMembershipId: target.kind === "member" ? target.id : null,
+    orgWide: target.kind === "org",
+    teamId: target.kind === "team" ? target.id : null,
   }
 }
 
-export function storedSkillFiles(row: Pick<SkillRow, "bundleFilesJson" | "skillText">): SkillBundleFile[] {
-  if (Array.isArray(row.bundleFilesJson) && row.bundleFilesJson.length > 0) {
-    return row.bundleFilesJson
-  }
-  return [{ path: "SKILL.md", contents: row.skillText }]
+function requestedAccessTargets(access: CompanySkillAccess): AccessTarget[] {
+  if (access.orgWide) return [{ kind: "org" }]
+  return [
+    ...access.memberIds.map((id) => ({ id, kind: "member" as const })),
+    ...access.teamIds.map((id) => ({ id, kind: "team" as const })),
+  ]
 }
 
-export function replaceCompanySkillEntrypoint(
-  row: Pick<SkillRow, "bundleFilesJson" | "skillText">,
-  skillText: string,
-) {
-  const files = storedSkillFiles(row).map((file) => (
-    file.path === "SKILL.md" ? { ...file, contents: skillText } : file
+export function companySkillAccessNeedsChange(rows: AccessGrantRow[], access: CompanySkillAccess) {
+  const requestedKeys = new Set(requestedAccessTargets(access).map(accessTargetKey))
+  const activeKeys = new Set(rows.flatMap((row) => {
+    if (row.removedAt) return []
+    const key = grantTargetKey(row)
+    return key ? [key] : []
+  }))
+
+  if ([...requestedKeys].some((key) => !activeKeys.has(key))) return true
+  return rows.some((row) => (
+    !row.removedAt
+    && row.role === "viewer"
+    && Boolean(grantTargetKey(row))
+    && !requestedKeys.has(grantTargetKey(row) ?? "")
   ))
-  const bundle = validateCompanySkillBundleFiles("skill", files)
-  return {
-    bundleHash: bundle.bundleHash,
-    files: bundle.files,
-    skillText: bundle.skillText,
-  }
 }
 
-export function serializeCompanySkill(row: SkillRow, canManage: boolean) {
-  const files = storedSkillFiles(row)
-  const slug = row.slug ?? legacyRowSlug(row)
-  return {
-    ...row,
-    bundleFilesJson: undefined,
-    bundleHash: row.bundleHash ?? computeCompanySkillBundleHash(files),
-    canManage,
-    files,
-    slug: slug || row.id,
-    sourceKey: undefined,
+async function lockOrganization(tx: SkillStoreTransaction, organizationId: OrganizationId) {
+  const rows = await tx
+    .select({ id: OrganizationTable.id })
+    .from(OrganizationTable)
+    .where(eq(OrganizationTable.id, organizationId))
+    .for("update")
+  if (!rows[0]) {
+    throw new CompanySkillStoreError(404, "organization_not_found", "当前公司不存在或已被删除。")
   }
 }
 
 async function validateAccessTargets(tx: SkillStoreTransaction, input: {
   access: CompanySkillAccess
-  organizationId: SkillRow["organizationId"]
+  organizationId: OrganizationId
 }) {
   const memberIds = [...new Set(input.access.memberIds)]
   const teamIds = [...new Set(input.access.teamIds)]
-  const [members, teams] = await Promise.all([
-    memberIds.length === 0
-      ? Promise.resolve([])
-      : tx.select({ id: MemberTable.id }).from(MemberTable).where(and(
-          eq(MemberTable.organizationId, input.organizationId),
-          inArray(MemberTable.id, memberIds),
-          isNull(MemberTable.removedAt),
-        )),
-    teamIds.length === 0
-      ? Promise.resolve([])
-      : tx.select({ id: TeamTable.id }).from(TeamTable).where(and(
-          eq(TeamTable.organizationId, input.organizationId),
-          inArray(TeamTable.id, teamIds),
-        )),
-  ])
+  const members = memberIds.length === 0
+    ? []
+    : await tx.select({ id: MemberTable.id }).from(MemberTable).where(and(
+        eq(MemberTable.organizationId, input.organizationId),
+        inArray(MemberTable.id, memberIds),
+        isNull(MemberTable.removedAt),
+      ))
+  const teams = teamIds.length === 0
+    ? []
+    : await tx.select({ id: TeamTable.id }).from(TeamTable).where(and(
+        eq(TeamTable.organizationId, input.organizationId),
+        inArray(TeamTable.id, teamIds),
+      ))
   if (members.length !== memberIds.length) {
     throw new CompanySkillStoreError(400, "invalid_member_access", "共享范围中包含不属于当前公司的成员。")
   }
   if (teams.length !== teamIds.length) {
     throw new CompanySkillStoreError(400, "invalid_team_access", "共享范围中包含不属于当前公司的团队。")
   }
-  return { memberIds, teamIds }
+  return {
+    memberIds: memberIds.sort(),
+    orgWide: input.access.orgWide,
+    teamIds: teamIds.sort(),
+  } satisfies CompanySkillAccess
 }
 
-async function findExistingSkill(tx: SkillStoreTransaction, input: {
-  organizationId: SkillRow["organizationId"]
-  slug: string
-}) {
-  const sourceKey = sourceKeyForSlug(input.slug)
-  const rows = await tx
-    .select()
-    .from(SkillTable)
-    .where(and(
-      eq(SkillTable.organizationId, input.organizationId),
-      or(eq(SkillTable.sourceKey, sourceKey), eq(SkillTable.slug, input.slug), isNull(SkillTable.sourceKey)),
-    ))
-  return rows.find((row) => row.sourceKey === sourceKey || legacyRowSlug(row) === input.slug) ?? null
+async function readPluginGrants(
+  tx: SkillStoreTransaction,
+  pluginId: PluginId,
+): Promise<AccessGrantRow<PluginAccessGrantId>[]> {
+  return tx
+    .select({
+      id: PluginAccessGrantTable.id,
+      orgMembershipId: PluginAccessGrantTable.orgMembershipId,
+      orgWide: PluginAccessGrantTable.orgWide,
+      removedAt: PluginAccessGrantTable.removedAt,
+      role: PluginAccessGrantTable.role,
+      teamId: PluginAccessGrantTable.teamId,
+    })
+    .from(PluginAccessGrantTable)
+    .where(eq(PluginAccessGrantTable.pluginId, pluginId))
 }
 
-async function replaceManagedHubAccess(tx: SkillStoreTransaction, input: {
+async function readConfigObjectGrants(
+  tx: SkillStoreTransaction,
+  configObjectId: ConfigObjectId,
+): Promise<AccessGrantRow<ConfigObjectAccessGrantId>[]> {
+  return tx
+    .select({
+      id: ConfigObjectAccessGrantTable.id,
+      orgMembershipId: ConfigObjectAccessGrantTable.orgMembershipId,
+      orgWide: ConfigObjectAccessGrantTable.orgWide,
+      removedAt: ConfigObjectAccessGrantTable.removedAt,
+      role: ConfigObjectAccessGrantTable.role,
+      teamId: ConfigObjectAccessGrantTable.teamId,
+    })
+    .from(ConfigObjectAccessGrantTable)
+    .where(eq(ConfigObjectAccessGrantTable.configObjectId, configObjectId))
+}
+
+function grantReconciliationPlan<TId extends string>(rows: AccessGrantRow<TId>[], access: CompanySkillAccess) {
+  const targets = requestedAccessTargets(access)
+  const requestedKeys = new Set(targets.map(accessTargetKey))
+  const activeKeys = new Set(rows.flatMap((row) => {
+    if (row.removedAt) return []
+    const key = grantTargetKey(row)
+    return key ? [key] : []
+  }))
+  return {
+    additions: targets.filter((target) => !activeKeys.has(accessTargetKey(target))),
+    removals: rows.filter((row) => (
+      !row.removedAt
+      && row.role === "viewer"
+      && Boolean(grantTargetKey(row))
+      && !requestedKeys.has(grantTargetKey(row) ?? "")
+    )),
+  }
+}
+
+async function reconcilePluginAccess(tx: SkillStoreTransaction, input: {
   access: CompanySkillAccess
   actorMemberId: MemberId
-  organizationId: SkillRow["organizationId"]
-  skillId: SkillId
+  organizationId: OrganizationId
+  pluginId: PluginId
+  rows: AccessGrantRow<PluginAccessGrantId>[]
+}) {
+  const now = new Date()
+  const plan = grantReconciliationPlan(input.rows, input.access)
+  for (const row of plan.removals) {
+    await tx.update(PluginAccessGrantTable).set({ removedAt: now }).where(eq(PluginAccessGrantTable.id, row.id))
+  }
+  for (const target of plan.additions) {
+    const key = accessTargetKey(target)
+    const existing = input.rows.find((row) => grantTargetKey(row) === key)
+    if (existing) {
+      await tx.update(PluginAccessGrantTable).set({
+        ...targetValues(target),
+        createdByOrgMembershipId: input.actorMemberId,
+        removedAt: null,
+        role: "viewer",
+      }).where(eq(PluginAccessGrantTable.id, existing.id))
+      continue
+    }
+    await tx.insert(PluginAccessGrantTable).values({
+      ...targetValues(target),
+      createdAt: now,
+      createdByOrgMembershipId: input.actorMemberId,
+      id: createDenTypeId("pluginAccessGrant"),
+      organizationId: input.organizationId,
+      pluginId: input.pluginId,
+      role: "viewer",
+    })
+  }
+}
+
+async function reconcileConfigObjectAccess(tx: SkillStoreTransaction, input: {
+  access: CompanySkillAccess
+  actorMemberId: MemberId
+  configObjectId: ConfigObjectId
+  organizationId: OrganizationId
+  rows: AccessGrantRow<ConfigObjectAccessGrantId>[]
+}) {
+  const now = new Date()
+  const plan = grantReconciliationPlan(input.rows, input.access)
+  for (const row of plan.removals) {
+    await tx.update(ConfigObjectAccessGrantTable).set({ removedAt: now }).where(eq(ConfigObjectAccessGrantTable.id, row.id))
+  }
+  for (const target of plan.additions) {
+    const key = accessTargetKey(target)
+    const existing = input.rows.find((row) => grantTargetKey(row) === key)
+    if (existing) {
+      await tx.update(ConfigObjectAccessGrantTable).set({
+        ...targetValues(target),
+        createdByOrgMembershipId: input.actorMemberId,
+        removedAt: null,
+        role: "viewer",
+      }).where(eq(ConfigObjectAccessGrantTable.id, existing.id))
+      continue
+    }
+    await tx.insert(ConfigObjectAccessGrantTable).values({
+      ...targetValues(target),
+      configObjectId: input.configObjectId,
+      createdAt: now,
+      createdByOrgMembershipId: input.actorMemberId,
+      id: createDenTypeId("configObjectAccessGrant"),
+      organizationId: input.organizationId,
+      role: "viewer",
+    })
+  }
+}
+
+async function findExistingCompanySkill(tx: SkillStoreTransaction, input: {
+  organizationId: OrganizationId
   slug: string
 }) {
-  const managedKey = managedHubKeyForSlug(input.slug)
-  const now = new Date()
-  let hub = (await tx
+  const relativePath = companySkillRelativePath(input.slug)
+  const objects = await tx
     .select()
-    .from(SkillHubTable)
+    .from(ConfigObjectTable)
     .where(and(
-      eq(SkillHubTable.organizationId, input.organizationId),
-      eq(SkillHubTable.managedKey, managedKey),
+      eq(ConfigObjectTable.organizationId, input.organizationId),
+      eq(ConfigObjectTable.objectType, "skill"),
+      eq(ConfigObjectTable.currentRelativePath, relativePath),
+    ))
+    .limit(2)
+  if (objects.length > 1) {
+    throw new CompanySkillStoreError(409, "duplicate_company_skill", "同名公司技能存在重复记录，请先联系管理员处理。")
+  }
+  const configObject = objects[0]
+  if (!configObject) return null
+
+  const memberships = await tx
+    .select()
+    .from(PluginConfigObjectTable)
+    .where(and(
+      eq(PluginConfigObjectTable.organizationId, input.organizationId),
+      eq(PluginConfigObjectTable.configObjectId, configObject.id),
+      isNull(PluginConfigObjectTable.removedAt),
+    ))
+    .limit(2)
+  if (memberships.length !== 1) {
+    throw new CompanySkillStoreError(409, "company_skill_membership_invalid", "公司技能与插件的关联不完整，请先联系管理员处理。")
+  }
+  const plugin = (await tx
+    .select()
+    .from(PluginTable)
+    .where(and(
+      eq(PluginTable.id, memberships[0]!.pluginId),
+      eq(PluginTable.organizationId, input.organizationId),
     ))
     .limit(1))[0]
-
-  if (!hub) {
-    hub = {
-      id: createDenTypeId("skillHub"),
-      organizationId: input.organizationId,
-      createdByOrgMembershipId: input.actorMemberId,
-      name: `技能：${input.slug}`,
-      description: "FoxWork 公司技能分发范围。",
-      managedKey,
-      createdAt: now,
-      updatedAt: now,
-    }
-    await tx.insert(SkillHubTable).values(hub)
+  if (!plugin) {
+    throw new CompanySkillStoreError(409, "company_skill_plugin_missing", "公司技能对应的插件不存在，请先联系管理员处理。")
   }
-
-  const existingLink = (await tx
-    .select({ id: SkillHubSkillTable.id })
-    .from(SkillHubSkillTable)
+  const version = (await tx
+    .select()
+    .from(ConfigObjectVersionTable)
     .where(and(
-      eq(SkillHubSkillTable.skillHubId, hub.id),
-      eq(SkillHubSkillTable.skillId, input.skillId),
+      eq(ConfigObjectVersionTable.organizationId, input.organizationId),
+      eq(ConfigObjectVersionTable.configObjectId, configObject.id),
     ))
-    .limit(1))[0]
-  if (!existingLink) {
-    await tx.insert(SkillHubSkillTable).values({
-      id: createDenTypeId("skillHubSkill"),
-      skillHubId: hub.id,
-      skillId: input.skillId,
-      addedByOrgMembershipId: input.actorMemberId,
-      createdAt: now,
-    })
-  }
+    .orderBy(desc(ConfigObjectVersionTable.createdAt), desc(ConfigObjectVersionTable.id))
+    .limit(1))[0] ?? null
+  return { configObject, plugin, version }
+}
 
-  await tx.delete(SkillHubMemberTable).where(eq(SkillHubMemberTable.skillHubId, hub.id))
-  const memberIds = new Set<MemberId>([input.actorMemberId, ...input.access.memberIds])
-  if (!input.access.orgWide) {
-    for (const memberId of memberIds) {
-      await tx.insert(SkillHubMemberTable).values({
-        id: createDenTypeId("skillHubMember"),
-        skillHubId: hub.id,
-        orgMembershipId: memberId,
-        teamId: null,
-        createdAt: now,
-      })
-    }
-    for (const teamId of input.access.teamIds) {
-      await tx.insert(SkillHubMemberTable).values({
-        id: createDenTypeId("skillHubMember"),
-        skillHubId: hub.id,
-        orgMembershipId: null,
-        teamId,
-        createdAt: now,
-      })
-    }
-  } else {
-    await tx.insert(SkillHubMemberTable).values({
-      id: createDenTypeId("skillHubMember"),
-      skillHubId: hub.id,
-      orgMembershipId: input.actorMemberId,
-      teamId: null,
-      createdAt: now,
-    })
+function serializeCompanySkill(input: {
+  canManage: boolean
+  configObject: ConfigObjectRow
+  plugin: PluginRow
+  version: ConfigObjectVersionRow
+}) {
+  const bundle = parseCompanySkillVersionPayload(input.version)
+  const slug = companySkillSlugFromRelativePath(input.configObject.currentRelativePath)
+  if (!bundle || !slug) {
+    throw new CompanySkillStoreError(409, "company_skill_payload_invalid", "公司技能文件包不完整，请重新导入。")
+  }
+  return {
+    bundleHash: bundle.bundleHash,
+    canManage: input.canManage,
+    description: input.configObject.description,
+    files: bundle.files,
+    id: input.configObject.id,
+    pluginId: input.plugin.id,
+    shared: bundle.shared === "org" ? "org" as const : null,
+    skillText: bundle.skillText,
+    slug,
+    title: input.configObject.title,
+    updatedAt: input.configObject.updatedAt.toISOString(),
+  }
+}
+
+function createVersionRow(input: {
+  actorMemberId: MemberId
+  bundle: ParsedSkillZipItem
+  configObjectId: ConfigObjectId
+  organizationId: OrganizationId
+  shared: "org" | "private"
+  timestamp: Date
+}): ConfigObjectVersionRow {
+  return {
+    configObjectId: input.configObjectId,
+    connectorSyncEventId: null,
+    createdAt: input.timestamp,
+    createdByOrgMembershipId: input.actorMemberId,
+    createdVia: "cloud",
+    id: createDenTypeId("configObjectVersion"),
+    isDeletedVersion: false,
+    normalizedPayloadJson: buildCompanySkillVersionPayload(input.bundle, input.shared),
+    organizationId: input.organizationId,
+    rawSourceText: input.bundle.skillText,
+    schemaVersion: COMPANY_SKILL_BUNDLE_SCHEMA_VERSION,
+    sourceRevisionRef: `company-skill:${input.bundle.bundleHash}:${input.shared}`,
   }
 }
 
@@ -227,83 +395,246 @@ export async function saveCompanySkill(input: {
   actorIsAdmin: boolean
   actorMemberId: MemberId
   bundle: ParsedSkillZipItem
-  organizationId: SkillRow["organizationId"]
+  organizationId: OrganizationId
   overwrite: boolean
-}) {
-  return db.transaction(async (tx) => {
+}, dependencies: { database?: CompanySkillStoreDatabase } = {}) {
+  const database = dependencies.database ?? db
+  return database.transaction(async (tx) => {
+    await lockOrganization(tx, input.organizationId)
     const access = await validateAccessTargets(tx, {
       access: input.access,
       organizationId: input.organizationId,
     })
-    const existing = await findExistingSkill(tx, {
+    const existing = await findExistingCompanySkill(tx, {
       organizationId: input.organizationId,
       slug: input.bundle.slug,
     })
-    const sourceKey = sourceKeyForSlug(input.bundle.slug)
-    const shared = input.access.orgWide ? "org" as const : null
+    const shared = access.orgWide ? "org" as const : "private" as const
+    const relativePath = companySkillRelativePath(input.bundle.slug)
     const now = new Date()
 
-    let action: CompanySkillSaveAction
-    let skillId: SkillId
-    if (existing) {
-      const canManage = input.actorIsAdmin || existing.createdByOrgMembershipId === input.actorMemberId
-      const contentChanged = existing.bundleHash !== input.bundle.bundleHash
-        || existing.skillText !== input.bundle.skillText
-      const accessChanged = existing.shared !== shared
-      if ((contentChanged || accessChanged) && !canManage) {
-        throw new CompanySkillStoreError(403, "skill_forbidden", "同名公司技能已存在，只有原创建者或管理员可以更新。")
-      }
-      if (contentChanged && !input.overwrite) {
-        throw new CompanySkillStoreError(409, "skill_already_exists", "同名技能已存在且内容不同，请确认覆盖后重试。")
-      }
-      skillId = existing.id
-      action = contentChanged || accessChanged || !existing.sourceKey ? "updated" : "unchanged"
-      if (action !== "unchanged") {
-        await tx.update(SkillTable).set({
-          bundleFilesJson: input.bundle.files,
-          bundleHash: input.bundle.bundleHash,
-          description: input.bundle.description,
-          shared,
-          skillText: input.bundle.skillText,
-          slug: input.bundle.slug,
-          sourceKey,
-          title: input.bundle.title,
-          updatedAt: now,
-        }).where(eq(SkillTable.id, existing.id))
-      }
-    } else {
-      skillId = createDenTypeId("skill")
-      action = "created"
-      await tx.insert(SkillTable).values({
-        id: skillId,
-        organizationId: input.organizationId,
-        createdByOrgMembershipId: input.actorMemberId,
-        title: input.bundle.title,
-        description: input.bundle.description,
-        skillText: input.bundle.skillText,
-        slug: input.bundle.slug,
-        sourceKey,
-        bundleHash: input.bundle.bundleHash,
-        bundleFilesJson: input.bundle.files,
-        shared,
+    if (!existing) {
+      const pluginId = createDenTypeId("plugin")
+      const configObjectId = createDenTypeId("configObject")
+      const plugin: PluginRow = {
         createdAt: now,
+        createdByOrgMembershipId: input.actorMemberId,
+        deletedAt: null,
+        description: input.bundle.description,
+        id: pluginId,
+        name: input.bundle.title,
+        organizationId: input.organizationId,
+        status: "active",
         updatedAt: now,
+      }
+      const configObject: ConfigObjectRow = {
+        connectorInstanceId: null,
+        createdAt: now,
+        createdByOrgMembershipId: input.actorMemberId,
+        currentFileExtension: "md",
+        currentFileName: "SKILL.md",
+        currentRelativePath: relativePath,
+        deletedAt: null,
+        description: input.bundle.description,
+        id: configObjectId,
+        objectType: "skill",
+        organizationId: input.organizationId,
+        searchText: [input.bundle.title, input.bundle.description, input.bundle.skillText].filter(Boolean).join("\n"),
+        sourceMode: "cloud",
+        status: "active",
+        title: input.bundle.title,
+        updatedAt: now,
+      }
+      const version = createVersionRow({
+        actorMemberId: input.actorMemberId,
+        bundle: input.bundle,
+        configObjectId,
+        organizationId: input.organizationId,
+        shared,
+        timestamp: now,
+      })
+
+      await tx.insert(PluginTable).values(plugin)
+      await tx.insert(ConfigObjectTable).values(configObject)
+      await tx.insert(ConfigObjectVersionTable).values(version)
+      await tx.insert(PluginConfigObjectTable).values({
+        configObjectId,
+        connectorMappingId: null,
+        createdAt: now,
+        createdByOrgMembershipId: input.actorMemberId,
+        id: createDenTypeId("pluginConfigObject"),
+        membershipSource: "manual",
+        organizationId: input.organizationId,
+        pluginId,
+        removedAt: null,
+      })
+      await tx.insert(PluginAccessGrantTable).values({
+        createdAt: now,
+        createdByOrgMembershipId: input.actorMemberId,
+        id: createDenTypeId("pluginAccessGrant"),
+        organizationId: input.organizationId,
+        orgMembershipId: input.actorMemberId,
+        orgWide: false,
+        pluginId,
+        removedAt: null,
+        role: "manager",
+        teamId: null,
+      })
+      await tx.insert(ConfigObjectAccessGrantTable).values({
+        configObjectId,
+        createdAt: now,
+        createdByOrgMembershipId: input.actorMemberId,
+        id: createDenTypeId("configObjectAccessGrant"),
+        organizationId: input.organizationId,
+        orgMembershipId: input.actorMemberId,
+        orgWide: false,
+        removedAt: null,
+        role: "manager",
+        teamId: null,
+      })
+      await reconcilePluginAccess(tx, {
+        access,
+        actorMemberId: input.actorMemberId,
+        organizationId: input.organizationId,
+        pluginId,
+        rows: await readPluginGrants(tx, pluginId),
+      })
+      await reconcileConfigObjectAccess(tx, {
+        access,
+        actorMemberId: input.actorMemberId,
+        configObjectId,
+        organizationId: input.organizationId,
+        rows: await readConfigObjectGrants(tx, configObjectId),
+      })
+
+      return {
+        action: "created" as const,
+        item: serializeCompanySkill({
+          canManage: true,
+          configObject,
+          plugin,
+          version,
+        }),
+      }
+    }
+
+    const canManage = input.actorIsAdmin
+      || existing.plugin.createdByOrgMembershipId === input.actorMemberId
+      || existing.configObject.createdByOrgMembershipId === input.actorMemberId
+    const storedBundle = existing.version ? parseCompanySkillVersionPayload(existing.version) : null
+    const contentChanged = !storedBundle || storedBundle.bundleHash !== input.bundle.bundleHash
+    const sharedChanged = !storedBundle || storedBundle.shared !== shared
+    const pluginChanged = existing.plugin.name !== input.bundle.title
+      || existing.plugin.description !== input.bundle.description
+      || existing.plugin.status !== "active"
+      || existing.plugin.deletedAt !== null
+    const configObjectChanged = existing.configObject.title !== input.bundle.title
+      || existing.configObject.description !== input.bundle.description
+      || existing.configObject.currentFileName !== "SKILL.md"
+      || existing.configObject.currentFileExtension !== "md"
+      || existing.configObject.currentRelativePath !== relativePath
+      || existing.configObject.status !== "active"
+      || existing.configObject.deletedAt !== null
+    const [pluginGrants, configObjectGrants] = await Promise.all([
+      readPluginGrants(tx, existing.plugin.id),
+      readConfigObjectGrants(tx, existing.configObject.id),
+    ])
+    const accessChanged = companySkillAccessNeedsChange(pluginGrants, access)
+      || companySkillAccessNeedsChange(configObjectGrants, access)
+    const changed = contentChanged || sharedChanged || pluginChanged || configObjectChanged || accessChanged
+
+    if (changed && !canManage) {
+      throw new CompanySkillStoreError(403, "skill_forbidden", "同名公司技能已存在，只有原创建者或管理员可以更新。")
+    }
+    if (contentChanged && !input.overwrite) {
+      throw new CompanySkillStoreError(409, "skill_already_exists", "同名技能已存在且内容不同，请确认覆盖后重试。")
+    }
+
+    if (pluginChanged) {
+      await tx.update(PluginTable).set({
+        deletedAt: null,
+        description: input.bundle.description,
+        name: input.bundle.title,
+        status: "active",
+        updatedAt: now,
+      }).where(eq(PluginTable.id, existing.plugin.id))
+    }
+    if (configObjectChanged) {
+      await tx.update(ConfigObjectTable).set({
+        currentFileExtension: "md",
+        currentFileName: "SKILL.md",
+        currentRelativePath: relativePath,
+        deletedAt: null,
+        description: input.bundle.description,
+        searchText: [input.bundle.title, input.bundle.description, input.bundle.skillText].filter(Boolean).join("\n"),
+        status: "active",
+        title: input.bundle.title,
+        updatedAt: now,
+      }).where(eq(ConfigObjectTable.id, existing.configObject.id))
+    }
+
+    let version = existing.version
+    if (contentChanged || sharedChanged || !version) {
+      const nextVersion = createVersionRow({
+        actorMemberId: input.actorMemberId,
+        bundle: input.bundle,
+        configObjectId: existing.configObject.id,
+        organizationId: input.organizationId,
+        shared,
+        timestamp: now,
+      })
+      await tx.insert(ConfigObjectVersionTable).values(nextVersion)
+      version = nextVersion
+    }
+    if (accessChanged) {
+      await reconcilePluginAccess(tx, {
+        access,
+        actorMemberId: input.actorMemberId,
+        organizationId: input.organizationId,
+        pluginId: existing.plugin.id,
+        rows: pluginGrants,
+      })
+      await reconcileConfigObjectAccess(tx, {
+        access,
+        actorMemberId: input.actorMemberId,
+        configObjectId: existing.configObject.id,
+        organizationId: input.organizationId,
+        rows: configObjectGrants,
       })
     }
-
-    await replaceManagedHubAccess(tx, {
-      access: { ...input.access, ...access },
-      actorMemberId: input.actorMemberId,
-      organizationId: input.organizationId,
-      skillId,
-      slug: input.bundle.slug,
-    })
-
-    const row = (await tx.select().from(SkillTable).where(eq(SkillTable.id, skillId)).limit(1))[0]
-    if (!row) {
-      throw new CompanySkillStoreError(404, "skill_not_found", "技能保存后未能重新读取。")
+    if (!version) {
+      throw new CompanySkillStoreError(404, "skill_version_not_found", "技能保存后未能重新读取文件版本。")
     }
-    return { action, row }
+
+    const configObject: ConfigObjectRow = configObjectChanged
+      ? {
+          ...existing.configObject,
+          currentFileExtension: "md",
+          currentFileName: "SKILL.md",
+          currentRelativePath: relativePath,
+          deletedAt: null,
+          description: input.bundle.description,
+          searchText: [input.bundle.title, input.bundle.description, input.bundle.skillText].filter(Boolean).join("\n"),
+          status: "active",
+          title: input.bundle.title,
+          updatedAt: now,
+        }
+      : existing.configObject
+    const plugin: PluginRow = pluginChanged
+      ? {
+          ...existing.plugin,
+          deletedAt: null,
+          description: input.bundle.description,
+          name: input.bundle.title,
+          status: "active",
+          updatedAt: now,
+        }
+      : existing.plugin
+
+    return {
+      action: changed ? "updated" as const : "unchanged" as const,
+      item: serializeCompanySkill({ canManage, configObject, plugin, version }),
+    }
   })
 }
 

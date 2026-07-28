@@ -1,5 +1,5 @@
 declare const describe: (name: string, fn: () => void) => void;
-declare const test: (name: string, fn: () => void) => void;
+declare const test: (name: string, fn: () => void | Promise<void>) => void;
 declare const expect: (value: unknown) => {
   toBe: (expected: unknown) => void;
   not: { toBe: (expected: unknown) => void };
@@ -41,6 +41,64 @@ describe("workspace server client primitive", () => {
     expect(first.token).toBe("local-token");
     expect(first.workspaceId).toBe("local-alpha");
     expect(first.opencodeBaseUrl).toBe("http://127.0.0.1:4096/workspace/local-alpha/opencode");
+  });
+
+  test("本地工作区配置写入会携带当前主机令牌", async () => {
+    const originalFetch = globalThis.fetch;
+    let receivedHostToken = "";
+    globalThis.fetch = async (_input, init) => {
+      receivedHostToken = new Headers(init?.headers).get("x-openwork-host-token") ?? "";
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      const endpoint = createWorkspaceServerClientResolver({
+        baseUrl: "http://127.0.0.1:4096",
+        token: "local-token",
+        hostToken: "current-host-token",
+      })(localWorkspace);
+      if (!endpoint) throw new Error("Expected a local workspace endpoint.");
+
+      await endpoint.client.setRuntimeProviders(endpoint.workspaceId, {
+        company: { name: "Company" },
+      });
+
+      expect(receivedHostToken).toBe("current-host-token");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("远程工作区请求不会携带本地主机令牌", async () => {
+    const originalFetch = globalThis.fetch;
+    let receivedHostToken = "";
+    globalThis.fetch = async (_input, init) => {
+      receivedHostToken = new Headers(init?.headers).get("x-openwork-host-token") ?? "";
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      const endpoint = createWorkspaceServerClientResolver({
+        baseUrl: "http://127.0.0.1:4096",
+        token: "local-token",
+        hostToken: "local-host-token",
+      })(remoteWorkspace);
+      if (!endpoint) throw new Error("Expected a remote workspace endpoint.");
+
+      await endpoint.client.setRuntimeProviders(endpoint.workspaceId, {
+        company: { name: "Company" },
+      });
+
+      expect(receivedHostToken).toBe("");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test("changed local credentials produce a distinct endpoint and client", () => {

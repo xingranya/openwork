@@ -147,7 +147,7 @@ export function CloudProvidersView({
         toast.success(message || t("den.imported_provider", { name: providerName }));
       } catch (error) {
         setActionError(
-          error instanceof Error ? error.message : t("den.import_provider_failed", { name: providerName }),
+          toChineseUserMessage(error, t("den.import_provider_failed", { name: providerName })),
         );
       } finally {
         setActionId(null);
@@ -170,7 +170,7 @@ export function CloudProvidersView({
         toast.success(message || t("den.removed_provider", { name: providerName }));
       } catch (error) {
         setActionError(
-          error instanceof Error ? error.message : t("den.remove_provider_failed", { name: providerName }),
+          toChineseUserMessage(error, t("den.remove_provider_failed", { name: providerName })),
         );
       } finally {
         setActionId(null);
@@ -193,7 +193,7 @@ export function CloudProvidersView({
         toast.success(t("den.synced_provider", { name: providerName }));
       } catch (error) {
         setActionError(
-          error instanceof Error ? error.message : t("den.sync_provider_failed", { name: providerName }),
+          toChineseUserMessage(error, t("den.sync_provider_failed", { name: providerName })),
         );
       } finally {
         setActionId(null);

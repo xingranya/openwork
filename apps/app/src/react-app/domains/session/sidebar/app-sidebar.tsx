@@ -42,6 +42,11 @@ import {
 } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import { useBrandLogoUrl } from "../../cloud/brand-theme";
+import { WorkspaceIcon } from "../../../design-system/workspace-icon";
+import {
+  PersonalRemoteWorkspaceStatusItem,
+  type PersonalRemoteWorkspaceUiState,
+} from "../../workspace/personal-remote-workspace-status";
 
 import {
   Sidebar,
@@ -806,6 +811,7 @@ function SidebarSplitPill({ workspaceSessionGroups, selectedWorkspaceId, selecte
 
 export type AppSidebarProps = {
   workspaceSessionGroups: WorkspaceSessionGroup[];
+  personalRemoteWorkspaceState?: PersonalRemoteWorkspaceUiState | null;
   showInitialLoading?: boolean;
   selectedWorkspaceId: string;
   developerMode: boolean;
@@ -1055,14 +1061,14 @@ export function AppSidebar(props: AppSidebarProps) {
           <div
             className="flex shrink-0 items-center justify-end gap-0.5 px-2 pb-1 mac:absolute mac:right-1.5 mac:top-[7px] mac:z-50 mac:p-0 mac:titlebar-no-drag"
             role="group"
-            aria-label="Conversation history controls"
+            aria-label="会话历史导航"
           >
             <Button
               variant="ghost"
               size="icon-xs"
               className="rounded-lg text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground disabled:opacity-40"
-              aria-label="Back in conversation history"
-              title="Back in conversation history"
+              aria-label="返回上一个会话"
+              title="返回上一个会话"
               data-conversation-history-control="back"
               disabled={!props.conversationHistory.canGoBack}
               onClick={() => props.conversationHistory?.onNavigate("back")}
@@ -1073,8 +1079,8 @@ export function AppSidebar(props: AppSidebarProps) {
               variant="ghost"
               size="icon-xs"
               className="rounded-lg text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground disabled:opacity-40"
-              aria-label="Forward in conversation history"
-              title="Forward in conversation history"
+              aria-label="前往下一个会话"
+              title="前往下一个会话"
               data-conversation-history-control="forward"
               disabled={!props.conversationHistory.canGoForward}
               onClick={() => props.conversationHistory?.onNavigate("forward")}
@@ -1132,6 +1138,9 @@ export function AppSidebar(props: AppSidebarProps) {
                 <Plus className="size-3.5" />
               </button>
             </div>
+            {props.personalRemoteWorkspaceState ? (
+              <PersonalRemoteWorkspaceStatusItem state={props.personalRemoteWorkspaceState} />
+            ) : null}
             <Reorder.Group
               as="div"
               axis="y"
@@ -1402,7 +1411,11 @@ function WorkspaceHeader({
       }}
     >
       <SidebarGlyphSlot>
-        {isLoading ? <SessionDotMatrixLoader label={t("workspace.loading_tasks")} /> : null}
+        {isLoading ? (
+          <SessionDotMatrixLoader label={t("workspace.loading_tasks")} />
+        ) : (
+          <WorkspaceIcon workspaceId={workspace.id} />
+        )}
       </SidebarGlyphSlot>
       <div
         className={cn(

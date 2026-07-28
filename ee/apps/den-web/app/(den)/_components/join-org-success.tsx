@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  getDesktopHandoffGrant,
+  getDesktopHandoffOpenworkUrl,
+  rememberDesktopHandoffGrant,
+} from "../_lib/desktop-handoff";
+import { getErrorMessage, requestJson } from "../_lib/den-flow";
 import { createOrganizationInstallLink } from "../_lib/install-link-data";
 import { isMobileUserAgent } from "../_lib/platform";
 import { useDesktopHandoffStatus } from "../_lib/use-desktop-handoff-status";
@@ -33,6 +39,82 @@ const capabilities = [
     description: "通过 MCP 使用外部服务和工具。",
   },
 ];
+
+function ReturnToFoxWorkStatus({
+  foxworkUrl,
+  grant,
+  organizationName,
+}: {
+  foxworkUrl: string;
+  grant: string | null;
+  organizationName: string;
+}) {
+  const { status, timedOut } = useDesktopHandoffStatus(grant);
+  const [copied, setCopied] = useState(false);
+
+  async function copyFoxWorkUrl() {
+    await navigator.clipboard.writeText(foxworkUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  if (status === "consumed") {
+    return (
+      <div
+        className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+        data-testid="desktop-connected"
+        aria-live="polite"
+      >
+        已连接，{organizationName} 的公司配置已写入 FoxWork。
+      </div>
+    );
+  }
+
+  if (timedOut || status === "unknown") {
+    return (
+      <div
+        className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600"
+        data-testid="desktop-handoff-troubleshoot"
+        aria-live="polite"
+      >
+        <p className="m-0">
+          FoxWork 没有打开？{" "}
+          <button
+            type="button"
+            className="font-medium text-slate-950 underline-offset-4 hover:underline"
+            onClick={() => window.location.assign(foxworkUrl)}
+          >
+            再次打开 FoxWork
+          </button>
+        </p>
+        <div className="grid gap-2">
+          <p className="m-0">仍然没有反应？请复制下面的登录链接并粘贴到浏览器地址栏打开：</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              className="den-input min-w-0 flex-1 text-xs"
+              value={foxworkUrl}
+              readOnly
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <button
+              type="button"
+              className="den-button-secondary sm:w-auto"
+              onClick={() => void copyFoxWorkUrl()}
+            >
+              {copied ? "已复制" : "复制链接"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <p className="m-0 text-sm text-slate-500" aria-live="polite">
+      正在返回 FoxWork...
+    </p>
+  );
+}
 
 type JoinOrgSuccessProps = {
   organizationId: string;
@@ -75,12 +157,49 @@ export function JoinOrgSuccess({
     }
   }
 
+  async function handleReturnToFoxWork() {
+    setHandoffBusy(true);
+    setActionError(null);
+
+    try {
+      const { response, payload } = await requestJson(
+        "/v1/auth/desktop-handoff",
+        { method: "POST", body: JSON.stringify({ desktopScheme: desktopAuthScheme }) },
+        12000,
+      );
+      if (!response.ok) {
+        setActionError(getErrorMessage(payload, `无法返回 FoxWork（${response.status}）。`));
+        return;
+      }
+
+      const foxworkUrl = getDesktopHandoffOpenworkUrl(payload);
+      if (!foxworkUrl) {
+        setActionError("登录交接已准备完成，但公司服务没有返回 FoxWork 打开链接。");
+        return;
+      }
+
+      const grant = getDesktopHandoffGrant(payload, foxworkUrl);
+      rememberDesktopHandoffGrant(grant);
+      setDesktopOpenworkUrl(foxworkUrl);
+      setDesktopGrant(grant);
+      window.location.assign(foxworkUrl);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "无法返回 FoxWork。");
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
+
   return (
-    <section className="den-page py-4 lg:py-6" data-testid="join-org-success">
-      <div className="den-frame grid max-w-[48rem] gap-6 p-6 md:p-8">
+    <OnboardingShell state="joined" width="wide">
+      <section data-testid="join-org-success">
+      <div className="grid gap-6 rounded-[1.75rem] border border-slate-200/80 bg-white p-6 md:p-8">
         <div className="grid gap-2">
           <p className="den-eyebrow">FoxWork 公司服务</p>
-          <h1 className="den-title-xl max-w-[16ch]">已加入 {organizationName}</h1>
+          <h1 className="den-title-xl max-w-full">
+            已加入{" "}
+            <OrganizationBrandIdentity organizationName={organizationName} brand={brand} />
+          </h1>
           <p className="den-copy">安装 FoxWork 后，就可以在电脑上使用公司的模型、MCP 和 Skills。</p>
         </div>
 
@@ -96,9 +215,26 @@ export function JoinOrgSuccess({
               <button type="button" className="den-button-primary w-full sm:w-auto" onClick={onContinueInBrowser}>
                 先在浏览器中继续
               </button>
-              {emailSent ? <div className="den-notice is-info">Sent — check your inbox when you&apos;re back at your desk.</div> : null}
             </div>
           </div>
+        ) : desktopAuthRequested ? (
+          desktopOpenworkUrl ? (
+            <ReturnToFoxWorkStatus
+              foxworkUrl={desktopOpenworkUrl}
+              grant={desktopGrant}
+              organizationName={organizationName}
+            />
+          ) : (
+            <button
+              type="button"
+              className="den-button-primary w-full sm:w-fit"
+              onClick={() => void handleReturnToFoxWork()}
+              disabled={handoffBusy}
+              data-testid="join-org-return-openwork"
+            >
+              {handoffBusy ? "正在返回 FoxWork..." : "返回 FoxWork"}
+            </button>
+          )
         ) : (
           <div className="grid gap-5">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -114,9 +250,9 @@ export function JoinOrgSuccess({
               <button
                 type="button"
                 className="den-button-primary w-full sm:w-fit"
-                onClick={() => void handleReturnToOpenWork()}
-                disabled={handoffBusy}
-                data-testid="join-org-return-openwork"
+                onClick={() => void handleGetApp()}
+                disabled={installBusy}
+                data-testid="join-org-get-app"
               >
                 {installBusy ? "正在准备安装包..." : "下载 FoxWork"}
               </button>
@@ -140,6 +276,7 @@ export function JoinOrgSuccess({
 
         {actionError ? <div className="den-notice is-error">{actionError}</div> : null}
       </div>
-    </section>
+      </section>
+    </OnboardingShell>
   );
 }

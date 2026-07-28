@@ -35,17 +35,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { t } from "@/i18n";
-import { saveInstalledSkillToOpenWorkOrg } from "@/app/lib/den-skills";
 import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import {
   buildDenAuthUrl,
   DEFAULT_DEN_BASE_URL,
   readDenSettings,
+  shareInstalledSkillWithCompany,
 } from "@/app/lib/den";
 import type {
   DenOrgSkillCard,
   HubSkillCard,
-  HubSkillRepo,
   SkillCard,
 } from "@/app/types";
 import {
@@ -99,28 +98,24 @@ export type SkillsExtensionsStore = {
   cloudOrgSkills: () => DenOrgSkillCard[];
   cloudOrgSkillsStatus: () => string | null;
   importedCloudSkills: () => Record<string, ImportedCloudSkillRecord>;
-  hubRepo: () => HubSkillRepo | null;
-  hubRepos: () => HubSkillRepo[];
   ensureHubSkillsFresh: () => void | Promise<void>;
   ensureCloudOrgSkillsFresh: () => void | Promise<void>;
   refreshSkills: (options?: { force?: boolean }) => void | Promise<void>;
   refreshHubSkills: (options?: { force?: boolean; query?: string }) => void | Promise<void>;
   refreshCloudOrgSkills: (options?: { force?: boolean }) => void | Promise<void>;
-  setHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
-  addHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
-  removeHubRepo: (repo: HubSkillRepo) => void | Promise<void>;
   installSkillCreator: () => Promise<InstallResult>;
   installCloudOrgSkill: (skill: DenOrgSkillCard) => Promise<InstallResult>;
   installHubSkill: (skill: HubSkillCard) => Promise<InstallResult>;
   importLocalSkill: () => void | Promise<void>;
   revealSkillsFolder: () => void | Promise<void>;
-  readSkill: (name: string) => Promise<{ content: string } | null>;
+  readSkill: (target: string | SkillCard) => Promise<{ content: string } | null>;
   saveSkill: (input: {
     name: string;
     content: string;
     description?: string;
+    source?: SkillCard["source"];
   }) => void | Promise<void>;
-  uninstallSkill: (name: string) => void | Promise<void>;
+  uninstallSkill: (target: string | SkillCard) => void | Promise<void>;
 };
 
 export type SkillsViewProps = {
@@ -530,10 +525,12 @@ export function SkillsView(props: SkillsViewProps) {
     setShareTeamError(null);
     setShareTeamSuccess(null);
     try {
-      const skill = await extensions.readSkill(shareTarget.name);
+      const skill = await extensions.readSkill(shareTarget);
       if (!skill) throw new Error("无法读取该技能，请刷新后重试。");
       const sharing = resolveSharePermission();
-      const { orgName, orgId } = await saveInstalledSkillToOpenWorkOrg({
+      const { orgName, orgId } = await shareInstalledSkillWithCompany({
+        description: shareTarget.description,
+        name: shareTarget.name,
         skillText: skill.content,
         shared: sharing.shared,
       });
@@ -560,7 +557,7 @@ export function SkillsView(props: SkillsViewProps) {
       setSelectedError(null);
       setSelectedLoading(true);
       try {
-        const result = await extensions.readSkill(skill.name);
+        const result = await extensions.readSkill(skill);
         if (!result) {
           setSelectedError(t("skills.skill_load_failed"));
           return;
@@ -584,6 +581,7 @@ export function SkillsView(props: SkillsViewProps) {
           name: selectedSkill.name,
           content: selectedContent,
           description: selectedSkill.description,
+          source: selectedSkill.source,
         }),
       );
       setSelectedDirty(false);
@@ -1057,7 +1055,7 @@ export function SkillsView(props: SkillsViewProps) {
           const target = uninstallTarget;
           setUninstallTarget(null);
           if (!target) return;
-          void extensions.uninstallSkill(target.name);
+          void extensions.uninstallSkill(target);
         }}
       />
 

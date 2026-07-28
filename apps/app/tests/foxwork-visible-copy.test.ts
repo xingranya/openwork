@@ -271,9 +271,11 @@ describe("FoxWork 源码可见文案", () => {
 
   test("动态生成的图片预览按钮使用中文", () => {
     const markdownSource = readFileSync(path.join(SOURCE_ROOT, "components/markdown/markdown.tsx"), "utf8");
+    const markdownPrimitiveSource = readFileSync(path.join(SOURCE_ROOT, "components/markdown/markdown-primitive.ts"), "utf8");
     expect(markdownSource).not.toContain("Show full image");
     expect(markdownSource).not.toContain("Show less");
-    expect(markdownSource).toContain("查看完整图片");
+    expect(markdownSource).not.toContain('?? "Image"');
+    expect(markdownPrimitiveSource).toContain("查看完整图片");
   });
 
   test("内置能力说明和配置入口不显示上游品牌或英文目录", () => {

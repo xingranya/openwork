@@ -135,14 +135,14 @@ export function CapabilityCallLine({
       >
         <CollapsibleTrigger
           className="group flex min-w-0 max-w-full cursor-pointer items-center gap-2 text-start text-sm text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={open ? `${sentence.past}. Hide failure details` : `${sentence.past} failed. Show what to do next`}
+          aria-label={open ? `${sentence.past}。隐藏失败详情` : `${sentence.past}失败。查看下一步操作`}
         >
           <ChevronRight
             aria-hidden="true"
             className={cn("size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-150", open && "rotate-90")}
           />
           <span className="min-w-0 truncate">{sentence.past}</span>
-          <span className="shrink-0 text-xs font-medium text-destructive">failed</span>
+          <span className="shrink-0 text-xs font-medium text-destructive">失败</span>
           {duration ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">{duration}</span>
           ) : null}
@@ -208,9 +208,9 @@ export function CapabilityCallLine({
                   aria-hidden="true"
                   className={cn("size-3 shrink-0 transition-transform duration-150", detailsOpen && "rotate-90")}
                 />
-                <span className="shrink-0">Technical details</span>
+                <span className="shrink-0">技术详情</span>
                 <span className="min-w-0 truncate text-muted-foreground/60">
-                  capability name · arguments · schema digest
+                  能力名称 · 参数 · 结构摘要
                 </span>
               </button>
               {detailsOpen ? <TechnicalDetailsPanel part={part} /> : null}

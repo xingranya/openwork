@@ -20,24 +20,25 @@ type SaveInput = {
 }
 type SaveSkill = (input: SaveInput) => Promise<{
   action: "created" | "updated" | "unchanged"
-  row: { id: string }
+  item: { id: string; pluginId: string }
 }>
 type RegisterSkillRoutes = (
   app: Hono<{ Variables: RouteVariables }>,
   dependencies?: {
+    memberTeamsRoute?: MiddlewareHandler<{ Variables: RouteVariables }>
     memberRoute?: MiddlewareHandler<{ Variables: RouteVariables }>
     saveSkill?: SaveSkill
   },
 ) => void
 
-let registerOrgSkillRoutes: RegisterSkillRoutes
+let registerCompanySkillZipImportRoute: RegisterSkillRoutes
 const targetMemberId = createDenTypeId("member")
 const targetTeamId = createDenTypeId("team")
 
 beforeAll(async () => {
   seedRequiredEnv()
-  const routes = await import("../src/routes/org/skills.js")
-  registerOrgSkillRoutes = routes.registerOrgSkillRoutes as unknown as RegisterSkillRoutes
+  const routes = await import("../src/routes/org/plugin-system/routes.js")
+  registerCompanySkillZipImportRoute = routes.registerCompanySkillZipImportRoute as unknown as RegisterSkillRoutes
 })
 
 function zipArchive(files: Record<string, string>) {
@@ -89,6 +90,11 @@ function contextRoute(role: "admin" | "member"): MiddlewareHandler<{ Variables: 
   }
 }
 
+const memberTeamsRoute: MiddlewareHandler<{ Variables: RouteVariables }> = async (c, next) => {
+  c.set("memberTeams", [])
+  await next()
+}
+
 function uploadForm() {
   const form = new FormData()
   form.set("archive", new File([zipArchive({
@@ -107,15 +113,22 @@ describe("公司技能 ZIP 导入接口", () => {
   test("普通成员不能批量导入公司技能", async () => {
     let saveCalls = 0
     const app = new Hono<{ Variables: RouteVariables }>()
-    registerOrgSkillRoutes(app, {
+    registerCompanySkillZipImportRoute(app, {
+      memberTeamsRoute,
       memberRoute: contextRoute("member"),
       saveSkill: async () => {
         saveCalls += 1
-        return { action: "created", row: { id: createDenTypeId("skill") } }
+        return {
+          action: "created",
+          item: {
+            id: createDenTypeId("configObject"),
+            pluginId: createDenTypeId("plugin"),
+          },
+        }
       },
     })
 
-    const response = await app.request("http://den.local/v1/skills/import-zip", {
+    const response = await app.request("http://den.local/v1/plugins/import-skills-zip", {
       method: "POST",
       body: uploadForm(),
     })
@@ -131,15 +144,18 @@ describe("公司技能 ZIP 导入接口", () => {
   test("管理员获得逐项结果并把覆盖与授权范围传入存储层", async () => {
     const savedInputs: SaveInput[] = []
     const app = new Hono<{ Variables: RouteVariables }>()
-    registerOrgSkillRoutes(app, {
+    const configObjectId = createDenTypeId("configObject")
+    const pluginId = createDenTypeId("plugin")
+    registerCompanySkillZipImportRoute(app, {
+      memberTeamsRoute,
       memberRoute: contextRoute("admin"),
       saveSkill: async (input) => {
         savedInputs.push(input)
-        return { action: "created", row: { id: createDenTypeId("skill") } }
+        return { action: "created", item: { id: configObjectId, pluginId } }
       },
     })
 
-    const response = await app.request("http://den.local/v1/skills/import-zip", {
+    const response = await app.request("http://den.local/v1/plugins/import-skills-zip", {
       method: "POST",
       body: uploadForm(),
     })
@@ -151,6 +167,8 @@ describe("公司技能 ZIP 导入接口", () => {
         action: "created",
         fileCount: 2,
         folder: "valid",
+        id: configObjectId,
+        pluginId,
         slug: "valid",
       }),
     ])

@@ -47,8 +47,8 @@ export function FileChip({ path, className }: FileChipProps) {
       <button
         type="button"
         onClick={() => openArtifactPath(path, { external: true })}
-        title={`Open ${name} in default app`}
-        aria-label={`Open ${name} in default app`}
+        title={`使用默认应用打开 ${name}`}
+        aria-label={`使用默认应用打开 ${name}`}
         className="flex cursor-pointer items-center border-l border-border/60 px-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <ArrowUpRight aria-hidden="true" className="size-2.5" />

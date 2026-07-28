@@ -83,12 +83,12 @@ export function CloudScreen() {
         }
 
         if (!response.ok) {
-          throw new Error(getErrorMessage(payload, `Cloud could not start (${response.status}).`));
+          throw new Error(getErrorMessage(payload, `云端工作区启动失败（${response.status}）。`));
         }
 
         const parsed = parseCloudInstance(payload);
         if (!parsed) {
-          throw new Error("Cloud response was incomplete.");
+          throw new Error("公司服务返回的云端工作区信息不完整。");
         }
 
         setInstance(parsed);
@@ -98,7 +98,7 @@ export function CloudScreen() {
       } catch (loadError) {
         if (!cancelled) {
           setInstance(null);
-          setError(loadError instanceof Error ? loadError.message : "Cloud could not start.");
+          setError(loadError instanceof Error ? loadError.message : "云端工作区启动失败。");
         }
       } finally {
         if (!cancelled) {
@@ -149,9 +149,9 @@ export function CloudScreen() {
   return (
     <DashboardPageTemplate
       icon={Cloud}
-      badgeLabel="Alpha"
-      title="Cloud"
-      description="Open a full OpenWork instance in your browser. Nothing to install."
+      badgeLabel="测试版"
+      title="云端工作区"
+      description="在浏览器中打开公司的完整远程工作区，无需另行安装。"
       colors={["#EFF6FF", "#0F172A", "#2563EB", "#BAE6FD"]}
     >
       <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-[0_18px_45px_-35px_rgba(15,23,42,0.35)]">
@@ -162,70 +162,70 @@ export function CloudScreen() {
             {failed || error || unavailable ? <AlertTriangle className="size-5" aria-hidden="true" /> : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">Cloud Alpha</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">云端工作区测试版</p>
 
             {starting ? (
               <>
-                <p className="mt-2 text-[15px] font-medium text-gray-950">{waking ? "Waking your workspace…" : "Starting Cloud"}</p>
+                <p className="mt-2 text-[15px] font-medium text-gray-950">{waking ? "正在唤醒云端工作区..." : "正在启动云端工作区"}</p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
                   {waking
-                    ? "We’re turning your existing Cloud workspace back on. This usually takes a few seconds."
-                    : "We’re bringing up a full OpenWork instance for this organization. This usually takes a few seconds."}
+                    ? "正在重新启动你已有的云端工作区，通常只需几秒。"
+                    : "正在为公司启动完整的远程工作区，通常只需几秒。"}
                 </p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
-                  Keep this page open. Cloud opens in a new tab as soon as it is ready.
+                  请保持此页面打开。工作区准备好后会自动在新标签页中打开。
                 </p>
               </>
             ) : null}
 
             {readyUrl ? (
               <>
-                <p className="mt-2 text-[15px] font-medium text-gray-950">Cloud is ready</p>
+                <p className="mt-2 text-[15px] font-medium text-gray-950">云端工作区已就绪</p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
                   {autoOpenBlocked
-                    ? "Your browser blocked the new tab. Click Open Cloud to continue."
-                    : "Cloud opened in a new tab. If you do not see it, open it again here."}
+                    ? "浏览器阻止了新标签页，请点击“打开云端工作区”继续。"
+                    : "云端工作区已在新标签页中打开。如果没有看到，可以在这里再次打开。"}
                 </p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
-                  Alpha note: the Cloud URL is itself the credential. Do not share it or paste it anywhere public.
+                  此工作区地址包含访问凭据，请勿转发或粘贴到公开位置。
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <DenButton icon={ExternalLink} onClick={openReadyCloud}>Open Cloud</DenButton>
-                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>Refresh status</DenButton>
+                  <DenButton icon={ExternalLink} onClick={openReadyCloud}>打开云端工作区</DenButton>
+                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>刷新状态</DenButton>
                 </div>
               </>
             ) : null}
 
             {failed ? (
               <>
-                <p className="mt-2 text-[15px] font-medium text-gray-950">Cloud could not start</p>
+                <p className="mt-2 text-[15px] font-medium text-gray-950">云端工作区启动失败</p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
-                  Ask an OpenWork admin to check the Cloud alpha configuration, then try again.
+                  请联系公司管理员检查云端工作区配置，然后重试。
                 </p>
                 <div className="mt-5">
-                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>Try again</DenButton>
+                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>重试</DenButton>
                 </div>
               </>
             ) : null}
 
             {unavailable ? (
               <>
-                <p className="mt-2 text-[15px] font-medium text-gray-950">Cloud is not available</p>
+                <p className="mt-2 text-[15px] font-medium text-gray-950">云端工作区暂不可用</p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">
-                  Ask an OpenWork admin to enable Cloud for this organization and confirm hosted Cloud is configured.
+                  请联系公司管理员启用云端工作区并检查服务配置。
                 </p>
                 <div className="mt-5">
-                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>Check again</DenButton>
+                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>重新检查</DenButton>
                 </div>
               </>
             ) : null}
 
             {error ? (
               <>
-                <p className="mt-2 text-[15px] font-medium text-gray-950">Cloud needs attention</p>
+                <p className="mt-2 text-[15px] font-medium text-gray-950">云端工作区需要处理</p>
                 <p className="mt-2 text-[13px] leading-6 text-gray-500">{error}</p>
                 <div className="mt-5">
-                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>Try again</DenButton>
+                  <DenButton variant="secondary" icon={RefreshCw} onClick={retry}>重试</DenButton>
                 </div>
               </>
             ) : null}

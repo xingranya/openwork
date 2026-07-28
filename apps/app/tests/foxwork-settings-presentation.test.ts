@@ -41,6 +41,14 @@ const foxworkChineseCopySource = readFileSync(
   fileURLToPath(new URL("../src/i18n/locales/foxwork-zh-supplement.ts", import.meta.url)),
   "utf8",
 );
+const settingsListSource = readFileSync(
+  fileURLToPath(new URL("../src/react-app/domains/settings/settings-list.tsx", import.meta.url)),
+  "utf8",
+);
+const cloudProvidersViewSource = readFileSync(
+  fileURLToPath(new URL("../src/react-app/domains/settings/pages/cloud-providers-view.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("FoxWork 设置页对外呈现", () => {
   test("bundled free model providers do not expose upstream names or ids", () => {
@@ -101,6 +109,8 @@ describe("FoxWork 设置页对外呈现", () => {
     expect(extensionsStoreSource).toContain("client.getSkillsCatalogDetail");
     expect(extensionsStoreSource).toContain("openworkClient.installCatalogSkill");
     expect(skillsViewSource).not.toContain("different-ai/openwork-hub");
+    expect(extensionsStoreSource).not.toContain("different-ai/openwork-hub");
+    expect(extensionsStoreSource).not.toContain("尚未选择技能仓库");
     expect(foxworkChineseCopySource).toContain("魔搭技能广场");
     expect(foxworkChineseCopySource).not.toContain("skills.sh 官方目录");
   });
@@ -115,5 +125,12 @@ describe("FoxWork 设置页对外呈现", () => {
       'className={`${installingHubSkill === skill.id ? pillSecondaryClass : pillPrimaryClass} shrink-0 whitespace-nowrap`}',
     );
     expect(skillsViewSource).toContain('aria-label={t("skills.online_view_source")}');
+  });
+
+  test("公司模型页面不会回退显示英文搜索和请求错误", () => {
+    expect(settingsListSource).toContain('placeholder = "搜索..."');
+    expect(settingsListSource).not.toContain('placeholder = "Search..."');
+    expect(cloudProvidersViewSource).not.toContain("error instanceof Error ? error.message");
+    expect(cloudProvidersViewSource).toContain("toChineseUserMessage(error");
   });
 });

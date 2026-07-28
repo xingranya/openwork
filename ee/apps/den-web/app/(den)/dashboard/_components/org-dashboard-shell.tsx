@@ -429,9 +429,9 @@ export function OrgDashboardShell({ children }: { children: React.ReactNode }) {
     ...(showCloud
       ? [{
           href: activeOrg ? getCloudRoute(activeOrg.slug) : "#",
-          label: "Cloud",
+          label: "云端工作区",
           icon: Cloud,
-          badge: "Alpha",
+          badge: "测试版",
         }]
       : []),
     ...(extensionsGroup ? [extensionsGroup] : []),

@@ -53,11 +53,12 @@ describe("Den auth landing contract", () => {
     expect(source).not.toContain('title: "Start using OpenWork"');
   });
 
-  test("signed-in desktop handoff shows account email and a pasteable link by default", () => {
+  test("已登录的桌面交接默认显示账号和可复制链接", () => {
     const source = readFileSync(authPanelPath, "utf8");
 
     expect(source).toContain('data-testid="desktop-signed-in-handoff"');
-    expect(source).toContain("Logged in as");
+    expect(source).toContain("已登录账号：");
+    expect(source).toContain("signedInEmail");
     expect(source).toContain("showCopyLinkByDefault");
     expect(source).toContain('data-testid="desktop-handoff-copy-link"');
     expect(source).toContain("desktopAuthRequested && user && !authError");
