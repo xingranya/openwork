@@ -11,7 +11,7 @@ $:
         - name: 校验 SeeWayWork 发布标签
           script: |
             set -euo pipefail
-            echo "$CNB_BRANCH" | grep -Eq '^(seewaywork|foxwork)-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+            echo "$CNB_BRANCH" | grep -Eq '^seewaywork-v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
 
         - name: 创建 CNB 发布版本
           type: git:release
@@ -21,28 +21,46 @@ $:
             description: SeeWayWork 公司内部发布，桌面安装包由 GitHub Actions 构建后自动同步。
             preRelease: false
 
-        - name: 构建并推送 Den API 和 Den Web
+        - name: 构建并推送 Den API、Den Web 和远程 Worker
           script: |
             set -euo pipefail
-            VERSION="${CNB_BRANCH#*-v}"
+            VERSION="${CNB_BRANCH#seewaywork-v}"
 
             printf '%s' "$CNB_TOKEN" | docker login \
               "$CNB_DOCKER_REGISTRY" \
               --username "$CNB_TOKEN_USER_NAME" \
               --password-stdin
 
-            docker buildx build \
+            build_with_registry_cache() {
+              local cache_ref="$1"
+              shift
+              local cache_args=(--cache-to "type=registry,ref=$cache_ref,mode=max")
+              if docker buildx imagetools inspect "$cache_ref" >/dev/null 2>&1; then
+                cache_args=(--cache-from "type=registry,ref=$cache_ref" "${cache_args[@]}")
+              fi
+              docker buildx build "${cache_args[@]}" "$@"
+            }
+
+            build_with_registry_cache "$IMAGE_REPOSITORY:den-api-buildcache" \
               --platform linux/amd64,linux/arm64 \
               --file packaging/docker/Dockerfile.den \
               --build-arg "DEN_API_VERSION=$VERSION" \
               --tag "$IMAGE_REPOSITORY:den-api-$VERSION" \
               --push .
 
-            docker buildx build \
+            build_with_registry_cache "$IMAGE_REPOSITORY:den-web-buildcache" \
               --platform linux/amd64,linux/arm64 \
               --file packaging/docker/Dockerfile.den-web \
               --tag "$IMAGE_REPOSITORY:den-web-$VERSION" \
               --push .
 
+            build_with_registry_cache "$IMAGE_REPOSITORY:den-worker-buildcache" \
+              --platform linux/amd64,linux/arm64 \
+              --file packaging/docker/Dockerfile.microsandbox \
+              --build-arg RUNTIME_ASSERTS=0 \
+              --tag "$IMAGE_REPOSITORY:den-worker-$VERSION" \
+              --push .
+
             docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-api-$VERSION"
             docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-web-$VERSION"
+            docker buildx imagetools inspect "$IMAGE_REPOSITORY:den-worker-$VERSION"

@@ -35,6 +35,10 @@ const releaseWorkflowSource = readFileSync(
   "utf8",
 );
 const cnbWorkflowSource = readFileSync(new URL("../../../.cnb.yml", import.meta.url), "utf8");
+const microSandboxDockerfileSource = readFileSync(
+  new URL("../../../packaging/docker/Dockerfile.microsandbox", import.meta.url),
+  "utf8",
+);
 const rendererBrandSource = readFileSync(
   new URL("../../app/src/app/lib/foxwork-brand.ts", import.meta.url),
   "utf8",
@@ -166,6 +170,26 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   }
   assert.match(releaseWorkflowSource, /prerelease: false/);
   assert.match(cnbWorkflowSource, /preRelease: false/);
+});
+
+test("CNB 仅从 SeeWayWork 标签发布三套多架构运行镜像并复用缓存", () => {
+  assert.match(cnbWorkflowSource, /\^seewaywork-v\[0-9\]/);
+  assert.match(cnbWorkflowSource, /VERSION="\$\{CNB_BRANCH#seewaywork-v\}"/);
+  assert.match(cnbWorkflowSource, /构建并推送 Den API、Den Web 和远程 Worker/);
+  assert.match(cnbWorkflowSource, /packaging\/docker\/Dockerfile\.microsandbox/);
+  assert.match(cnbWorkflowSource, /den-worker-\$VERSION/);
+  assert.match(cnbWorkflowSource, /--cache-from "type=registry,ref=\$cache_ref"/);
+  assert.match(cnbWorkflowSource, /--cache-to "type=registry,ref=\$cache_ref,mode=max"/);
+  assert.match(cnbWorkflowSource, /docker buildx imagetools inspect "\$cache_ref"/);
+});
+
+test("远程 Worker 在原生构建机交叉产出目标架构二进制", () => {
+  assert.match(microSandboxDockerfileSource, /FROM --platform=\$BUILDPLATFORM node:22-bookworm-slim/);
+  assert.match(microSandboxDockerfileSource, /ARG TARGETARCH/);
+  assert.match(microSandboxDockerfileSource, /amd64\) target="bun-linux-x64"/);
+  assert.match(microSandboxDockerfileSource, /arm64\) target="bun-linux-arm64"/);
+  assert.match(microSandboxDockerfileSource, /ARG RUNTIME_ASSERTS=1/);
+  assert.match(cnbWorkflowSource, /--build-arg RUNTIME_ASSERTS=0/);
 });
 
 test("桌面运行时不从上游地址安装引擎且关键错误保持中文", () => {
