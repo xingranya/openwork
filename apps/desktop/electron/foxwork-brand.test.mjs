@@ -206,6 +206,9 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.match(releaseWorkflowSource, /prerelease: false/);
   assert.match(releaseWorkflowSource, /release_commit=\$\(git rev-parse "\$\{GITHUB_SHA\}\^\{commit\}"\)/);
   assert.doesNotMatch(releaseWorkflowSource, /git rev-parse "refs\/tags\/\$RELEASE_TAG\^\{commit\}"/);
+  assert.match(releaseWorkflowSource, /校验发布标签与桌面版本/);
+  assert.match(releaseWorkflowSource, /apps\/desktop\/package\.json/);
+  assert.match(releaseWorkflowSource, /needs: validate-release/);
   assert.match(releaseWorkflowSource, /build_platform:/);
   assert.match(releaseWorkflowSource, /inputs\.build_platform == 'windows'/);
   assert.match(cnbWorkflowSource, /preRelease: false/);
