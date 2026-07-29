@@ -1,6 +1,7 @@
 import {
   createDenClient,
   DEFAULT_DEN_BASE_URL,
+  DenApiError,
   normalizeDenBaseUrl,
   readDenBootstrapConfig,
   resolveDenBaseUrls,
@@ -17,8 +18,34 @@ type SaveControlPlaneUrlOptions = {
   probe?: (connection: ControlPlaneConnection) => Promise<void>;
 };
 
+const COMPANY_CONNECTION_PROBE_ATTEMPTS = 3;
+const COMPANY_CONNECTION_PROBE_RETRY_DELAY_MS = 400;
+
 async function probeControlPlaneConnection(connection: ControlPlaneConnection) {
   await createDenClient({ baseUrl: connection.baseUrl }).getAppVersionMetadata();
+}
+
+function isRetryableCompanyConnectionError(error: unknown) {
+  return error instanceof DenApiError && error.status === 0 && (
+    error.code === "network_error" || error.code === "request_timeout"
+  );
+}
+
+async function verifyCompanyConnection(
+  connection: ControlPlaneConnection,
+  probe: (connection: ControlPlaneConnection) => Promise<void>,
+) {
+  for (let attempt = 1; attempt <= COMPANY_CONNECTION_PROBE_ATTEMPTS; attempt += 1) {
+    try {
+      await probe(connection);
+      return;
+    } catch (error) {
+      if (!isRetryableCompanyConnectionError(error) || attempt === COMPANY_CONNECTION_PROBE_ATTEMPTS) {
+        throw error;
+      }
+      await new Promise((resolve) => globalThis.setTimeout(resolve, COMPANY_CONNECTION_PROBE_RETRY_DELAY_MS));
+    }
+  }
 }
 
 export function isValidControlPlaneUrl(value: string) {
@@ -54,7 +81,7 @@ export async function saveControlPlaneUrl(
   if (!normalized) return null;
 
   const resolved = resolveDenBaseUrls(normalized);
-  await (options.probe ?? probeControlPlaneConnection)(resolved);
+  await verifyCompanyConnection(resolved, options.probe ?? probeControlPlaneConnection);
 
   const bootstrap = readDenBootstrapConfig();
   const persisted = await setDenBootstrapConfig({

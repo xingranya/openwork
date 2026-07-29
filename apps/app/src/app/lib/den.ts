@@ -2178,6 +2178,47 @@ async function fetchWithTimeout(fetchImpl: FetchLike, url: string, init: Request
   }
 }
 
+function readNetworkErrorText(error: unknown): string {
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current = error;
+
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    if (typeof current === "object") {
+      if (seen.has(current)) break;
+      seen.add(current);
+    }
+    if (current instanceof Error && current.message.trim()) {
+      messages.push(current.message.trim());
+      current = "cause" in current ? current.cause : null;
+      continue;
+    }
+    current = null;
+  }
+
+  return messages.join(" ").toUpperCase();
+}
+
+function getDenNetworkErrorMessage(error: unknown): string {
+  const details = readNetworkErrorText(error);
+  if (details.includes("DESKTOP HELPER IS UNAVAILABLE") || details.includes("DESKTOP BRIDGE")) {
+    return "SeeWayWork 的网络组件正在准备，请稍候重试。";
+  }
+  if (details.includes("ERR_PROXY") || details.includes("ERR_TUNNEL") || details.includes("PROXY_CONNECTION")) {
+    return "无法通过系统代理连接公司服务，请检查系统代理或 VPN 后重试。";
+  }
+  if (details.includes("ERR_CERT") || details.includes("CERTIFICATE") || details.includes("TLS")) {
+    return "无法验证公司服务的安全证书，请检查电脑时间或联系管理员。";
+  }
+  if (details.includes("ERR_NAME_NOT_RESOLVED") || details.includes("ENOTFOUND") || details.includes("DNS")) {
+    return "无法解析公司服务地址，请检查网络、DNS 或 VPN 后重试。";
+  }
+  if (details.includes("ERR_CONNECTION_TIMED_OUT") || details.includes("ETIMEDOUT") || details.includes("ABORT")) {
+    return "连接公司服务超时，请检查网络后重试。";
+  }
+  return "无法连接公司服务，请检查网络后重试。";
+}
+
 async function requestJsonRaw<T>(
   input: string | DenBaseUrls,
   path: string,
@@ -2213,7 +2254,7 @@ async function requestJsonRaw<T>(
     );
   } catch (error) {
     if (error instanceof DenApiError) throw error;
-    throw new DenApiError(0, "network_error", "无法连接公司服务，请检查网络后重试。", error);
+    throw new DenApiError(0, "network_error", getDenNetworkErrorMessage(error), error);
   }
 
   const text = await response.text();
