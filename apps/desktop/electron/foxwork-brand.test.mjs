@@ -164,8 +164,8 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.doesNotMatch(debugViewSource, /releases\/latest\/download/);
 
   for (const contract of [
-    "builder_args: --mac dmg zip --arm64",
-    "builder_args: --mac dmg zip --x64",
+    '"builder_args":"--mac dmg zip --arm64"',
+    '"builder_args":"--mac dmg zip --x64"',
     "latest-arm64-mac.yml",
     "latest-x64-mac.yml",
     "latest.yml",
@@ -202,6 +202,8 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
   assert.match(releaseWorkflowSource, /prerelease: false/);
   assert.match(releaseWorkflowSource, /release_commit=\$\(git rev-parse "\$\{GITHUB_SHA\}\^\{commit\}"\)/);
   assert.doesNotMatch(releaseWorkflowSource, /git rev-parse "refs\/tags\/\$RELEASE_TAG\^\{commit\}"/);
+  assert.match(releaseWorkflowSource, /build_platform:/);
+  assert.match(releaseWorkflowSource, /inputs\.build_platform == 'windows'/);
   assert.match(cnbWorkflowSource, /preRelease: false/);
 });
 

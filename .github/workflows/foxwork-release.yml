@@ -12,6 +12,14 @@ on:
         description: 发布标签，例如 seewaywork-v0.18.4；留空则只上传 Artifacts 不创建 Release
         required: false
         type: string
+      build_platform:
+        description: 手动验收时选择构建平台；仅 Windows 不创建 Release 或同步 CNB
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - windows
   push:
     tags:
       - seewaywork-v*
@@ -24,7 +32,10 @@ jobs:
   sync-cnb-tag:
     name: 同步发布标签到 CNB
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/seewaywork-v') || startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
+    if: >-
+      startsWith(github.ref, 'refs/tags/seewaywork-v') ||
+      startsWith(github.ref, 'refs/tags/foxwork-v') ||
+      (inputs.release_tag != '' && inputs.build_platform != 'windows')
 
     steps:
       - name: 检出完整仓库历史
@@ -71,28 +82,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # macos-14 及以上的 GitHub 托管 Runner 是 Apple Silicon
-          - os: macos-14
-            label: macOS arm64
-            artifact: SeeWayWork-mac-arm64
-            target: aarch64-apple-darwin
-            builder_args: --mac dmg zip --arm64
-            update_manifest: latest-arm64-mac.yml
-          # macos-15-intel 是当前受支持的 Intel Runner。macos-13 已被 GitHub
-          # 退役，指定它会导致作业永远排队且分配不到 Runner。
-          - os: macos-15-intel
-            label: macOS x64
-            artifact: SeeWayWork-mac-x64
-            target: x86_64-apple-darwin
-            builder_args: --mac dmg zip --x64
-            update_manifest: latest-x64-mac.yml
-          - os: windows-latest
-            label: Windows x64
-            artifact: SeeWayWork-win-x64
-            target: x86_64-pc-windows-msvc
-            builder_args: --win nsis --x64
-            update_manifest: latest.yml
+        include: >-
+          ${{ fromJSON(
+            (github.event_name == 'workflow_dispatch' && inputs.build_platform == 'windows') &&
+            '[{"os":"windows-latest","label":"Windows x64","artifact":"SeeWayWork-win-x64","target":"x86_64-pc-windows-msvc","builder_args":"--win nsis --x64","update_manifest":"latest.yml"}]' ||
+            '[{"os":"macos-14","label":"macOS arm64","artifact":"SeeWayWork-mac-arm64","target":"aarch64-apple-darwin","builder_args":"--mac dmg zip --arm64","update_manifest":"latest-arm64-mac.yml"},{"os":"macos-15-intel","label":"macOS x64","artifact":"SeeWayWork-mac-x64","target":"x86_64-apple-darwin","builder_args":"--mac dmg zip --x64","update_manifest":"latest-x64-mac.yml"},{"os":"windows-latest","label":"Windows x64","artifact":"SeeWayWork-win-x64","target":"x86_64-pc-windows-msvc","builder_args":"--win nsis --x64","update_manifest":"latest.yml"}]'
+          ) }}
 
     steps:
       - name: 检出代码
@@ -354,7 +349,10 @@ jobs:
       - sync-cnb-tag
       - build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/seewaywork-v') || startsWith(github.ref, 'refs/tags/foxwork-v') || inputs.release_tag != ''
+    if: >-
+      startsWith(github.ref, 'refs/tags/seewaywork-v') ||
+      startsWith(github.ref, 'refs/tags/foxwork-v') ||
+      (inputs.release_tag != '' && inputs.build_platform != 'windows')
 
     steps:
       - name: 检出发布标签
