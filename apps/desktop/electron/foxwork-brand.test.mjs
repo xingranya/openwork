@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createRequire } from "node:module";
 import test from "node:test";
 import {
   FOXWORK_APP_IDENTIFIER,
@@ -12,6 +16,9 @@ import {
   resolveFoxWorkBrandConfig,
 } from "./foxwork-brand.mjs";
 
+const require = createRequire(import.meta.url);
+const afterPack = require("../scripts/electron-after-pack.cjs");
+
 const browserPanelSource = readFileSync(new URL("./browser-panel.mjs", import.meta.url), "utf8");
 const connectLinkSource = readFileSync(new URL("./connect-link.mjs", import.meta.url), "utf8");
 const mainProcessSource = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
@@ -22,6 +29,7 @@ const appIndexCssSource = readFileSync(new URL("../../app/src/app/index.css", im
 const appIndexHtmlSource = readFileSync(new URL("../../app/index.html", import.meta.url), "utf8");
 const overlayHtmlSource = readFileSync(new URL("../../app/overlay.html", import.meta.url), "utf8");
 const builderConfigSource = readFileSync(new URL("../electron-builder.yml", import.meta.url), "utf8");
+const afterPackSource = readFileSync(new URL("../scripts/electron-after-pack.cjs", import.meta.url), "utf8");
 const afterSignSource = readFileSync(new URL("../scripts/electron-after-sign.cjs", import.meta.url), "utf8");
 const electronBuildSource = readFileSync(new URL("../scripts/electron-build.mjs", import.meta.url), "utf8");
 const computerUseSource = readFileSync(new URL("./computer-use.mjs", import.meta.url), "utf8");
@@ -133,6 +141,43 @@ test("发行包只携带 SeeWayWork 中文说明和运行插件", () => {
     "!node_modules/**/*.spec.*",
   ]) {
     assert.ok(builderConfigSource.includes(`- "${excludedPath}"`));
+  }
+});
+
+test("桌面打包会校验两个内置运行插件均已写入资源目录", () => {
+  assert.match(afterPackSource, /function assertPackagedRuntimePlugins/);
+  assert.match(afterPackSource, /Missing packaged runtime plugin: \$\{plugin\}/);
+  for (const plugin of ["openwork-capabilities-knowledge.js", "openwork-extensions-preview.js"]) {
+    assert.match(afterPackSource, new RegExp(`"${plugin.replace(".", "\\.")}"`));
+  }
+});
+
+test("打包收尾会拒绝缺失内置运行插件的 Windows 安装包", async () => {
+  const appOutDir = await mkdtemp(join(tmpdir(), "seewaywork-after-pack-"));
+  const resourcesDir = join(appOutDir, "resources");
+  const pluginsDir = join(resourcesDir, "opencode-plugins");
+  const sidecarsDir = join(resourcesDir, "sidecars");
+  const context = { electronPlatformName: "win32", arch: "x64", appOutDir };
+  try {
+    await mkdir(resourcesDir, { recursive: true });
+    await assert.rejects(afterPack(context), /Missing packaged runtime plugin: openwork-capabilities-knowledge\.js/);
+
+    await mkdir(pluginsDir, { recursive: true });
+    await Promise.all([
+      writeFile(join(pluginsDir, "openwork-capabilities-knowledge.js"), "export {};", "utf8"),
+      writeFile(join(pluginsDir, "openwork-extensions-preview.js"), "export {};", "utf8"),
+    ]);
+    await mkdir(sidecarsDir, { recursive: true });
+    for (const sidecar of ["opencode", "openwork-server", "openwork-orchestrator", "chrome-devtools-mcp"]) {
+      await writeFile(join(sidecarsDir, `${sidecar}-x86_64-pc-windows-msvc.exe`), "", "utf8");
+    }
+    await writeFile(join(sidecarsDir, "versions.json-x86_64-pc-windows-msvc.exe"), "{}", "utf8");
+
+    await afterPack(context);
+    await access(join(pluginsDir, "openwork-capabilities-knowledge.js"));
+    await access(join(pluginsDir, "openwork-extensions-preview.js"));
+  } finally {
+    await rm(appOutDir, { recursive: true, force: true });
   }
 });
 

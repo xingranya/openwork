@@ -70,6 +70,9 @@ describe("openwork runtime config file", () => {
     expect(mcp.posthog?.enabled).toBe(true);
     expect(parsed.default_agent).toBe("openwork");
     expect(Array.isArray(parsed.plugin)).toBe(true);
+    const plugins = parsed.plugin as string[];
+    expect(plugins.some((plugin) => plugin.endsWith("/openwork-capabilities-knowledge.ts"))).toBe(true);
+    expect(plugins.some((plugin) => plugin.endsWith("/openwork-extensions-preview.ts"))).toBe(true);
     expect(parsed.agent).toMatchObject({
       openwork: {
         permission: {

@@ -11,6 +11,11 @@ const sidecarBases = [
   "chrome-devtools-mcp",
 ];
 
+const requiredRuntimePlugins = [
+  "openwork-capabilities-knowledge.js",
+  "openwork-extensions-preview.js",
+];
+
 function targetTriple(platformName, arch) {
   if (platformName === "darwin") {
     if (arch === "arm64") return "aarch64-apple-darwin";
@@ -28,12 +33,8 @@ function targetTriple(platformName, arch) {
 }
 
 function resolveSidecarsDir(context) {
-  if (context.electronPlatformName === "darwin") {
-    const entries = fs.existsSync(context.appOutDir) ? fs.readdirSync(context.appOutDir) : [];
-    const appName = entries.find((entry) => entry.endsWith(".app"));
-    return appName ? path.join(context.appOutDir, appName, "Contents", "Resources", "sidecars") : null;
-  }
-  return path.join(context.appOutDir, "resources", "sidecars");
+  const resourcesDir = resolveResourcesDir(context);
+  return resourcesDir ? path.join(resourcesDir, "sidecars") : null;
 }
 
 function resolveMacAppPath(context) {
@@ -45,6 +46,27 @@ function resolveMacAppPath(context) {
   const entries = fs.existsSync(context.appOutDir) ? fs.readdirSync(context.appOutDir) : [];
   const fallback = entries.find((entry) => entry.endsWith(".app"));
   return fallback ? path.join(context.appOutDir, fallback) : null;
+}
+
+function resolveResourcesDir(context) {
+  if (context.electronPlatformName === "darwin") {
+    const appPath = resolveMacAppPath(context);
+    return appPath ? path.join(appPath, "Contents", "Resources") : null;
+  }
+  return path.join(context.appOutDir, "resources");
+}
+
+function assertPackagedRuntimePlugins(context) {
+  const resourcesDir = resolveResourcesDir(context);
+  if (!resourcesDir || !fs.existsSync(resourcesDir)) {
+    throw new Error("Missing packaged resources directory for runtime plugins");
+  }
+  for (const plugin of requiredRuntimePlugins) {
+    const pluginPath = path.join(resourcesDir, "opencode-plugins", plugin);
+    if (!fs.existsSync(pluginPath)) {
+      throw new Error(`Missing packaged runtime plugin: ${plugin}`);
+    }
+  }
 }
 
 function signComputerUseHelper(context) {
@@ -90,8 +112,12 @@ async function afterPack(context) {
   const triple = targetTriple(context.electronPlatformName, context.arch);
   if (!triple) return;
 
+  assertPackagedRuntimePlugins(context);
+
   const sidecarsDir = resolveSidecarsDir(context);
-  if (!sidecarsDir || !fs.existsSync(sidecarsDir)) return;
+  if (!sidecarsDir || !fs.existsSync(sidecarsDir)) {
+    throw new Error("Missing packaged sidecars directory");
+  }
 
   const isWindows = context.electronPlatformName === "win32";
   const executableSuffix = isWindows ? ".exe" : "";

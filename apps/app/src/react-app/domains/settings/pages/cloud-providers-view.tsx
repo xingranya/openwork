@@ -8,10 +8,12 @@ import { toChineseUserMessage } from "@/app/lib/user-facing-error";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { t } from "@/i18n";
+import { getCloudManagedProviderId } from "@/react-app/domains/connections/provider-auth/cloud-provider-config";
 import { useCloudSession } from "@/react-app/domains/settings/cloud/cloud-session-provider";
 import { CloudProvidersSection, type CloudProviderRow } from "@/react-app/domains/settings/cloud/sections";
 import type { useDenSession } from "@/react-app/domains/settings/cloud/use-den-session";
 import { SettingsNotice, SettingsStack } from "@/react-app/domains/settings/settings-section";
+import { requestOpenModelPicker } from "@/react-app/shell/new-providers-listener";
 
 type CloudProvidersSession = Pick<
   ReturnType<typeof useDenSession>,
@@ -35,6 +37,15 @@ const sortStrings = (values: string[]) => values.toSorted();
 
 const sameStringList = (a: string[], b: string[]) =>
   a.length === b.length && a.every((value, index) => value === b[index]);
+
+export function buildCompanyProviderImportGuide(providerName: string) {
+  const name = providerName.trim() || "公司模型服务";
+  return {
+    title: `${name} 已导入并连接到当前工作区`,
+    description: "下一步请选择其中的模型，即可开始对话。",
+    actionLabel: "选择公司模型",
+  };
+}
 
 export function CloudProvidersView({
   cloudOrgProviders,
@@ -143,8 +154,19 @@ export function CloudProvidersView({
       setActionError(null);
 
       try {
-        const message = await connectCloudProvider(cloudProviderId);
-        toast.success(message || t("den.imported_provider", { name: providerName }));
+        await connectCloudProvider(cloudProviderId);
+        const provider = cloudOrgProviders.find((item) => item.id === cloudProviderId);
+        const guide = buildCompanyProviderImportGuide(providerName);
+        toast.success(guide.title, {
+          description: guide.description,
+          duration: 12_000,
+          action: {
+            label: guide.actionLabel,
+            onClick: () => requestOpenModelPicker([
+              provider ? getCloudManagedProviderId(provider) : cloudProviderId,
+            ]),
+          },
+        });
       } catch (error) {
         setActionError(
           toChineseUserMessage(error, t("den.import_provider_failed", { name: providerName })),
@@ -154,7 +176,7 @@ export function CloudProvidersView({
         setActionKind(null);
       }
     },
-    [actionId, connectCloudProvider],
+    [actionId, cloudOrgProviders, connectCloudProvider],
   );
 
   const removeProvider = React.useCallback(
@@ -203,6 +225,16 @@ export function CloudProvidersView({
     [actionId, connectCloudProvider],
   );
 
+  const useProvider = React.useCallback(
+    (cloudProviderId: string) => {
+      const provider = cloudOrgProviders.find((item) => item.id === cloudProviderId);
+      requestOpenModelPicker([
+        provider ? getCloudManagedProviderId(provider) : cloudProviderId,
+      ]);
+    },
+    [cloudOrgProviders],
+  );
+
   if (!isSignedIn) {
     const notice = (
       <SettingsNotice>
@@ -233,6 +265,7 @@ export function CloudProvidersView({
       onRefresh={refresh}
       onRemove={undefined}
       onSync={syncProvider}
+      onUse={useProvider}
     />
   );
 

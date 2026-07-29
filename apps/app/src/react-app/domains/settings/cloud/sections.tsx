@@ -264,9 +264,10 @@ interface CloudProviderListItemProps {
   onImport: (cloudProviderId: string, providerName: string) => void | Promise<void>;
   onRemove?: (cloudProviderId: string, providerName: string) => void | Promise<void>;
   onSync: (cloudProviderId: string, providerName: string) => void | Promise<void>;
+  onUse?: (cloudProviderId: string, providerName: string) => void;
 }
 
-function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, onSync }: CloudProviderListItemProps) {
+function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, onSync, onUse }: CloudProviderListItemProps) {
   const actionBusy = actionId === row.cloudProviderId;
   const actionLabel = !actionBusy
     ? null
@@ -283,6 +284,7 @@ function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, 
   const cloudProviderSyncDetail = modelCount === 0
     ? `公司模型服务已更新，请将“全部模型”的${source}配置同步到当前工作区。`
     : t("den.cloud_provider_sync_detail", { count: modelCount, source });
+  const cloudProviderImportedDetail = "已连接到当前工作区。请选择模型即可开始对话。";
 
   return (
     <SettingsListItem>
@@ -309,6 +311,8 @@ function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, 
                 })
               : row.status === "out_of_sync"
                 ? cloudProviderSyncDetail
+                : row.status === "imported"
+                  ? cloudProviderImportedDetail
                 : cloudProviderDetail,
           ].filter(Boolean).join(" · ")}
         </SettingsListItemDescription>
@@ -332,6 +336,16 @@ function CloudProviderListItem({ actionId, actionKind, row, onImport, onRemove, 
             disabled={actionId !== null}
           >
             {actionBusy ? actionLabel : t("den.import_provider")}
+          </Button>
+        ) : null}
+        {row.status === "imported" && row.provider && onUse ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onUse(row.cloudProviderId, row.name)}
+            disabled={actionId !== null}
+          >
+            选择模型
           </Button>
         ) : null}
         {row.status !== "available" && onRemove ? (
@@ -612,6 +626,7 @@ export interface CloudProvidersSectionProps {
   onRefresh: () => void | Promise<void>;
   onRemove?: (cloudProviderId: string, providerName: string) => void | Promise<void>;
   onSync: (cloudProviderId: string, providerName: string) => void | Promise<void>;
+  onUse?: (cloudProviderId: string, providerName: string) => void;
 }
 
 export function CloudProvidersSection({
@@ -624,6 +639,7 @@ export function CloudProvidersSection({
   onRefresh,
   onRemove,
   onSync,
+  onUse,
 }: CloudProvidersSectionProps) {
   const { hasActiveOrg } = useCloudSession();
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -696,6 +712,7 @@ export function CloudProvidersSection({
                           onImport={onImport}
                           onRemove={onRemove}
                           onSync={onSync}
+                          onUse={onUse}
                         />
                       ))}
                     </SettingsList>

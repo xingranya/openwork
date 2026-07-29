@@ -45,6 +45,7 @@ export type CloudMcpClient = {
     workspaceId: string,
     payload?: { provider?: string; model?: string; trigger?: string },
   ) => Promise<OpenworkCloudMcpEngineRefreshResult>;
+  reloadEngine?: (workspaceId: string) => Promise<{ ok: boolean; reloadedAt?: number }>;
 };
 
 export type CloudMcpOperationContext = CloudMcpScope & {
@@ -129,6 +130,43 @@ function isProviderProjectionFailure(failure?: OpenworkCloudMcpFailure | null): 
     return true;
   }
   return code.includes("provider_projection") || code.includes("provider_tool_projection");
+}
+
+function isExtensionsPluginMissing(health: OpenworkCloudMcpHealth | null | undefined): boolean {
+  return normalizeCode(health?.firstFailure?.code) === "extensions_plugin_missing" ||
+    (health?.pluginCanaries.missing.length ?? 0) > 0;
+}
+
+/**
+ * 服务端会把公司 MCP 与内置插件分开检查：公司 MCP 已连通时，缺少插件
+ * 仍可能返回 usable=true。员工端必须把这种半就绪状态视为失败，否则会
+ * 写入新鲜标记并永久跳过真正需要的运行引擎重载。
+ */
+export function normalizeCloudMcpHealthForClient(health: OpenworkCloudMcpHealth): OpenworkCloudMcpHealth;
+export function normalizeCloudMcpHealthForClient(health: null): null;
+export function normalizeCloudMcpHealthForClient(
+  health: OpenworkCloudMcpHealth | null,
+): OpenworkCloudMcpHealth | null {
+  if (!health || !isExtensionsPluginMissing(health)) return health;
+
+  const isPrimaryFailure = normalizeCode(health.firstFailure?.code) === "extensions_plugin_missing";
+  if (!health.usable && !isPrimaryFailure) return health;
+
+  const missing = health.pluginCanaries.missing;
+  return {
+    ...health,
+    phase: "extensions_plugin_missing",
+    usable: false,
+    usableByCurrentModel: health.usableByCurrentModel === true ? false : health.usableByCurrentModel,
+    firstFailure: {
+      code: "extensions_plugin_missing",
+      stage: "engine_status",
+      retryable: true,
+      recommendedAction: "请完整重载运行环境并重新检查内置功能。",
+      message: "SeeWayWork 的内置功能尚未加载完成。",
+      details: { missing },
+    },
+  };
 }
 
 function normalizedContextScope(context: CloudMcpOperationContext): CloudMcpScope | null {
@@ -263,17 +301,17 @@ function writeUsableMarker(input: {
   scope: CloudMcpScope;
   expiresAt: string | null;
 }): boolean {
-  if (!input.health?.usable || !input.expiresAt) return false;
+  if (!input.health?.usable || isExtensionsPluginMissing(input.health) || !input.expiresAt) return false;
   writeCloudMcpSyncMarker({ ...input.scope, expiresAt: input.expiresAt });
   return true;
 }
 
 async function probeHealth(input: CloudMcpReconcilerInput, scope: CloudMcpScope, options?: { writeFreshnessMarker?: boolean }): Promise<CloudMcpOperationResult> {
-  const health = await input.client.getOpenworkCloudMcpHealth(
+  const health = normalizeCloudMcpHealthForClient(await input.client.getOpenworkCloudMcpHealth(
     scope.workspaceId,
     input.context.providerModel,
     input.probe ? { probe: true } : undefined,
-  );
+  ));
   const marker = options?.writeFreshnessMarker ? readCloudMcpSyncMarker(scope) : null;
   const markerWritten = options?.writeFreshnessMarker === true
     ? writeUsableMarker({ health, scope, expiresAt: marker?.expiresAt ?? null })
@@ -297,15 +335,32 @@ async function mintAndPost(input: CloudMcpReconcilerInput, scope: CloudMcpScope)
   const payload = buildOpenworkCloudMcpReconcilePayload({ context: { ...input.context, ...scope }, token });
   if (!payload) return { health: null, token };
   return {
-    health: await input.client.reconcileOpenworkCloudMcp(scope.workspaceId, payload),
+    health: normalizeCloudMcpHealthForClient(await input.client.reconcileOpenworkCloudMcp(scope.workspaceId, payload)),
     token,
   };
+}
+
+async function reloadEngineForMissingExtensions(
+  input: CloudMcpReconcilerInput,
+  scope: CloudMcpScope,
+  health: OpenworkCloudMcpHealth | null,
+): Promise<OpenworkCloudMcpHealth | null> {
+  if (!isExtensionsPluginMissing(health) || !input.client.reloadEngine) return health;
+
+  // 内置插件只在运行引擎创建时读取；仅重新注册 MCP 无法让已运行的
+  // 引擎加载新插件。因此必须完整重载，再读取实际工具列表确认结果。
+  await input.client.reloadEngine(scope.workspaceId);
+  return normalizeCloudMcpHealthForClient(
+    await input.client.getOpenworkCloudMcpHealth(scope.workspaceId, input.context.providerModel),
+  );
 }
 
 async function repairCloudMcp(input: CloudMcpReconcilerInput, scope: CloudMcpScope): Promise<CloudMcpOperationResult> {
   if (!input.force) {
     const healthResult = await probeHealth(input, scope, { writeFreshnessMarker: true });
-    if (healthResult.health?.usable) return { ...healthResult, status: "unchanged" };
+    if (healthResult.health?.usable && !isExtensionsPluginMissing(healthResult.health)) {
+      return { ...healthResult, status: "unchanged" };
+    }
   }
 
   const marker = readCloudMcpSyncMarker(scope);
@@ -314,8 +369,12 @@ async function repairCloudMcp(input: CloudMcpReconcilerInput, scope: CloudMcpSco
     now: input.now ?? Date.now(),
     refreshMarginMs: input.refreshMarginMs,
   })) {
-    const health = await input.client.getOpenworkCloudMcpHealth(scope.workspaceId, input.context.providerModel);
-    if (health.usable) return { status: "unchanged", health, attempts: 0, markerWritten: false, reminted: false };
+    const health = normalizeCloudMcpHealthForClient(
+      await input.client.getOpenworkCloudMcpHealth(scope.workspaceId, input.context.providerModel),
+    );
+    if (health?.usable && !isExtensionsPluginMissing(health)) {
+      return { status: "unchanged", health, attempts: 0, markerWritten: false, reminted: false };
+    }
   }
 
   const first = await mintAndPost(input, scope);
@@ -334,6 +393,8 @@ async function repairCloudMcp(input: CloudMcpReconcilerInput, scope: CloudMcpSco
     if (second.token) token = second.token;
     if (second.health) health = second.health;
   }
+
+  health = await reloadEngineForMissingExtensions(input, scope, health);
 
   const markerWritten = writeUsableMarker({ health, scope, expiresAt: token.expiresAt });
   return {
@@ -462,7 +523,7 @@ export function cloudMcpRecommendedAction(input: {
   if (code.includes("policy") || code.includes("forbidden") || code.includes("resource")) return "请检查公司策略和资源权限。";
   if (isProviderProjectionFailure(input.health?.firstFailure)) return "请选择能够使用公司工具的模型。";
   if (code.includes("tool_ids") || code.includes("client_registration")) return "请更新 SeeWayWork 后重试。";
-  if (code === "extensions_plugin_missing") return "请重新加载 AI，让工作说明更新到当前版本。";
+  if (code === "extensions_plugin_missing") return "SeeWayWork 已重新加载运行环境，但内置功能仍未就绪。请检查安装是否完整，或联系管理员重新安装。";
   if (code === "cloud_tools_missing") return "请重新连接公司服务，让所需工具完成注册。";
   if (code === "cloud_status_missing" || code === "cloud_registration_failed") return "请执行“修复并检查”，完成公司工具注册。";
   return "请执行“修复并检查”；如果仍然失败，请在高级设置中查看诊断信息。";

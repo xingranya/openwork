@@ -27,6 +27,7 @@ import {
 import {
   syncCloudControlMcpInBackground,
 } from "./use-session-mcp-maintenance";
+import { normalizeCloudMcpHealthForClient } from "./cloud-mcp-reconciler";
 
 type CloudMcpSubmitReadinessClient = Pick<
   OpenworkServerClient,
@@ -247,7 +248,9 @@ export function useCloudMcpSubmitReadiness(
         }
         const result = await ensureCloudMcpSubmissionReadiness({
           providerModel,
-          check: () => client.getOpenworkCloudMcpHealth(activeWorkspaceId, providerModel),
+          check: async () => normalizeCloudMcpHealthForClient(
+            await client.getOpenworkCloudMcpHealth(activeWorkspaceId, providerModel),
+          ),
           repair: async () => {
             const repaired = await syncCloudControlMcpInBackground({
               client,

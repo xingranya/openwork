@@ -49,6 +49,10 @@ const cloudProvidersViewSource = readFileSync(
   fileURLToPath(new URL("../src/react-app/domains/settings/pages/cloud-providers-view.tsx", import.meta.url)),
   "utf8",
 );
+const cloudSectionsSource = readFileSync(
+  fileURLToPath(new URL("../src/react-app/domains/settings/cloud/sections.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("SeeWayWork 设置页对外呈现", () => {
   test("bundled free model providers do not expose upstream names or ids", () => {
@@ -132,5 +136,12 @@ describe("SeeWayWork 设置页对外呈现", () => {
     expect(settingsListSource).not.toContain('placeholder = "Search..."');
     expect(cloudProvidersViewSource).not.toContain("error instanceof Error ? error.message");
     expect(cloudProvidersViewSource).toContain("toChineseUserMessage(error");
+  });
+
+  test("导入公司模型后提供持续可见的使用引导和模型选择入口", () => {
+    expect(cloudProvidersViewSource).toContain("buildCompanyProviderImportGuide");
+    expect(cloudProvidersViewSource).toContain("requestOpenModelPicker");
+    expect(cloudSectionsSource).toContain("已连接到当前工作区。请选择模型即可开始对话。");
+    expect(cloudSectionsSource).toContain("选择模型");
   });
 });

@@ -154,6 +154,11 @@ export function buildProviderAuthEntries(input: {
   }
 
   return Array.from(entriesById.values()).toSorted((left, right) => {
+    const leftIsCompanyProvider = left.methods.some((method) => method.type === "cloud");
+    const rightIsCompanyProvider = right.methods.some((method) => method.type === "cloud");
+    if (leftIsCompanyProvider !== rightIsCompanyProvider) {
+      return leftIsCompanyProvider ? -1 : 1;
+    }
     if (left.localPlan && !right.localPlan) return -1;
     if (!left.localPlan && right.localPlan) return 1;
     return compareProviders(left, right);
@@ -661,7 +666,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       await props.onConnectCloudProvider(selectedCloudMethod.cloudProviderId);
       props.onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to connect organization provider";
+      const message = error instanceof Error ? error.message : "无法连接公司模型服务，请稍后重试。";
       setLocalError(message);
     }
   };

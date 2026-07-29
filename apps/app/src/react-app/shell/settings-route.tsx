@@ -68,7 +68,10 @@ import {
   workspaceLabel,
 } from "@/react-app/shell/route-workspaces";
 import { createConnectionsStore, useConnectionsStoreSnapshot } from "@/react-app/domains/connections/store";
-import { cleanupOpenworkCloudMcpAfterSignOut } from "@/react-app/domains/connections/cloud-mcp-reconciler";
+import {
+  cleanupOpenworkCloudMcpAfterSignOut,
+  normalizeCloudMcpHealthForClient,
+} from "@/react-app/domains/connections/cloud-mcp-reconciler";
 import { useOrgMcpConnections } from "@/react-app/domains/connections/use-org-mcp-connections";
 import { createOpenworkServerStore, useOpenworkServerStoreSnapshot } from "@/react-app/domains/connections/openwork-server-store";
 import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "@/react-app/domains/connections/provider-auth/store";
@@ -1415,11 +1418,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       return null;
     }
     const readHealth = async (target: ResolvedWorkspaceEndpoint) =>
-      await target.client.getOpenworkCloudMcpHealth(
+      normalizeCloudMcpHealthForClient(await target.client.getOpenworkCloudMcpHealth(
         target.workspaceId,
         currentCloudMcpModel ?? undefined,
         { probe: true },
-      );
+      ));
     try {
       const health = await readHealth(endpoint);
       setCloudMcpHealth(health);

@@ -14,6 +14,7 @@ import {
   cloudMcpFailureStageLabel,
   isCloudMcpAuthTokenFailure,
   isCloudMcpAuthTokenFailureCode,
+  normalizeCloudMcpHealthForClient,
   runOpenworkCloudMcpEngineRefresh,
   runOpenworkCloudMcpReconciler,
 } from "../src/react-app/domains/connections/cloud-mcp-reconciler";
@@ -287,6 +288,106 @@ describe("OpenWork Cloud MCP reconciler", () => {
     });
     expect(skipped.status).toBe("skipped");
     expect(skipped.skippedReason).toBe("unsupported");
+  });
+
+  test("公司 MCP 已连通但内置插件缺失时，修复会完整重载运行引擎并复验", async () => {
+    let reloads = 0;
+    let healthReads = 0;
+    let reconciles = 0;
+    const pluginMissing = {
+      ...health({
+        usable: true,
+      }),
+      pluginCanaries: {
+        expected: ["openwork_docs_search", "openwork_query"],
+        present: [],
+        missing: ["openwork_docs_search", "openwork_query"],
+      },
+    };
+    const repaired = health({ usable: true });
+    const client = {
+      baseUrl: scope.serverBaseUrl,
+      getOpenworkCloudMcpHealth: async () => {
+        healthReads += 1;
+        return reloads > 0 ? repaired : pluginMissing;
+      },
+      reconcileOpenworkCloudMcp: async () => {
+        reconciles += 1;
+        return pluginMissing;
+      },
+      reloadEngine: async () => {
+        reloads += 1;
+        return { ok: true };
+      },
+    };
+
+    const result = await runOpenworkCloudMcpReconciler({
+      mode: "repair",
+      client,
+      context,
+      mintToken: async () => token,
+      force: false,
+      refreshMarginMs: 24 * 60 * 60 * 1000,
+    });
+
+    expect(reconciles).toBe(1);
+    expect(reloads).toBe(1);
+    expect(healthReads).toBe(2);
+    expect(result).toMatchObject({ status: "repaired", health: repaired });
+  });
+
+  test("内置插件重载后仍缺失时，不能把公司服务显示为已连接", async () => {
+    let reloads = 0;
+    const pluginMissing = {
+      ...health({ usable: true }),
+      pluginCanaries: {
+        expected: ["openwork_docs_search", "openwork_query"],
+        present: [],
+        missing: ["openwork_docs_search", "openwork_query"],
+      },
+    };
+    const result = await runOpenworkCloudMcpReconciler({
+      mode: "repair",
+      client: {
+        baseUrl: scope.serverBaseUrl,
+        getOpenworkCloudMcpHealth: async () => pluginMissing,
+        reconcileOpenworkCloudMcp: async () => pluginMissing,
+        reloadEngine: async () => {
+          reloads += 1;
+          return { ok: true };
+        },
+      },
+      context,
+      mintToken: async () => token,
+      force: false,
+      refreshMarginMs: 24 * 60 * 60 * 1000,
+    });
+
+    expect(reloads).toBe(1);
+    expect(result.status).toBe("failed");
+    expect(result.markerWritten).toBe(false);
+    expect(result.health).toMatchObject({
+      usable: false,
+      phase: "extensions_plugin_missing",
+      firstFailure: { code: "extensions_plugin_missing", retryable: true },
+    });
+  });
+
+  test("直接健康检查也不会把缺失的内置插件显示为已就绪", () => {
+    const normalized = normalizeCloudMcpHealthForClient({
+      ...health({ usable: true }),
+      pluginCanaries: {
+        expected: ["openwork_docs_search", "openwork_query"],
+        present: [],
+        missing: ["openwork_docs_search", "openwork_query"],
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      usable: false,
+      phase: "extensions_plugin_missing",
+      firstFailure: { code: "extensions_plugin_missing" },
+    });
   });
 
   test("writes marker only when returned health is usable", async () => {

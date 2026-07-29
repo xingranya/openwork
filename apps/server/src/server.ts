@@ -3363,7 +3363,37 @@ function parseOpencodeErrorBody(input: string): unknown {
   }
 }
 
+/**
+ * 同一工作区的模型同步、公司 MCP 修复都可能要求重载运行引擎。它们若并发
+ * 处置同一个实例，会让后一条请求看到前一条尚未完成的启动过程，进而误报
+ * 模型导入或内置插件失败。按服务配置与工作区合并为一次完整重载。
+ */
+const engineReloadsByConfig = new WeakMap<ServerConfig, Map<string, Promise<void>>>();
+
 async function reloadOpencodeEngine(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  serverState?: EngineMcpServerState,
+): Promise<void> {
+  let inFlight = engineReloadsByConfig.get(config);
+  if (!inFlight) {
+    inFlight = new Map<string, Promise<void>>();
+    engineReloadsByConfig.set(config, inFlight);
+  }
+
+  const current = inFlight.get(workspace.id);
+  if (current) return current;
+
+  const task = reloadOpencodeEngineOnce(config, workspace, serverState);
+  inFlight.set(workspace.id, task);
+  try {
+    await task;
+  } finally {
+    if (inFlight.get(workspace.id) === task) inFlight.delete(workspace.id);
+  }
+}
+
+async function reloadOpencodeEngineOnce(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   serverState?: EngineMcpServerState,

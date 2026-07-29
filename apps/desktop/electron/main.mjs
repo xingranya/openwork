@@ -49,6 +49,7 @@ import {
   persistConnectLinkBranding,
 } from "./connect-link-branding.mjs";
 import { resolveConnectLinkPublicKeys } from "./connect-link-keys.mjs";
+import { mergeCompanyOriginIntoDiagnosticsTrust } from "./agent-context-diagnostics-trust.mjs";
 import { openExternalUrl } from "./open-external.mjs";
 import { resolveAppIdentifier, resolveUserDataPath } from "./dev-profile.mjs";
 import { fetchAgentContextDiagnosticsResponse } from "./agent-context-diagnostics-fetch.mjs";
@@ -1197,7 +1198,19 @@ function assertOpenworkServerReady(info) {
   return info;
 }
 
+function trustCurrentCompanyForAgentDiagnostics(baseUrl) {
+  const merged = mergeCompanyOriginIntoDiagnosticsTrust(
+    process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS,
+    baseUrl,
+  );
+  if (merged) {
+    process.env.OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS = merged;
+  }
+}
+
 async function bootRuntimeForSelectedWorkspace() {
+  const bootstrap = await workspaceStore.getDesktopBootstrapConfig().catch(() => null);
+  trustCurrentCompanyForAgentDiagnostics(bootstrap?.baseUrl);
   const list = await workspaceStore.readWorkspaceState();
   const selectedId = list.selectedId || list.activeId || list.workspaces[0]?.id || "";
   const workspace = selectedId
@@ -1737,7 +1750,9 @@ const desktopCommandHandlers = {
       return workspaceStore.clearDesktopBootstrapConfig();
   },
   "setDesktopBootstrapConfig": async (event, ...args) => {
-      return workspaceStore.setDesktopBootstrapConfig(args[0] ?? {});
+      const config = await workspaceStore.setDesktopBootstrapConfig(args[0] ?? {});
+      trustCurrentCompanyForAgentDiagnostics(config.baseUrl);
+      return config;
   },
   "connectLinkVerify": async (event, ...args) => {
       // Read-only check — parses + verifies the deep link, writes nothing.
@@ -1757,6 +1772,7 @@ const desktopCommandHandlers = {
       if (verified.ok === false) return verified;
       if (verified.transport === "exchange") {
         const config = await persistConnectLinkClaims(verified.claims);
+        trustCurrentCompanyForAgentDiagnostics(config.baseUrl);
         return { ok: true, config };
       }
       if (await connectLinkReplayGuard.has(verified.claims.jti)) {

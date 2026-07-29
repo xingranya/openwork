@@ -46,7 +46,7 @@ function startMockOpencode(options?: {
   mcpStatusByName?: Record<string, unknown>;
   liveMcpStatusByName?: () => Record<string, unknown>;
   mcpResponseForName?: (name: string) => Response | null;
-  disposeResponse?: () => Response | null;
+  disposeResponse?: () => Response | null | Promise<Response | null>;
 }) {
   const requests: EngineRequest[] = [];
   const server = Bun.serve({
@@ -58,7 +58,7 @@ function startMockOpencode(options?: {
       requests.push({ method: request.method, pathname: url.pathname, search: url.search, body });
 
       if (url.pathname === "/instance/dispose") {
-        return options?.disposeResponse?.() ?? Response.json({ disposed: true });
+        return await options?.disposeResponse?.() ?? Response.json({ disposed: true });
       }
       if (url.pathname === "/mcp" && request.method === "POST") {
         const name = (body as { name?: string } | null)?.name;
@@ -606,6 +606,44 @@ describe("runtime MCP engine sync", () => {
     } finally {
       if (previousDb === undefined) delete process.env.OPENWORK_RUNTIME_DB;
       else process.env.OPENWORK_RUNTIME_DB = previousDb;
+    }
+  });
+
+  test("模型同步与公司能力修复并发重载时，只处置一次运行引擎", async () => {
+    const workspaceRoot = await createWorkspaceRoot();
+    let disposeCalls = 0;
+    let notifyDisposeStarted!: () => void;
+    let releaseDispose!: () => void;
+    const disposeStarted = new Promise<void>((resolve) => {
+      notifyDisposeStarted = resolve;
+    });
+    const disposeRelease = new Promise<void>((resolve) => {
+      releaseDispose = resolve;
+    });
+    try {
+      const engine = startMockOpencode({
+        disposeResponse: async () => {
+          disposeCalls += 1;
+          notifyDisposeStarted();
+          await disposeRelease;
+          return Response.json({ disposed: true });
+        },
+      });
+      const openwork = await startOpenworkServer(workspaceRoot, `http://127.0.0.1:${engine.server.port}`);
+      const url = `${openwork.base}/workspace/ws_1/engine/reload`;
+      const first = fetch(url, { method: "POST", headers: auth(openwork.token) });
+      await disposeStarted;
+
+      const second = fetch(url, { method: "POST", headers: auth(openwork.token) });
+      await Bun.sleep(10);
+      expect(disposeCalls).toBe(1);
+
+      releaseDispose();
+      const responses = await Promise.all([first, second]);
+      expect(responses.map((response) => response.status)).toEqual([200, 200]);
+      expect(disposeCalls).toBe(1);
+    } finally {
+      releaseDispose();
     }
   });
 

@@ -837,7 +837,7 @@ describe("agent context diagnostics analyzer", () => {
     });
   });
 
-  test("names the trusted-origins environment variable for untrusted cloud endpoints", async () => {
+  test("未受信任的公司工具目录给出中文且不泄露凭据的诊断说明", async () => {
     const runtime = diagnosticRuntimeConfig();
     if (!runtime.mcp) throw new Error("Expected the diagnostics MCP fixture.");
     runtime.mcp[FOXWORK_COMPANY_MCP_NAME] = {
@@ -864,10 +864,10 @@ describe("agent context diagnostics analyzer", () => {
       evidenceKind: "derived",
       code: "untrusted_endpoint",
       owner: "openwork-server",
-      message: "The server did not send the credentialed cloud catalog request because the Cloud endpoint origin is not in the diagnostics trust list.",
+      message: "公司工具目录地址尚未通过当前服务的安全校验，系统没有发送任何访问凭据。",
       details: { requestPerformed: false },
     });
-    expect(check.action).toBe("Set OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS on the OpenWork desktop/server process to include the Cloud endpoint origin, then rerun diagnostics.");
+    expect(check.action).toBe("请确认公司服务地址后重新连接。自托管服务器如需额外地址，可配置 OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS。");
     expect(check.action).toContain("OPENWORK_AGENT_DIAGNOSTICS_TRUSTED_ORIGINS");
     expect(fetchCalls).toEqual([]);
   });

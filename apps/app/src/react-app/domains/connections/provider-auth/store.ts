@@ -223,6 +223,11 @@ type CreateProviderAuthStoreOptions = {
   setDisabledProviders: (value: string[]) => void;
   markOpencodeConfigReloadRequired: () => void;
   focusPromptSoon?: () => void;
+  /** 仅供自动化测试缩短连接后的运行时收敛等待；生产环境使用默认值。 */
+  cloudProviderConnectionVerification?: {
+    timeoutMs?: number;
+    pollMs?: number;
+  };
 };
 
 type MutableState = {
@@ -1461,6 +1466,50 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
   }
 
+  /**
+   * 公司模型的配置、凭据和运行引擎是异步收敛的。只有供应商已连接、已出现在
+   * 运行时列表，且公司明确下发的模型至少有一个可选择时，员工端才能显示成功。
+   */
+  const waitForCloudProviderRuntime = async (
+    input: { providerId: string; expectedModelIds: string[] },
+  ) => {
+    const timeoutMs = Math.max(
+      0,
+      options.cloudProviderConnectionVerification?.timeoutMs ?? 12_000,
+    );
+    const pollMs = Math.max(
+      0,
+      options.cloudProviderConnectionVerification?.pollMs ?? 750,
+    );
+    const attempts = Math.max(1, Math.ceil(timeoutMs / Math.max(pollMs, 1)));
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      // 凭据写入后先重载一次引擎；后续只强制读取列表，避免多供应商轮询反复重载。
+      const updated = await refreshProviders({
+        dispose: attempt === 0,
+        force: true,
+      });
+      const runtimeProvider = updated?.all?.find((provider) => provider.id === input.providerId);
+      const connected = updated?.connected?.includes(input.providerId) ?? false;
+      const runtimeModelIds = Object.keys(runtimeProvider?.models ?? {});
+      const hasExpectedModel = input.expectedModelIds.length === 0
+        ? true
+        : input.expectedModelIds.some((modelId) => runtimeModelIds.includes(modelId));
+
+      if (runtimeProvider && connected && hasExpectedModel) {
+        return updated;
+      }
+
+      if (attempt < attempts - 1 && pollMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+      }
+    }
+
+    throw new Error(
+      "公司模型服务尚未完成连接，窗口将保持打开。请稍后重试；若持续失败，请检查公司模型配置。",
+    );
+  };
+
   async function completeProviderAuthOAuth(
     providerId: string,
     methodIndex: number,
@@ -1694,6 +1743,14 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       if (primaryApiKey) {
         await mirrorOpenWorkModelsVoiceEnv(provider, primaryApiKey);
       }
+
+      // 认证接口成功不代表运行时已经载入供应商。先确认实际连接和模型可见，
+      // 再持久化“已导入”标记；否则弹窗会错误关闭，员工却无法选择公司模型。
+      await waitForCloudProviderRuntime({
+        providerId: localProviderId,
+        expectedModelIds: getProviderModelIds(provider),
+      });
+
       const nextImportedProviders = {
         ...state.importedCloudProviders,
         [provider.id]: {
@@ -1724,11 +1781,10 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         .filter((id) => id !== localProviderId && id !== existingImported?.providerId);
       options.setDisabledProviders(nextDisabledProviders);
       if (!optionsArg?.silent) {
-        options.markOpencodeConfigReloadRequired();
-        await refreshProviders({ dispose: true });
+        // 上面的收敛校验已强制重载运行引擎并刷新模型列表，不能再提示员工手动重载。
+        refreshSnapshot();
+        emitChange();
       }
-      refreshSnapshot();
-      emitChange();
       return `${t("status.connected")} ${provider.name}`;
     } catch (error) {
       const message = describeProviderError(error, "无法连接公司模型供应商，请稍后重试。");
@@ -1740,7 +1796,12 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
   }
 
   async function connectCloudProvider(cloudProviderId: string) {
-    return await connectCloudProviderInternal(cloudProviderId);
+    setStateField("providerAuthBusy", true);
+    try {
+      return await connectCloudProviderInternal(cloudProviderId);
+    } finally {
+      setStateField("providerAuthBusy", false);
+    }
   }
 
   async function removeCloudProviderInternal(
