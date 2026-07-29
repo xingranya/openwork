@@ -8,6 +8,16 @@ $:
       env:
         IMAGE_REPOSITORY: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}
       stages:
+        - name: 校验 SeeWayWork 生产域名配置
+          script: |
+            set -euo pipefail
+            values=packaging/helm/openwork-ee/values.yaml
+            grep -Fxq '    webOrigin: https://work.seeway.co' "$values"
+            grep -Fxq '    apiOrigin: https://workapi.seeway.co' "$values"
+            grep -Fxq '    workerDomainSuffix: worker.seeway.co' "$values"
+            grep -Fxq '    host: work.seeway.co' "$values"
+            grep -Fxq '    host: workapi.seeway.co' "$values"
+
         - name: 校验 SeeWayWork 发布标签
           script: |
             set -euo pipefail

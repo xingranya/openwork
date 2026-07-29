@@ -14,7 +14,7 @@ config:
   denApiNodeOptions: ""
   tenancy:
     mode: single_org
-    singleOrgName: FoxWork 公司
+    singleOrgName: SeeWayWork 公司
     singleOrgSlug: default
     # 单组织首次初始化必须配置真实的受控管理员邮箱；留空会阻止首个账号注册。
     ownerEmails: ""
@@ -29,19 +29,19 @@ config:
     appId: ""
     clientId: ""
   public:
-    webOrigin: https://openwork.example.com
-    apiOrigin: https://api.openwork.example.com
+    webOrigin: https://work.seeway.co
+    apiOrigin: https://workapi.seeway.co
     allowInsecureHttp: "false"
-    mcpResourceUrl: https://api.openwork.example.com/mcp
+    mcpResourceUrl: https://workapi.seeway.co/mcp
     mcpAdditionalResources: ""
     # Leave blank to keep External MCP URL SSRF protection enabled.
     # Set "1" only for trusted private-network MCP servers.
     allowPrivateMcpUrls: ""
     mcpClaimNamespace: ""
-    desktopDenBaseUrl: https://openwork.example.com
-    corsOrigins: https://openwork.example.com,https://api.openwork.example.com
-    betterAuthTrustedOrigins: https://openwork.example.com
-    webAppHosts: openwork.example.com
+    desktopDenBaseUrl: https://work.seeway.co
+    corsOrigins: https://work.seeway.co,https://workapi.seeway.co,foxwork://
+    betterAuthTrustedOrigins: https://work.seeway.co,foxwork://
+    webAppHosts: work.seeway.co
     bootstrapAdminEmails: ""
     installLinksGatingEnabled: "false"
     connectLinkMode: exchange
@@ -49,7 +49,7 @@ config:
     openworkAppConnectUrl: ""
     installerReleaseTag: ""
     installerReleaseRepo: ""
-    authCallbackUrl: https://openwork.example.com
+    authCallbackUrl: https://work.seeway.co
   internal:
     apiBaseUrl: ""
     authFallbackBaseUrl: ""
@@ -63,7 +63,7 @@ config:
   kubernetes:
     namespace: openwork-workers
     workerImage: ""
-    workerDomainSuffix: workers.openwork.example.com
+    workerDomainSuffix: worker.seeway.co
     workerUrlScheme: https
     ingressClassName: ""
     tlsSecretName: ""
@@ -311,12 +311,12 @@ ingress:
   className: ""
   annotations: {}
   web:
-    host: openwork.example.com
+    host: work.seeway.co
     path: /
     pathType: Prefix
   api:
     enabled: true
-    host: api.openwork.example.com
+    host: workapi.seeway.co
     path: /
     pathType: Prefix
   tls: []

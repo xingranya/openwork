@@ -36,6 +36,10 @@ const releaseWorkflowSource = readFileSync(
   "utf8",
 );
 const cnbWorkflowSource = readFileSync(new URL("../../../.cnb.yml", import.meta.url), "utf8");
+const helmValuesSource = readFileSync(
+  new URL("../../../packaging/helm/openwork-ee/values.yaml", import.meta.url),
+  "utf8",
+);
 const microSandboxDockerfileSource = readFileSync(
   new URL("../../../packaging/docker/Dockerfile.microsandbox", import.meta.url),
   "utf8",
@@ -208,6 +212,8 @@ test("正式发行自动同步安装包和更新清单到 CNB", () => {
 });
 
 test("CNB 仅从 SeeWayWork 正式标签发布三套多架构运行镜像且不导出 Registry 缓存", () => {
+  assert.match(cnbWorkflowSource, /校验 SeeWayWork 生产域名配置/);
+  assert.match(cnbWorkflowSource, /workerDomainSuffix: worker\.seeway\.co/);
   assert.match(cnbWorkflowSource, /\^seewaywork-\(v\[0-9\]/);
   assert.match(cnbWorkflowSource, /seewaywork-stable/);
   assert.match(cnbWorkflowSource, /稳定更新通道只承载桌面更新清单和安装包，不重复构建服务镜像。/);
@@ -216,6 +222,14 @@ test("CNB 仅从 SeeWayWork 正式标签发布三套多架构运行镜像且不�
   assert.match(cnbWorkflowSource, /packaging\/docker\/Dockerfile\.microsandbox/);
   assert.match(cnbWorkflowSource, /den-worker-\$VERSION/);
   assert.doesNotMatch(cnbWorkflowSource, /--cache-(?:from|to)/);
+});
+
+test("生产 Helm 默认使用公司域名且保留三类公网入口", () => {
+  assert.match(helmValuesSource, /webOrigin: https:\/\/work\.seeway\.co/);
+  assert.match(helmValuesSource, /apiOrigin: https:\/\/workapi\.seeway\.co/);
+  assert.match(helmValuesSource, /workerDomainSuffix: worker\.seeway\.co/);
+  assert.match(helmValuesSource, /host: work\.seeway\.co/);
+  assert.match(helmValuesSource, /host: workapi\.seeway\.co/);
 });
 
 test("远程 Worker 在原生构建机交叉产出目标架构二进制", () => {
