@@ -113,8 +113,8 @@ test("桌面首次连接通过主进程访问公司服务，不依赖渲染器�
               statusText: "OK",
               headers: [["content-type", "application/json"]],
               body: JSON.stringify({
-                latestAppVersion: "0.18.20",
-                publishedDesktopVersions: ["0.18.20"],
+                latestAppVersion: "0.18.21",
+                publishedDesktopVersions: ["0.18.21"],
               }),
             };
           }
