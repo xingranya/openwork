@@ -202,6 +202,20 @@ test("默认全员模型覆盖现有与以后新增成员，关闭后保留明�
   expect((await usableProviders(futureUserId)).llmProviders.map((provider) => provider.id)).toContain(providerId);
   expect(await resourceProviderIds(futureUserId)).toContain(providerId);
 
+  const futureMemberConnect = await request(
+    futureUserId,
+    `/v1/llm-providers/${providerId}/connect`,
+  );
+  expect(futureMemberConnect.status).toBe(200);
+  expect((await futureMemberConnect.json()) as {
+    llmProvider: { apiKey: string | null; providerId: string };
+  }).toMatchObject({
+    llmProvider: {
+      apiKey: "test-key",
+      providerId: "company-openai",
+    },
+  });
+
   const updated = await request(adminUserId, `/v1/llm-providers/${providerId}`, {
     method: "PATCH",
     body: JSON.stringify(providerBody({ defaultEnabled: false })),

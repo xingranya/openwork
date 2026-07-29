@@ -75,6 +75,7 @@ import {
   getProviderModelIds,
   isCloudManagedProviderKey,
   isCloudProviderOutOfSync,
+  prepareCloudProviderRuntimeForAuthentication,
   resolveCloudProviderCredentials,
 } from "./cloud-provider-config";
 import {
@@ -1369,7 +1370,9 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
 
     if (optionsArg?.dispose) {
       const now = Date.now();
-      const shouldDispose = now - lastGlobalProviderDisposeRefreshAt >= 10_000;
+      // 导入公司模型后必须立即让运行时读取刚写入的供应商配置。
+      // 启动阶段常已触发过一次常规刷新，不能让 10 秒节流跳过这次重载。
+      const shouldDispose = optionsArg.force || now - lastGlobalProviderDisposeRefreshAt >= 10_000;
       const shouldUseServerReload = !(
         isDesktopRuntime() && options.selectedWorkspaceDisplay().workspaceType === "local"
       );
@@ -1656,13 +1659,6 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
         }
         await openworkClient.upsertUserEnv(envEntries);
       }
-      if (primaryApiKey) {
-        await c.auth.set({
-          providerID: localProviderId,
-          auth: { type: "api", key: primaryApiKey },
-        });
-        await mirrorOpenWorkModelsVoiceEnv(provider, primaryApiKey);
-      }
       if (existingImported?.providerId && existingImported.providerId !== localProviderId) {
         try {
           await removeProviderAuthCredentials(existingImported.providerId);
@@ -1672,6 +1668,31 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
             throw error;
           }
         }
+      }
+
+      // 新员工的本机/远程运行时还没有 lpr_* 供应商。先写入并重载运行时，
+      // 再调用 auth.set，避免 OpenCode 在配置尚未可见时拒绝未知供应商。
+      await prepareCloudProviderRuntimeForAuthentication({
+        provider,
+        localProviderId,
+        previousProviderId: existingImported?.providerId ?? null,
+        writeRuntimeProviders,
+        reloadRuntime: async () => {
+          const refreshed = await refreshProviders({ dispose: true, force: true });
+          if (!refreshed) {
+            throw new Error("公司模型配置已写入，但运行环境尚未准备完成，请稍后重试。");
+          }
+        },
+        saveAuthentication: async (providerId, apiKey) => {
+          const result = await c.auth.set({
+            providerID: providerId,
+            auth: { type: "api", key: apiKey },
+          });
+          assertNoClientError(result);
+        },
+      });
+      if (primaryApiKey) {
+        await mirrorOpenWorkModelsVoiceEnv(provider, primaryApiKey);
       }
       const nextImportedProviders = {
         ...state.importedCloudProviders,

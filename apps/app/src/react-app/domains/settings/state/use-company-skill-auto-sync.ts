@@ -62,7 +62,7 @@ export async function syncCompanySkillsInBackground(input: {
     workspaceId,
     includeGlobal: input.includeGlobal,
   });
-  const changed = result.restored.length + result.updated.length + result.removed.length;
+  const changed = result.installed.length + result.restored.length + result.updated.length + result.removed.length;
   return {
     outcome: result.failed.length > 0 ? "failed" : changed > 0 ? "synced" : "unchanged",
     result,
@@ -149,13 +149,14 @@ export function useCompanySkillAutoSync(input: {
           failedCount,
         });
         if (result.result) {
-          const changed = result.result.restored.length + result.result.updated.length + result.result.removed.length;
+          const changed = result.result.installed.length + result.result.restored.length + result.result.updated.length + result.result.removed.length;
           if (changed > 0) input.onSkillsChanged?.(result.result);
         }
         recordInspectorEvent("company_skills.background_sync", {
           workspaceId,
           reason,
           outcome: result.outcome,
+          installed: result.result?.installed.length ?? 0,
           restored: result.result?.restored.length ?? 0,
           updated: result.result?.updated.length ?? 0,
           removed: result.result?.removed.length ?? 0,

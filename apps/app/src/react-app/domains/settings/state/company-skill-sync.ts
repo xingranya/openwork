@@ -59,12 +59,13 @@ type CompanySkillWorkspaceClient = Pick<
 export type CompanySkillSyncFailure = {
   cloudSkillId: string;
   installedName: string;
-  action: "remove" | "restore" | "update";
+  action: "install" | "remove" | "restore" | "update";
   message: string;
 };
 
 export type CompanySkillSyncResult = {
   importedSkills: Record<string, CloudImportedSkill>;
+  installed: string[];
   restored: string[];
   updated: string[];
   removed: string[];
@@ -89,6 +90,62 @@ function companySkillImportRecord(
   };
 }
 
+function newCompanySkillImportRecord(
+  skill: DenOrgSkillCard,
+  installedName: string,
+  now: () => number,
+): CloudImportedSkill {
+  return {
+    cloudSkillId: skill.id,
+    installedName,
+    title: skill.title,
+    description: skill.description,
+    shared: skill.shared,
+    bundleHash: skill.bundleHash,
+    updatedAt: skill.updatedAt,
+    importedAt: now(),
+  };
+}
+
+const COMPANY_SKILL_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function slugifyCompanySkillName(title: string): string {
+  let base = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!base) base = "skill";
+  if (base.length > 64) base = base.slice(0, 64).replace(/-+$/g, "");
+  return COMPANY_SKILL_NAME_RE.test(base) ? base : "skill";
+}
+
+/**
+ * 公司技能以稳定名称安装，避免不同工作区或重复同步生成不同目录。
+ * 发生重名时用技能 ID 的尾部生成可复现后缀，不覆盖员工已有技能。
+ */
+export function resolveCompanySkillInstallName(
+  skill: Pick<DenOrgSkillCard, "id" | "title">,
+  taken: ReadonlySet<string>,
+  preferredName?: string | null,
+): string {
+  const preferred = preferredName?.trim() ?? "";
+  if (preferred) return preferred;
+
+  const base = slugifyCompanySkillName(skill.title || skill.id);
+  if (!taken.has(base)) return base;
+
+  const suffix = skill.id.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(-8) || "org";
+  for (let index = 1; index < 50; index += 1) {
+    const extra = `${suffix}${index}`;
+    const candidate = `${base.slice(0, Math.max(1, 64 - extra.length - 1))}-${extra}`
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64);
+    if (COMPANY_SKILL_NAME_RE.test(candidate) && !taken.has(candidate)) return candidate;
+  }
+  return `skill-${suffix}`.slice(0, 64);
+}
+
 function syncFailureMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) return error.message.trim();
   const message = String(error ?? "").trim();
@@ -96,10 +153,10 @@ function syncFailureMessage(error: unknown) {
 }
 
 /**
- * 对当前工作区已经安装过的公司技能执行增量同步。
+ * 对当前账号可用的公司技能执行增量同步。
  *
- * 新出现但从未安装的技能只进入公司目录，不会绕过员工的本机授权自动写入；
- * 已安装技能会自动补回、更新，撤权后会删除并清理导入记录。
+ * 公司管理员下发的新技能会自动安装；已安装技能会自动补回、更新，
+ * 撤权后会删除工作区文件并清理导入记录。
  */
 export async function reconcileImportedCompanySkills(input: {
   availableSkills: readonly DenOrgSkillCard[];
@@ -120,14 +177,13 @@ export async function reconcileImportedCompanySkills(input: {
   const importedEntries = Object.values(currentImports);
   const result: CompanySkillSyncResult = {
     importedSkills: currentImports,
+    installed: [],
     restored: [],
     updated: [],
     removed: [],
     unchanged: [],
     failed: [],
   };
-  if (importedEntries.length === 0) return result;
-
   const availableById = new Map(input.availableSkills.map((skill) => [skill.id, skill]));
   const listed = await input.openworkClient.listSkills(workspaceId, {
     includeGlobal: input.includeGlobal,
@@ -181,6 +237,32 @@ export async function reconcileImportedCompanySkills(input: {
         cloudSkillId: imported.cloudSkillId,
         installedName: imported.installedName,
         action,
+        message: syncFailureMessage(error),
+      });
+    }
+  }
+
+  // Den 已按成员与团队完成权限过滤；这里把当前账号新获得的公司技能
+  // 写入当前工作区，保证新员工首次登录即可直接使用。
+  for (const skill of [...input.availableSkills].toSorted((left, right) => left.id.localeCompare(right.id))) {
+    if (nextImports[skill.id]) continue;
+
+    const installedName = resolveCompanySkillInstallName(skill, installedNames);
+    try {
+      await input.openworkClient.installCatalogSkill(
+        workspaceId,
+        installedName,
+        buildCompanySkillInstallPayload(skill, false),
+      );
+      installedNames.add(installedName);
+      nextImports[skill.id] = newCompanySkillImportRecord(skill, installedName, now);
+      importsChanged = true;
+      result.installed.push(installedName);
+    } catch (error) {
+      result.failed.push({
+        cloudSkillId: skill.id,
+        installedName,
+        action: "install",
         message: syncFailureMessage(error),
       });
     }

@@ -183,6 +183,34 @@ export const buildRuntimeProviderPatch = (
   return patch;
 };
 
+/**
+ * 首次导入时，OpenCode 尚不知道 `lpr_*` 这类公司模型供应商。
+ * 必须先把供应商投影到运行时并让引擎重新读取配置，随后才能保存凭据；
+ * 否则新员工会收到“未知供应商”的导入失败提示。
+ */
+export async function prepareCloudProviderRuntimeForAuthentication(input: {
+  provider: DenOrgLlmProviderConnection;
+  localProviderId: string;
+  previousProviderId?: string | null;
+  writeRuntimeProviders: (providers: Record<string, unknown>) => Promise<void>;
+  reloadRuntime: () => Promise<void>;
+  saveAuthentication: (providerId: string, apiKey: string) => Promise<void>;
+}) {
+  await input.writeRuntimeProviders(
+    buildRuntimeProviderPatch(
+      input.provider,
+      input.localProviderId,
+      input.previousProviderId,
+    ),
+  );
+  await input.reloadRuntime();
+
+  const { primaryApiKey } = resolveCloudProviderCredentials(input.provider);
+  if (primaryApiKey) {
+    await input.saveAuthentication(input.localProviderId, primaryApiKey);
+  }
+}
+
 export const formatConfigWithoutCloudProvider = (
   raw: string,
   providerId: string,

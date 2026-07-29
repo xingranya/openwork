@@ -3,6 +3,7 @@ declare const test: (name: string, fn: () => void) => void;
 declare const expect: (value: unknown) => {
   toBe: (expected: unknown) => void;
   toEqual: (expected: unknown) => void;
+  toMatchObject: (expected: unknown) => void;
 };
 
 import type {
@@ -13,6 +14,7 @@ import type { CloudImportedProvider } from "../../../../app/cloud/import-state";
 import type { DenOrgLlmProviderConnection } from "../../../../app/lib/den";
 import {
   buildCloudProviderConfig,
+  prepareCloudProviderRuntimeForAuthentication,
   getCloudManagedProviderId,
   getProviderModelIds,
   isCloudProviderOutOfSync,
@@ -89,6 +91,44 @@ describe("isCloudProviderOutOfSync", () => {
 });
 
 describe("buildCloudProviderConfig", () => {
+  test("首次导入公司模型时，先投影运行时配置并重载，再保存模型凭据", async () => {
+    const provider = {
+      ...makeProvider([makeModel("gpt-company")]),
+      providerConfig: {
+        npm: "@ai-sdk/openai-compatible",
+        env: ["COMPANY_OPENAI_API_KEY"],
+      },
+      apiKey: "company-secret",
+      apiKeys: null,
+    } satisfies DenOrgLlmProviderConnection;
+    const steps: string[] = [];
+
+    await prepareCloudProviderRuntimeForAuthentication({
+      provider,
+      localProviderId: "lpr_openrouter",
+      previousProviderId: null,
+      writeRuntimeProviders: async (providers) => {
+        expect(providers.lpr_openrouter).toMatchObject({
+          id: "openrouter",
+          models: { "gpt-company": { id: "gpt-company" } },
+        });
+        steps.push("运行时配置");
+      },
+      reloadRuntime: async () => {
+        expect(steps).toEqual(["运行时配置"]);
+        steps.push("重载运行时");
+      },
+      saveAuthentication: async (providerId, apiKey) => {
+        expect(steps).toEqual(["运行时配置", "重载运行时"]);
+        expect(providerId).toBe("lpr_openrouter");
+        expect(apiKey).toBe("company-secret");
+        steps.push("保存凭据");
+      },
+    });
+
+    expect(steps).toEqual(["运行时配置", "重载运行时", "保存凭据"]);
+  });
+
   test("完整保留 Den 下发的图片输入能力", () => {
     const provider = makeProvider([{
       ...makeModel("vision-company"),

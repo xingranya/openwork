@@ -648,10 +648,14 @@ export function SessionRoute() {
     providerModel: cloudMcpProviderModel,
   });
   const handleCompanySkillsChanged = useCallback((result: {
+    installed: string[];
     restored: string[];
     updated: string[];
     removed: string[];
   }) => {
+    for (const name of result.installed) {
+      reloadCoordinator.markReloadRequired("skills", { type: "skill", name, action: "added" });
+    }
     for (const name of result.restored) {
       reloadCoordinator.markReloadRequired("skills", { type: "skill", name, action: "added" });
     }

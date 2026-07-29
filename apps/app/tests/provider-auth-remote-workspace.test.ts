@@ -9,6 +9,61 @@ import { buildProviderAuthEntries } from "../src/react-app/domains/connections/p
 import { createProviderAuthStore } from "../src/react-app/domains/connections/provider-auth/store";
 
 describe("工作区模型服务", () => {
+  test("强制刷新绕过短时间重载节流，确保刚导入的公司模型立即可用", async () => {
+    let disposeCount = 0;
+    const workspace = {
+      id: "local_company",
+      name: "本地工作区",
+      path: "/workspace/local-company",
+      preset: "starter",
+      workspaceType: "local",
+    } as WorkspaceDisplay;
+    const client = {
+      instance: {
+        dispose: async () => {
+          disposeCount += 1;
+          return { data: {} };
+        },
+      },
+      global: { health: async () => ({ data: { healthy: true } }) },
+      config: { get: async () => ({ data: {} }) },
+      provider: {
+        list: async () => ({
+          data: { all: [], connected: [], default: {} },
+        }),
+      },
+    } as Client;
+    const store = createProviderAuthStore({
+      client: () => client,
+      providers: () => [],
+      providerDefaults: () => ({}),
+      providerConnectedIds: () => [],
+      disabledProviders: () => [],
+      checkDesktopAppRestriction: () => false,
+      selectedWorkspaceDisplay: () => workspace,
+      providerBaseUrl: () => "http://127.0.0.1:43123",
+      selectedWorkspaceRoot: () => workspace.path,
+      runtimeWorkspaceId: () => "local-company",
+      openworkServer: {
+        getSnapshot: () => ({
+          openworkServerStatus: "disconnected" as const,
+          openworkServerClient: null,
+          openworkServerCapabilities: null,
+        }),
+      },
+      setProviders: () => {},
+      setProviderDefaults: () => {},
+      setProviderConnectedIds: () => {},
+      setDisabledProviders: () => {},
+      markOpencodeConfigReloadRequired: () => {},
+    });
+
+    await store.refreshProviders({ dispose: true });
+    await store.refreshProviders({ dispose: true, force: true });
+
+    expect(disposeCount).toBe(2);
+  });
+
   test("运行工作区尚未就绪时不同步为已完成", async () => {
     const workspace = {
       id: "rem_company",

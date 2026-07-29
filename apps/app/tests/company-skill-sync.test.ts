@@ -773,7 +773,7 @@ describe("公司 Skill 同步", () => {
     expect(readWorkspaceCloudImports(savedOpenworkConfig).skills).toEqual({});
   });
 
-  test("登录或恢复连接后自动更新已安装的公司 Skill，并保留未安装的新 Skill", async () => {
+  test("登录或恢复连接后自动更新已安装的公司 Skill，并自动安装新下发的 Skill", async () => {
     const requests: Array<{ method: string; path: string; body: unknown }> = [];
     let savedOpenworkConfig: Record<string, unknown> = {
       cloudImports: {
@@ -829,6 +829,18 @@ describe("公司 Skill 同步", () => {
           written: companySkill.files.length,
         });
       }
+      if (method === "POST" && url.pathname.endsWith("/skills/catalog/brief-writer")) {
+        return Response.json({
+          ok: true,
+          name: "brief-writer",
+          path: "/workspace/.opencode/skills/brief-writer",
+          sourceId: `company:${newCompanySkill.id}`,
+          sourceHash: newCompanySkill.bundleHash,
+          bundleHash: newCompanySkill.bundleHash,
+          action: "installed",
+          written: newCompanySkill.files.length,
+        });
+      }
       if (method === "PATCH" && url.pathname.endsWith("/config")) {
         savedOpenworkConfig = body?.openwork ?? {};
         return Response.json({ updatedAt: Date.now() });
@@ -848,14 +860,20 @@ describe("公司 Skill 同步", () => {
     });
 
     expect(result).toMatchObject({
+      installed: ["brief-writer"],
       updated: ["evidence-review"],
       removed: [],
       failed: [],
     });
-    expect(requests.some((request) => request.path.endsWith("/skills/catalog/brief-writer"))).toBe(false);
+    expect(requests.some((request) => request.path.endsWith("/skills/catalog/brief-writer"))).toBe(true);
     expect(readWorkspaceCloudImports(savedOpenworkConfig).skills[companySkill.id]).toMatchObject({
       bundleHash: companySkill.bundleHash,
       importedAt: 1,
+    });
+    expect(readWorkspaceCloudImports(savedOpenworkConfig).skills[newCompanySkill.id]).toMatchObject({
+      installedName: "brief-writer",
+      bundleHash: newCompanySkill.bundleHash,
+      importedAt: 100,
     });
   });
 

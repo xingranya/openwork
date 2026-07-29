@@ -67,6 +67,7 @@ import {
 import {
   buildCompanySkillInstallPayload,
   reconcileImportedCompanySkills,
+  resolveCompanySkillInstallName,
 } from "./company-skill-sync";
 import {
   derivePendingCloudPluginChanges,
@@ -296,19 +297,6 @@ function slugifyOpencodeSkillName(title: string): string {
   if (base.length > 64) base = base.slice(0, 64).replace(/-+$/g, "");
   if (!OPENCODE_SKILL_NAME_RE.test(base)) base = "skill";
   return base;
-}
-
-function uniqueSkillInstallName(base: string, taken: Set<string>, stableSuffix: string): string {
-  const suffixSource = stableSuffix.replace(/[^a-z0-9]+/g, "").slice(-8) || "org";
-  let candidate = base;
-  if (!taken.has(candidate)) return candidate;
-  for (let n = 1; n < 50; n += 1) {
-    const extra = `${suffixSource}${n}`;
-    const trimmedBase = base.slice(0, Math.max(1, 64 - extra.length - 1));
-    candidate = `${trimmedBase}-${extra}`.replace(/^-+|-+$/g, "").slice(0, 64);
-    if (OPENCODE_SKILL_NAME_RE.test(candidate) && !taken.has(candidate)) return candidate;
-  }
-  return `skill-${suffixSource}`.slice(0, 64);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -918,6 +906,9 @@ export function createExtensionsStore(options: {
       includeGlobal: options.workspaceType() === "local",
     });
     setStateField("importedCloudSkills", result.importedSkills);
+    for (const name of result.installed) {
+      options.markReloadRequired?.("skills", { type: "skill", name, action: "added" });
+    }
     for (const name of result.restored) {
       options.markReloadRequired?.("skills", { type: "skill", name, action: "added" });
     }
@@ -927,7 +918,7 @@ export function createExtensionsStore(options: {
     for (const name of result.removed) {
       options.markReloadRequired?.("skills", { type: "skill", name, action: "removed" });
     }
-    if (result.restored.length || result.updated.length || result.removed.length) {
+    if (result.installed.length || result.restored.length || result.updated.length || result.removed.length) {
       await refreshSkills({ force: true });
     }
     if (result.failed.length > 0) {
@@ -1830,7 +1821,7 @@ export function createExtensionsStore(options: {
     const installedNames = new Set(snapshot.skills.map((entry) => entry.name));
     const preferredName = existingImport?.installedName?.trim() ?? "";
     if (preferredName) installedNames.delete(preferredName);
-    const installName = preferredName || uniqueSkillInstallName(slugifyOpencodeSkillName(skill.title), installedNames, skill.id);
+    const installName = resolveCompanySkillInstallName(skill, installedNames, preferredName);
     const action = existingImport ? "updated" : "added";
 
     options.setBusy(true);
